@@ -126,8 +126,10 @@ services:
         value: "True"
       - key: DISPLAY_SNAPSHOT_ASYNC_BUILD
         value: "True"
+      - key: DISPLAY_SNAPSHOT_QUEUE_WAIT_TIMEOUT
+        value: "1.0"
       - key: DISPLAY_SNAPSHOT_INLINE_FALLBACK
-        value: "False"
+        value: "True"
       # Keep these enabled while the worker/scheduler still live inside the web
       # service. Turn them off only when equivalent dedicated services exist.
       - key: DISPLAY_START_EMBEDDED_SNAPSHOT_WORKER
