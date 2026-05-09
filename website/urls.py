@@ -18,6 +18,9 @@ urlpatterns = [
     # صفحة الاشتراكات العامة (Landing)
     path("subscriptions-page/", views.subscriptions, name="subscriptions"),
 
+    # إنشاء حساب تجربة مجانية من صفحة الهبوط
+    path("trial/start/", views.trial_signup, name="trial_signup"),
+
     # Health check
     path("health/", views.health, name="health"),
 

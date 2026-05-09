@@ -1,17 +1,25 @@
 from __future__ import annotations
 
-import json
-from django.conf import settings
+from django.contrib.auth import login
 from django.core.cache import cache
 from django.db.models import Q
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_sameorigin
+from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_POST
 
 from core.models import DisplayScreen
 from schedule.models import SchoolSettings
+from .services import (
+    TrialSignupError,
+    check_trial_rate_limit,
+    create_trial_signup,
+    normalize_mobile,
+)
 
 
 THEME_MAP = {
@@ -180,12 +188,53 @@ def home(request):
     key = request.GET.get("token") or None
     ctx = _build_display_context(request, key)
     if not ctx:
-        return render(request, "website/unconfigured_display.html", {"token": key})
+        return render(
+            request,
+            "website/unconfigured_display.html",
+            {
+                "token": key,
+                "login_url": reverse("dashboard:login"),
+                "trial_signup_url": reverse("website:trial_signup"),
+                "dashboard_url": reverse("dashboard:index"),
+            },
+        )
     return render(request, "website/display.html", ctx)
 
 
 def subscriptions(request):
     return render(request, "website/subscriptions.html")
+
+
+@require_POST
+@csrf_protect
+def trial_signup(request):
+    mobile = normalize_mobile(request.POST.get("mobile", ""))
+
+    try:
+        check_trial_rate_limit(request, mobile)
+        result = create_trial_signup(request.POST)
+    except TrialSignupError as exc:
+        return JsonResponse({"ok": False, "errors": exc.errors}, status=400)
+    except Exception:
+        return JsonResponse(
+            {
+                "ok": False,
+                "errors": {
+                    "__all__": "حدث خطأ غير متوقع أثناء إنشاء التجربة. الرجاء المحاولة مرة أخرى."
+                },
+            },
+            status=500,
+        )
+
+    login(request, result.user, backend="django.contrib.auth.backends.ModelBackend")
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": "تم تجهيز تجربة المدرسة بنجاح.",
+            "redirect_url": reverse("dashboard:index"),
+        }
+    )
 
 
 def display(request):

@@ -91,7 +91,14 @@
       <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
       </div>
-
+      <div class="space-y-1">
+          <h3 class="text-sm md:text-base font-black text-slate-900">كل رابط شاشة يرتبط بأول جهاز يفتحه</h3>
+          <p class="text-sm text-slate-600 leading-7">
+              افتح الرابط المختصر على التلفاز المطلوب فقط. إذا أردت نقل الشاشة إلى جهاز آخر لاحقاً، استخدم زر
+              <span class="font-bold text-slate-800">فك ارتباط الجهاز</span>
+              ثم افتح الرابط على الجهاز الجديد.
+          </p>
+      </div>
   </div>
 
   {% if show_screen_limit_message %}
@@ -276,19 +283,6 @@
     {% endif %}
   </div>
 
-  <!-- Toast Wrapper -->
-    <div id="toast" class="fixed bottom-4 left-3 right-3 md:bottom-6 md:left-6 md:right-auto z-50 hidden transform transition-all duration-300 translate-y-2 opacity-0">
-        <div class="bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-2xl p-4 flex items-center gap-4 min-w-[260px] sm:min-w-[300px]">
-        <div class="w-10 h-10 shrink-0 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-lg shadow-emerald-500/30">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-        </div>
-        <div class="flex-1">
-            <h5 class="font-bold text-white text-sm">تم النسخ</h5>
-            <p class="text-slate-300 text-xs mt-0.5">تم نسخ الرابط للحافظة بنجاح</p>
-        </div>
-    </div>
-  </div>
-
 </div>
 
 <script>
@@ -296,16 +290,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Toast Logic
     window.showToast = function() {
-        const toast = document.getElementById('toast');
-        if(!toast) return;
-        toast.classList.remove('hidden');
-        setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
-        
-        if(window.toastTimer) clearTimeout(window.toastTimer);
-        window.toastTimer = setTimeout(() => {
-            toast.classList.add('translate-y-2', 'opacity-0');
-            setTimeout(() => toast.classList.add('hidden'), 300);
-        }, 2000);
+        if (window.showDashboardToast) {
+            window.showDashboardToast('تم النسخ', 'تم نسخ رابط الشاشة للحافظة بنجاح');
+        }
     };
 
     // Copy Logic

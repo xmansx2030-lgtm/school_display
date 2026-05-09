@@ -1229,6 +1229,63 @@
             outline: none;
         }
 
+        .form-hint {
+            margin-top: 7px;
+            font-size: 0.85rem;
+            color: var(--text-faint);
+            font-weight: 700;
+        }
+
+        .field-error {
+            display: none;
+            margin-top: 7px;
+            color: #b42318;
+            font-size: 0.86rem;
+            font-weight: 800;
+        }
+
+        .form-group.has-error .form-input {
+            border-color: rgba(180, 35, 24, 0.5);
+            background: #fff8f7;
+        }
+
+        .form-group.has-error .field-error {
+            display: block;
+        }
+
+        .form-alert {
+            display: none;
+            margin-bottom: 16px;
+            padding: 13px 15px;
+            border-radius: 16px;
+            font-weight: 800;
+            line-height: 1.6;
+        }
+
+        .form-alert.active {
+            display: block;
+        }
+
+        .form-alert.error {
+            color: #912018;
+            background: #fff0ed;
+            border: 1px solid rgba(180, 35, 24, 0.16);
+        }
+
+        .form-alert.success {
+            color: #067647;
+            background: #ecfdf3;
+            border: 1px solid rgba(6, 118, 71, 0.16);
+        }
+
+        .trial-only {
+            display: none;
+        }
+
+        .trial-mode .trial-only {
+            display: block;
+        }
+
         .radio-group {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2629,48 +2686,70 @@
                 <p id="modalSubtitle">املأ البيانات وسنخدمك مباشرة عبر واتساب</p>
             </div>
 
-            <form onsubmit="submitToWhatsapp(event)">
-                <input type="hidden" id="p_plan">
-                <input type="hidden" id="p_period">
-                <input type="hidden" id="p_price">
+            <form id="orderForm" method="post" action="{{ trial_signup_url }}" onsubmit="submitOrder(event)" novalidate>
+                {% csrf_token %}
+                <input type="hidden" id="p_plan" name="plan_label">
+                <input type="hidden" id="p_period" name="period_label">
+                <input type="hidden" id="p_price" name="price_label">
+                <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute; left:-10000px; width:1px; height:1px; opacity:0;">
+
+                <div class="form-alert" id="formAlert" role="status"></div>
 
                 <div class="form-group">
                     <label class="form-label" for="schoolName">اسم المدرسة</label>
-                    <input type="text" id="schoolName" class="form-input" placeholder="مثال: ثانوية الملك عبدالله" required>
+                    <input type="text" id="schoolName" name="school_name" class="form-input" placeholder="مثال: ثانوية الملك عبدالله" required autocomplete="organization">
+                    <div class="field-error" data-error-for="school_name"></div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">نوع المدرسة</label>
                     <div class="radio-group">
                         <label class="radio-label">
-                            <input type="radio" name="schoolType" value="بنين" checked>
+                            <input type="radio" name="school_type" value="boys" checked>
                             <div class="radio-tile"><i class="fa-solid fa-user-graduate"></i> بنين</div>
                         </label>
                         <label class="radio-label">
-                            <input type="radio" name="schoolType" value="بنات">
+                            <input type="radio" name="school_type" value="girls">
                             <div class="radio-tile"><i class="fa-solid fa-user-graduate" style="color:#d14d86"></i> بنات</div>
                         </label>
                     </div>
+                    <div class="field-error" data-error-for="school_type"></div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="city">المدينة</label>
-                    <input type="text" id="city" class="form-input" placeholder="الرياض، جدة..." required>
+                    <input type="text" id="city" name="city" class="form-input" placeholder="الرياض، جدة..." required autocomplete="address-level2">
+                    <div class="field-error" data-error-for="city"></div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="contactName">اسم المسؤول</label>
-                    <input type="text" id="contactName" class="form-input" placeholder="الاسم الثلاثي" required>
+                    <input type="text" id="contactName" name="contact_name" class="form-input" placeholder="الاسم الثلاثي" required autocomplete="name">
+                    <div class="field-error" data-error-for="contact_name"></div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="mobile">الجوال / واتساب</label>
-                    <input type="tel" id="mobile" class="form-input" placeholder="05XXXXXXXXX" required pattern="[0-9]*">
+                    <input type="tel" id="mobile" name="mobile" class="form-input" placeholder="05XXXXXXXXX" required inputmode="numeric" autocomplete="tel">
+                    <div class="field-error" data-error-for="mobile"></div>
                 </div>
 
-                <button type="submit" class="btn btn-block" style="border-radius:18px; margin-top: 8px; background: linear-gradient(135deg, var(--mint-400), var(--mint-500));">
+                <div class="form-group trial-only">
+                    <label class="form-label" for="password">كلمة المرور</label>
+                    <input type="password" id="password" name="password" class="form-input" placeholder="8 أحرف على الأقل" autocomplete="new-password">
+                    <div class="form-hint">ستدخل بها إلى لوحة التحكم مباشرة بعد إنشاء التجربة.</div>
+                    <div class="field-error" data-error-for="password"></div>
+                </div>
+
+                <div class="form-group trial-only">
+                    <label class="form-label" for="passwordConfirm">تأكيد كلمة المرور</label>
+                    <input type="password" id="passwordConfirm" name="password_confirm" class="form-input" placeholder="أعد كتابة كلمة المرور" autocomplete="new-password">
+                    <div class="field-error" data-error-for="password_confirm"></div>
+                </div>
+
+                <button type="submit" id="submitOrderBtn" class="btn btn-block" style="border-radius:18px; margin-top: 8px; background: linear-gradient(135deg, var(--mint-400), var(--mint-500));">
                     <i class="fa-brands fa-whatsapp"></i>
-                    إرسال الطلب
+                    <span id="submitOrderText">إرسال الطلب</span>
                 </button>
             </form>
         </div>
@@ -2728,9 +2807,14 @@
 
     <script>
         let currentPeriod = '12';
+        let activeOrderIsTrial = false;
 
         const header = document.getElementById('header');
         const modal = document.getElementById('orderModal');
+        const orderForm = document.getElementById('orderForm');
+        const submitOrderBtn = document.getElementById('submitOrderBtn');
+        const submitOrderText = document.getElementById('submitOrderText');
+        const formAlert = document.getElementById('formAlert');
         const revealElements = document.querySelectorAll('.reveal');
 
         window.addEventListener('scroll', () => {
@@ -2801,6 +2885,8 @@
         }
 
         function openOrderModal(plan, period, price) {
+            clearFormFeedback();
+            activeOrderIsTrial = plan.includes('تجربة');
             document.getElementById('p_plan').value = plan;
 
             let periodText = period;
@@ -2810,12 +2896,20 @@
             document.getElementById('p_period').value = periodText;
             document.getElementById('p_price').value = price;
 
-            if (plan.includes('تجربة')) {
+            if (activeOrderIsTrial) {
                 document.getElementById('modalTitle').innerText = 'طلب تجربة مجانية';
-                document.getElementById('modalSubtitle').innerText = 'جميع مزايا النظام مجاناً لمدة 14 يوم حتى ترى القيمة الحقيقية بنفسك';
+                document.getElementById('modalSubtitle').innerText = 'أنشئ حساب المدرسة الآن واحصل على 14 يوم بكل المزايا';
+                orderForm.classList.add('trial-mode');
+                submitOrderBtn.querySelector('i').className = 'fa-solid fa-wand-magic-sparkles';
+                submitOrderText.innerText = 'إنشاء التجربة الآن';
+                setTrialFieldsEnabled(true);
             } else {
                 document.getElementById('modalTitle').innerText = 'طلب اشتراك جديد';
                 document.getElementById('modalSubtitle').innerText = `باقة ${plan} - ${periodText} - بسعر ${price} ريال`;
+                orderForm.classList.remove('trial-mode');
+                submitOrderBtn.querySelector('i').className = 'fa-brands fa-whatsapp';
+                submitOrderText.innerText = 'إرسال الطلب عبر واتساب';
+                setTrialFieldsEnabled(false);
             }
 
             modal.classList.add('active');
@@ -2839,11 +2933,108 @@
             }
         });
 
-        function submitToWhatsapp(event) {
+        function setTrialFieldsEnabled(enabled) {
+            ['password', 'passwordConfirm'].forEach((id) => {
+                const field = document.getElementById(id);
+                field.disabled = !enabled;
+                field.required = enabled;
+            });
+        }
+
+        function clearFormFeedback() {
+            formAlert.className = 'form-alert';
+            formAlert.textContent = '';
+            document.querySelectorAll('[data-error-for]').forEach((errorEl) => {
+                errorEl.textContent = '';
+                const group = errorEl.closest('.form-group');
+                if (group) group.classList.remove('has-error');
+            });
+        }
+
+        function showFormAlert(type, message) {
+            formAlert.className = `form-alert active ${type}`;
+            formAlert.textContent = message;
+        }
+
+        function showFieldErrors(errors) {
+            const general = errors.__all__;
+            Object.entries(errors).forEach(([field, message]) => {
+                if (field === '__all__') return;
+                const errorEl = document.querySelector(`[data-error-for="${field}"]`);
+                if (!errorEl) return;
+                errorEl.textContent = message;
+                const group = errorEl.closest('.form-group');
+                if (group) group.classList.add('has-error');
+            });
+            if (general) {
+                showFormAlert('error', general);
+            } else {
+                showFormAlert('error', 'راجع الحقول المحددة ثم أعد المحاولة.');
+            }
+        }
+
+        function setSubmitting(isSubmitting) {
+            submitOrderBtn.disabled = isSubmitting;
+            submitOrderBtn.style.opacity = isSubmitting ? '0.78' : '';
+            submitOrderBtn.style.cursor = isSubmitting ? 'wait' : '';
+            if (isSubmitting) {
+                submitOrderBtn.querySelector('i').className = 'fa-solid fa-circle-notch fa-spin';
+                submitOrderText.innerText = activeOrderIsTrial ? 'جاري تجهيز التجربة...' : 'جاري الإرسال...';
+            } else if (activeOrderIsTrial) {
+                submitOrderBtn.querySelector('i').className = 'fa-solid fa-wand-magic-sparkles';
+                submitOrderText.innerText = 'إنشاء التجربة الآن';
+            } else {
+                submitOrderBtn.querySelector('i').className = 'fa-brands fa-whatsapp';
+                submitOrderText.innerText = 'إرسال الطلب عبر واتساب';
+            }
+        }
+
+        async function submitTrialSignup() {
+            clearFormFeedback();
+            setSubmitting(true);
+
+            try {
+                const response = await fetch(orderForm.action, {
+                    method: 'POST',
+                    body: new FormData(orderForm),
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const payload = await response.json();
+
+                if (!response.ok || !payload.ok) {
+                    showFieldErrors(payload.errors || { __all__: 'تعذر إنشاء التجربة. الرجاء المحاولة مرة أخرى.' });
+                    return;
+                }
+
+                showFormAlert('success', 'تم إنشاء حساب المدرسة بنجاح. سننقلك الآن إلى لوحة التحكم.');
+                window.setTimeout(() => {
+                    window.location.href = payload.redirect_url || '{{ dashboard_url|default:"/dashboard/" }}';
+                }, 900);
+            } catch (error) {
+                showFormAlert('error', 'تعذر الاتصال بالخادم. تحقق من الاتصال ثم أعد المحاولة.');
+            } finally {
+                setSubmitting(false);
+            }
+        }
+
+        function submitOrder(event) {
             event.preventDefault();
+            clearFormFeedback();
+
+            if (!orderForm.reportValidity()) {
+                return;
+            }
+
+            if (activeOrderIsTrial) {
+                submitTrialSignup();
+                return;
+            }
 
             const school = document.getElementById('schoolName').value;
-            const type = document.querySelector('input[name="schoolType"]:checked').value;
+            const selectedType = document.querySelector('input[name="school_type"]:checked').value;
+            const type = selectedType === 'girls' ? 'بنات' : 'بنين';
             const city = document.getElementById('city').value;
             const name = document.getElementById('contactName').value;
             const mobileNumber = document.getElementById('mobile').value;
