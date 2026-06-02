@@ -1,4 +1,4 @@
-{% extends "dashboard/_base.html" %}
+{% extends "admin/admin_base.html" %}
 
 {% block title %}إدارة المدارس{% endblock %}
 {% block page_title %}إدارة المدارس في المنصّة{% endblock %}
@@ -86,14 +86,16 @@
         </td>
         <td class="px-4 py-3">{{ s.created_at|date:"Y-m-d" }}</td>
         <td class="px-4 py-3 text-left">
-            <a href="{% url 'dashboard:system_school_edit' s.id %}"
-               class="text-blue-600 hover:text-blue-800 font-medium">تعديل</a>
-            |
-            <a href="{% url 'dashboard:system_school_delete' s.id %}"
-               class="text-red-600 hover:text-red-800 font-medium"
-               onclick="return confirm('هل أنت متأكد من حذف المدرسة؟')">
-               حذف
-            </a>
+            <div class="flex items-center justify-end gap-2">
+              <a href="{% url 'dashboard:system_school_edit' s.id %}"
+                 class="text-xs px-2.5 py-1.5 rounded-lg bg-sky-50 text-sky-700 font-medium hover:bg-sky-100">تعديل</a>
+              {% if request.user.is_superuser %}
+                <a href="{% url 'dashboard:system_school_delete' s.id %}"
+                   class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 font-medium hover:bg-rose-100">
+                   حذف
+                </a>
+              {% endif %}
+            </div>
         </td>
       </tr>
       {% endfor %}
@@ -116,13 +118,13 @@
       </div>
       <div class="flex items-center gap-1">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}"
+        <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}"
            class="px-2 py-1 text-xs rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
           السابقة
         </a>
         {% endif %}
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}"
+        <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}"
            class="px-2 py-1 text-xs rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
           التالية
         </a>

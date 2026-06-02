@@ -481,18 +481,22 @@ REDIS_CHANNELS_URL = (
     or REDIS_URL
 )
 
-if not REDIS_CACHE_URL or not REDIS_CHANNELS_URL:
+REDIS_CONFIGURED = bool(REDIS_CACHE_URL and REDIS_CHANNELS_URL)
+if not REDIS_CONFIGURED and not (DEBUG or RUNNING_TESTS):
     raise ValueError("Redis URLs are not configured properly")
 
 # Backward-compatible aliases used by existing health checks and diagnostics.
 CACHE_REDIS_URL = REDIS_CACHE_URL
 CHANNELS_REDIS_URL = REDIS_CHANNELS_URL
 
-logger.info(
-    "redis_config cache=%s channels=%s",
-    REDIS_CACHE_URL,
-    REDIS_CHANNELS_URL,
-)
+if REDIS_CONFIGURED:
+    logger.info(
+        "redis_config cache=%s channels=%s",
+        REDIS_CACHE_URL,
+        REDIS_CHANNELS_URL,
+    )
+else:
+    logger.warning("Redis URLs are not configured; using local in-memory cache/channel layer for development.")
 
 CACHE_REDIS_MAX_CONNECTIONS = env_int(
     "CACHE_REDIS_MAX_CONNECTIONS",
@@ -502,49 +506,66 @@ CACHE_REDIS_MAX_CONNECTIONS = env_int(
 # Default cache TTL as a safety net (seconds)
 DEFAULT_CACHE_TIMEOUT = env_int("CACHE_DEFAULT_TIMEOUT", str(60 * 30))  # 30 minutes
 
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_CACHE_URL,
-        "TIMEOUT": DEFAULT_CACHE_TIMEOUT,
-        "KEY_PREFIX": os.getenv("CACHE_KEY_PREFIX", "school_display"),
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "SOCKET_CONNECT_TIMEOUT": env_int("REDIS_CONNECT_TIMEOUT", "2"),
-            "SOCKET_TIMEOUT": env_int("REDIS_SOCKET_TIMEOUT", "2"),
-            "CONNECTION_POOL_KWARGS": {
-                "max_connections": CACHE_REDIS_MAX_CONNECTIONS,
-                "retry_on_timeout": True,
-                "health_check_interval": env_int("REDIS_HEALTHCHECK_INTERVAL", "30"),
-                "socket_keepalive": True,
-                "socket_keepalive_options": {
-                    socket.TCP_KEEPIDLE: 60,
-                    socket.TCP_KEEPINTVL: 10,
-                    socket.TCP_KEEPCNT: 3,
+if REDIS_CONFIGURED:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_CACHE_URL,
+            "TIMEOUT": DEFAULT_CACHE_TIMEOUT,
+            "KEY_PREFIX": os.getenv("CACHE_KEY_PREFIX", "school_display"),
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "SOCKET_CONNECT_TIMEOUT": env_int("REDIS_CONNECT_TIMEOUT", "2"),
+                "SOCKET_TIMEOUT": env_int("REDIS_SOCKET_TIMEOUT", "2"),
+                "CONNECTION_POOL_KWARGS": {
+                    "max_connections": CACHE_REDIS_MAX_CONNECTIONS,
+                    "retry_on_timeout": True,
+                    "health_check_interval": env_int("REDIS_HEALTHCHECK_INTERVAL", "30"),
+                    "socket_keepalive": True,
+                    "socket_keepalive_options": {
+                        socket.TCP_KEEPIDLE: 60,
+                        socket.TCP_KEEPINTVL: 10,
+                        socket.TCP_KEEPCNT: 3,
+                    },
                 },
             },
-        },
+        }
     }
-}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "school-display-dev",
+            "TIMEOUT": DEFAULT_CACHE_TIMEOUT,
+            "KEY_PREFIX": os.getenv("CACHE_KEY_PREFIX", "school_display"),
+        }
+    }
 
 
 # =========================
 # Channels Layer (WebSocket)
 # =========================
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [REDIS_CHANNELS_URL],
-            # Capacity: max messages per channel before blocking
-            "capacity": env_int("WS_CHANNEL_CAPACITY", "2000"),
-            # Expiry: messages auto-delete after N seconds
-            "expiry": env_int("WS_MESSAGE_EXPIRY", "60"),
-            # Optional encryption:
-            # "symmetric_encryption_keys": [SECRET_KEY[:32]],
+if REDIS_CONFIGURED:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_CHANNELS_URL],
+                # Capacity: max messages per channel before blocking
+                "capacity": env_int("WS_CHANNEL_CAPACITY", "2000"),
+                # Expiry: messages auto-delete after N seconds
+                "expiry": env_int("WS_MESSAGE_EXPIRY", "60"),
+                # Optional encryption:
+                # "symmetric_encryption_keys": [SECRET_KEY[:32]],
+            },
         },
-    },
-}
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
 
 # WebSocket scaling knobs
 WS_MAX_CONNECTIONS_PER_INSTANCE = env_int("WS_MAX_CONNECTIONS", "2000")

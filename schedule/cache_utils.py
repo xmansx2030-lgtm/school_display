@@ -16,6 +16,8 @@ from schedule.models import SchoolSettings
 
 logger = logging.getLogger(__name__)
 
+SNAPSHOT_CACHE_NAMESPACES = ("v10", "v11")
+
 
 def status_metrics_day_key() -> str:
     try:
@@ -215,7 +217,19 @@ def invalidate_display_snapshot_cache_for_school_id(school_id: int) -> None:
         return
 
     rev = get_schedule_revision_for_school_id(int(school_id)) or 0
-    revs = {rev, max(0, rev - 1), rev + 1}
+    db_rev = 0
+    try:
+        db_rev = int(
+            SchoolSettings.objects.filter(school_id=int(school_id)).values_list("schedule_revision", flat=True).first()
+            or 0
+        )
+    except Exception:
+        db_rev = 0
+
+    revs = {rev, db_rev}
+    for base_rev in (rev, db_rev):
+        revs.add(max(0, int(base_rev or 0) - 1))
+        revs.add(int(base_rev or 0) + 1)
 
     # Delete token-scoped snapshot caches, but keep token->school mapping.
     # The mapping stays valid across revision bumps and keeps /status cache-only.
@@ -233,11 +247,25 @@ def invalidate_display_snapshot_cache_for_school_id(school_id: int) -> None:
             cache.delete(f"display:snapshot:{token_hash}")
         except Exception:
             pass
+        for ns in SNAPSHOT_CACHE_NAMESPACES:
+            try:
+                cache.delete(f"display:snapshot:{ns}:{token_hash}")
+            except Exception:
+                pass
+            try:
+                cache.delete(f"display:snapshot:{ns}:{int(school_id)}:{token_hash}")
+            except Exception:
+                pass
         for r in revs:
             try:
                 cache.delete(f"display:snapshot:{int(school_id)}:rev:{int(r)}:{token_hash}")
             except Exception:
                 pass
+            for ns in SNAPSHOT_CACHE_NAMESPACES:
+                try:
+                    cache.delete(f"display:snapshot:{ns}:{int(school_id)}:rev:{int(r)}:{token_hash}")
+                except Exception:
+                    pass
 
     # Delete a small window of possible school keys (today +/- 1) across current and previous revisions.
     try:
@@ -282,6 +310,15 @@ def invalidate_display_snapshot_cache_for_school_id(school_id: int) -> None:
                 cache.delete(f"snapshot:v9:school:{int(school_id)}:day:{str(d)}")
             except Exception:
                 pass
+            for ns in SNAPSHOT_CACHE_NAMESPACES:
+                try:
+                    cache.delete(f"snapshot:{ns}:school:{int(school_id)}:day:{str(d)}")
+                except Exception:
+                    pass
+                try:
+                    cache.delete(f"snapshot:last:{ns}:{int(school_id)}:{str(d)}")
+                except Exception:
+                    pass
             try:
                 cache.delete(f"lock:snapshot:{int(school_id)}:{int(r)}:day:{str(d)}")
             except Exception:

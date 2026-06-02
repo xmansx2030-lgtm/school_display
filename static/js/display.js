@@ -539,6 +539,7 @@
   const cfg = {
     REFRESH_EVERY: 30, // conservative default for large fleets; can be overridden from server
     WS_FALLBACK_POLL_EVERY: 180, // when WS is healthy, keep only a sparse safety poll
+    WS_LIVE_STATUS_CHECK_SEC: 10, // safety net when in-memory WS/cache misses cross-process updates
     STANDBY_SPEED: 0.8,
     PERIODS_SPEED: 0.5,
     MEDIA_PREFIX: "/media/",
@@ -662,6 +663,7 @@
     wsOpenedAt: 0, // timestamp of last ws.onopen — used for fetch dedup cooldown
     wsLastMessageAt: 0,
     wsHeartbeatTimeoutMs: 75000,
+    wsLiveStatusGen: 0,
 
     // Sleep/Wake
     sleepReason: "", // "before_hours" | "after_hours" | "holiday"
@@ -1245,6 +1247,7 @@
     if (mode === "blocked") {
       clearNamedTimer("poll");
       clearNamedTimer("ws_snapshot");
+      _stopWsLiveStatusSafeguard("entered_blocked");
       clearNamedTimer("sleep_reconnect");
       clearNamedTimer("wake");
       clearNamedTimer("wake_chunk");
@@ -1262,6 +1265,7 @@
       // Cancel polling timer — sleep engine manages wake
       clearNamedTimer("poll");
       clearNamedTimer("ws_snapshot"); // cancel any pending WS-triggered fetch
+      _stopWsLiveStatusSafeguard("entered_sleep");
       _closeWsForSleep("entered_sleep");
       _log("polling_stopped", { reason: "entered_sleep" });
     }
@@ -1272,6 +1276,7 @@
       clearNamedTimer("safety_check");
       clearNamedTimer("sleep_reconnect");  // cancel sleep reconnect
       clearNamedTimer("ws_snapshot");       // cancel stale WS snapshot fetch
+      _stopWsLiveStatusSafeguard("waking");
       _stopWsHeartbeat("waking");
       rt.status304Streak = 0;
       rt.statusEverySec = 0;
@@ -1308,6 +1313,7 @@
       clearNamedTimer("sleep_reconnect");
       resetFallbackPollLevel("ws_live");
       _startWsHeartbeat("ws_live_entered");
+      _startWsLiveStatusSafeguard("ws_live_entered");
       _log("ws_live_entered", {
         reason: reason,
         wsConnected: rt.wsConnected,
@@ -1316,6 +1322,7 @@
 
     if (mode === "active") {
       // Resume polling if not already scheduled
+      _stopWsLiveStatusSafeguard("entered_active");
       _stopWsHeartbeat("entered_active");
       resetFallbackPollLevel("entered_active");
       if (!_timers["poll"]) {
@@ -1325,6 +1332,7 @@
 
     if (mode === "fallback-poll") {
       // Enter adaptive fallback — start at current level
+      _stopWsLiveStatusSafeguard("entered_fallback");
       _stopWsHeartbeat("entered_fallback");
       _log("fallback_poll_entered", {
         level: rt.fallbackLevel,
@@ -1698,6 +1706,92 @@
     if (gen === _heartbeatGen && rt.mode === "ws-live") {
       _startWsHeartbeat("tick_continue");
     }
+  }
+
+  function _wsLiveStatusIntervalMs() {
+    var sec = Number(cfg.WS_LIVE_STATUS_CHECK_SEC) || 10;
+    sec = Math.max(5, Math.min(60, sec));
+    try {
+      var jf = Math.abs(Number(rt.refreshJitterFrac) || 0);
+      sec += Math.round(jf * 3);
+    } catch (e) {}
+    return sec * 1000;
+  }
+
+  function _startWsLiveStatusSafeguard(reason) {
+    if (isTerminalBlockedMode()) {
+      _log("ws_live_status_blocked_due_to_binding_loss", _logContext({
+        sourcePath: "_startWsLiveStatusSafeguard",
+        reason: reason || "",
+      }));
+      return;
+    }
+    if (rt.mode !== "ws-live") return;
+
+    rt.wsLiveStatusGen++;
+    var gen = rt.wsLiveStatusGen;
+    var delayMs = _wsLiveStatusIntervalMs();
+
+    setNamedTimer("ws_live_status", function () {
+      _wsLiveStatusSafeguardTick(gen);
+    }, delayMs, "ws_live_status_" + (reason || "start"));
+
+    _log("ws_live_status_started", {
+      intervalSec: Math.round(delayMs / 1000),
+      reason: reason || "",
+      gen: gen,
+    });
+  }
+
+  function _stopWsLiveStatusSafeguard(reason) {
+    if (!_timers["ws_live_status"]) return;
+    clearNamedTimer("ws_live_status");
+    rt.wsLiveStatusGen++;
+    _log("ws_live_status_stopped", { reason: reason || "", mode: rt.mode });
+  }
+
+  async function _wsLiveStatusSafeguardTick(gen) {
+    if (isTerminalBlockedMode()) return;
+    if (rt.mode !== "ws-live") return;
+    if (gen !== rt.wsLiveStatusGen) return;
+
+    if (isFetching) {
+      _startWsLiveStatusSafeguard("fetch_in_progress");
+      return;
+    }
+
+    try {
+      var st = await safeFetchStatus();
+      if (isTerminalBlockedMode() || (st && st._blocked)) return;
+
+      if (st && st.reload === true) {
+        _log("ws_live_status_reload", {});
+        try { window.location.reload(); } catch (e) { window.location.href = window.location.href; }
+        return;
+      }
+
+      var serverRev = st && st.schedule_revision !== undefined ? parseInt(st.schedule_revision, 10) : 0;
+      var localRev = Number(rt.scheduleRevision || 0);
+      var needsFetch = !!(st && st.fetch_required === true);
+      if (!needsFetch && serverRev && serverRev > localRev) needsFetch = true;
+
+      _log("ws_live_status_tick", {
+        fetchRequired: needsFetch,
+        serverRev: serverRev || null,
+        localRev: localRev || null,
+      });
+
+      if (needsFetch) {
+        rt.pendingRev = serverRev || rt.pendingRev || null;
+        rt.forceFetchSnapshot = true;
+        scheduleNext(0.1, "ws_invalidate");
+        return;
+      }
+    } catch (e) {
+      _log("ws_live_status_error", { error: String(e && e.message ? e.message : e) });
+    }
+
+    _startWsLiveStatusSafeguard("tick_continue");
   }
 
   function maybeLogPollState(activeWindow, nextPollSec) {
@@ -2647,17 +2741,50 @@
   }
 
   // ===== Render: Alert =====
-  function renderAlert(title, details) {
+  function normalizeAnnouncementLevel(level) {
+    const raw = safeText(level || "").trim().toLowerCase();
+    if (raw === "danger" || raw === "error" || raw === "critical" || raw === "emergency" || raw === "urgent") return "danger";
+    if (raw === "warn" || raw === "warning" || raw === "alert") return "warning";
+    if (raw === "success" || raw === "ok") return "success";
+    return "info";
+  }
+
+  function renderAlert(title, details, level) {
     toggleHidden(dom.alertContainer, false);
+    if (dom.alertContainer) dom.alertContainer.dataset.alertLevel = normalizeAnnouncementLevel(level);
     setTextIfChanged(dom.alertTitle, title || "تنبيه");
     setTextIfChanged(dom.alertDetails, details || "—");
   }
 
   // ===== Render: Brand/Theme =====
+  var lastAppliedThemeSig = "";
+
+  function forceThemeRepaint() {
+    try {
+      if (document.body) {
+        // Some TV browsers do not repaint CSS variables immediately after
+        // changing data-theme. Toggling a harmless attribute and reading layout
+        // nudges a repaint without reloading the page.
+        document.body.setAttribute("data-theme-refresh", String(Date.now()));
+        void document.body.offsetHeight;
+      }
+    } catch (e) {}
+
+    try { scheduleFit(0); } catch (e) {}
+    try {
+      setNamedTimer("theme_refit", function () {
+        try { scheduleFit(0); } catch (e) {}
+      }, 120, "theme_refit");
+    } catch (e) {}
+  }
+
   function applyTheme(name) {
     let n = (name || "").toString().trim().toLowerCase();
     if (!n) n = "indigo";
     document.body.setAttribute("data-theme", n);
+    try {
+      document.documentElement.setAttribute("data-display-theme", n);
+    } catch (e) {}
   }
 
   // ===== Custom colors (optional) =====
@@ -2743,11 +2870,17 @@
 
     const sig = name + "||" + logo + "||" + theme + "||" + schoolType + "||" + accent;
     if (sig === last.brandSig) return;
+    const previousThemeSig = lastAppliedThemeSig;
     last.brandSig = sig;
 
     if (!previewLock) {
       if (theme) applyTheme(theme);
       applyAccentColor(accent);
+      const nextThemeSig = theme + "||" + accent;
+      if (nextThemeSig !== previousThemeSig) {
+        lastAppliedThemeSig = nextThemeSig;
+        forceThemeRepaint();
+      }
     }
 
     if (name) {
@@ -3479,7 +3612,11 @@
     if (!annList.length) return;
     annPtr = (i + annList.length) % annList.length;
     const a = annList[annPtr] || {};
-    renderAlert(safeText(a.title || a.heading || "تنبيه"), safeText(a.body || a.details || a.text || a.message || "—"));
+    renderAlert(
+      safeText(a.title || a.heading || "تنبيه"),
+      safeText(a.body || a.details || a.text || a.message || "—"),
+      safeText(a.level || a.kind || a.type || "info")
+    );
   }
 
   function renderAnnouncements(arr) {
@@ -3495,7 +3632,7 @@
 
     if (!annList.length) {
       annPtr = 0;
-      renderAlert("لا توجد تنبيهات حالياً", "—");
+      renderAlert("لا توجد تنبيهات حالياً", "—", "info");
       return;
     }
 

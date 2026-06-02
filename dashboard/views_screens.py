@@ -216,6 +216,70 @@ def screen_list(
     max_screens = get_school_max_screens_limit(school)
     plan_name = get_school_effective_plan_label(school)
 
+    now = timezone.now()
+    live_threshold_seconds = int(getattr(settings, "DASHBOARD_SCREEN_LIVE_THRESHOLD_SEC", 65 * 60) or (65 * 60))
+    live_threshold_seconds = max(120, min(24 * 60 * 60, live_threshold_seconds))
+    live_threshold_minutes = max(1, int(round(live_threshold_seconds / 60)))
+    live_count = 0
+    linked_count = 0
+    screen_rows = []
+    for screen in qs:
+        last_seen = getattr(screen, "last_seen_at", None) or getattr(screen, "last_seen", None)
+        bound_device = bool((getattr(screen, "bound_device_id", "") or "").strip())
+        is_enabled = bool(getattr(screen, "is_active", False))
+        is_live = False
+        last_seen_seconds = None
+        last_seen_display = "لم تتصل بعد"
+        last_seen_full = ""
+        if last_seen:
+            try:
+                delta = now - last_seen
+                last_seen_seconds = max(0, int(delta.total_seconds()))
+                is_live = bool(is_enabled and bound_device and last_seen_seconds <= live_threshold_seconds)
+                local_seen = timezone.localtime(last_seen)
+                last_seen_full = local_seen.strftime("%Y-%m-%d %H:%M")
+                if last_seen_seconds < 60:
+                    last_seen_display = "قبل أقل من دقيقة"
+                elif last_seen_seconds < 3600:
+                    last_seen_display = f"قبل {max(1, last_seen_seconds // 60)} دقيقة"
+                elif last_seen_seconds < 86400:
+                    last_seen_display = f"قبل {max(1, last_seen_seconds // 3600)} ساعة"
+                else:
+                    last_seen_display = local_seen.strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                is_live = False
+
+        if bound_device:
+            linked_count += 1
+        if is_live:
+            live_count += 1
+
+        if not is_enabled:
+            status_key = "disabled"
+            status_label = "متوقفة"
+            status_hint = "الشاشة غير مفعلة من لوحة التحكم"
+        elif is_live:
+            status_key = "live"
+            status_label = "شوهدت مؤخراً"
+            status_hint = "وصل تواصل حديث من التلفاز"
+        elif bound_device:
+            status_key = "linked"
+            status_label = "مرتبطة بلا اتصال"
+            status_hint = "الجهاز مرتبط لكن لا يوجد اتصال حديث"
+        else:
+            status_key = "waiting"
+            status_label = "بانتظار الربط"
+            status_hint = "افتح الرابط على التلفاز لربط الشاشة"
+
+        screen.dashboard_status_key = status_key
+        screen.dashboard_status_label = status_label
+        screen.dashboard_status_hint = status_hint
+        screen.dashboard_last_seen_display = last_seen_display
+        screen.dashboard_last_seen_full = last_seen_full
+        screen.dashboard_is_live = is_live
+        screen.dashboard_bound_device = bound_device
+        screen_rows.append(screen)
+
     if max_screens is None:
         screens_remaining = None
     else:
@@ -240,12 +304,16 @@ def screen_list(
         request,
         "dashboard/screen_list.html",
         {
-            "screens": qs,
+            "screens": screen_rows,
             "can_create_screen": can_create_screen,
             "show_screen_limit_message": show_screen_limit_message,
             "screen_limit": None if max_screens is None else int(max_screens),
             "screen_limit_message": screen_limit_message,
             "screens_count": current_count,
+            "screens_live_count": live_count,
+            "screens_linked_count": linked_count,
+            "screen_live_threshold_seconds": live_threshold_seconds,
+            "screen_live_threshold_minutes": live_threshold_minutes,
             "plan_name": plan_name,
             "screens_remaining": screens_remaining,
             "auto_disabled_count": auto_disabled_count,

@@ -1,342 +1,483 @@
 {% extends "dashboard/_base.html" %}
-{% load static %}
 
 {% block title %}{{ title }}{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_description %}{% if form.instance.pk %}تعديل حصة انتظار{% else %}إضافة حصة انتظار جديدة{% endif %}{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto">
+<div class="max-w-6xl mx-auto pb-8 md:pb-12">
+  <section class="standby-form-intro mb-4">
+    <div>
+      <h2>{% if form.instance.pk %}تعديل حصة الانتظار{% else %}حصة انتظار جديدة{% endif %}</h2>
+      <p>حدد التاريخ والحصة والفصل والمعلم لتظهر في شاشة حصص الانتظار.</p>
+    </div>
+    <a href="{% url 'dashboard:standby_list' %}" class="standby-form-secondary">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      <span>رجوع للقائمة</span>
+    </a>
+  </section>
 
-    <!-- نموذج حصة الانتظار -->
-    <form method="post" class="dashboard-form-shell bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        {% csrf_token %}
-        
-        <div class="dashboard-form-header bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                        </svg>
-                    </div>
-                    <div>
-                        <h2 class="text-base font-bold text-white">بيانات حصة الانتظار</h2>
-                        <p class="text-indigo-200 text-xs">املأ البيانات المطلوبة</p>
-                    </div>
-                </div>
-                <span class="text-xs font-bold text-indigo-200 bg-white/15 px-3 py-1 rounded-full">{% if form.instance.pk %}تعديل{% else %}جديد{% endif %}</span>
-            </div>
+  <form method="post" class="standby-form-shell" id="standbyForm">
+    {% csrf_token %}
+    <div class="standby-form-main">
+      <section class="standby-form-card">
+        <div class="standby-form-card-heading">
+          <h3>بيانات الحصة</h3>
+          <p>اختر اليوم ورقم الحصة والفصل المطلوب تغطيته.</p>
         </div>
 
-        <!-- محتوى النموذج -->
-        <div class="p-6 space-y-6">
-            <!-- الصف الأول: التاريخ والحصة -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- حقل التاريخ -->
-                <div class="space-y-2">
-                    <label for="{{ form.date.id_for_label }}" class="text-sm font-medium text-slate-700 flex items-center">
-                        {{ form.date.label }}
-                        {% if form.date.field.required %}
-                            <span class="text-red-500 mr-1">*</span>
-                        {% endif %}
-                    </label>
-                    <div class="relative">
-                        {{ form.date }}
-                        <div class="absolute inset-y-0 left-0 flex items-center px-3 text-slate-500 pointer-events-none">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                            </svg>
-                        </div>
-                    </div>
-                    {% if form.date.help_text %}
-                        <p class="text-xs text-slate-500">{{ form.date.help_text }}</p>
-                    {% endif %}
-                    {% if form.date.errors %}
-                        <div class="text-red-600 text-sm space-y-1">
-                            {% for error in form.date.errors %}
-                                <p class="flex items-center space-x-1 space-x-reverse">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                    </svg>
-                                    <span>{{ error }}</span>
-                                </p>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
+        <div class="standby-field-grid">
+          <div class="standby-field">
+            <label for="{{ form.date.id_for_label }}">
+              {{ form.date.label }}
+              {% if form.date.field.required %}<span>*</span>{% endif %}
+            </label>
+            {{ form.date }}
+            {% if form.date.errors %}<div class="standby-field-error">{{ form.date.errors }}</div>{% endif %}
+          </div>
 
-                <!-- حقل رقم الحصة -->
-                <div class="space-y-2">
-                    <label for="{{ form.period_index.id_for_label }}" class="text-sm font-medium text-slate-700 flex items-center">
-                        {{ form.period_index.label }}
-                        {% if form.period_index.field.required %}
-                            <span class="text-red-500 mr-1">*</span>
-                        {% endif %}
-                    </label>
-                    {{ form.period_index }}
-                    {% if form.period_index.help_text %}
-                        <p class="text-xs text-slate-500">{{ form.period_index.help_text }}</p>
-                    {% endif %}
-                    {% if form.period_index.errors %}
-                        <div class="text-red-600 text-sm space-y-1">
-                            {% for error in form.period_index.errors %}
-                                <p class="flex items-center space-x-1 space-x-reverse">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                    </svg>
-                                    <span>{{ error }}</span>
-                                </p>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
+          <div class="standby-field">
+            <label for="{{ form.period_index.id_for_label }}">
+              {{ form.period_index.label }}
+              {% if form.period_index.field.required %}<span>*</span>{% endif %}
+            </label>
+            {{ form.period_index }}
+            {% if form.period_index.errors %}<div class="standby-field-error">{{ form.period_index.errors }}</div>{% endif %}
+          </div>
 
-            <!-- الصف الثاني: الفصل والمعلم/ـة -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- حقل اسم الفصل -->
-                <div class="space-y-2">
-                    <label for="{{ form.class_name.id_for_label }}" class="text-sm font-medium text-slate-700 flex items-center">
-                        {{ form.class_name.label }}
-                        {% if form.class_name.field.required %}
-                            <span class="text-red-500 mr-1">*</span>
-                        {% endif %}
-                    </label>
-                    {{ form.class_name }}
-                    {% if form.class_name.help_text %}
-                        <p class="text-xs text-slate-500">{{ form.class_name.help_text }}</p>
-                    {% endif %}
-                    {% if form.class_name.errors %}
-                        <div class="text-red-600 text-sm space-y-1">
-                            {% for error in form.class_name.errors %}
-                                <p class="flex items-center space-x-1 space-x-reverse">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                    </svg>
-                                    <span>{{ error }}</span>
-                                </p>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
+          <div class="standby-field">
+            <label for="{{ form.class_name.id_for_label }}">
+              {{ form.class_name.label }}
+              {% if form.class_name.field.required %}<span>*</span>{% endif %}
+            </label>
+            {{ form.class_name }}
+            {% if form.class_name.errors %}<div class="standby-field-error">{{ form.class_name.errors }}</div>{% endif %}
+          </div>
 
-                <!-- حقل اسم المعلم/ـة -->
-                <div class="space-y-2">
-                    <label for="{{ form.teacher.id_for_label }}" class="text-sm font-medium text-slate-700 flex items-center">
-                        {{ form.teacher.label }}
-                        {% if form.teacher.field.required %}
-                            <span class="text-red-500 mr-1">*</span>
-                        {% endif %}
-                        <span class="mr-2 text-xs text-slate-500 font-normal">(اختر من القائمة)</span>
-                    </label>
-                    {{ form.teacher }}
-                    {% if form.teacher.help_text %}
-                        <p class="text-xs text-slate-500">{{ form.teacher.help_text }}</p>
-                    {% endif %}
-                    {% if form.teacher.errors %}
-                        <div class="text-red-600 text-sm space-y-1">
-                            {% for error in form.teacher.errors %}
-                                <p class="flex items-center space-x-1 space-x-reverse">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                    </svg>
-                                    <span>{{ error }}</span>
-                                </p>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
+          <div class="standby-field">
+            <label for="{{ form.teacher.id_for_label }}">
+              {{ form.teacher.label }}
+              {% if form.teacher.field.required %}<span>*</span>{% endif %}
+            </label>
+            {{ form.teacher }}
+            {% if form.teacher.errors %}<div class="standby-field-error">{{ form.teacher.errors }}</div>{% endif %}
+          </div>
+        </div>
+      </section>
 
-            <!-- حقل الملاحظات -->
-            <div class="space-y-2">
-                <label for="{{ form.notes.id_for_label }}" class="text-sm font-medium text-slate-700 flex items-center">
-                    {{ form.notes.label }}
-                    {% if form.notes.field.required %}
-                        <span class="text-red-500 mr-1">*</span>
-                    {% endif %}
-                </label>
-                {{ form.notes }}
-                {% if form.notes.help_text %}
-                    <p class="text-xs text-slate-500">{{ form.notes.help_text }}</p>
-                {% endif %}
-                {% if form.notes.errors %}
-                    <div class="text-red-600 text-sm space-y-1">
-                        {% for error in form.notes.errors %}
-                            <p class="flex items-center space-x-1 space-x-reverse">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                </svg>
-                                <span>{{ error }}</span>
-                            </p>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </div>
-
-            <!-- معاينة سريعة -->
-            <div class="dashboard-preview-card bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center">
-                    <svg class="w-4 h-4 text-slate-600 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                    </svg>
-                    معاينة سريعة
-                </h4>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div class="text-center">
-                        <div class="text-slate-500">الحصة</div>
-                        <div id="previewPeriod" class="font-semibold text-slate-800">-</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="text-slate-500">الفصل</div>
-                        <div id="previewClass" class="font-semibold text-slate-800">-</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="text-slate-500">المعلم/ـة</div>
-                        <div id="previewTeacher" class="font-semibold text-slate-800">-</div>
-                    </div>
-                </div>
-            </div>
+      <section class="standby-form-card">
+        <div class="standby-form-card-heading">
+          <h3>ملاحظة اختيارية</h3>
+          <p>استخدمها لتوضيح سبب الانتظار أو أي توجيه مختصر للمعلم.</p>
         </div>
 
-        <!-- أزرار الإجراءات -->
-        <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-            <div class="flex items-center space-x-3 space-x-reverse">
-                <button type="submit" 
-                        class="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 transform hover:-translate-y-0.5 flex items-center space-x-2 space-x-reverse">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    <span>حفظ حصة الانتظار</span>
-                </button>
-                
-                <a href="{% url 'dashboard:standby_list' %}" 
-                   class="px-6 py-3 border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium rounded-xl transition-all duration-200 flex items-center space-x-2 space-x-reverse">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-                    </svg>
-                    <span>رجوع للقائمة</span>
-                </a>
-            </div>
-            
-            <!-- إظهار زر الحذف فقط في حالة التعديل (عند وجود PK) -->
-            {% if form.instance.pk %}
-            <button type="button" onclick="confirmDelete()" 
-                    class="px-4 py-2 text-rose-600 hover:bg-rose-50 font-medium rounded-lg transition-all duration-200 flex items-center space-x-2 space-x-reverse border border-rose-200">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                </svg>
-                <span>حذف</span>
-            </button>
-            {% endif %}
+        <div class="standby-field">
+          <label for="{{ form.notes.id_for_label }}">
+            {{ form.notes.label }}
+            {% if form.notes.field.required %}<span>*</span>{% endif %}
+          </label>
+          {{ form.notes }}
+          {% if form.notes.errors %}<div class="standby-field-error">{{ form.notes.errors }}</div>{% endif %}
         </div>
-    </form>
+      </section>
+    </div>
+
+    <aside class="standby-preview-panel">
+      <div class="standby-preview-heading">
+        <span>معاينة التكليف</span>
+        <strong id="previewDate">-</strong>
+      </div>
+      <div class="standby-preview-card">
+        <div class="standby-preview-period">
+          <span>الحصة</span>
+          <strong id="previewPeriod">-</strong>
+        </div>
+        <h3 id="previewTeacher">اسم المعلم/ـة</h3>
+        <p id="previewClass">الفصل</p>
+      </div>
+      <div class="standby-preview-note">
+        <span>الملاحظة</span>
+        <strong id="previewNotes">بدون ملاحظة</strong>
+      </div>
+    </aside>
+
+    <div class="standby-form-actions">
+      <button type="submit" class="standby-form-primary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <span>حفظ حصة الانتظار</span>
+      </button>
+      <a href="{% url 'dashboard:standby_list' %}" class="standby-form-secondary">إلغاء</a>
+
+      {% if form.instance.pk %}
+        <button type="button" onclick="confirmDelete()" class="standby-form-danger">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          <span>حذف</span>
+        </button>
+      {% endif %}
+    </div>
+  </form>
 </div>
 
 <script>
-// تحسين مظهر الحقول
 document.addEventListener('DOMContentLoaded', function() {
-    // تطبيق الأنماط على جميع الحقول
-    const inputs = document.querySelectorAll('input, select, textarea');
-    inputs.forEach(input => {
-        if (input.type !== 'checkbox' && input.type !== 'radio') {
-            input.className = 'w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white text-slate-700 placeholder-slate-400';
-        }
-    });
+  document.querySelectorAll('.standby-form-shell input, .standby-form-shell select, .standby-form-shell textarea').forEach(input => {
+    input.classList.add('standby-input');
+  });
 
-    // تحديث المعاينة السريعة
-    function updatePreview() {
-        const period = document.getElementById('{{ form.period_index.id_for_label }}').value;
-        const classSelect = document.getElementById('{{ form.class_name.id_for_label }}');
-        const teacherSelect = document.getElementById('{{ form.teacher.id_for_label }}');
-        
-        // عرض النص المختار من القائمة
-        const className = classSelect.selectedOptions[0]?.text || '-';
-        const teacher = teacherSelect.selectedOptions[0]?.text || '-';
-        
-        document.getElementById('previewPeriod').textContent = period || '-';
-        document.getElementById('previewClass').textContent = className;
-        document.getElementById('previewTeacher').textContent = teacher;
-    }
+  const dateInput = document.getElementById('{{ form.date.id_for_label }}');
+  const periodInput = document.getElementById('{{ form.period_index.id_for_label }}');
+  const classInput = document.getElementById('{{ form.class_name.id_for_label }}');
+  const teacherInput = document.getElementById('{{ form.teacher.id_for_label }}');
+  const notesInput = document.getElementById('{{ form.notes.id_for_label }}');
 
-    // إضافة أحداث التغيير للحقول
-    document.getElementById('{{ form.period_index.id_for_label }}').addEventListener('input', updatePreview);
-    document.getElementById('{{ form.class_name.id_for_label }}').addEventListener('change', updatePreview);
-    document.getElementById('{{ form.teacher.id_for_label }}').addEventListener('change', updatePreview);
-    
-    // التحديث الأولي
-    updatePreview();
+  function selectedText(select, fallback) {
+    if (!select) return fallback;
+    const option = select.options[select.selectedIndex];
+    return option && option.value ? option.text : fallback;
+  }
+
+  function valueOr(value, fallback) {
+    return value && value.trim() ? value : fallback;
+  }
+
+  function updatePreview() {
+    document.getElementById('previewDate').textContent = valueOr(dateInput?.value || '', '-');
+    document.getElementById('previewPeriod').textContent = valueOr(periodInput?.value || '', '-');
+    document.getElementById('previewClass').textContent = selectedText(classInput, 'الفصل');
+    document.getElementById('previewTeacher').textContent = selectedText(teacherInput, 'اسم المعلم/ـة');
+    document.getElementById('previewNotes').textContent = valueOr(notesInput?.value || '', 'بدون ملاحظة');
+  }
+
+  [dateInput, periodInput, classInput, teacherInput, notesInput].forEach(el => {
+    if (el) el.addEventListener('input', updatePreview);
+    if (el) el.addEventListener('change', updatePreview);
+  });
+  updatePreview();
 });
 
-// تأثيرات تحميل الصفحة
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.querySelector('form');
-    form.style.opacity = '0';
-    form.style.transform = 'translateY(20px)';
-    form.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-    
-    setTimeout(() => {
-        form.style.opacity = '1';
-        form.style.transform = 'translateY(0)';
-    }, 100);
-});
-
-// تأكيد الحذف - فقط في حالة التعديل
 {% if form.instance.pk %}
 function confirmDelete() {
-    const teacherName = document.getElementById('{{ form.teacher.id_for_label }}').value;
-    if (confirm(`هل أنت متأكد من أنك تريد حذف حصة الانتظار هذه؟ هذا الإجراء لا يمكن التراجع عنه.`)) {
-        // إنشاء نموذج حذف مخفي
-        const form = document.createElement('form');
-        form.method = 'post';
-        form.action = "{% url 'dashboard:standby_delete' form.instance.pk %}";
-        
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrfmiddlewaretoken';
-        csrfInput.value = '{{ csrf_token }}';
-        
-        form.appendChild(csrfInput);
-        document.body.appendChild(form);
-        form.submit();
-    }
+  if (!confirm('هل تريد حذف حصة الانتظار هذه؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+
+  const form = document.createElement('form');
+  form.method = 'post';
+  form.action = "{% url 'dashboard:standby_delete' form.instance.pk %}";
+
+  const csrfInput = document.createElement('input');
+  csrfInput.type = 'hidden';
+  csrfInput.name = 'csrfmiddlewaretoken';
+  csrfInput.value = '{{ csrf_token }}';
+  form.appendChild(csrfInput);
+  document.body.appendChild(form);
+  form.submit();
 }
 {% endif %}
 </script>
 
 <style>
-/* تخصيص إضافي للواجهة */
-input, select, textarea {
-    transition: all 0.3s ease;
+.standby-form-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
 }
 
-input:focus, select:focus, textarea:focus {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+.standby-form-intro h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 900;
 }
 
-/* تخصيص textarea */
-textarea {
-    min-height: 100px;
-    resize: vertical;
+.standby-form-intro p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
-/* تأثيرات للبطاقة */
-form {
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+.standby-form-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 1rem;
+  align-items: start;
 }
 
-/* تخصيص التاريخ */
-input[type="date"] {
-    padding-right: 3rem;
+.standby-form-main {
+  display: grid;
+  gap: 1rem;
 }
 
-/* تحسين المظهر على الشاشات الصغيرة */
-@media (max-width: 768px) {
-    .max-w-4xl {
-        margin: 0 1rem;
-    }
+.standby-form-card,
+.standby-preview-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
+}
+
+.standby-form-card-heading {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.standby-form-card-heading h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.standby-form-card-heading p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.standby-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.standby-field {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.standby-field:last-child {
+  margin-bottom: 0;
+}
+
+.standby-field label {
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.standby-field label span {
+  color: #e11d48;
+}
+
+.standby-input {
+  width: 100%;
+  min-height: 2.65rem;
+  border: 1px solid #dbe3ea !important;
+  border-radius: 0.75rem !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  padding: 0.65rem 0.8rem !important;
+  font-size: 0.86rem !important;
+  font-weight: 700 !important;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+textarea.standby-input {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+.standby-input:focus {
+  outline: none;
+  border-color: #0f766e !important;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.11);
+}
+
+.standby-field-error {
+  color: #be123c;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.standby-preview-panel {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.standby-preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.standby-preview-heading span {
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.standby-preview-heading strong {
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.standby-preview-card {
+  display: grid;
+  gap: 0.8rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 1rem;
+}
+
+.standby-preview-period {
+  display: grid;
+  place-items: center;
+  width: 5rem;
+  height: 5rem;
+  border-radius: 1.1rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.standby-preview-period span,
+.standby-preview-note span {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.standby-preview-period strong {
+  color: #0f172a;
+  font-size: 1.7rem;
+  font-weight: 950;
+}
+
+.standby-preview-card h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 950;
+}
+
+.standby-preview-card p {
+  margin: 0;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.standby-preview-note {
+  display: grid;
+  gap: 0.25rem;
+  border-radius: 0.8rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.75rem 0.85rem;
+}
+
+.standby-preview-note strong {
+  color: #0f172a;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.standby-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.standby-form-primary,
+.standby-form-secondary,
+.standby-form-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  border-radius: 0.7rem;
+  padding: 0 1rem;
+  font-size: 0.82rem;
+  font-weight: 900;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.standby-form-primary {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.standby-form-primary:hover {
+  background: #1e293b;
+}
+
+.standby-form-secondary {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.standby-form-secondary:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.standby-form-danger {
+  margin-inline-start: auto;
+  background: #ffffff;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+}
+
+.standby-form-danger:hover {
+  background: #fff1f2;
+  border-color: #fda4af;
+}
+
+@media (max-width: 1000px) {
+  .standby-form-intro {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .standby-form-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .standby-preview-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 680px) {
+  .standby-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .standby-form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .standby-form-primary,
+  .standby-form-secondary,
+  .standby-form-danger {
+    width: 100%;
+    margin-inline-start: 0;
+  }
 }
 </style>
 {% endblock %}

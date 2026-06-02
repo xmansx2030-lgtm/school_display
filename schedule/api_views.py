@@ -44,6 +44,8 @@ from schedule.snapshot_observability import (
 
 logger = logging.getLogger(__name__)
 
+SNAPSHOT_CACHE_NAMESPACE = "v11"
+
 
 def _snapshot_ttl_floor_seconds() -> int:
     # Keep origin snapshot bodies warm long enough to survive fleet poll intervals.
@@ -179,7 +181,7 @@ def _cache_backend_name() -> str:
 
 def _steady_cache_key_for_school_rev(school_id: int, rev: int, *, day_key: object | None = None) -> str:
     return (
-        f"snapshot:v9:school:{int(school_id)}:"
+        f"snapshot:{SNAPSHOT_CACHE_NAMESPACE}:school:{int(school_id)}:"
         f"day:{_snapshot_cache_day_key(day_key)}"
     )
 
@@ -196,7 +198,7 @@ def _acquire_build_lock(school_id: int, rev: int, *, day_key: object | None = No
 
 
 def _stale_snapshot_fallback_key(school_id: int, *, day_key: object | None = None) -> str:
-    return f"snapshot:last:{int(school_id)}:{_snapshot_cache_day_key(day_key)}"
+    return f"snapshot:last:{SNAPSHOT_CACHE_NAMESPACE}:{int(school_id)}:{_snapshot_cache_day_key(day_key)}"
 
 
 def _get_stale_snapshot_fallback(school_id: int, *, day_key: object | None = None) -> dict | None:
@@ -1205,10 +1207,15 @@ def ws_metrics(request):
             except Exception:
                 return 0
 
-        # Calculate derived metrics
+        # Calculate derived metrics. Instance metrics can be zero on the worker
+        # that serves this request even while other ASGI workers have live
+        # display sockets, so health decisions use the cluster count when it is
+        # available.
         active = metrics.get("connections_active", 0)
         failed = metrics.get("connections_failed", 0)
         total = max(1, metrics.get("connections_total", 1))  # Avoid division by zero
+        active_cluster = int(cluster.get("active_ws", 0) or 0)
+        active_effective = max(int(active or 0), active_cluster)
 
         broadcasts_sent = metrics.get("broadcasts_sent", 0)
         broadcasts_failed = metrics.get("broadcasts_failed", 0)
@@ -1246,7 +1253,7 @@ def ws_metrics(request):
         
         # Health status
         health = "ok"
-        if active == 0 and total > 10:
+        if active_effective == 0 and total > 10:
             health = "warning"  # No connections but had connections before
         elif failed / total > 0.1:  # > 10% connection failure rate
             health = "critical"
@@ -1262,7 +1269,7 @@ def ws_metrics(request):
             "connections_total_shared": shared_total,
             "connections_failed_shared": shared_failed,
             "disconnect_total_shared": shared_disconnect_total,
-            "active_ws_cluster": int(cluster.get("active_ws", 0) or 0),
+            "active_ws_cluster": active_cluster,
             "cluster_rates_60s": cluster.get("rates_60s", {}),
             "cluster_rates_300s": cluster.get("rates_300s", {}),
             "cluster_totals_retained": cluster.get("totals_retained", {}),
@@ -3059,12 +3066,12 @@ def get_cache_key(token_hash: str, school_id: int | None = None) -> str:
     We still include school_id whenever we have it, to avoid accidental collisions.
     """
     if school_id:
-        return f"display:snapshot:{int(school_id)}:{token_hash}"
-    return f"display:snapshot:{token_hash}"
+        return f"display:snapshot:{SNAPSHOT_CACHE_NAMESPACE}:{int(school_id)}:{token_hash}"
+    return f"display:snapshot:{SNAPSHOT_CACHE_NAMESPACE}:{token_hash}"
 
 
 def get_cache_key_rev(token_hash: str, school_id: int, schedule_revision: int) -> str:
-    return f"display:snapshot:{int(school_id)}:rev:{int(schedule_revision)}:{token_hash}"
+    return f"display:snapshot:{SNAPSHOT_CACHE_NAMESPACE}:{int(school_id)}:rev:{int(schedule_revision)}:{token_hash}"
 
 
 def compute_dynamic_ttl_seconds(day_snap: dict) -> int:
@@ -3397,7 +3404,10 @@ def _build_snapshot_payload(
     if active_window:
         snap = _build_final_snapshot(request, settings_obj, day_snap=day_snap, merge_real_data=True)
     else:
-        snap = _build_final_snapshot(request, settings_obj, day_snap=day_snap, merge_real_data=False)
+        # Steady snapshots are still revision/day cached, so merging dashboard
+        # content here keeps after-hours TVs current without adding per-request
+        # database load on cache hits.
+        snap = _build_final_snapshot(request, settings_obj, day_snap=day_snap, merge_real_data=True)
 
         meta = day_snap.get("meta") or {}
         is_school_day = bool(meta.get("is_school_day"))

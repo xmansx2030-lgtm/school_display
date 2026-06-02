@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -58,6 +59,22 @@ class TrialSignupTests(TestCase):
         self.assertEqual(subscription.plan.duration_days, 14)
         self.assertEqual(subscription.plan.max_screens, 1)
         self.assertTrue(get_user_model().objects.get().check_password("StrongPass123!"))
+        self.assertEqual(response.json()["username"], get_user_model().objects.get().username)
+        self.assertEqual(response.json()["mobile"], "0501234567")
+        self.assertIn("login_url", response.json())
+
+    def test_trial_user_can_login_with_mobile_after_auto_signup(self):
+        signup = self.client.post(reverse("website:trial_signup"), data=self._payload())
+        self.assertEqual(signup.status_code, 200)
+        self.client.logout()
+
+        response = self.client.post(
+            reverse("dashboard:login"),
+            data={"username": "0501234567", "password": "StrongPass123!"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(get_user(self.client).is_authenticated)
 
     def test_trial_signup_rejects_duplicate_mobile(self):
         first = self.client.post(reverse("website:trial_signup"), data=self._payload())

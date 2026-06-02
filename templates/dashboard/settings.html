@@ -7,11 +7,18 @@
 
 {% block content %}
 <div class="max-w-5xl mx-auto pb-8 md:pb-12 dashboard-settings">
+    <div class="settings-tabs mb-5 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-1.5">
+        <button type="button" class="settings-tab-btn is-active" data-settings-tab="appearance">المظهر</button>
+        <button type="button" class="settings-tab-btn" data-settings-tab="copy">نصوص الشاشة</button>
+        <button type="button" class="settings-tab-btn" data-settings-tab="runtime">التحديث</button>
+        <button type="button" class="settings-tab-btn" data-settings-tab="security">الأمان</button>
+    </div>
+
     <!-- Security Card -->
-    <div class="dashboard-section-card dashboard-spotlight bg-white rounded-2xl border border-slate-200 p-4 md:p-6 mb-5 md:mb-6">
+    <div class="dashboard-section-card dashboard-spotlight bg-white rounded-xl border border-slate-200 p-4 md:p-6 mb-5 md:mb-6 hidden" data-settings-tab-panel="security">
         <div class="flex flex-col md:flex-row items-center justify-between gap-4">
             <div class="flex items-start gap-4">
-                <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <div class="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 </div>
                 <div>
@@ -20,7 +27,7 @@
                 </div>
             </div>
             <a href="{% url 'dashboard:change_password' %}?next={% url 'dashboard:settings' %}"
-               class="w-full md:w-auto justify-center px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs md:text-sm rounded-xl transition-all flex items-center gap-2">
+               class="w-full md:w-auto justify-center px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs md:text-sm rounded-lg transition flex items-center gap-2">
                 <span>تغيير كلمة المرور</span>
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
             </a>
@@ -28,7 +35,7 @@
     </div>
 
     <!-- Main Settings Form -->
-    <div class="dashboard-form-shell bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="dashboard-form-shell bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" data-settings-form-shell>
         <div class="px-4 py-3.5 md:px-6 md:py-4 border-b border-slate-100 flex items-center justify-between">
             <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2">
                 <svg class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -53,75 +60,32 @@
                 </div>
             {% endif %}
 
-            <!-- Grid Layout -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-6 md:gap-x-10 lg:gap-x-16 gap-y-6 md:gap-y-10 lg:gap-y-12">
-                
-                <!-- Section 1: Basic Fields -->
-                <div class="col-span-1 lg:col-span-2">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
+            <div class="space-y-6">
+                <section data-settings-tab-panel="appearance" class="settings-tab-panel">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
                         <div class="group relative">
                             <label class="text-sm font-bold text-slate-600 mb-2 flex items-center justify-between">
                                 <span>اسم المدرسة</span>
                             </label>
-                            <div class="dashboard-control-surface flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3.5 text-sm">
+                            <div class="dashboard-control-surface flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3.5 text-sm">
                                 <span class="font-bold text-slate-800">{{ school.name }}</span>
                                 <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">للعرض فقط</span>
                             </div>
-                            <p class="mt-2 text-xs text-slate-400 pl-1">لا يمكن تعديل اسم المدرسة من لوحة المدرسة. يتم تغييره من لوحة الإدارة فقط.</p>
                         </div>
 
-                     {% for field in form %}
-                        {% if field.name != 'theme' and field.name != 'featured_panel' and field.name != 'standby_scroll_speed' and field.name != 'periods_scroll_speed' and field.name != 'display_accent_color' %}
-                            <div class="group relative">
-                                <label class="text-sm font-bold text-slate-600 mb-2 transition-colors group-focus-within:text-indigo-600 flex items-center justify-between">
-                                    <span>{{ field.label }}</span>
-                                    {% if field.field.required %}<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>{% endif %}
-                                </label>
-                                <div class="relative transition-all duration-300 group-focus-within:-translate-y-0.5">
-                                    {% if field.field.widget.input_type == 'select' %}
-                                        <div class="relative">
-                                            {{ field }}
-                                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-4 text-slate-500">
-                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                                            </div>
-                                        </div>
-                                    {% else %}
-                                        {{ field }}
-                                    {% endif %}
-                                    <!-- Effect Border -->
-                                    <div class="absolute inset-x-0 bottom-0 h-0.5 bg-indigo-500 scale-x-0 group-focus-within:scale-x-100 transition-transform duration-300"></div>
-                                </div>
-                                {% if field.help_text %}
-                                    <p class="mt-2 text-xs text-slate-400 group-focus-within:text-indigo-400 transition-colors pl-1">{{ field.help_text }}</p>
-                                {% endif %}
-                                {% if field.errors %}
-                                    <div class="mt-2 text-sm text-rose-600 font-bold bg-rose-50 px-3 py-1 rounded-lg inline-block">
-                                        {% for error in field.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-                    </div>
-                </div>
+                        <div class="group relative">
+                            <label class="text-sm font-bold text-slate-600 mb-2 flex items-center justify-between">
+                                <span>{{ form.logo.label }}</span>
+                            </label>
+                            {{ form.logo }}
+                            {% if form.logo.help_text %}<p class="mt-2 text-xs text-slate-400">{{ form.logo.help_text }}</p>{% endif %}
+                            {% if form.logo.errors %}<div class="mt-2 text-sm text-rose-600 font-bold bg-rose-50 px-3 py-1 rounded-lg inline-block">{% for error in form.logo.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
 
-                <div class="col-span-1 lg:col-span-2 border-t border-slate-100/80"></div>
-
-                <!-- Section 2: Display & Theme (Redesigned) -->
-                 <div class="col-span-1 lg:col-span-2 space-y-6 md:space-y-8">
-                    <h4 class="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2.5 md:gap-3 mb-4 md:mb-6">
-                        <span class="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600 shadow-sm border border-purple-100">
-                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
-                        </span>
-                        تخصيص المظهر
-                    </h4>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-8">
                         <!-- Featured Card Selector -->
-                        <div class="dashboard-control-surface bg-slate-50/50 rounded-2xl p-4 md:p-6 border border-slate-200 hover:border-indigo-300 transition-colors shadow-sm group">
+                        <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group">
                             <label class="text-sm font-bold text-slate-700 mb-4 flex items-center justify-between">
                                 <span>الكرت المميز في شاشة العرض</span>
-                                <span class="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-1 rounded uppercase">Featured</span>
                             </label>
                             
                             <div class="relative">
@@ -134,10 +98,8 @@
                         </div>
                         
                         <!-- Theme Colors Selector (Visual) -->
-                        <div class="dashboard-control-surface bg-white rounded-2xl p-4 md:p-6 border border-slate-200 shadow-sm relative overflow-hidden">
-                            <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
-                            
-                            <label class="block text-sm font-bold text-slate-700 mb-5 relative z-10">اختر لون الثيم المناسب</label>
+                        <div class="dashboard-control-surface bg-white rounded-xl p-4 border border-slate-200 relative overflow-hidden">
+                            <label class="block text-sm font-bold text-slate-700 mb-5 relative z-10">لون الثيم</label>
                             
                             <div class="hidden">
                                 {{ form.display_accent_color }}
@@ -210,21 +172,29 @@
                             <p id="themeLabel" class="text-xs font-bold text-slate-400 mt-4 text-left transition-colors">اللون الحالي: <span class="text-slate-800">--</span></p>
                         </div>
                      </div>
-                 </div>
+                </section>
 
-                <!-- Section 3: Timings & Speeds -->
-                 <div class="col-span-1 lg:col-span-2 space-y-6 md:space-y-8">
-                     <h4 class="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2.5 md:gap-3">
-                         <span class="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-600 shadow-sm border border-teal-100">
-                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                         </span>
-                        فترات التحديث والسرعة
-                    </h4>
+                <section data-settings-tab-panel="copy" class="settings-tab-panel hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {% for field in form %}
+                            {% if field.name == 'display_before_title' or field.name == 'display_before_badge' or field.name == 'display_after_title' or field.name == 'display_after_badge' or field.name == 'display_after_holiday_title' or field.name == 'display_after_holiday_badge' or field.name == 'display_holiday_title' or field.name == 'display_holiday_badge' %}
+                                <div class="group relative">
+                                    <label class="text-sm font-bold text-slate-600 mb-2 flex items-center justify-between">
+                                        <span>{{ field.label }}</span>
+                                    </label>
+                                    {{ field }}
+                                    {% if field.help_text %}<p class="mt-2 text-xs text-slate-400">{{ field.help_text }}</p>{% endif %}
+                                    {% if field.errors %}<div class="mt-2 text-sm text-rose-600 font-bold bg-rose-50 px-3 py-1 rounded-lg inline-block">{% for error in field.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </section>
 
-                    <!-- Scroll Speeds Grid -->
+                <section data-settings-tab-panel="runtime" class="settings-tab-panel hidden">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                         <!-- Standby Speed -->
-                        <div class="dashboard-control-surface bg-slate-50/50 rounded-2xl p-4 md:p-6 border border-slate-200 hover:bg-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group">
+                        <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group">
                              <label class="block text-sm font-bold text-slate-700 mb-3">{{ form.standby_scroll_speed.label }}</label>
                              <div class="relative">
                                 {{ form.standby_scroll_speed }}
@@ -235,7 +205,7 @@
                         </div>
 
                         <!-- Periods Speed -->
-                                <div class="dashboard-control-surface bg-slate-50/50 rounded-2xl p-4 md:p-6 border border-slate-200 hover:bg-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group">
+                                <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group">
                              <label class="block text-sm font-bold text-slate-700 mb-3">{{ form.periods_scroll_speed.label }}</label>
                              <div class="relative">
                                 {{ form.periods_scroll_speed }}
@@ -244,15 +214,23 @@
                              <p class="mt-3 text-xs text-slate-400 font-medium leading-relaxed">سرعة تحرك شريط الحصص الجارية. يفضل أن تكون القيمة منخفضة للقراءة.</p>
                              <div id="periodsWarn" class="hidden mt-2 text-xs text-rose-600 font-bold bg-rose-50 p-2 rounded-lg">القيمة لا تقل عن 0.5</div>
                         </div>
-                    </div>
-                 </div>
 
+                        {% if form.test_mode_weekday_override %}
+                        <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group sm:col-span-2">
+                            <label class="block text-sm font-bold text-slate-700 mb-3">{{ form.test_mode_weekday_override.label }}</label>
+                            {{ form.test_mode_weekday_override }}
+                            {% if form.test_mode_weekday_override.help_text %}<p class="mt-3 text-xs text-slate-400 font-medium leading-relaxed">{{ form.test_mode_weekday_override.help_text|safe }}</p>{% endif %}
+                            {% if form.test_mode_weekday_override.errors %}<div class="mt-2 text-sm text-rose-600 font-bold bg-rose-50 px-3 py-1 rounded-lg inline-block">{% for error in form.test_mode_weekday_override.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </section>
             </div>
 
              <!-- Footer Actions -->
               <div class="settings-actions mt-8 md:mt-10 pt-5 md:pt-6 border-t border-slate-100 flex items-center justify-end gap-3">
                   <a href="{% url 'dashboard:index' %}" class="w-full sm:w-auto text-center px-6 py-3 rounded-xl text-slate-600 font-bold hover:bg-slate-100 hover:text-slate-900 transition-colors">إلغاء</a>
-                  <button type="submit" class="group relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 overflow-hidden font-bold text-white transition-all duration-300 bg-emerald-500 rounded-xl hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5">
+                  <button type="submit" class="group relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 overflow-hidden font-bold text-white transition bg-emerald-600 rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500">
                     <span class="mr-2">حفظ التغييرات</span>
                     <svg class="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                  </button>
@@ -291,6 +269,42 @@ document.addEventListener('DOMContentLoaded', function() {
     window.hideToast = function() {
         return;
     };
+
+    // Settings tabs
+    const tabButtons = Array.from(document.querySelectorAll('[data-settings-tab]'));
+    const tabPanels = Array.from(document.querySelectorAll('[data-settings-tab-panel]'));
+    const formShell = document.querySelector('[data-settings-form-shell]');
+
+    function activateSettingsTab(name) {
+        const selected = name || 'appearance';
+        tabButtons.forEach(btn => {
+            const active = btn.dataset.settingsTab === selected;
+            btn.classList.toggle('is-active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        tabPanels.forEach(panel => {
+            panel.classList.toggle('hidden', panel.dataset.settingsTabPanel !== selected);
+        });
+        if (formShell) {
+            formShell.classList.toggle('hidden', selected === 'security');
+        }
+        try {
+            window.localStorage.setItem('dashboardSettingsTab', selected);
+        } catch (e) {}
+    }
+
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => activateSettingsTab(btn.dataset.settingsTab));
+    });
+
+    let initialTab = 'appearance';
+    try {
+        initialTab = window.localStorage.getItem('dashboardSettingsTab') || initialTab;
+    } catch (e) {}
+    if (!tabButtons.some(btn => btn.dataset.settingsTab === initialTab)) {
+        initialTab = 'appearance';
+    }
+    activateSettingsTab(initialTab);
 
     // Validation
     function validateInput(el, min, max, warnEl) {
@@ -433,6 +447,32 @@ select {
     background-repeat: no-repeat;
     background-size: 1.5em 1.5em;
     padding-left: 2.5rem;
+}
+
+.settings-tab-btn {
+    flex: 1 1 9rem;
+    min-height: 2.5rem;
+    border-radius: 0.65rem;
+    padding: 0.6rem 0.9rem;
+    color: #64748b;
+    font-size: 0.82rem;
+    font-weight: 800;
+    transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.settings-tab-btn:hover {
+    background: #f8fafc;
+    color: #1e293b;
+}
+
+.settings-tab-btn.is-active {
+    background: #0f172a;
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.settings-tab-panel {
+    animation: fadeInUp 0.22s ease-out both;
 }
 </style>
 {% endblock %}

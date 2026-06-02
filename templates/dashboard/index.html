@@ -4,159 +4,490 @@
 {% block title %}اللوحة الرئيسية{% endblock %}
 
 {% block page_title %}اللوحة الرئيسية{% endblock %}
-{% block page_description %}نظرة شاملة على المدرسة والنظام{% endblock %}
+{% block page_description %}متابعة تشغيل اليوم الدراسي وشاشات العرض من مكان واحد{% endblock %}
 
-{% block content %}
-<div class="dashboard-home space-y-6">
+{% block extra_css %}
+<style>
+  .home-command-center {
+    --home-ink: #173042;
+    --home-muted: #64748b;
+    --home-line: rgba(124, 116, 102, 0.16);
+    --home-teal: #145a6a;
+    --home-warm: #b48b57;
+    --home-red: #b4534f;
+    --home-green: #0f766e;
+  }
 
-    {# ── Welcome Hero ── #}
-    <div class="dashboard-hero relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
-        <div class="absolute inset-0">
-            <div class="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-            <div class="absolute bottom-0 left-0 w-72 h-72 bg-violet-500/10 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4"></div>
-            <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=%2240%22 height=%2240%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Crect width=%221%22 height=%221%22 x=%2220%22 y=%2220%22 fill=%22rgba(255,255,255,0.03)%22/%3E%3C/svg%3E')]"></div>
-        </div>
+  .home-status-band,
+  .home-stat-card,
+  .home-action-tile,
+  .home-section,
+  .home-timeline-row {
+    border: 1px solid var(--home-line);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 10px 22px rgba(23, 48, 66, 0.06);
+  }
 
-        <div class="relative z-10 p-6 md:p-8 lg:p-10">
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-                <div class="space-y-4 max-w-xl">
-                    <div class="flex items-center gap-2">
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-white/5 text-indigo-200 border border-white/10">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            نظام نشط
-                        </span>
-                        {% if settings %}
-                        <span class="px-3 py-1 rounded-full text-[10px] font-bold bg-white/5 text-white/40 border border-white/10">{{ settings.name }}</span>
-                        {% endif %}
-                    </div>
+  .home-status-band {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(15rem, 0.75fr);
+    gap: 1rem;
+    padding: 1rem;
+  }
 
-                    <h2 class="text-2xl md:text-3xl lg:text-4xl font-black text-white leading-tight">
-                        مرحبًا بك في لوحة التحكم
-                    </h2>
-                    <p class="text-slate-400 text-sm leading-relaxed">
-                        اضبط الجداول، وزّع حصص الانتظار، وانشر التنبيهات وإنجازات التميز لتظهر فورًا على شاشات المدرسة.
-                    </p>
+  .home-status-main {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    min-width: 0;
+  }
 
-                    <div class="flex flex-wrap gap-3 pt-1">
-                        <a href="{% url 'dashboard:timetable_day' %}" class="group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-slate-900 text-sm font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-200">
-                            <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                            الجدول اليومي
-                        </a>
-                        <a href="{% url 'dashboard:screen_list' %}" class="group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 text-white text-sm font-bold border border-white/10 hover:bg-white/15 transition-all duration-200">
-                            <svg class="w-4 h-4 text-slate-400 group-hover:text-white transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                            شاشات العرض
-                        </a>
-                    </div>
-                </div>
+  .home-status-icon,
+  .home-stat-icon,
+  .home-action-icon,
+  .home-dot-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
 
-                {# ── Clock Widget ── #}
-                <div class="flex-shrink-0">
-                    <div class="p-5 rounded-2xl bg-white/[.04] border border-white/[.08] backdrop-blur-sm w-full max-w-[220px] text-center mx-auto lg:mx-0">
-                        <div class="text-[9px] text-indigo-300/70 uppercase tracking-[.2em] font-bold mb-1.5">التوقيت المحلي</div>
-                        <div id="adminClock" class="text-5xl font-mono font-bold text-white tracking-tight">--:--</div>
-                        <div id="adminDate" class="mt-2 text-[11px] text-slate-400 font-medium border-t border-white/[.06] pt-2">...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+  .home-status-icon {
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 12px;
+    background: rgba(20, 90, 106, 0.1);
+    color: var(--home-teal);
+  }
 
-    {# ── Quick Access Cards ── #}
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  .home-live-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
 
-        <a href="{% url 'dashboard:ann_list' %}" class="dashboard-metric-card group relative bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-lg hover:shadow-rose-500/5 hover:-translate-y-0.5 transition-all duration-300">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-11 h-11 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                </div>
-                <span class="text-2xl font-black text-slate-800">{{ stats.ann_count|default:"0" }}</span>
-            </div>
-            <h3 class="text-sm font-bold text-slate-700 group-hover:text-rose-600 transition-colors">التنبيهات</h3>
-            <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">رسائل تظهر في الشريط المتحرك</p>
-        </a>
+  .home-live-pill {
+    min-height: 3.65rem;
+    border-radius: 10px;
+    border: 1px solid rgba(124, 116, 102, 0.14);
+    padding: 0.65rem 0.75rem;
+    background: #fafafa;
+  }
 
-        <a href="{% url 'dashboard:standby_list' %}" class="dashboard-metric-card group relative bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-lg hover:shadow-amber-500/5 hover:-translate-y-0.5 transition-all duration-300">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                </div>
-                <span class="text-2xl font-black text-slate-800">{{ stats.standby_today|default:"0" }}</span>
-            </div>
-            <h3 class="text-sm font-bold text-slate-700 group-hover:text-amber-600 transition-colors">حصص الانتظار</h3>
-            <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">توزيع وتغطية غياب المعلمين</p>
-        </a>
+  .home-live-pill strong,
+  .home-stat-value {
+    color: var(--home-ink);
+    line-height: 1;
+  }
 
-        <a href="{% url 'dashboard:exc_list' %}" class="dashboard-metric-card group relative bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-lg hover:shadow-violet-500/5 hover:-translate-y-0.5 transition-all duration-300">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-11 h-11 rounded-xl bg-violet-50 flex items-center justify-center text-violet-500 group-hover:scale-110 transition-transform">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" fill="none"/></svg>
-                </div>
-                <span class="text-2xl font-black text-slate-800">{{ stats.exc_count|default:"0" }}</span>
-            </div>
-            <h3 class="text-sm font-bold text-slate-700 group-hover:text-violet-600 transition-colors">بطاقات التميز</h3>
-            <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">تكريم الطلاب والمعلمين</p>
-        </a>
+  .home-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
 
-        <a href="{% url 'dashboard:school_data' %}" class="dashboard-metric-card group relative bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5 transition-all duration-300">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                </div>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-emerald-500 transition-colors transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </div>
-            <h3 class="text-sm font-bold text-slate-700 group-hover:text-emerald-600 transition-colors">بيانات المدرسة</h3>
-            <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">الفصول، المواد،
-                {% if settings and settings.school and settings.school.school_type == "boys" %}والمعلمين{% elif settings and settings.school and settings.school.school_type == "girls" %}والمعلمات{% else %}والموظفين{% endif %}</p>
-        </a>
-    </div>
+  .home-action-tile {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 5.25rem;
+    padding: 0.9rem;
+    transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  }
 
-    {# ── Secondary Quick Links ── #}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <a href="{% url 'dashboard:days_list' %}" class="dashboard-action-card group flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-100 hover:shadow-md transition-all duration-200">
-            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            </div>
-            <div class="flex-1 min-w-0">
-                <h3 class="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors">توقيت الحصص والأيام</h3>
-                <p class="text-[11px] text-slate-400 mt-0.5">اضبط بداية ونهاية كل حصة وحدد أيام الدراسة</p>
-            </div>
-            <svg class="w-5 h-5 text-slate-300 group-hover:text-blue-400 transform rotate-180 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-        </a>
+  .home-action-tile:hover,
+  .home-stat-card:hover {
+    border-color: rgba(20, 90, 106, 0.28);
+    transform: translateY(-1px);
+  }
 
-        <a href="{% url 'dashboard:screen_list' %}" class="dashboard-action-card group flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-100 hover:shadow-md transition-all duration-200">
-            <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-            </div>
-            <div class="flex-1 min-w-0">
-                <h3 class="text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">إدارة الشاشات</h3>
-                <p class="text-[11px] text-slate-400 mt-0.5">أضف شاشات جديدة واربط الأجهزة وتحكم بالعرض</p>
-            </div>
-            <svg class="w-5 h-5 text-slate-300 group-hover:text-indigo-400 transform rotate-180 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-        </a>
-    </div>
-</div>
+  .home-action-icon {
+    width: 2.65rem;
+    height: 2.65rem;
+    border-radius: 10px;
+    background: rgba(20, 90, 106, 0.08);
+    color: var(--home-teal);
+  }
 
+  .home-action-tile.is-warm .home-action-icon {
+    background: rgba(180, 139, 87, 0.12);
+    color: #94672d;
+  }
+
+  .home-action-tile.is-red .home-action-icon {
+    background: rgba(180, 83, 79, 0.1);
+    color: var(--home-red);
+  }
+
+  .home-action-tile.is-green .home-action-icon {
+    background: rgba(15, 118, 110, 0.1);
+    color: var(--home-green);
+  }
+
+  .home-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .home-stat-card {
+    position: relative;
+    min-height: 7.25rem;
+    padding: 0.95rem;
+    overflow: hidden;
+  }
+
+  .home-stat-card::after {
+    content: "";
+    position: absolute;
+    inset-inline-end: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--home-teal);
+    opacity: 0.82;
+  }
+
+  .home-stat-card.is-warm::after { background: var(--home-warm); }
+  .home-stat-card.is-red::after { background: var(--home-red); }
+  .home-stat-card.is-green::after { background: var(--home-green); }
+
+  .home-stat-icon {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 10px;
+    background: rgba(20, 90, 106, 0.08);
+    color: var(--home-teal);
+  }
+
+  .home-stat-card.is-warm .home-stat-icon {
+    background: rgba(180, 139, 87, 0.12);
+    color: #94672d;
+  }
+
+  .home-stat-card.is-red .home-stat-icon {
+    background: rgba(180, 83, 79, 0.1);
+    color: var(--home-red);
+  }
+
+  .home-stat-card.is-green .home-stat-icon {
+    background: rgba(15, 118, 110, 0.1);
+    color: var(--home-green);
+  }
+
+  .home-two-col {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(19rem, 0.72fr);
+    gap: 0.9rem;
+  }
+
+  .home-section {
+    padding: 1rem;
+  }
+
+  .home-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .home-timeline-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 4.25rem;
+    padding: 0.8rem;
+    box-shadow: none;
+  }
+
+  .home-dot-icon {
+    width: 2.3rem;
+    height: 2.3rem;
+    border-radius: 10px;
+    background: rgba(20, 90, 106, 0.08);
+    color: var(--home-teal);
+  }
+
+  .home-small-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 2.25rem;
+    border-radius: 10px;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid rgba(20, 90, 106, 0.16);
+    background: rgba(20, 90, 106, 0.05);
+    color: var(--home-teal);
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .home-text-muted {
+    color: var(--home-muted);
+  }
+
+  @media (max-width: 1023px) {
+    .home-status-band,
+    .home-two-col {
+      grid-template-columns: 1fr;
+    }
+
+    .home-quick-grid,
+    .home-stats-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 640px) {
+    .home-command-center {
+      margin-inline: -0.1rem;
+    }
+
+    .home-status-main {
+      align-items: flex-start;
+    }
+
+    .home-status-icon {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+
+    .home-live-row,
+    .home-quick-grid,
+    .home-stats-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .home-section-header {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+</style>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-  (function () {
-    const clockEl = document.getElementById("adminClock");
-    const dateEl = document.getElementById("adminDate");
-    function update() {
-      const now = new Date();
-      const h = now.getHours().toString().padStart(2, "0");
-      const m = now.getMinutes().toString().padStart(2, "0");
-      if (clockEl) {
-        const sep = now.getSeconds() % 2 === 0 ? ':' : '<span class="opacity-40">:</span>';
-        clockEl.innerHTML = h + sep + m;
-      }
-      if (dateEl) {
-        dateEl.textContent = now.toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-      }
-    }
-    update();
-    setInterval(update, 1000);
-  })();
-</script>
+{% block content %}
+<div class="home-command-center space-y-4 md:space-y-5">
+
+  <section class="home-status-band">
+    <div class="home-status-main">
+      <div class="home-status-icon">
+        <i class="fa-solid fa-gauge-high text-xl"></i>
+      </div>
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+          <span class="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-extrabold text-emerald-700 border border-emerald-100">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+            نظام العرض جاهز
+          </span>
+          <span class="rounded-lg bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-500 border border-slate-100">
+            {{ today_weekday_label }}، {{ today|date:"Y-m-d" }}
+          </span>
+        </div>
+        <h2 class="text-xl md:text-2xl font-black text-slate-900 leading-tight">
+          {% if settings %}{{ settings.name }}{% else %}لوحة المدرسة{% endif %}
+        </h2>
+        <p class="mt-1 text-sm home-text-muted leading-relaxed">
+          {% if current_state.type == "period" %}
+            الحصة {{ current_state.period_index }} جارية الآن حتى {{ current_state.to }}.
+          {% elif current_state.type == "break" %}
+            {{ current_state.label|default:"فسحة" }} جارية الآن حتى {{ current_state.to }}.
+          {% elif current_state.reason == "before_hours" %}
+            اليوم الدراسي لم يبدأ بعد، أول نشاط عند {{ current_state.from }}.
+          {% elif current_state.reason == "after_hours" %}
+            انتهى اليوم الدراسي، والشاشات تنتظر اليوم التالي.
+          {% elif current_state.reason == "holiday" %}
+            اليوم غير مفعل كدوام دراسي.
+          {% else %}
+            يمكنك متابعة الجداول والمحتوى والشاشات من هذه الصفحة.
+          {% endif %}
+        </p>
+      </div>
+    </div>
+
+    <div class="home-live-row">
+      <div class="home-live-pill">
+        <div class="text-[11px] font-bold home-text-muted">الشاشات الحية</div>
+        <strong class="block mt-2 text-2xl font-black">{{ stats.live_screens_count|default:"0" }}</strong>
+      </div>
+      <div class="home-live-pill">
+        <div class="text-[11px] font-bold home-text-muted">الشاشات النشطة</div>
+        <strong class="block mt-2 text-2xl font-black">{{ stats.active_screens_count|default:"0" }}</strong>
+      </div>
+      <div class="home-live-pill">
+        <div class="text-[11px] font-bold home-text-muted">نسخة الجدول</div>
+        <strong class="block mt-2 text-2xl font-black">{{ schedule_revision|default:"0" }}</strong>
+      </div>
+    </div>
+  </section>
+
+  <nav class="home-quick-grid" aria-label="إجراءات سريعة">
+    <a href="{% url 'dashboard:timetable_day' %}" class="home-action-tile">
+      <span class="home-action-icon"><i class="fa-solid fa-table-cells-large"></i></span>
+      <span class="min-w-0">
+        <strong class="block text-sm font-extrabold text-slate-800">جدول الحصص</strong>
+        <small class="block mt-1 text-[11px] home-text-muted">تعديل حصة أو معلم</small>
+      </span>
+    </a>
+
+    <a href="{% url 'dashboard:standby_create' %}?date={{ today|date:'Y-m-d' }}" class="home-action-tile is-warm">
+      <span class="home-action-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+      <span class="min-w-0">
+        <strong class="block text-sm font-extrabold text-slate-800">إضافة انتظار</strong>
+        <small class="block mt-1 text-[11px] home-text-muted">لليوم الحالي</small>
+      </span>
+    </a>
+
+    <a href="{% url 'dashboard:ann_create' %}" class="home-action-tile is-red">
+      <span class="home-action-icon"><i class="fa-solid fa-bullhorn"></i></span>
+      <span class="min-w-0">
+        <strong class="block text-sm font-extrabold text-slate-800">تنبيه جديد</strong>
+        <small class="block mt-1 text-[11px] home-text-muted">يعرض على الشاشة</small>
+      </span>
+    </a>
+
+    <a href="{% url 'dashboard:screen_list' %}" class="home-action-tile is-green">
+      <span class="home-action-icon"><i class="fa-solid fa-display"></i></span>
+      <span class="min-w-0">
+        <strong class="block text-sm font-extrabold text-slate-800">الشاشات</strong>
+        <small class="block mt-1 text-[11px] home-text-muted">ربط ومتابعة</small>
+      </span>
+    </a>
+  </nav>
+
+  <section class="home-stats-grid">
+    <a href="{% url 'dashboard:standby_list' %}" class="home-stat-card is-warm">
+      <div class="flex items-start justify-between gap-3">
+        <span class="home-stat-icon"><i class="fa-solid fa-user-clock"></i></span>
+        <span class="home-stat-value text-3xl font-black">{{ stats.standby_today|default:"0" }}</span>
+      </div>
+      <h3 class="mt-4 text-sm font-extrabold text-slate-800">حصص الانتظار اليوم</h3>
+      <p class="mt-1 text-[11px] home-text-muted">تظهر في شاشة العرض حسب الحصة الحالية</p>
+    </a>
+
+    <a href="{% url 'dashboard:ann_list' %}" class="home-stat-card is-red">
+      <div class="flex items-start justify-between gap-3">
+        <span class="home-stat-icon"><i class="fa-solid fa-bell"></i></span>
+        <span class="home-stat-value text-3xl font-black">{{ stats.ann_count|default:"0" }}</span>
+      </div>
+      <h3 class="mt-4 text-sm font-extrabold text-slate-800">التنبيهات</h3>
+      <p class="mt-1 text-[11px] home-text-muted">رسائل وإعلانات لوحة العرض</p>
+    </a>
+
+    <a href="{% url 'dashboard:exc_list' %}" class="home-stat-card">
+      <div class="flex items-start justify-between gap-3">
+        <span class="home-stat-icon"><i class="fa-solid fa-star"></i></span>
+        <span class="home-stat-value text-3xl font-black">{{ stats.exc_count|default:"0" }}</span>
+      </div>
+      <h3 class="mt-4 text-sm font-extrabold text-slate-800">بطاقات التميز</h3>
+      <p class="mt-1 text-[11px] home-text-muted">تكريم يظهر ضمن شاشة المدرسة</p>
+    </a>
+
+    <a href="{% url 'dashboard:screen_list' %}" class="home-stat-card is-green">
+      <div class="flex items-start justify-between gap-3">
+        <span class="home-stat-icon"><i class="fa-solid fa-tv"></i></span>
+        <span class="home-stat-value text-3xl font-black">{{ stats.screens_count|default:"0" }}</span>
+      </div>
+      <h3 class="mt-4 text-sm font-extrabold text-slate-800">إجمالي الشاشات</h3>
+      <p class="mt-1 text-[11px] home-text-muted">المسجلة لهذه المدرسة</p>
+    </a>
+  </section>
+
+  <div class="home-two-col">
+    <section class="home-section">
+      <div class="home-section-header">
+        <div>
+          <h3 class="text-base font-black text-slate-900">حالة اليوم</h3>
+          <p class="mt-1 text-xs home-text-muted">ما تعرضه شاشة المدرسة الآن وما يليها</p>
+        </div>
+        <a href="{% url 'dashboard:days_list' %}" class="home-small-link">
+          <i class="fa-solid fa-calendar-days"></i>
+          الأيام
+        </a>
+      </div>
+
+      <div class="space-y-2.5">
+        <div class="home-timeline-row">
+          <span class="home-dot-icon"><i class="fa-solid fa-location-crosshairs"></i></span>
+          <div class="min-w-0 flex-1">
+            <div class="text-[11px] font-bold home-text-muted">الحالة الحالية</div>
+            <div class="mt-1 text-sm font-extrabold text-slate-800">
+              {% if current_state.type == "period" %}
+                الحصة {{ current_state.period_index }}
+              {% elif current_state.type == "break" %}
+                {{ current_state.label|default:"فسحة" }}
+              {% else %}
+                {{ current_state.label|default:"لا توجد حصة جارية" }}
+              {% endif %}
+            </div>
+          </div>
+          <div class="text-left rtl:text-left">
+            <div class="text-xs font-black text-slate-800">
+              {% if current_state.from and current_state.to %}{{ current_state.from }} - {{ current_state.to }}{% else %}--{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="home-timeline-row">
+          <span class="home-dot-icon"><i class="fa-solid fa-forward-step"></i></span>
+          <div class="min-w-0 flex-1">
+            <div class="text-[11px] font-bold home-text-muted">التالي</div>
+            <div class="mt-1 text-sm font-extrabold text-slate-800">
+              {% if next_period %}
+                {% if next_period.kind == "period" %}الحصة {{ next_period.index }}{% else %}{{ next_period.label|default:"فسحة" }}{% endif %}
+              {% else %}
+                لا يوجد نشاط تالٍ
+              {% endif %}
+            </div>
+          </div>
+          <div class="text-left rtl:text-left">
+            <div class="text-xs font-black text-slate-800">
+              {% if next_period and next_period.from and next_period.to %}{{ next_period.from }} - {{ next_period.to }}{% else %}--{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="home-section">
+      <div class="home-section-header">
+        <div>
+          <h3 class="text-base font-black text-slate-900">جاهزية التشغيل</h3>
+          <p class="mt-1 text-xs home-text-muted">مختصر الإعدادات المؤثرة على العرض</p>
+        </div>
+        <a href="{% url 'dashboard:settings' %}" class="home-small-link">
+          <i class="fa-solid fa-sliders"></i>
+          الإعدادات
+        </a>
+      </div>
+
+      <div class="space-y-2.5">
+        <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
+          <span class="text-xs font-bold home-text-muted">اليوم المستخدم</span>
+          <strong class="text-sm font-black text-slate-800">{{ today_weekday_label|default:"غير محدد" }}</strong>
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
+          <span class="text-xs font-bold home-text-muted">نافذة الدوام</span>
+          <strong class="text-sm font-black text-slate-800">
+            {% if day_snapshot.meta.is_active_window %}داخل الدوام{% else %}خارج الدوام{% endif %}
+          </strong>
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
+          <span class="text-xs font-bold home-text-muted">الاشتراك</span>
+          <strong class="text-sm font-black text-slate-800">
+            {% if subscription and subscription.is_active %}نشط{% elif subscription %}غير نشط{% else %}غير مسجل{% endif %}
+          </strong>
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
+          <span class="text-xs font-bold home-text-muted">التحديث التلقائي</span>
+          <strong class="text-sm font-black text-emerald-700">مفعل</strong>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
 {% endblock %}

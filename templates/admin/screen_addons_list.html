@@ -1,6 +1,9 @@
-{% extends "dashboard/_base.html" %}
+{% extends "admin/admin_base.html" %}
 
 {% block title %}زيادات الشاشات{% endblock %}
+{% block page_icon %}tv{% endblock %}
+{% block page_title %}زيادات الشاشات{% endblock %}
+{% block page_description %}إدارة الشاشات الإضافية فوق حد الباقة ومتابعة حالتها المالية.{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
@@ -51,19 +54,19 @@
       </form>
 
       <div class="flex items-center gap-2">
-        <a href="?status=paid{% if q %}&q={{ q }}{% endif %}"
+        <a href="?status=paid{% if q %}&q={{ q|urlencode }}{% endif %}"
            class="px-4 py-2 rounded-lg text-xs font-medium transition-colors
                   {% if status == 'paid' %}bg-emerald-100 text-emerald-700 border border-emerald-200
                   {% else %}text-slate-600 hover:bg-slate-100{% endif %}">
           المدفوعة
         </a>
-        <a href="?status=pending{% if q %}&q={{ q }}{% endif %}"
+        <a href="?status=pending{% if q %}&q={{ q|urlencode }}{% endif %}"
            class="px-4 py-2 rounded-lg text-xs font-medium transition-colors
                   {% if status == 'pending' %}bg-amber-100 text-amber-800 border border-amber-200
                   {% else %}text-slate-600 hover:bg-slate-100{% endif %}">
           بانتظار الدفع
         </a>
-        <a href="?{% if q %}q={{ q }}{% endif %}"
+        <a href="?{% if q %}q={{ q|urlencode }}{% endif %}"
            class="px-4 py-2 rounded-lg text-xs font-medium transition-colors
                   {% if not status %}bg-slate-100 text-slate-700 border border-slate-200
                   {% else %}text-slate-600 hover:bg-slate-100{% endif %}">
@@ -144,10 +147,10 @@
       <div class="text-slate-500">صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</div>
       <div class="flex items-center gap-2">
         {% if page_obj.has_previous %}
-          <a class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if status %}&status={{ status }}{% endif %}">السابق</a>
+          <a class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if status %}&status={{ status }}{% endif %}">السابق</a>
         {% endif %}
         {% if page_obj.has_next %}
-          <a class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if status %}&status={{ status }}{% endif %}">التالي</a>
+          <a class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if status %}&status={{ status }}{% endif %}">التالي</a>
         {% endif %}
       </div>
     </div>

@@ -1,190 +1,468 @@
 {% extends "dashboard/_base.html" %}
-{% load static %}
 
 {% block title %}الإشراف والمناوبة{% endblock %}
 {% block page_title %}الإشراف والمناوبة{% endblock %}
 {% block page_description %}إدارة تكليفات الإشراف والمناوبة{% endblock %}
 
+{% block extra_css %}
+<style>
+  .duty-page {
+    --duty-accent: #145a6a;
+    --duty-accent-dark: #123b4a;
+    --duty-warm: #b48b57;
+    --duty-border: rgba(124, 116, 102, 0.16);
+    --duty-muted: #5f6d78;
+  }
+
+  .duty-card,
+  .duty-command,
+  .duty-stat,
+  .duty-table-shell {
+    border: 1px solid var(--duty-border);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
+  }
+
+  .duty-command {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .duty-command-copy {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    min-width: 0;
+  }
+
+  .duty-icon,
+  .duty-stat-icon,
+  .duty-action-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+
+  .duty-icon {
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 10px;
+    background: rgba(20, 90, 106, 0.09);
+    color: var(--duty-accent);
+  }
+
+  .duty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .duty-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 2.45rem;
+    border-radius: 10px;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 900;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  }
+
+  .duty-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .duty-btn-primary {
+    border: 1px solid var(--duty-accent-dark);
+    background: var(--duty-accent-dark);
+    color: #fffaf3;
+  }
+
+  .duty-btn-soft {
+    border: 1px solid rgba(20, 90, 106, 0.18);
+    background: rgba(20, 90, 106, 0.06);
+    color: var(--duty-accent-dark);
+  }
+
+  .duty-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.8rem;
+    padding: 1rem;
+  }
+
+  .duty-field {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .duty-field input[type="date"],
+  .duty-field input[type="number"] {
+    direction: ltr !important;
+    unicode-bidi: isolate !important;
+    text-align: left !important;
+  }
+
+  .duty-field input[type="date"]::-webkit-datetime-edit,
+  .duty-field input[type="date"]::-webkit-date-and-time-value {
+    direction: ltr !important;
+    unicode-bidi: isolate !important;
+    text-align: left !important;
+  }
+
+  .duty-field label,
+  .duty-check label {
+    color: var(--duty-muted);
+    font-size: 0.74rem;
+    font-weight: 800;
+  }
+
+  .duty-check {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.7rem;
+    border: 1px solid rgba(124, 116, 102, 0.14);
+    border-radius: 10px;
+    background: #fbfcfd;
+    padding: 0.65rem 0.8rem;
+  }
+
+  .duty-stats {
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .duty-stat {
+    position: relative;
+    overflow: hidden;
+    min-height: 5.7rem;
+    padding: 0.9rem;
+  }
+
+  .duty-stat::after {
+    content: "";
+    position: absolute;
+    inset-inline-end: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--duty-accent);
+  }
+
+  .duty-stat.is-warm::after {
+    background: var(--duty-warm);
+  }
+
+  .duty-stat.is-soft::after {
+    background: #64748b;
+  }
+
+  .duty-stat-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+  }
+
+  .duty-stat-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9px;
+    background: rgba(20, 90, 106, 0.08);
+    color: var(--duty-accent);
+  }
+
+  .duty-table-shell {
+    overflow: hidden;
+  }
+
+  .duty-table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-bottom: 1px solid rgba(124, 116, 102, 0.12);
+    padding: 1rem;
+  }
+
+  .duty-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    padding: 0.28rem 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .duty-pill-supervision {
+    background: rgba(16, 185, 129, 0.1);
+    color: #047857;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
+
+  .duty-pill-duty {
+    background: rgba(180, 139, 87, 0.14);
+    color: #835723;
+    border: 1px solid rgba(180, 139, 87, 0.2);
+  }
+
+  .duty-pill-muted {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid rgba(100, 116, 139, 0.14);
+  }
+
+  .duty-action-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 10px;
+    border: 1px solid rgba(124, 116, 102, 0.14);
+    background: #fff;
+    color: var(--duty-accent);
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  }
+
+  .duty-action-icon:hover {
+    border-color: rgba(20, 90, 106, 0.24);
+    background: rgba(20, 90, 106, 0.06);
+  }
+
+  .duty-action-icon.is-danger {
+    color: #e11d48;
+  }
+
+  .duty-action-icon.is-danger:hover {
+    border-color: rgba(225, 29, 72, 0.24);
+    background: rgba(255, 241, 242, 0.9);
+  }
+
+  .duty-empty {
+    padding: 3rem 1rem;
+    text-align: center;
+  }
+
+  .duty-pagination {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border-top: 1px solid rgba(124, 116, 102, 0.12);
+    background: #fbfcfd;
+    padding: 0.85rem 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .duty-command {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+    }
+
+    .duty-filters {
+      grid-template-columns: minmax(12rem, 16rem) minmax(12rem, auto) auto;
+      align-items: end;
+    }
+
+    .duty-stats {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .duty-pagination {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .duty-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .duty-btn {
+      width: 100%;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-7xl mx-auto">
-    <div class="mb-6">
-        <div class="flex items-center justify-end mb-5">
-            <a href="{% url 'dashboard:duty_create' %}?date={{ selected_date|date:'Y-m-d' }}"
-               class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                <span>إضافة تكليف</span>
-            </a>
-        </div>
+<div class="duty-page mx-auto space-y-5">
+  <section class="duty-command">
+    <div class="duty-command-copy">
+      <span class="duty-icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>
+      <div class="min-w-0">
+        <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-400">لوحة اليوم</div>
+        <h3 class="mt-1 text-base font-black text-slate-900">تكليفات الإشراف والمناوبة</h3>
+        <p class="mt-1 text-sm leading-6 text-slate-500">اختر التاريخ، راجع التكليفات النشطة، ثم أضف أو عدّل ما يظهر في شاشة العرض.</p>
+      </div>
+    </div>
+    <div class="duty-actions">
+      <a href="{% url 'dashboard:duty_create' %}?date={{ selected_date|date:'Y-m-d' }}" class="duty-btn duty-btn-primary">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+        <span>إضافة تكليف</span>
+      </a>
+    </div>
+  </section>
 
-        <!-- فلاتر -->
-        <form method="get" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-            <div class="flex flex-col md:flex-row md:items-end gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">التاريخ</label>
-                    <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}"
-                           class="px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
-                </div>
+  <form method="get" class="duty-card duty-filters">
+    <div class="duty-field">
+      <label for="duty-date-filter">التاريخ</label>
+      <input id="duty-date-filter" type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" dir="ltr" lang="en">
+    </div>
+    <div class="duty-check">
+      <input id="all" name="all" type="checkbox" value="1" {% if include_inactive %}checked{% endif %}>
+      <label for="all">عرض غير النشط</label>
+    </div>
+    <button type="submit" class="duty-btn duty-btn-soft">
+      <i class="fa-solid fa-filter" aria-hidden="true"></i>
+      <span>تطبيق الفلتر</span>
+    </button>
+  </form>
+
+  <section class="duty-stats" aria-label="ملخص التكليفات">
+    <div class="duty-stat">
+      <div class="duty-stat-top">
+        <dt class="text-xs font-bold text-slate-500">إجمالي التكليفات</dt>
+        <span class="duty-stat-icon" aria-hidden="true"><i class="fa-solid fa-clipboard-list"></i></span>
+      </div>
+      <dd class="mt-3 font-mono text-3xl font-black text-slate-900" dir="ltr">{{ total_count }}</dd>
+    </div>
+    <div class="duty-stat">
+      <div class="duty-stat-top">
+        <dt class="text-xs font-bold text-slate-500">النشط</dt>
+        <span class="duty-stat-icon" aria-hidden="true"><i class="fa-solid fa-circle-check"></i></span>
+      </div>
+      <dd class="mt-3 font-mono text-3xl font-black text-slate-900" dir="ltr">{{ active_count }}</dd>
+    </div>
+    <div class="duty-stat is-warm">
+      <div class="duty-stat-top">
+        <dt class="text-xs font-bold text-slate-500">في هذه الصفحة</dt>
+        <span class="duty-stat-icon" aria-hidden="true"><i class="fa-solid fa-table-list"></i></span>
+      </div>
+      <dd class="mt-3 font-mono text-3xl font-black text-slate-900" dir="ltr">{{ page.object_list|length }}</dd>
+    </div>
+  </section>
+
+  <section class="duty-table-shell">
+    <div class="duty-table-header">
+      <div>
+        <h3 class="text-sm font-black text-slate-900">قائمة التكليفات</h3>
+        <p class="mt-1 text-xs text-slate-500">{{ selected_date|date:"j F Y" }}</p>
+      </div>
+      {% if include_inactive %}
+        <span class="duty-pill duty-pill-muted">يشمل غير النشط</span>
+      {% else %}
+        <span class="duty-pill duty-pill-supervision">النشط فقط</span>
+      {% endif %}
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600">
+          <tr>
+            <th class="p-4 text-right font-bold border-b border-slate-200">التاريخ</th>
+            <th class="p-4 text-right font-bold border-b border-slate-200">النوع</th>
+            <th class="p-4 text-right font-bold border-b border-slate-200">المعلم/ـة</th>
+            <th class="p-4 text-right font-bold border-b border-slate-200">المكان</th>
+            <th class="p-4 text-right font-bold border-b border-slate-200">الترتيب</th>
+            <th class="p-4 text-right font-bold border-b border-slate-200">الحالة</th>
+            <th class="p-4 text-right font-bold border-b border-slate-200">إجراءات</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for d in page.object_list %}
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="p-4 whitespace-nowrap text-slate-700">
+                {% now "Y-m-d" as today_str %}
+                {% if d.date %}
+                  {% if d.date|date:"Y-m-d" == today_str %}
+                    <span class="duty-pill duty-pill-supervision ml-2">اليوم</span>
+                  {% endif %}
+                  {{ d.date|date:"j F Y" }}
+                {% else %}
+                  <span class="text-slate-400">-</span>
+                {% endif %}
+              </td>
+              <td class="p-4">
+                {% if d.duty_type == 'supervision' %}
+                  <span class="duty-pill duty-pill-supervision">إشراف</span>
+                {% else %}
+                  <span class="duty-pill duty-pill-duty">مناوبة</span>
+                {% endif %}
+              </td>
+              <td class="p-4 font-black text-slate-900">{{ d.teacher_name|default:"-" }}</td>
+              <td class="p-4 text-slate-600">{{ d.location|default:"-" }}</td>
+              <td class="p-4 font-mono font-black text-slate-800" dir="ltr">{{ d.priority }}</td>
+              <td class="p-4">
+                {% if d.is_active %}
+                  <span class="duty-pill duty-pill-supervision">نشط</span>
+                {% else %}
+                  <span class="duty-pill duty-pill-muted">غير نشط</span>
+                {% endif %}
+              </td>
+              <td class="p-4">
                 <div class="flex items-center gap-2">
-                    <input id="all" name="all" type="checkbox" value="1" {% if include_inactive %}checked{% endif %}
-                           class="w-4 h-4 text-emerald-600 border-slate-300 rounded" />
-                    <label for="all" class="text-sm text-slate-700">عرض غير النشط</label>
-                </div>
-                <div class="md:mr-auto">
-                    <button type="submit"
-                            class="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-all duration-200">
-                        تطبيق
+                  <a href="{% url 'dashboard:duty_edit' d.pk %}" class="duty-action-icon" title="تعديل" aria-label="تعديل">
+                    <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+                  </a>
+                  <form method="post" action="{% url 'dashboard:duty_delete' d.pk %}" onsubmit="return confirmDelete('{{ d.teacher_name }}', '{{ d.get_duty_type_display }}');" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="duty-action-icon is-danger" title="حذف" aria-label="حذف">
+                      <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
                     </button>
+                  </form>
                 </div>
-            </div>
-        </form>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-5">
-            <div class="bg-white rounded-2xl border border-slate-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m2 9H7a2 2 0 01-2-2V5a2 2 0 012-2h5l5 5v11a2 2 0 01-2 2z"></path></svg></div>
-                    <div><p class="text-[11px] text-slate-400 font-bold">إجمالي التكليفات</p><p class="text-lg font-black text-slate-800">{{ total_count }}</p></div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="duty-empty">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                  <i class="fa-solid fa-shield-halved text-2xl" aria-hidden="true"></i>
                 </div>
-            </div>
-            <div class="bg-white rounded-2xl border border-slate-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center"><svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
-                    <div><p class="text-[11px] text-slate-400 font-bold">النشط</p><p class="text-lg font-black text-emerald-600">{{ active_count }}</p></div>
-                </div>
-            </div>
-            <div class="bg-white rounded-2xl border border-slate-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center"><svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg></div>
-                    <div><p class="text-[11px] text-slate-400 font-bold">في هذه الصفحة</p><p class="text-lg font-black text-indigo-600">{{ page.object_list|length }}</p></div>
-                </div>
-            </div>
-        </div>
+                <h4 class="text-lg font-black text-slate-800">لا توجد تكليفات</h4>
+                <p class="mt-1 text-sm text-slate-500">لم يتم إضافة أي تكليف إشراف أو مناوبة لهذا التاريخ.</p>
+                <a href="{% url 'dashboard:duty_create' %}?date={{ selected_date|date:'Y-m-d' }}" class="duty-btn duty-btn-primary mt-5">
+                  <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                  <span>إضافة أول تكليف</span>
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
 
-    <!-- الجدول -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="text-sm font-bold text-slate-700">قائمة التكليفات</h3>
-            <span class="text-xs text-slate-400">{{ selected_date|date:"j F Y" }}</span>
+    {% if page.paginator.num_pages > 1 %}
+      <div class="duty-pagination">
+        <div class="text-sm font-bold text-slate-600">الصفحة {{ page.number }} من {{ page.paginator.num_pages }}</div>
+        <div class="flex items-center gap-2">
+          {% if page.has_previous %}
+            <a href="?page={{ page.previous_page_number }}&date={{ selected_date|date:'Y-m-d' }}{% if include_inactive %}&all=1{% endif %}" class="duty-btn duty-btn-soft">السابق</a>
+          {% endif %}
+          {% if page.has_next %}
+            <a href="?page={{ page.next_page_number }}&date={{ selected_date|date:'Y-m-d' }}{% if include_inactive %}&all=1{% endif %}" class="duty-btn duty-btn-soft">التالي</a>
+          {% endif %}
         </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50 text-slate-600">
-                    <tr>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">التاريخ</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">النوع</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">اسم المعلم/ـة</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">المكان</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">الترتيب</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">الحالة</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">إجراءات</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-200">
-                    {% for d in page.object_list %}
-                    <tr class="hover:bg-slate-50 transition-all duration-200 group">
-                        <td class="p-4 text-slate-700 font-medium whitespace-nowrap">
-                            {% now "Y-m-d" as today_str %}
-                            {% if d.date %}
-                                {% if d.date|date:"Y-m-d" == today_str %}
-                                    <span class="inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 ml-2">اليوم</span>
-                                {% endif %}
-                                {{ d.date|date:"j F Y" }}
-                            {% else %}
-                                <span class="text-slate-400">-</span>
-                            {% endif %}
-                        </td>
-                        <td class="p-4">
-                            {% if d.duty_type == 'supervision' %}
-                                <span class="inline-flex px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">إشراف</span>
-                            {% else %}
-                                <span class="inline-flex px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">مناوبة</span>
-                            {% endif %}
-                        </td>
-                        <td class="p-4 font-semibold text-slate-800">{{ d.teacher_name }}</td>
-                        <td class="p-4 text-slate-600">
-                            {% if d.location %}{{ d.location }}{% else %}<span class="text-slate-400">-</span>{% endif %}
-                        </td>
-                        <td class="p-4 text-slate-700 font-mono">{{ d.priority }}</td>
-                        <td class="p-4">
-                            {% if d.is_active %}
-                                <span class="inline-flex px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">نشط</span>
-                            {% else %}
-                                <span class="inline-flex px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">غير نشط</span>
-                            {% endif %}
-                        </td>
-                        <td class="p-4">
-                            <div class="flex items-center space-x-3 space-x-reverse opacity-80 group-hover:opacity-100 transition-opacity duration-200">
-                                <a href="{% url 'dashboard:duty_edit' d.pk %}" class="text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center space-x-1 space-x-reverse">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                    </svg>
-                                    <span>تعديل</span>
-                                </a>
-                                <form method="post" action="{% url 'dashboard:duty_delete' d.pk %}" onsubmit="return confirmDelete('{{ d.teacher_name }}', '{{ d.get_duty_type_display }}');" class="inline">
-                                    {% csrf_token %}
-                                    <button type="submit" class="text-rose-600 hover:text-rose-800 font-medium text-sm flex items-center space-x-1 space-x-reverse">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                        </svg>
-                                        <span>حذف</span>
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="p-10 text-center text-slate-500">
-                            <div class="flex flex-col items-center justify-center space-y-3">
-                                <div class="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-                                    <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m2 9H7a2 2 0 01-2-2V5a2 2 0 012-2h5l5 5v11a2 2 0 01-2 2z"></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h4 class="text-lg font-semibold text-slate-700 mb-1">لا توجد تكليفات</h4>
-                                    <p class="text-slate-500">لم يتم إضافة أي تكليف إشراف/مناوبة لهذا التاريخ</p>
-                                </div>
-                                <a href="{% url 'dashboard:duty_create' %}?date={{ selected_date|date:'Y-m-d' }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-all duration-200">
-                                    <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                    </svg>
-                                    إضافة أول تكليف
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        {% if page.paginator.num_pages > 1 %}
-        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50">
-            <div class="flex items-center justify-between">
-                <div class="text-sm text-slate-600">
-                    الصفحة {{ page.number }} من {{ page.paginator.num_pages }}
-                </div>
-                <div class="flex items-center space-x-2 space-x-reverse">
-                    {% if page.has_previous %}
-                        <a href="?page={{ page.previous_page_number }}&date={{ selected_date|date:'Y-m-d' }}{% if include_inactive %}&all=1{% endif %}"
-                           class="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium rounded-xl transition-all duration-200">السابق</a>
-                    {% endif %}
-                    {% if page.has_next %}
-                        <a href="?page={{ page.next_page_number }}&date={{ selected_date|date:'Y-m-d' }}{% if include_inactive %}&all=1{% endif %}"
-                           class="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium rounded-xl transition-all duration-200">التالي</a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        {% endif %}
-    </div>
+      </div>
+    {% endif %}
+  </section>
 </div>
 
 <script>
 function confirmDelete(teacherName, dutyLabel) {
-    return confirm(`هل أنت متأكد من حذف هذا التكليف؟\n${teacherName} — ${dutyLabel}`);
+  return confirm(`هل أنت متأكد من حذف هذا التكليف؟\n${teacherName} — ${dutyLabel}`);
 }
 </script>
 {% endblock %}

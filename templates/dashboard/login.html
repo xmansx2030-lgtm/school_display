@@ -103,7 +103,7 @@
             <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
           </div>
           <h1 class="text-2xl font-black text-slate-800 mb-1">تسجيل الدخول</h1>
-          <p class="text-sm text-slate-500">ادخل إلى لوحة المدرسة لإدارة المحتوى والجداول والشاشات.</p>
+          <p class="text-sm text-slate-500">ادخل إلى لوحة المدرسة بإسم المستخدم أو رقم الجوال المسجل.</p>
         </div>
 
         {% if messages %}
@@ -131,8 +131,8 @@
           {% endif %}
 
           <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1.5 mr-1">اسم المستخدم</label>
-            <input class="input-field" type="text" name="username" autocomplete="username" placeholder="اكتب اسم المستخدم" required>
+            <label class="block text-xs font-bold text-slate-600 mb-1.5 mr-1">اسم المستخدم أو رقم الجوال</label>
+            <input class="input-field" type="text" name="username" autocomplete="username" placeholder="مثال: trial_501234567 أو 05XXXXXXXX" inputmode="text" required>
           </div>
 
           <div>
@@ -150,7 +150,7 @@
 
         <div class="mt-6 grid gap-4 border-t border-slate-100 pt-5 fade-up fade-up-d2">
           <div class="rounded-2xl border border-slate-100 bg-white/70 px-4 py-3 text-xs leading-7 text-slate-500">
-            تستخدم هذه الواجهة لإدارة المدرسة فقط. إذا واجهت مشكلة في الدخول أو الجلسة، أعد المحاولة أو تواصل مع الدعم الفني من داخل المنصة.
+            لحسابات التجربة المجانية يمكنك الدخول برقم الجوال الذي سجلت به وكلمة المرور التي اخترتها.
           </div>
 
           <a href="/" class="text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors inline-flex items-center justify-center gap-1 lg:justify-start">

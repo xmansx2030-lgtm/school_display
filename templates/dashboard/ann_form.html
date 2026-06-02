@@ -1,381 +1,558 @@
 {% extends "dashboard/_base.html" %}
-{% load static %}
 
 {% block title %}{{ title }}{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_description %}{% if form.instance.pk %}تعديل التنبيه "{{ form.instance.title }}"{% else %}إنشاء تنبيه جديد{% endif %}{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto">
+<div class="max-w-6xl mx-auto pb-8 md:pb-12">
+  <section class="ann-form-intro mb-4">
+    <div>
+      <h2>{% if form.instance.pk %}تعديل بيانات التنبيه{% else %}تنبيه جديد لشاشات العرض{% endif %}</h2>
+      <p>اكتب نصًا قصيرًا وحدد فترة الظهور. التغييرات تنعكس على شاشات العرض بعد الحفظ.</p>
+    </div>
+    <a href="{% url 'dashboard:ann_list' %}" class="ann-form-secondary">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      <span>رجوع للقائمة</span>
+    </a>
+  </section>
 
-    <!-- نموذج التنبيه -->
-    <form method="post" class="dashboard-form-shell bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        {% csrf_token %}
-        
-        <div class="dashboard-form-header bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                        </svg>
-                    </div>
-                    <div>
-                        <h2 class="text-base font-bold text-white">بيانات التنبيه</h2>
-                        <p class="text-indigo-200 text-xs">املأ البيانات المطلوبة</p>
-                    </div>
-                </div>
-                <span class="text-xs font-bold text-indigo-200 bg-white/15 px-3 py-1 rounded-full">{% if form.instance.pk %}تعديل{% else %}جديد{% endif %}</span>
-            </div>
+  <form method="post" class="ann-form-shell">
+    {% csrf_token %}
+    <div class="ann-form-main">
+      <section class="ann-form-card">
+        <div class="ann-form-card-heading">
+          <h3>محتوى التنبيه</h3>
+          <p>هذه البيانات تظهر للمشاهد على شاشة العرض.</p>
         </div>
 
-        <!-- محتوى النموذج -->
-        <div class="p-6 space-y-6">
-            <!-- العنوان والمستوى -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- حقل العنوان -->
-                <div class="space-y-2">
-                    <label for="{{ form.title.id_for_label }}" class="flex items-center text-sm font-medium text-slate-700">
-                        {{ form.title.label }}
-                        {% if form.title.field.required %}
-                            <span class="text-red-500 mr-1">*</span>
-                        {% endif %}
-                    </label>
-                    {{ form.title }}
-                    {% if form.title.help_text %}
-                        <p class="text-xs text-slate-500">{{ form.title.help_text }}</p>
-                    {% endif %}
-                    {% if form.title.errors %}
-                        <div class="text-red-600 text-sm space-y-1">
-                            {% for error in form.title.errors %}
-                                <p class="flex items-center space-x-1 space-x-reverse">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                    </svg>
-                                    <span>{{ error }}</span>
-                                </p>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
+        <div class="ann-field-grid">
+          <div class="ann-field">
+            <label for="{{ form.title.id_for_label }}">
+              {{ form.title.label }}
+              {% if form.title.field.required %}<span>*</span>{% endif %}
+            </label>
+            {{ form.title }}
+            {% if form.title.errors %}<div class="ann-field-error">{{ form.title.errors }}</div>{% endif %}
+          </div>
 
-                <!-- حقل المستوى -->
-                <div class="space-y-2">
-                    <label for="{{ form.level.id_for_label }}" class="flex items-center text-sm font-medium text-slate-700">
-                        {{ form.level.label }}
-                        {% if form.level.field.required %}
-                            <span class="text-red-500 mr-1">*</span>
-                        {% endif %}
-                    </label>
-                    {{ form.level }}
-                    {% if form.level.help_text %}
-                        <p class="text-xs text-slate-500">{{ form.level.help_text }}</p>
-                    {% endif %}
-                    {% if form.level.errors %}
-                        <div class="text-red-600 text-sm space-y-1">
-                            {% for error in form.level.errors %}
-                                <p class="flex items-center space-x-1 space-x-reverse">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                    </svg>
-                                    <span>{{ error }}</span>
-                                </p>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- حقل النص -->
-            <div class="space-y-2">
-                <label for="{{ form.body.id_for_label }}" class="flex items-center text-sm font-medium text-slate-700">
-                    {{ form.body.label }}
-                    {% if form.body.field.required %}
-                        <span class="text-red-500 mr-1">*</span>
-                    {% endif %}
-                </label>
-                {{ form.body }}
-                {% if form.body.help_text %}
-                    <p class="text-xs text-slate-500">{{ form.body.help_text }}</p>
-                {% endif %}
-                {% if form.body.errors %}
-                    <div class="text-red-600 text-sm space-y-1">
-                        {% for error in form.body.errors %}
-                            <p class="flex items-center space-x-1 space-x-reverse">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                </svg>
-                                <span>{{ error }}</span>
-                            </p>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </div>
-
-            <!-- التواريخ -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- تاريخ البدء -->
-                <div class="space-y-2">
-                    <label for="{{ form.starts_at.id_for_label }}" class="flex items-center text-sm font-medium text-slate-700">
-                        {{ form.starts_at.label }}
-                        {% if form.starts_at.field.required %}
-                            <span class="text-red-500 mr-1">*</span>
-                        {% endif %}
-                    </label>
-                    <div class="relative">
-                        {{ form.starts_at }}
-                        <div class="absolute inset-y-0 left-0 flex items-center px-3 text-slate-500 pointer-events-none">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                            </svg>
-                        </div>
-                    </div>
-                    {% if form.starts_at.help_text %}
-                        <p class="text-xs text-slate-500">{{ form.starts_at.help_text }}</p>
-                    {% endif %}
-                    {% if form.starts_at.errors %}
-                        <div class="text-red-600 text-sm space-y-1">
-                            {% for error in form.starts_at.errors %}
-                                <p class="flex items-center space-x-1 space-x-reverse">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                    </svg>
-                                    <span>{{ error }}</span>
-                                </p>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
-
-                <!-- تاريخ الانتهاء -->
-                <div class="space-y-2">
-                    <label for="{{ form.expires_at.id_for_label }}" class="flex items-center text-sm font-medium text-slate-700">
-                        {{ form.expires_at.label }}
-                        {% if form.expires_at.field.required %}
-                            <span class="text-red-500 mr-1">*</span>
-                        {% endif %}
-                    </label>
-                    <div class="relative">
-                        {{ form.expires_at }}
-                        <div class="absolute inset-y-0 left-0 flex items-center px-3 text-slate-500 pointer-events-none">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        </div>
-                    </div>
-                    {% if form.expires_at.help_text %}
-                        <p class="text-xs text-slate-500">{{ form.expires_at.help_text }}</p>
-                    {% endif %}
-                    {% if form.expires_at.errors %}
-                        <div class="text-red-600 text-sm space-y-1">
-                            {% for error in form.expires_at.errors %}
-                                <p class="flex items-center space-x-1 space-x-reverse">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                    </svg>
-                                    <span>{{ error }}</span>
-                                </p>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- الحالة -->
-            <div class="space-y-2">
-                <label for="{{ form.is_active.id_for_label }}" class="flex items-center space-x-2 space-x-reverse cursor-pointer">
-                    {{ form.is_active }}
-                    <span class="text-sm font-medium text-slate-700">{{ form.is_active.label }}</span>
-                </label>
-                {% if form.is_active.help_text %}
-                    <p class="text-xs text-slate-500">{{ form.is_active.help_text }}</p>
-                {% endif %}
-                {% if form.is_active.errors %}
-                    <div class="text-red-600 text-sm space-y-1">
-                        {% for error in form.is_active.errors %}
-                            <p class="flex items-center space-x-1 space-x-reverse">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                </svg>
-                                <span>{{ error }}</span>
-                            </p>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </div>
-
-            <!-- معاينة سريعة -->
-            <div class="dashboard-preview-card bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center">
-                    <svg class="w-4 h-4 text-slate-600 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                    </svg>
-                    معاينة سريعة
-                </h4>
-                <div class="space-y-2">
-                    <div class="flex items-center justify-between">
-                        <span class="text-slate-500 text-sm">العنوان:</span>
-                        <span id="previewTitle" class="font-semibold text-slate-800">-</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-slate-500 text-sm">المستوى:</span>
-                        <span id="previewLevel" class="font-semibold text-slate-800">-</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-slate-500 text-sm">الحالة:</span>
-                        <span id="previewStatus" class="font-semibold text-slate-800">-</span>
-                    </div>
-                </div>
-            </div>
+          <div class="ann-field">
+            <label for="{{ form.level.id_for_label }}">
+              {{ form.level.label }}
+              {% if form.level.field.required %}<span>*</span>{% endif %}
+            </label>
+            {{ form.level }}
+            {% if form.level.errors %}<div class="ann-field-error">{{ form.level.errors }}</div>{% endif %}
+          </div>
         </div>
 
-        <!-- أزرار الإجراءات -->
-        <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-            <div class="flex items-center space-x-3 space-x-reverse">
-                <button type="submit" 
-                        class="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 transform hover:-translate-y-0.5 flex items-center space-x-2 space-x-reverse">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    <span>حفظ التنبيه</span>
-                </button>
-                
-                <a href="{% url 'dashboard:ann_list' %}" 
-                   class="px-6 py-3 border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium rounded-xl transition-all duration-200 flex items-center space-x-2 space-x-reverse">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-                    </svg>
-                    <span>رجوع للقائمة</span>
-                </a>
-            </div>
-            
-            <!-- إظهار زر الحذف فقط في حالة التعديل -->
-            {% if form.instance.pk %}
-            <button type="button" onclick="confirmDelete()" 
-                    class="px-4 py-2 text-rose-600 hover:bg-rose-50 font-medium rounded-lg transition-all duration-200 flex items-center space-x-2 space-x-reverse border border-rose-200">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                </svg>
-                <span>حذف التنبيه</span>
-            </button>
-            {% endif %}
+        <div class="ann-field">
+          <label for="{{ form.body.id_for_label }}">
+            {{ form.body.label }}
+            {% if form.body.field.required %}<span>*</span>{% endif %}
+          </label>
+          {{ form.body }}
+          {% if form.body.errors %}<div class="ann-field-error">{{ form.body.errors }}</div>{% endif %}
         </div>
-    </form>
+      </section>
+
+      <section class="ann-form-card">
+        <div class="ann-form-card-heading">
+          <h3>فترة الظهور</h3>
+          <p>حدد متى يبدأ التنبيه ومتى يتوقف عن الظهور.</p>
+        </div>
+
+        <div class="ann-field-grid">
+          <div class="ann-field">
+            <label for="{{ form.starts_at.id_for_label }}">
+              {{ form.starts_at.label }}
+              {% if form.starts_at.field.required %}<span>*</span>{% endif %}
+            </label>
+            {{ form.starts_at }}
+            {% if form.starts_at.errors %}<div class="ann-field-error">{{ form.starts_at.errors }}</div>{% endif %}
+          </div>
+
+          <div class="ann-field">
+            <label for="{{ form.expires_at.id_for_label }}">
+              {{ form.expires_at.label }}
+              {% if form.expires_at.field.required %}<span>*</span>{% endif %}
+            </label>
+            {{ form.expires_at }}
+            {% if form.expires_at.errors %}<div class="ann-field-error">{{ form.expires_at.errors }}</div>{% endif %}
+          </div>
+        </div>
+
+        <label class="ann-toggle-row" for="{{ form.is_active.id_for_label }}">
+          {{ form.is_active }}
+          <span>
+            <strong>{{ form.is_active.label }}</strong>
+            <small>عند إلغاء التفعيل يبقى التنبيه محفوظًا لكنه لا يظهر على الشاشة.</small>
+          </span>
+        </label>
+        {% if form.is_active.errors %}<div class="ann-field-error">{{ form.is_active.errors }}</div>{% endif %}
+      </section>
+    </div>
+
+    <aside class="ann-preview-panel">
+      <div class="ann-preview-heading">
+        <span>معاينة</span>
+        <strong id="previewStatus">مفعل</strong>
+      </div>
+      <div class="ann-preview-card" id="previewCard">
+        <div class="ann-preview-level" id="previewLevel">معلومة</div>
+        <h3 id="previewTitle">-</h3>
+        <p id="previewBody">سيظهر نص التنبيه هنا.</p>
+      </div>
+      <dl class="ann-preview-meta">
+        <div>
+          <dt>يظهر من</dt>
+          <dd id="previewStart">-</dd>
+        </div>
+        <div>
+          <dt>ينتهي في</dt>
+          <dd id="previewEnd">بدون نهاية</dd>
+        </div>
+      </dl>
+    </aside>
+
+    <div class="ann-form-actions">
+      <button type="submit" class="ann-form-primary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <span>حفظ التنبيه</span>
+      </button>
+      <a href="{% url 'dashboard:ann_list' %}" class="ann-form-secondary">إلغاء</a>
+
+      {% if form.instance.pk %}
+        <button type="button" onclick="confirmDelete()" class="ann-form-danger">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          <span>حذف التنبيه</span>
+        </button>
+      {% endif %}
+    </div>
+  </form>
 </div>
 
 <script>
-// تحسين مظهر الحقول
 document.addEventListener('DOMContentLoaded', function() {
-    // تطبيق الأنماط على جميع الحقول
-    const inputs = document.querySelectorAll('input, select, textarea');
-    inputs.forEach(input => {
-        if (input.type !== 'checkbox' && input.type !== 'radio') {
-            input.className = 'w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white text-slate-700 placeholder-slate-400';
-        }
-    });
+  const fieldClass = 'ann-input';
+  document.querySelectorAll('.ann-form-shell input:not([type="checkbox"]), .ann-form-shell select, .ann-form-shell textarea').forEach(input => {
+    input.classList.add(fieldClass);
+  });
 
-    // تخصيص checkbox
-    const checkbox = document.getElementById('{{ form.is_active.id_for_label }}');
-    if (checkbox) {
-        checkbox.className = 'w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 focus:ring-2';
+  const checkbox = document.getElementById('{{ form.is_active.id_for_label }}');
+  if (checkbox) checkbox.classList.add('ann-checkbox');
+
+  const title = document.getElementById('{{ form.title.id_for_label }}');
+  const body = document.getElementById('{{ form.body.id_for_label }}');
+  const level = document.getElementById('{{ form.level.id_for_label }}');
+  const starts = document.getElementById('{{ form.starts_at.id_for_label }}');
+  const expires = document.getElementById('{{ form.expires_at.id_for_label }}');
+
+  function valueOrDash(value, fallback) {
+    return value && value.trim() ? value : fallback;
+  }
+
+  function updatePreview() {
+    document.getElementById('previewTitle').textContent = valueOrDash(title?.value || '', '-');
+    document.getElementById('previewBody').textContent = valueOrDash(body?.value || '', 'سيظهر نص التنبيه هنا.');
+
+    if (level) {
+      const selected = level.options[level.selectedIndex];
+      document.getElementById('previewLevel').textContent = selected ? selected.text : '-';
+      document.getElementById('previewCard').dataset.level = level.value || 'info';
     }
 
-    // تحديث المعاينة السريعة
-    function updatePreview() {
-        const title = document.getElementById('{{ form.title.id_for_label }}').value;
-        const level = document.getElementById('{{ form.level.id_for_label }}');
-        const isActive = document.getElementById('{{ form.is_active.id_for_label }}');
-        
-        document.getElementById('previewTitle').textContent = title || '-';
-        
-        if (level) {
-            const levelText = level.options[level.selectedIndex].text;
-            document.getElementById('previewLevel').textContent = levelText || '-';
-        }
-        
-        if (isActive) {
-            const statusText = isActive.checked ? 'مفعل' : 'غير مفعل';
-            document.getElementById('previewStatus').textContent = statusText;
-        }
-    }
+    document.getElementById('previewStatus').textContent = checkbox && checkbox.checked ? 'مفعل' : 'غير مفعل';
+    document.getElementById('previewStart').textContent = valueOrDash(starts?.value || '', '-');
+    document.getElementById('previewEnd').textContent = valueOrDash(expires?.value || '', 'بدون نهاية');
+  }
 
-    // إضافة أحداث التغيير للحقول
-    document.getElementById('{{ form.title.id_for_label }}').addEventListener('input', updatePreview);
-    document.getElementById('{{ form.level.id_for_label }}').addEventListener('change', updatePreview);
-    document.getElementById('{{ form.is_active.id_for_label }}').addEventListener('change', updatePreview);
-    
-    // التحديث الأولي
-    updatePreview();
+  [title, body, level, starts, expires, checkbox].forEach(el => {
+    if (el) el.addEventListener('input', updatePreview);
+    if (el) el.addEventListener('change', updatePreview);
+  });
+  updatePreview();
 });
 
-// تأثيرات تحميل الصفحة
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.querySelector('form');
-    form.style.opacity = '0';
-    form.style.transform = 'translateY(20px)';
-    form.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-    
-    setTimeout(() => {
-        form.style.opacity = '1';
-        form.style.transform = 'translateY(0)';
-    }, 100);
-});
-
-// تأكيد الحذف - فقط في حالة التعديل
 {% if form.instance.pk %}
 function confirmDelete() {
-    const title = document.getElementById('{{ form.title.id_for_label }}').value;
-    if (confirm(`هل أنت متأكد من أنك تريد حذف التنبيه "${title}"؟ هذا الإجراء لا يمكن التراجع عنه.`)) {
-        // إنشاء نموذج حذف مخفي
-        const form = document.createElement('form');
-        form.method = 'post';
-        form.action = "{% url 'dashboard:ann_delete' form.instance.pk %}";
-        
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrfmiddlewaretoken';
-        csrfInput.value = '{{ csrf_token }}';
-        
-        form.appendChild(csrfInput);
-        document.body.appendChild(form);
-        form.submit();
-    }
+  const title = document.getElementById('{{ form.title.id_for_label }}').value || '{{ form.instance.title|escapejs }}';
+  if (!confirm(`هل تريد حذف التنبيه "${title}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+
+  const form = document.createElement('form');
+  form.method = 'post';
+  form.action = "{% url 'dashboard:ann_delete' form.instance.pk %}";
+
+  const csrfInput = document.createElement('input');
+  csrfInput.type = 'hidden';
+  csrfInput.name = 'csrfmiddlewaretoken';
+  csrfInput.value = '{{ csrf_token }}';
+  form.appendChild(csrfInput);
+  document.body.appendChild(form);
+  form.submit();
 }
 {% endif %}
 </script>
 
 <style>
-/* تخصيص إضافي للواجهة */
-input, select, textarea {
-    transition: all 0.3s ease;
+.ann-form-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
 }
 
-input:focus, select:focus, textarea:focus {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+.ann-form-intro h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 900;
 }
 
-/* تخصيص textarea */
-textarea {
-    min-height: 120px;
-    resize: vertical;
+.ann-form-intro p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
-/* تأثيرات للبطاقة */
-form {
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+.ann-form-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 1rem;
+  align-items: start;
 }
 
-/* تخصيص التواريخ */
-input[type="datetime-local"] {
-    padding-right: 3rem;
+.ann-form-main {
+  display: grid;
+  gap: 1rem;
 }
 
-/* تحسين المظهر على الشاشات الصغيرة */
-@media (max-width: 768px) {
-    .max-w-4xl {
-        margin: 0 1rem;
-    }
+.ann-form-card,
+.ann-preview-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
+}
+
+.ann-form-card-heading {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.ann-form-card-heading h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.ann-form-card-heading p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.ann-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.ann-field {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.ann-field:last-child {
+  margin-bottom: 0;
+}
+
+.ann-field label {
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.ann-field label span {
+  color: #e11d48;
+}
+
+.ann-input {
+  width: 100%;
+  min-height: 2.65rem;
+  border: 1px solid #dbe3ea !important;
+  border-radius: 0.75rem !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  padding: 0.65rem 0.8rem !important;
+  font-size: 0.86rem !important;
+  font-weight: 700 !important;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+textarea.ann-input {
+  min-height: 7.5rem;
+  resize: vertical;
+}
+
+.ann-input:focus {
+  outline: none;
+  border-color: #0f766e !important;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.11);
+}
+
+.ann-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  border-radius: 0.9rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.8rem;
+  cursor: pointer;
+}
+
+.ann-checkbox {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.15rem;
+  accent-color: #0f766e;
+}
+
+.ann-toggle-row strong,
+.ann-toggle-row small {
+  display: block;
+}
+
+.ann-toggle-row strong {
+  color: #0f172a;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.ann-toggle-row small {
+  margin-top: 0.2rem;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.ann-field-error {
+  color: #be123c;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.ann-preview-panel {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.ann-preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.ann-preview-heading span {
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.ann-preview-heading strong {
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.ann-preview-card {
+  border-radius: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 1rem;
+}
+
+.ann-preview-level {
+  display: inline-flex;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.ann-preview-card[data-level="urgent"] .ann-preview-level {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ann-preview-card[data-level="warning"] .ann-preview-level {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.ann-preview-card[data-level="success"] .ann-preview-level {
+  background: #dcfce7;
+  color: #047857;
+}
+
+.ann-preview-card h3 {
+  margin: 0.75rem 0 0;
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 950;
+  line-height: 1.5;
+}
+
+.ann-preview-card p {
+  margin: 0.35rem 0 0;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.7;
+}
+
+.ann-preview-meta {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.ann-preview-meta div {
+  border-radius: 0.8rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.7rem 0.8rem;
+}
+
+.ann-preview-meta dt,
+.ann-preview-meta dd {
+  margin: 0;
+}
+
+.ann-preview-meta dt {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.ann-preview-meta dd {
+  margin-top: 0.2rem;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 900;
+  direction: ltr;
+  text-align: right;
+}
+
+.ann-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.ann-form-primary,
+.ann-form-secondary,
+.ann-form-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  border-radius: 0.7rem;
+  padding: 0 1rem;
+  font-size: 0.82rem;
+  font-weight: 900;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.ann-form-primary {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.ann-form-primary:hover {
+  background: #1e293b;
+}
+
+.ann-form-secondary {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.ann-form-secondary:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.ann-form-danger {
+  margin-inline-start: auto;
+  background: #ffffff;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+}
+
+.ann-form-danger:hover {
+  background: #fff1f2;
+  border-color: #fda4af;
+}
+
+@media (max-width: 1000px) {
+  .ann-form-intro {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ann-form-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .ann-preview-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 680px) {
+  .ann-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ann-form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ann-form-primary,
+  .ann-form-secondary,
+  .ann-form-danger {
+    width: 100%;
+    margin-inline-start: 0;
+  }
 }
 </style>
 {% endblock %}

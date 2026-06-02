@@ -1,337 +1,580 @@
 {% extends "dashboard/_base.html" %}
-{% load static %}
 
 {% block title %}التنبيهات{% endblock %}
 {% block page_title %}التنبيهات والإشعارات{% endblock %}
 {% block page_description %}إدارة التنبيهات المعروضة على شاشات العرض{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto">
-    <div class="mb-6">
-        <div class="dashboard-toolbar flex items-center justify-end mb-5">
-            <a href="{% url 'dashboard:ann_create' %}" 
-               class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                </svg>
-                <span>تنبيه جديد</span>
-            </a>
-        </div>
+<div class="max-w-7xl mx-auto pb-8 md:pb-12">
+  <section class="ann-command-panel mb-4">
+    <div class="min-w-0">
+      <h2>إدارة التنبيهات</h2>
+      <p>أنشئ التنبيهات وحدد وقت ظهورها على شاشات العرض.</p>
+    </div>
+    <a href="{% url 'dashboard:ann_create' %}" class="ann-primary-action">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
+      <span>تنبيه جديد</span>
+    </a>
+  </section>
 
-        <!-- شريط الإحصائيات -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <div class="dashboard-mini-card bg-white rounded-2xl border border-slate-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                    </div>
-                    <div>
-                        <p class="text-[11px] text-slate-400 font-bold">الإجمالي</p>
-                        <p class="text-lg font-black text-slate-800">{{ page.paginator.count }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="dashboard-mini-card bg-white rounded-2xl border border-slate-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    </div>
-                    <div>
-                        <p class="text-[11px] text-slate-400 font-bold">نشطة</p>
-                        <p class="text-lg font-black text-emerald-600">{{ active_count|default:0 }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="dashboard-mini-card bg-white rounded-2xl border border-slate-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    </div>
-                    <div>
-                        <p class="text-[11px] text-slate-400 font-bold">مستقبلية</p>
-                        <p class="text-lg font-black text-amber-600">{{ future_count|default:0 }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="dashboard-mini-card bg-white rounded-2xl border border-slate-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    </div>
-                    <div>
-                        <p class="text-[11px] text-slate-400 font-bold">منتهية</p>
-                        <p class="text-lg font-black text-rose-500">{{ expired_count|default:0 }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <section class="ann-summary-strip mb-4" aria-label="ملخص التنبيهات">
+    <div class="ann-summary-item">
+      <span>الإجمالي</span>
+      <strong>{{ page.paginator.count }}</strong>
+    </div>
+    <div class="ann-summary-item">
+      <span>فعالة الآن</span>
+      <strong>{{ active_count|default:0 }}</strong>
+    </div>
+    <div class="ann-summary-item">
+      <span>مجدولة</span>
+      <strong>{{ future_count|default:0 }}</strong>
+    </div>
+    <div class="ann-summary-item">
+      <span>منتهية أو متوقفة</span>
+      <strong>{{ expired_count|default:0 }}</strong>
+    </div>
+  </section>
+
+  <section class="ann-list-section">
+    <div class="ann-section-heading">
+      <div>
+        <h3>بطاقات التنبيهات</h3>
+        <p>كل بطاقة توضّح نص التنبيه، مستواه، حالته، ووقت ظهوره.</p>
+      </div>
+      <span>{{ page.object_list|length }} من {{ page.paginator.count }}</span>
     </div>
 
-    <!-- جدول التنبيهات -->
-    <div class="dashboard-section-card bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="text-sm font-bold text-slate-700">قائمة التنبيهات</h3>
-            <span class="text-xs text-slate-400">{{ page.object_list|length }} من {{ page.paginator.count }}</span>
-        </div>
+    {% if page.object_list %}
+      <div class="ann-card-grid">
+        {% for a in page.object_list %}
+          <article class="ann-card level-{{ a.level }} status-{{ a.dashboard_status_key }}">
+            <div class="ann-card-top">
+              <div class="ann-title-block">
+                <span class="ann-level-dot"></span>
+                <div class="min-w-0">
+                  <h3>{{ a.title }}</h3>
+                  {% if a.body %}
+                    <p>{{ a.body }}</p>
+                  {% else %}
+                    <p class="muted">لا يوجد نص إضافي لهذا التنبيه.</p>
+                  {% endif %}
+                </div>
+              </div>
 
-        <!-- الجدول -->
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50 text-slate-600">
-                    <tr>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">التنبيه</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">المستوى</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">يبدأ</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">ينتهي</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">الحالة</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">إجراءات</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-200">
-                    {% for a in page.object_list %}
-                    <tr class="hover:bg-slate-50 transition-all duration-200 group">
-                        <td class="p-4">
-                            <div class="flex items-start space-x-3 space-x-reverse">
-                                <div class="flex-shrink-0 mt-1">
-                                    {% if a.level == 'urgent' %}
-                                    <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                                    {% elif a.level == 'warning' %}
-                                    <div class="w-3 h-3 bg-amber-500 rounded-full"></div>
-                                    {% elif a.level == 'success' %}
-                                    <div class="w-3 h-3 bg-emerald-500 rounded-full"></div>
-                                    {% else %}
-                                    <div class="w-3 h-3 bg-sky-500 rounded-full"></div>
-                                    {% endif %}
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <h4 class="font-semibold text-slate-800 text-base mb-1">{{ a.title }}</h4>
-                                    {% if a.body %}
-                                    <p class="text-slate-600 text-sm truncate">{{ a.body }}</p>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </td>
-                        <td class="p-4">
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
-                                {% if a.level == 'urgent' %}bg-red-100 text-red-800 border border-red-200
-                                {% elif a.level == 'warning' %}bg-amber-100 text-amber-800 border border-amber-200
-                                {% elif a.level == 'success' %}bg-emerald-100 text-emerald-800 border border-emerald-200
-                                {% else %}bg-sky-100 text-sky-800 border border-sky-200{% endif %}">
-                                {% if a.level == 'urgent' %}
-                                <svg class="w-3 h-3 ml-1" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                </svg>
-                                {% elif a.level == 'warning' %}
-                                <svg class="w-3 h-3 ml-1" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                </svg>
-                                {% elif a.level == 'success' %}
-                                <svg class="w-3 h-3 ml-1" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                                </svg>
-                                {% else %}
-                                <svg class="w-3 h-3 ml-1" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                                </svg>
-                                {% endif %}
-                                {{ a.get_level_display }}
-                            </span>
-                        </td>
-                        <td class="p-4 text-slate-700">
-                            <div class="flex items-center space-x-1 space-x-reverse">
-                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                </svg>
-                                <span>{{ a.starts_at|date:"Y-m-d H:i" }}</span>
-                            </div>
-                        </td>
-                        <td class="p-4 text-slate-700">
-                            <div class="flex items-center space-x-1 space-x-reverse">
-                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <span>{{ a.expires_at|date:"Y-m-d H:i" }}</span>
-                            </div>
-                        </td>
-                        <td class="p-4">
-                            {% if a.active_now %}
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                <span class="w-2 h-2 bg-emerald-500 rounded-full ml-1"></span>
-                                فعّال الآن
-                            </span>
-                            {% elif a.is_future %}
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                                <span class="w-2 h-2 bg-blue-500 rounded-full ml-1"></span>
-                                مستقبلي
-                            </span>
-                            {% else %}
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">
-                                <span class="w-2 h-2 bg-slate-500 rounded-full ml-1"></span>
-                                منتهي
-                            </span>
-                            {% endif %}
-                        </td>
-                        <td class="p-4">
-                            <div class="flex items-center space-x-3 space-x-reverse opacity-70 group-hover:opacity-100 transition-opacity duration-200">
-                                <a href="{% url 'dashboard:ann_edit' a.pk %}" 
-                                   class="text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center space-x-1 space-x-reverse transition-all duration-200">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                    </svg>
-                                    <span>تعديل</span>
-                                </a>
-                                <form method="post" action="{% url 'dashboard:ann_delete' a.pk %}" 
-                                      onsubmit="return confirmDelete('{{ a.title }}');" class="inline">
-                                    {% csrf_token %}
-                                    <button type="submit" 
-                                            class="text-rose-600 hover:text-rose-800 font-medium text-sm flex items-center space-x-1 space-x-reverse transition-all duration-200">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                        </svg>
-                                        <span>حذف</span>
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="p-8 text-center text-slate-500">
-                            <div class="flex flex-col items-center justify-center space-y-4">
-                                <svg class="w-16 h-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                                </svg>
-                                <div>
-                                    <h4 class="text-lg font-semibold text-slate-700 mb-2">لا توجد تنبيهات</h4>
-                                    <p class="text-slate-500 mb-4">لم يتم إضافة أي تنبيهات بعد</p>
-                                    <a href="{% url 'dashboard:ann_create' %}" 
-                                       class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-all duration-200">
-                                        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                        </svg>
-                                        إضافة أول تنبيه
-                                    </a>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- الترقيم -->
-    {% if page.paginator.num_pages > 1 %}
-    <div class="mt-8 flex items-center justify-between">
-        <div class="text-sm text-slate-600">
-            عرض <span class="font-semibold">{{ page.start_index }}-{{ page.end_index }}</span> من 
-            <span class="font-semibold">{{ page.paginator.count }}</span> تنبيه
-        </div>
-        <div class="flex items-center space-x-2 space-x-reverse">
-            {% if page.has_previous %}
-                <a href="?page={{ page.previous_page_number }}" 
-                   class="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium rounded-xl transition-all duration-200 flex items-center space-x-2 space-x-reverse">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                    </svg>
-                    <span>السابق</span>
-                </a>
-            {% endif %}
-
-            <div class="flex items-center space-x-1 space-x-reverse">
-                {% for num in page.paginator.page_range %}
-                    {% if num == page.number %}
-                        <span class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl">{{ num }}</span>
-                    {% else %}
-                        <a href="?page={{ num }}" class="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium rounded-xl transition-all duration-200">
-                            {{ num }}
-                        </a>
-                    {% endif %}
-                {% endfor %}
+              <div class="ann-status-pill">
+                <strong>{{ a.dashboard_status_label }}</strong>
+                <small>{{ a.dashboard_status_hint }}</small>
+              </div>
             </div>
 
-            {% if page.has_next %}
-                <a href="?page={{ page.next_page_number }}" 
-                   class="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium rounded-xl transition-all duration-200 flex items-center space-x-2 space-x-reverse">
-                    <span>التالي</span>
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                    </svg>
-                </a>
-            {% endif %}
+            <div class="ann-card-meta">
+              <div>
+                <span>المستوى</span>
+                <strong>{{ a.get_level_display }}</strong>
+              </div>
+              <div>
+                <span>يظهر من</span>
+                <strong>{{ a.starts_at|date:"Y-m-d H:i" }}</strong>
+              </div>
+              <div>
+                <span>ينتهي في</span>
+                {% if a.expires_at %}
+                  <strong>{{ a.expires_at|date:"Y-m-d H:i" }}</strong>
+                {% else %}
+                  <strong>بدون نهاية</strong>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="ann-card-actions">
+              <a href="{% url 'dashboard:ann_edit' a.pk %}" class="ann-secondary-action">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                <span>تعديل</span>
+              </a>
+              <form method="post" action="{% url 'dashboard:ann_delete' a.pk %}" onsubmit="return confirmDelete('{{ a.title|escapejs }}');">
+                {% csrf_token %}
+                <button type="submit" class="ann-danger-action">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  <span>حذف</span>
+                </button>
+              </form>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="ann-empty-state">
+        <div class="ann-empty-icon">
+          <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-4-5.659V5a2 2 0 10-4 0v.341A6 6 0 006 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
         </div>
-    </div>
+        <h3>لا توجد تنبيهات</h3>
+        <p>ابدأ بإنشاء أول تنبيه ليظهر على شاشات المدرسة.</p>
+        <a href="{% url 'dashboard:ann_create' %}" class="ann-primary-action">إضافة أول تنبيه</a>
+      </div>
     {% endif %}
+  </section>
+
+  {% if page.paginator.num_pages > 1 %}
+    <nav class="ann-pagination mt-5" aria-label="ترقيم التنبيهات">
+      <span>عرض {{ page.start_index }}-{{ page.end_index }} من {{ page.paginator.count }}</span>
+      <div>
+        {% if page.has_previous %}
+          <a href="?page={{ page.previous_page_number }}">السابق</a>
+        {% endif %}
+        {% for num in page.paginator.page_range %}
+          {% if num == page.number %}
+            <strong>{{ num }}</strong>
+          {% else %}
+            <a href="?page={{ num }}">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+        {% if page.has_next %}
+          <a href="?page={{ page.next_page_number }}">التالي</a>
+        {% endif %}
+      </div>
+    </nav>
+  {% endif %}
 </div>
 
 <script>
-// تأكيد الحذف مع تفاصيل أكثر
 function confirmDelete(title) {
-    const message = `هل أنت متأكد من أنك تريد حذف التنبيه التالي؟\n\n"${title}"\n\nهذا الإجراء لا يمكن التراجع عنه.`;
-    return confirm(message);
+  return confirm(`هل تريد حذف التنبيه التالي؟\n\n"${title}"\n\nلا يمكن التراجع عن هذا الإجراء.`);
 }
-
-// تأثيرات تحميل الصفوف
-document.addEventListener('DOMContentLoaded', function() {
-    const rows = document.querySelectorAll('tbody tr');
-    rows.forEach((row, index) => {
-        row.style.opacity = '0';
-        row.style.transform = 'translateX(20px)';
-        row.style.transition = `opacity 0.6s ease, transform 0.6s ease`;
-        
-        setTimeout(() => {
-            row.style.opacity = '1';
-            row.style.transform = 'translateX(0)';
-        }, 100 + (index * 50));
-    });
-});
 </script>
 
 <style>
-/* تخصيص إضافي للجدول */
-table {
-    border-collapse: separate;
-    border-spacing: 0;
+.ann-command-panel,
+.ann-summary-strip,
+.ann-section-heading {
+  border-radius: 14px;
 }
 
-th, td {
-    transition: all 0.3s ease;
+.ann-command-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
 }
 
-/* تأثيرات للصفوف */
-tbody tr {
-    transition: all 0.3s ease;
+.ann-command-panel h2,
+.ann-section-heading h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 900;
 }
 
-tbody tr:hover {
-    background-color: #f8fafc;
-    transform: translateX(4px);
+.ann-command-panel p,
+.ann-section-heading p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
-/* تأثير النبض للتنبيهات العاجلة */
-.animate-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.ann-primary-action,
+.ann-secondary-action,
+.ann-danger-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.35rem;
+  border-radius: 0.65rem;
+  padding: 0 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 900;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
 }
 
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: .5;
-    }
+.ann-primary-action {
+  background: #0f172a;
+  color: #ffffff;
 }
 
-/* تحسين المظهر على الشاشات الصغيرة */
-@media (max-width: 768px) {
-    .overflow-x-auto {
-        border-radius: 0.75rem;
-    }
-    
-    table {
-        min-width: 640px;
-    }
+.ann-primary-action:hover {
+  background: #1e293b;
+}
+
+.ann-secondary-action {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.ann-secondary-action:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.ann-danger-action {
+  background: #ffffff;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+}
+
+.ann-danger-action:hover {
+  background: #fff1f2;
+  border-color: #fda4af;
+}
+
+.ann-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.ann-summary-item {
+  padding: 0.95rem 1rem;
+  border-inline-start: 1px solid #e2e8f0;
+}
+
+.ann-summary-item:first-child {
+  border-inline-start: 0;
+}
+
+.ann-summary-item span {
+  display: block;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.ann-summary-item strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: #0f172a;
+  font-size: 1.25rem;
+  font-weight: 950;
+}
+
+.ann-list-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.ann-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.ann-section-heading > span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.ann-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.ann-card {
+  position: relative;
+  display: grid;
+  gap: 1rem;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
+}
+
+.ann-card::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 4px;
+  background: #38bdf8;
+}
+
+.ann-card.level-urgent::before { background: #ef4444; }
+.ann-card.level-warning::before { background: #f59e0b; }
+.ann-card.level-success::before { background: #10b981; }
+
+.ann-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ann-title-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.ann-level-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-top: 0.45rem;
+  border-radius: 999px;
+  background: #38bdf8;
+  flex: 0 0 auto;
+}
+
+.level-urgent .ann-level-dot { background: #ef4444; }
+.level-warning .ann-level-dot { background: #f59e0b; }
+.level-success .ann-level-dot { background: #10b981; }
+
+.ann-title-block h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.ann-title-block p {
+  margin: 0.35rem 0 0;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.7;
+}
+
+.ann-title-block .muted {
+  color: #94a3b8;
+}
+
+.ann-status-pill {
+  flex: 0 0 auto;
+  max-width: 10rem;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.45rem 0.7rem;
+  text-align: start;
+}
+
+.ann-status-pill strong,
+.ann-status-pill small {
+  display: block;
+}
+
+.ann-status-pill strong {
+  color: #0f172a;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.ann-status-pill small {
+  margin-top: 0.15rem;
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.status-active .ann-status-pill {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+}
+
+.status-future .ann-status-pill {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.status-paused .ann-status-pill,
+.status-expired .ann-status-pill {
+  background: #f8fafc;
+}
+
+.ann-card-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.ann-card-meta > div {
+  border-radius: 0.8rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.7rem 0.8rem;
+}
+
+.ann-card-meta span,
+.ann-card-meta strong {
+  display: block;
+}
+
+.ann-card-meta span {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.ann-card-meta strong {
+  margin-top: 0.2rem;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 900;
+  direction: ltr;
+  text-align: right;
+}
+
+.ann-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  border-top: 1px solid #edf2f7;
+  padding-top: 0.85rem;
+}
+
+.ann-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 18rem;
+  padding: 3rem 1rem;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.ann-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 4.75rem;
+  height: 4.75rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.ann-empty-state h3 {
+  margin: 0.35rem 0 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.ann-empty-state p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.ann-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.ann-pagination div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.ann-pagination a,
+.ann-pagination strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  border-radius: 0.65rem;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  padding: 0 0.7rem;
+  font-weight: 900;
+}
+
+.ann-pagination strong {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+@media (max-width: 1100px) {
+  .ann-command-panel,
+  .ann-section-heading,
+  .ann-card-top,
+  .ann-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ann-summary-strip,
+  .ann-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ann-summary-item:nth-child(odd) {
+    border-inline-start: 0;
+  }
+
+  .ann-summary-item:nth-child(n + 3) {
+    border-top: 1px solid #e2e8f0;
+  }
+}
+
+@media (max-width: 720px) {
+  .ann-card-grid,
+  .ann-card-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .ann-status-pill {
+    max-width: none;
+  }
+
+  .ann-card-actions {
+    align-items: stretch;
+  }
+
+  .ann-card-actions a,
+  .ann-card-actions button,
+  .ann-card-actions form {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .ann-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .ann-summary-item,
+  .ann-summary-item:nth-child(odd) {
+    border-inline-start: 0;
+  }
+
+  .ann-summary-item + .ann-summary-item {
+    border-top: 1px solid #e2e8f0;
+  }
 }
 </style>
 {% endblock %}

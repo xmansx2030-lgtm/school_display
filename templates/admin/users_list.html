@@ -1,4 +1,4 @@
-{% extends "dashboard/_base.html" %}
+{% extends "admin/admin_base.html" %}
 
 {% block title %}إدارة المستخدمين{% endblock %}
 {% block page_title %}إدارة المستخدمين في النظام{% endblock %}
@@ -51,7 +51,7 @@
           <tr>
             <th class="p-3 text-right font-semibold border-b border-slate-200">المستخدم</th>
             <th class="p-3 text-right font-semibold border-b border-slate-200">البريد</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">المدرسة</th>
+            <th class="p-3 text-right font-semibold border-b border-slate-200">المدارس</th>
             <th class="p-3 text-right font-semibold border-b border-slate-200">الصلاحيات</th>
             <th class="p-3 text-right font-semibold border-b border-slate-200">آخر تسجيل دخول</th>
             <th class="p-3 text-right font-semibold border-b border-slate-200">إجراءات</th>
@@ -74,17 +74,17 @@
               {% endif %}
             </td>
             <td class="p-3 text-xs">
-              {% with first_school=u.profile.schools.all.0 %}
-                {% if first_school %}
+              <div class="flex flex-wrap gap-1">
+                {% for school in u.profile.schools.all %}
                   <span class="px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 font-medium">
-                    {{ first_school.name }}
+                    {{ school.name }}
                   </span>
-                {% else %}
+                {% empty %}
                   <span class="px-2.5 py-1 rounded-full bg-slate-50 text-slate-500 font-medium">
                     بدون مدرسة
                   </span>
-                {% endif %}
-              {% endwith %}
+                {% endfor %}
+              </div>
             </td>
             <td class="p-3 text-xs">
               <div class="flex flex-wrap gap-1">
@@ -114,10 +114,12 @@
                    class="text-xs px-2.5 py-1.5 rounded-lg bg-sky-50 text-sky-700 font-medium hover:bg-sky-100">
                   تعديل
                 </a>
-                <a href="{% url 'dashboard:system_user_delete' u.pk %}"
-                   class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 font-medium hover:bg-rose-100">
-                  حذف
-                </a>
+                {% if request.user.is_superuser %}
+                  <a href="{% url 'dashboard:system_user_delete' u.pk %}"
+                     class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 font-medium hover:bg-rose-100">
+                    حذف
+                  </a>
+                {% endif %}
               </div>
             </td>
           </tr>
@@ -139,13 +141,13 @@
       </div>
       <div class="flex items-center gap-1">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}"
+        <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}"
            class="px-2 py-1 text-xs rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
           السابقة
         </a>
         {% endif %}
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}"
+        <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}"
            class="px-2 py-1 text-xs rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
           التالية
         </a>

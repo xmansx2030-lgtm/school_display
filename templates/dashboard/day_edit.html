@@ -1,410 +1,737 @@
 {% extends "dashboard/_base.html" %}
-{% load static %}
 
 {% block title %}تحرير اليوم{% endblock %}
 {% block page_title %}{{ day.day_name }}{% endblock %}
 {% block page_description %}تخصيص الحصص والفسح لهذا اليوم فقط.{% endblock %}
 
+{% block extra_css %}
+<style>
+  .day-editor {
+    --day-accent: #145a6a;
+    --day-accent-dark: #123b4a;
+    --day-warm: #b48b57;
+    --day-border: rgba(124, 116, 102, 0.16);
+    --day-muted: #5f6d78;
+  }
+
+  .day-editor .hidden {
+    display: none !important;
+  }
+
+  .day-card,
+  .day-toolbar,
+  .day-save-bar {
+    border: 1px solid var(--day-border);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
+  }
+
+  .day-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.9rem;
+    padding: 1rem;
+  }
+
+  .day-toolbar-copy {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    min-width: 0;
+  }
+
+  .day-icon-box,
+  .day-section-icon,
+  .day-row-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+
+  .day-icon-box {
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 10px;
+    background: rgba(20, 90, 106, 0.09);
+    color: var(--day-accent);
+  }
+
+  .day-toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .day-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 2.45rem;
+    border-radius: 10px;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 900;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  }
+
+  .day-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .day-btn-primary {
+    border: 1px solid var(--day-accent-dark);
+    background: var(--day-accent-dark);
+    color: #fffaf3;
+  }
+
+  .day-btn-soft {
+    border: 1px solid rgba(20, 90, 106, 0.18);
+    background: rgba(20, 90, 106, 0.06);
+    color: var(--day-accent-dark);
+  }
+
+  .day-btn-green {
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    background: rgba(16, 185, 129, 0.1);
+    color: #047857;
+  }
+
+  .day-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.05rem;
+    align-items: start;
+  }
+
+  .day-side {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .day-card {
+    overflow: hidden;
+  }
+
+  .day-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.8rem;
+    border-bottom: 1px solid rgba(124, 116, 102, 0.12);
+    padding: 1rem;
+  }
+
+  .day-section-icon {
+    width: 2.15rem;
+    height: 2.15rem;
+    border-radius: 10px;
+    background: rgba(20, 90, 106, 0.09);
+    color: var(--day-accent);
+  }
+
+  .day-card-body {
+    padding: 1rem;
+  }
+
+  .day-alert {
+    border-radius: 10px;
+    border: 1px solid rgba(180, 139, 87, 0.22);
+    background: rgba(255, 251, 242, 0.9);
+    padding: 0.75rem;
+    color: #8a5a18;
+    font-size: 0.78rem;
+    line-height: 1.7;
+  }
+
+  .day-alert.is-ready {
+    border-color: rgba(16, 185, 129, 0.2);
+    background: rgba(236, 253, 245, 0.82);
+    color: #047857;
+  }
+
+  .day-field {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .day-field label,
+  .day-field-label {
+    color: var(--day-muted);
+    font-size: 0.74rem;
+    font-weight: 800;
+  }
+
+  .day-field input,
+  .day-field select {
+    width: 100%;
+  }
+
+  .day-count-panel {
+    display: grid;
+    gap: 0.8rem;
+  }
+
+  .day-count-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.7rem;
+    align-items: end;
+  }
+
+  .day-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .day-section-title h3 {
+    font-size: 1rem;
+    font-weight: 900;
+    color: #173042;
+  }
+
+  .day-section-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.45rem;
+  }
+
+  .day-rows {
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .period-row,
+  .break-row {
+    position: relative;
+    border: 1px solid rgba(124, 116, 102, 0.14);
+    border-radius: 12px;
+    background: #fff;
+    padding: 0.8rem;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .period-row:hover,
+  .break-row:hover {
+    border-color: rgba(20, 90, 106, 0.28);
+    box-shadow: 0 10px 20px rgba(23, 48, 66, 0.06);
+  }
+
+  .break-row {
+    background: linear-gradient(180deg, rgba(240, 253, 250, 0.7), #fff);
+  }
+
+  .day-row-grid {
+    display: grid;
+    grid-template-columns: 5.6rem minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: 0.65rem;
+    align-items: end;
+  }
+
+  .day-break-grid {
+    display: grid;
+    grid-template-columns: minmax(9rem, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) auto;
+    gap: 0.65rem;
+    align-items: end;
+  }
+
+  .day-row-index {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9px;
+    background: rgba(20, 90, 106, 0.09);
+    color: var(--day-accent);
+    font-size: 0.82rem;
+    font-weight: 900;
+  }
+
+  .day-row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    padding-bottom: 0.05rem;
+  }
+
+  .day-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 10px;
+    border: 1px solid rgba(124, 116, 102, 0.14);
+    background: #fff;
+    color: #8d8477;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  }
+
+  .day-icon-btn:hover {
+    border-color: rgba(244, 63, 94, 0.25);
+    background: rgba(255, 241, 242, 0.9);
+    color: #e11d48;
+  }
+
+  .day-undo-btn:hover {
+    border-color: rgba(245, 158, 11, 0.3);
+    background: rgba(255, 251, 235, 0.95);
+    color: #b45309;
+  }
+
+  .day-empty-note {
+    border: 1px dashed rgba(124, 116, 102, 0.22);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+    color: var(--day-muted);
+    font-size: 0.85rem;
+  }
+
+  .day-save-bar {
+    position: sticky;
+    bottom: 1rem;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.85rem;
+  }
+
+  .day-save-actions {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 0.55rem;
+  }
+
+  .day-save-btn {
+    border: 1px solid var(--day-accent-dark);
+    background: var(--day-accent-dark);
+    color: #fffaf3;
+  }
+
+  .day-cancel-btn {
+    border: 1px solid rgba(124, 116, 102, 0.16);
+    background: #fff;
+    color: #475569;
+  }
+
+  .day-autofill-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .day-autofill-grid .span-full {
+    grid-column: 1 / -1;
+  }
+
+  .day-break-settings {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+    border: 1px dashed rgba(124, 116, 102, 0.18);
+    border-radius: 12px;
+    background: #fbfcfd;
+    padding: 0.75rem;
+  }
+
+  @media (min-width: 768px) {
+    .day-toolbar {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+    }
+
+    .day-count-row {
+      grid-template-columns: minmax(0, 16rem) auto;
+    }
+
+    .day-save-bar {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .day-save-actions {
+      width: auto;
+      min-width: 20rem;
+    }
+  }
+
+  @media (min-width: 1180px) {
+    .day-layout {
+      grid-template-columns: minmax(0, 1fr) 340px;
+    }
+
+    .day-side {
+      position: sticky;
+      top: calc(var(--header-h) + 1rem);
+    }
+  }
+
+  @media (max-width: 767px) {
+    .day-toolbar-actions,
+    .day-section-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      width: 100%;
+    }
+
+    .day-btn {
+      width: 100%;
+      padding-inline: 0.55rem;
+    }
+
+    .day-row-grid,
+    .day-break-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .day-row-actions {
+      grid-column: 1 / -1;
+      justify-content: flex-start;
+      padding-top: 0.2rem;
+    }
+
+    .day-autofill-grid,
+    .day-break-settings {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-7xl mx-auto space-y-8 dashboard-day-editor">
-
-  <!-- Quick Stats -->
-    <div class="dashboard-toolbar flex items-center gap-3 flex-wrap">
-    <a href="{% url 'dashboard:days_list' %}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-      العودة للأيام
-    </a>
-    <div class="flex items-center gap-3 mr-auto">
-    <div class="dashboard-mini-card rounded-2xl bg-white border border-slate-200 px-4 py-2">
-        <p class="text-xs text-slate-500">إجمالي الحصص</p>
-        <p class="text-xl font-bold font-mono text-slate-800">{{ day.periods_count|default:"0" }}</p>
-      </div>
-    <div class="dashboard-mini-card rounded-2xl bg-white border border-slate-200 px-4 py-2">
-        <p class="text-xs text-slate-500">المدة الكلية</p>
-        <p class="text-xl font-bold font-mono text-slate-800">{{ day.total_duration|default:"-" }}</p>
+<div class="day-editor mx-auto space-y-5">
+  <section class="day-toolbar">
+    <div class="day-toolbar-copy">
+      <span class="day-icon-box" aria-hidden="true"><i class="fa-regular fa-calendar-check"></i></span>
+      <div class="min-w-0">
+        <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-400">تحرير توقيت اليوم</div>
+        <h3 class="mt-1 text-base font-black text-slate-900">{{ day.day_name }}</h3>
+        <p class="mt-1 text-sm leading-6 text-slate-500">اضبط عدد الحصص، ثم راجع أوقات البداية والنهاية والفسح قبل حفظ التغييرات.</p>
       </div>
     </div>
-  </div>
-
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-    
-    <!-- Left Column: Controls (Auto-fill & Settings) -->
-    <div class="lg:col-span-4 space-y-6">
-      
-      <!-- Auto-Fill Card -->
-            <div class="dashboard-form-shell rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-                <div class="dashboard-form-header bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-4">
-            <div class="flex items-center gap-3">
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 text-white">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                </div>
-                <div>
-                    <h3 class="text-lg font-bold text-white">المولد الذكي</h3>
-                    <p class="text-xs text-white/70">تعبئة الجدول تلقائياً بضغطة واحدة</p>
-                </div>
-            </div>
-        </div>
-        <div class="p-6">
-            <div class="dashboard-control-surface mb-4 rounded-xl border p-3 text-xs {% if autofill_seed.has_actual_values %}border-emerald-200 bg-emerald-50 text-emerald-700{% else %}border-amber-200 bg-amber-50 text-amber-700{% endif %}">
-                {% if autofill_seed.has_actual_values %}
-                    تم تحميل القيم من جدول اليوم الفعلي، وسيتم الحفظ بنفس التوقيت المُدخل دون قيم افتراضية.
-                {% else %}
-                    لا توجد بيانات زمنية محفوظة لهذا اليوم بعد. أدخل التوقيت يدويًا وسيتم حفظه كما هو.
-                {% endif %}
-            </div>
-
-            <form method="post" action="{% url 'dashboard:day_autofill' day.weekday %}" class="space-y-4" id="autofillForm">
-                {% csrf_token %}
-                
-                <!-- New: Target Periods Count -->
-                <div class="space-y-1">
-                    <label class="text-xs font-semibold uppercase tracking-wider text-slate-500">عدد الحصص المطلوب</label>
-                    <input type="number" name="target_periods_count" value="{{ autofill_seed.target_periods_count }}" min="1" max="20"
-                           class="w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                           required id="af_count">
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <label class="text-xs font-semibold uppercase tracking-wider text-slate-500">بداية اليوم</label>
-                        <input type="time" name="start_time" value="{{ autofill_seed.start_time }}"
-                               class="w-full rounded-xl border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                               id="af_start" required>
-                    </div>
-                    <div class="space-y-1">
-                        <label class="text-xs font-semibold uppercase tracking-wider text-slate-500">زمن الحصة (د)</label>
-                        <input type="number" name="period_minutes" value="{{ autofill_seed.period_minutes }}" min="1"
-                               class="w-full rounded-xl border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                               id="af_period" required>
-                    </div>
-                </div>
-
-                <div class="space-y-1">
-                     <label class="text-xs font-semibold uppercase tracking-wider text-slate-500">فاصل بين الحصص (د)</label>
-                     <input type="number" name="gap_minutes" value="{{ autofill_seed.gap_minutes }}" min="0" placeholder="0"
-                            class="w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                            id="af_gap" required>
-                </div>
-
-                <div class="dashboard-control-surface rounded-xl border border-dashed border-slate-300 p-3 bg-slate-50/50">
-                    <div class="text-xs font-bold text-slate-700 mb-2">إعداد الفسحة</div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="text-[10px] text-slate-400">بعد حصة رقم</label>
-                            <input type="number" name="break_after" value="{{ autofill_seed.break_after }}" min="0"
-                                   class="w-full rounded-lg border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-indigo-500"
-                                   id="af_break_after" required>
-                        </div>
-                        <div>
-                            <label class="text-[10px] text-slate-400">المدة (د)</label>
-                            <input type="number" name="break_minutes" value="{{ autofill_seed.break_minutes }}" min="0"
-                                   class="w-full rounded-lg border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-indigo-500"
-                                   id="af_break_dur" required>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Simulation Alert -->
-                <div id="simulationResult" class="hidden rounded-lg bg-indigo-50 p-3 text-xs text-indigo-700">
-                    <span class="font-bold">معاينة:</span> سينتهي اليوم الدراسي <span class="font-mono dir-ltr inline-block" id="simEndTime">--:--</span>
-                </div>
-                
-                <div id="nextDayWarning" class="hidden rounded-lg bg-red-50 p-3 text-xs text-red-600">
-                    <div class="flex gap-2 items-start">
-                        <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                        <span>تنبيه: وقت النهاية يتجاوز منتصف الليل (سيدخل في اليوم التالي).</span>
-                    </div>
-                </div>
-
-                <button type="submit" class="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-indigo-700">
-                    توليد الجدول الآن
-                </button>
-                <p class="text-[10px] text-center text-slate-400">سيتم حفظ التوقيت المدخل كما هو، وسيُستبدل الجدول الحالي بالكامل.</p>
-            </form>
-        </div>
-      </div>
-
+    <div class="day-toolbar-actions">
+      <a href="{% url 'dashboard:days_list' %}" class="day-btn day-btn-soft">
+        <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        <span>العودة للأيام</span>
+      </a>
+      <button type="submit" form="dayForm" class="day-btn day-btn-primary">
+        <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+        <span>حفظ التغييرات</span>
+      </button>
     </div>
+  </section>
 
-    <!-- Right Column: Manual Editor -->
-    <div class="lg:col-span-8">
-        <form method="post" id="dayForm" class="space-y-6">
+  <div class="day-layout">
+    <main class="space-y-5">
+      <form method="post" id="dayForm" class="space-y-5">
+        {% csrf_token %}
+
+        <section class="day-card">
+          <div class="day-card-header">
+            <div class="flex items-start gap-3">
+              <span class="day-section-icon" aria-hidden="true"><i class="fa-solid fa-sliders"></i></span>
+              <div>
+                <h3 class="text-sm font-black text-slate-900">عدد الحصص</h3>
+                <p class="mt-1 text-xs leading-5 text-slate-500">غيّر العدد ثم أضف أو احذف الصفوف التفصيلية حسب الحاجة.</p>
+              </div>
+            </div>
+          </div>
+          <div class="day-card-body day-count-panel">
+            <div class="day-count-row">
+              <div class="day-field">
+                {{ form.periods_count.label_tag }}
+                {{ form.periods_count }}
+              </div>
+              <button type="submit" id="saveCountBtn" class="day-btn day-btn-green hidden">
+                <i class="fa-solid fa-check" aria-hidden="true"></i>
+                <span>حفظ العدد</span>
+              </button>
+            </div>
+            {% if form.periods_count.errors %}
+              <p class="text-xs font-bold text-rose-600">{{ form.periods_count.errors|join:", " }}</p>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="day-card">
+          <div class="day-card-header">
+            <div class="flex items-start gap-3">
+              <span class="day-section-icon" aria-hidden="true"><i class="fa-solid fa-list-ol"></i></span>
+              <div>
+                <h3 class="text-sm font-black text-slate-900">جدول الحصص التفصيلي</h3>
+                <p class="mt-1 text-xs leading-5 text-slate-500">كل صف يمثل حصة واحدة مع وقت البداية والنهاية.</p>
+              </div>
+            </div>
+            <div class="day-section-actions">
+              <button type="button" id="autoIndex" class="day-btn day-btn-soft">
+                <i class="fa-solid fa-arrow-down-1-9" aria-hidden="true"></i>
+                <span>إعادة ترقيم</span>
+              </button>
+              <button type="button" id="addPeriod" class="day-btn day-btn-primary">
+                <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                <span>إضافة حصة</span>
+              </button>
+            </div>
+          </div>
+          <div class="day-card-body">
+            {{ p_formset.management_form }}
+            {% if p_formset.non_form_errors %}
+              <div class="mb-3 rounded-xl bg-rose-50 p-3 text-xs font-bold text-rose-600">{{ p_formset.non_form_errors|join:", " }}</div>
+            {% endif %}
+            <div id="periods" class="day-rows">
+              {% for f in p_formset %}
+                <div class="period-row" data-row-kind="p">
+                  {{ f.id }}
+                  <div class="day-row-grid">
+                    <div class="day-field">
+                      <label>رقم الحصة</label>
+                      {{ f.index }}
+                    </div>
+                    <div class="day-field">
+                      <label>يبدأ عند</label>
+                      {{ f.starts_at }}
+                    </div>
+                    <div class="day-field">
+                      <label>ينتهي عند</label>
+                      {{ f.ends_at }}
+                    </div>
+                    <div class="day-row-actions">
+                      <button type="button" class="day-icon-btn row-delete" title="حذف" aria-label="حذف الحصة">
+                        <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+                      </button>
+                      <button type="button" class="day-icon-btn day-undo-btn row-undo hidden" title="تراجع" aria-label="تراجع عن الحذف">
+                        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                      </button>
+                      <div class="hidden">{{ f.DELETE }}</div>
+                    </div>
+                  </div>
+                </div>
+              {% empty %}
+                <div class="day-empty-note">لا توجد حصص بعد. استخدم زر إضافة حصة أو المولد الذكي.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+
+        <section class="day-card">
+          <div class="day-card-header">
+            <div class="flex items-start gap-3">
+              <span class="day-section-icon" aria-hidden="true"><i class="fa-solid fa-mug-saucer"></i></span>
+              <div>
+                <h3 class="text-sm font-black text-slate-900">الفسح وأوقات الراحة</h3>
+                <p class="mt-1 text-xs leading-5 text-slate-500">أضف وقت الفسحة ومدة الراحة التي تظهر ضمن جدول اليوم.</p>
+              </div>
+            </div>
+            <div class="day-section-actions">
+              <button type="button" id="addBreak" class="day-btn day-btn-green">
+                <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                <span>إضافة فسحة</span>
+              </button>
+            </div>
+          </div>
+          <div class="day-card-body">
+            {{ b_formset.management_form }}
+            {% if b_formset.non_form_errors %}
+              <div class="mb-3 rounded-xl bg-rose-50 p-3 text-xs font-bold text-rose-600">{{ b_formset.non_form_errors|join:", " }}</div>
+            {% endif %}
+            <div id="breaks" class="day-rows">
+              {% for f in b_formset %}
+                <div class="break-row" data-row-kind="b">
+                  {{ f.id }}
+                  <div class="day-break-grid">
+                    <div class="day-field">
+                      <label>اسم الفسحة</label>
+                      {{ f.label }}
+                    </div>
+                    <div class="day-field">
+                      <label>وقت البدء</label>
+                      {{ f.starts_at }}
+                    </div>
+                    <div class="day-field">
+                      <label>المدة بالدقائق</label>
+                      {{ f.duration_min }}
+                    </div>
+                    <div class="day-row-actions">
+                      <button type="button" class="day-icon-btn row-delete" title="حذف" aria-label="حذف الفسحة">
+                        <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+                      </button>
+                      <button type="button" class="day-icon-btn day-undo-btn row-undo hidden" title="تراجع" aria-label="تراجع عن الحذف">
+                        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                      </button>
+                      <div class="hidden">{{ f.DELETE }}</div>
+                    </div>
+                  </div>
+                </div>
+              {% empty %}
+                <div class="day-empty-note">لا توجد فسح مسجلة لهذا اليوم.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+
+        <div class="day-save-bar">
+          <p class="text-sm font-bold text-slate-600">راجع الأوقات ثم احفظ حتى تنعكس التغييرات على شاشات العرض.</p>
+          <div class="day-save-actions">
+            <a href="{% url 'dashboard:days_list' %}" class="day-btn day-cancel-btn">إلغاء</a>
+            <button type="submit" class="day-btn day-save-btn">
+              <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+              <span>حفظ كل التغييرات</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </main>
+
+    <aside class="day-side">
+      <section class="day-card">
+        <div class="day-card-header">
+          <div class="flex items-start gap-3">
+            <span class="day-section-icon" aria-hidden="true"><i class="fa-solid fa-bolt"></i></span>
+            <div>
+              <h3 class="text-sm font-black text-slate-900">المولد الذكي</h3>
+              <p class="mt-1 text-xs leading-5 text-slate-500">تعبئة توقيت الحصص والفسحة دفعة واحدة.</p>
+            </div>
+          </div>
+        </div>
+        <div class="day-card-body">
+          <div class="day-alert {% if autofill_seed.has_actual_values %}is-ready{% endif %} mb-4">
+            {% if autofill_seed.has_actual_values %}
+              تم تحميل القيم من جدول اليوم الفعلي، وسيتم الحفظ بنفس التوقيت المدخل.
+            {% else %}
+              لا توجد بيانات زمنية محفوظة لهذا اليوم بعد. أدخل التوقيت وسيتم حفظه كما هو.
+            {% endif %}
+          </div>
+
+          <form method="post" action="{% url 'dashboard:day_autofill' day.weekday %}" class="space-y-4" id="autofillForm">
             {% csrf_token %}
-
-            <!-- Manual Count Settings -->
-            <div class="dashboard-section-card rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-2">
-                         <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                        </div>
-                        <h3 class="font-bold text-slate-900">إعدادات يدوية</h3>
-                    </div>
-                    <button type="submit" id="saveCountBtn" class="hidden rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700 shadow-md shadow-emerald-600/20">
-                        حفظ التعديلات
-                    </button>
-                </div>
-                
-                <div class="flex items-end gap-4 max-w-sm">
-                    <div class="w-full">
-                        {{ form.periods_count.label_tag }} 
-                        {{ form.periods_count }}
-                    </div>
-                </div>
-                {% if form.periods_count.errors %}
-                  <p class="text-xs text-red-600 mt-2">{{ form.periods_count.errors|join:", " }}</p>
-                {% endif %}
+            <div class="day-autofill-grid">
+              <div class="day-field span-full">
+                <label for="af_count">عدد الحصص المطلوب</label>
+                <input type="number" name="target_periods_count" value="{{ autofill_seed.target_periods_count }}" min="1" max="20" required id="af_count">
+              </div>
+              <div class="day-field">
+                <label for="af_start">بداية اليوم</label>
+                <input type="time" name="start_time" value="{{ autofill_seed.start_time }}" id="af_start" required>
+              </div>
+              <div class="day-field">
+                <label for="af_period">زمن الحصة بالدقائق</label>
+                <input type="number" name="period_minutes" value="{{ autofill_seed.period_minutes }}" min="1" id="af_period" required>
+              </div>
+              <div class="day-field span-full">
+                <label for="af_gap">فاصل بين الحصص بالدقائق</label>
+                <input type="number" name="gap_minutes" value="{{ autofill_seed.gap_minutes }}" min="0" placeholder="0" id="af_gap" required>
+              </div>
             </div>
 
-            <!-- Periods List -->
-            <div class="space-y-4">
-                <div class="flex items-center justify-between px-2">
-                    <h3 class="text-lg font-bold text-slate-800">جدول الحصص التفصيلي</h3>
-                    <div class="flex gap-2">
-                        <button type="button" id="autoIndex" class="btn-secondary text-xs px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-600">
-                           إعادة ترقيم
-                        </button>
-                        <button type="button" id="addPeriod" class="btn-primary-soft text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100">
-                           + إضافة حصة
-                        </button>
-                    </div>
+            <div>
+              <div class="mb-2 text-xs font-black text-slate-700">إعداد الفسحة</div>
+              <div class="day-break-settings">
+                <div class="day-field">
+                  <label for="af_break_after">بعد حصة رقم</label>
+                  <input type="number" name="break_after" value="{{ autofill_seed.break_after }}" min="0" id="af_break_after" required>
                 </div>
-
-                {{ p_formset.management_form }}
-
-                <div id="periods" class="space-y-3">
-                  {% for f in p_formset %}
-                    <!-- Period Row -->
-                    <div class="dashboard-section-card period-row group relative bg-white p-5 rounded-2xl border border-slate-200 shadow-sm transition-all hover:border-blue-400 hover:shadow-md" data-row-kind="p">
-                       {{ f.id }}
-                       <div class="flex flex-col gap-4">
-                           <!-- Top Row: Index & Actions -->
-                           <div class="flex items-center justify-between">
-                                <div class="w-32">
-                                    <label class="text-[10px] uppercase font-bold text-slate-400 mb-1.5 block">رقم الحصة</label>
-                                    <div class="relative">
-                                        {{ f.index }}
-                                    </div>
-                                </div>
-                                
-                                <div class="flex items-center gap-2">
-                                    <button type="button" class="row-delete p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition" title="حذف">
-                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                    </button>
-                                    <button type="button" class="row-undo hidden p-2 rounded-xl text-amber-500 hover:bg-amber-50 transition" title="تراجع">
-                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                                    </button>
-                                    <div class="hidden">{{ f.DELETE }}</div>
-                                </div>
-                           </div>
-
-                           <!-- Bottom Row: Times -->
-                           <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
-                              <div>
-                                 <label class="text-[10px] uppercase font-bold text-slate-400 mb-1.5 block">يبدأ عند</label>
-                                 <div class="input-wrapper w-full">
-                                     {{ f.starts_at }}
-                                 </div>
-                              </div>
-                              <div>
-                                 <label class="text-[10px] uppercase font-bold text-slate-400 mb-1.5 block">ينتهي عند</label>
-                                 <div class="input-wrapper w-full">
-                                     {{ f.ends_at }}
-                                 </div>
-                              </div>
-                           </div>
-                       </div>
-                    </div>
-                  {% endfor %}
+                <div class="day-field">
+                  <label for="af_break_dur">المدة بالدقائق</label>
+                  <input type="number" name="break_minutes" value="{{ autofill_seed.break_minutes }}" min="0" id="af_break_dur" required>
                 </div>
-            </div>
-            
-            <hr class="border-slate-100 my-8">
-
-            <!-- Breaks List -->
-            <div class="space-y-4">
-                <div class="flex items-center justify-between px-2">
-                    <h3 class="text-lg font-bold text-slate-800">الفسح وأوقات الراحة</h3>
-                    <button type="button" id="addBreak" class="btn-primary-soft text-xs px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100">
-                       + إضافة فسحة
-                    </button>
-                </div>
-
-                {{ b_formset.management_form }}
-
-                <div id="breaks" class="space-y-3">
-                  {% for f in b_formset %}
-                    <!-- Break Row -->
-                    <div class="dashboard-control-surface break-row group relative bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md" data-row-kind="b">
-                       {{ f.id }}
-                       <div class="flex flex-col gap-4">
-                           <!-- Top: Name & Actions -->
-                           <div class="flex items-center justify-between gap-4">
-                               <div class="w-full">
-                                  <label class="text-[10px] uppercase font-bold text-emerald-600/60 mb-1.5 block">اسم الفسحة</label>
-                                  <div class="input-wrapper w-full">
-                                      {{ f.label }}
-                                  </div>
-                               </div>
-                               
-                                <div class="flex items-center gap-2 flex-shrink-0 self-center mt-6">
-                                    <button type="button" class="row-delete p-2 rounded-xl text-emerald-400 hover:text-rose-500 hover:bg-rose-50 transition" title="حذف">
-                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                    </button>
-                                    <button type="button" class="row-undo hidden p-2 rounded-xl text-amber-500 hover:bg-amber-50 transition" title="تراجع">
-                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                                    </button>
-                                    <div class="hidden">{{ f.DELETE }}</div>
-                                </div>
-                           </div>
-
-                           <!-- Bottom: Time & Duration -->
-                           <div class="grid grid-cols-2 gap-4 pt-4 border-t border-emerald-100">
-                              <div>
-                                 <label class="text-[10px] uppercase font-bold text-emerald-600/60 mb-1.5 block">وقت البدء</label>
-                                 <div class="input-wrapper w-full">
-                                     {{ f.starts_at }}
-                                 </div>
-                              </div>
-                              <div>
-                                 <label class="text-[10px] uppercase font-bold text-emerald-600/60 mb-1.5 block">المدة (دقيقة)</label>
-                                 <div class="input-wrapper w-full">
-                                     {{ f.duration_min }}
-                                 </div>
-                              </div>
-                           </div>
-                       </div>
-                    </div>
-                  {% endfor %}
-                </div>
+              </div>
             </div>
 
-            <!-- Sticky Save Bar -->
-            <div class="sticky bottom-4 z-40 mt-8">
-                <div class="rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 p-4 text-white shadow-lg flex items-center justify-between">
-                    <p class="text-sm font-medium opacity-90 hidden sm:block">تأكد من حفظ التغييرات بعد الانتهاء</p>
-                    <div class="flex w-full sm:w-auto gap-3">
-                         <a href="{% url 'dashboard:days_list' %}" class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl border border-white/20 hover:bg-white/10 text-center transition font-semibold text-sm">إلغاء</a>
-                         <button type="submit" class="flex-1 sm:flex-none px-8 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-600/30 transition font-bold text-sm">حفظ كل التغييرات</button>
-                    </div>
-                </div>
+            <div id="simulationResult" class="hidden rounded-xl bg-cyan-50 p-3 text-xs font-bold text-cyan-700">
+              سينتهي اليوم الدراسي <span class="font-mono" dir="ltr" id="simEndTime">--:--</span>
+            </div>
+            <div id="nextDayWarning" class="hidden rounded-xl bg-rose-50 p-3 text-xs font-bold text-rose-600">
+              وقت النهاية يتجاوز منتصف الليل ويدخل في اليوم التالي.
             </div>
 
-        </form>
-    </div>
+            <button type="submit" class="day-btn day-btn-primary w-full">
+              <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+              <span>توليد الجدول الآن</span>
+            </button>
+            <p class="text-center text-[11px] leading-5 text-slate-400">سيتم استبدال الجدول الحالي بالكامل بالقيم المدخلة.</p>
+          </form>
+        </div>
+      </section>
+    </aside>
   </div>
 
-  <!-- Templates for Dynamic Forms -->
   <template id="period-empty">
-    <div class="dashboard-section-card period-row group relative bg-white p-5 rounded-2xl border border-slate-200 shadow-sm transition-all hover:border-blue-400 hover:shadow-md" data-row-kind="p">
-        __ID__
-        <div class="flex flex-col gap-4">
-            <!-- Top Row: Index & Actions -->
-            <div class="flex items-center justify-between">
-                 <div class="w-32">
-                     <label class="text-[10px] uppercase font-bold text-slate-400 mb-1.5 block">رقم الحصة</label>
-                     <div class="relative">
-                        <div class="input-wrapper w-full">
-                            __INDEX__
-                        </div>
-                     </div>
-                 </div>
-                 
-                 <div class="flex items-center gap-2">
-                     <button type="button" class="row-delete p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition" title="حذف">
-                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                     </button>
-                     <button type="button" class="row-undo hidden p-2 rounded-xl text-amber-500 hover:bg-amber-50 transition" title="تراجع">
-                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                     </button>
-                     __DELETE__
-                 </div>
-            </div>
-
-            <!-- Bottom Row: Times -->
-            <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
-               <div>
-                  <label class="text-[10px] uppercase font-bold text-slate-400 mb-1.5 block">يبدأ عند</label>
-                  <div class="input-wrapper w-full">__STARTS__</div>
-               </div>
-               <div>
-                  <label class="text-[10px] uppercase font-bold text-slate-400 mb-1.5 block">ينتهي عند</label>
-                  <div class="input-wrapper w-full">__ENDS__</div>
-               </div>
-            </div>
+    <div class="period-row" data-row-kind="p">
+      __ID__
+      <div class="day-row-grid">
+        <div class="day-field">
+          <label>رقم الحصة</label>
+          __INDEX__
         </div>
-     </div>
+        <div class="day-field">
+          <label>يبدأ عند</label>
+          __STARTS__
+        </div>
+        <div class="day-field">
+          <label>ينتهي عند</label>
+          __ENDS__
+        </div>
+        <div class="day-row-actions">
+          <button type="button" class="day-icon-btn row-delete" title="حذف" aria-label="حذف الحصة"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
+          <button type="button" class="day-icon-btn day-undo-btn row-undo hidden" title="تراجع" aria-label="تراجع عن الحذف"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+          <div class="hidden">__DELETE__</div>
+        </div>
+      </div>
+    </div>
   </template>
 
   <template id="break-empty">
-    <div class="dashboard-control-surface break-row group relative bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md" data-row-kind="b">
-        __BID__
-        <div class="flex flex-col gap-4">
-            <!-- Top: Name & Actions -->
-            <div class="flex items-center justify-between gap-4">
-                <div class="w-full">
-                   <label class="text-[10px] uppercase font-bold text-emerald-600/60 mb-1.5 block">اسم الفسحة</label>
-                   <div class="input-wrapper w-full">
-                       __LABEL__
-                   </div>
-                </div>
-                
-                 <div class="flex items-center gap-2 flex-shrink-0 self-center mt-6">
-                     <button type="button" class="row-delete p-2 rounded-xl text-emerald-400 hover:text-rose-500 hover:bg-rose-50 transition" title="حذف">
-                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                     </button>
-                     <button type="button" class="row-undo hidden p-2 rounded-xl text-amber-500 hover:bg-amber-50 transition" title="تراجع">
-                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                     </button>
-                     __BDELETE__
-                 </div>
-            </div>
-
-            <!-- Bottom: Time & Duration -->
-            <div class="grid grid-cols-2 gap-4 pt-4 border-t border-emerald-100">
-               <div>
-                  <label class="text-[10px] uppercase font-bold text-emerald-600/60 mb-1.5 block">وقت البدء</label>
-                  <div class="input-wrapper w-full">
-                      __BSTART__
-                  </div>
-               </div>
-               <div>
-                  <label class="text-[10px] uppercase font-bold text-emerald-600/60 mb-1.5 block">المدة (دقيقة)</label>
-                  <div class="input-wrapper w-full">
-                      __BDUR__
-                  </div>
-               </div>
-            </div>
+    <div class="break-row" data-row-kind="b">
+      __BID__
+      <div class="day-break-grid">
+        <div class="day-field">
+          <label>اسم الفسحة</label>
+          __LABEL__
+        </div>
+        <div class="day-field">
+          <label>وقت البدء</label>
+          __BSTART__
+        </div>
+        <div class="day-field">
+          <label>المدة بالدقائق</label>
+          __BDUR__
+        </div>
+        <div class="day-row-actions">
+          <button type="button" class="day-icon-btn row-delete" title="حذف" aria-label="حذف الفسحة"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
+          <button type="button" class="day-icon-btn day-undo-btn row-undo hidden" title="تراجع" aria-label="تراجع عن الحذف"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+          <div class="hidden">__BDELETE__</div>
         </div>
       </div>
+    </div>
   </template>
 
-  <!-- Hidden Empty Forms for Django Formset -->
   <div id="period-empty-form" class="hidden">
-     {{ p_formset.empty_form.id }}
-     {{ p_formset.empty_form.index }}
-     {{ p_formset.empty_form.starts_at }}
-     {{ p_formset.empty_form.ends_at }}
-     {{ p_formset.empty_form.DELETE }}
+    {{ p_formset.empty_form.id }}
+    {{ p_formset.empty_form.index }}
+    {{ p_formset.empty_form.starts_at }}
+    {{ p_formset.empty_form.ends_at }}
+    {{ p_formset.empty_form.DELETE }}
   </div>
   <div id="break-empty-form" class="hidden">
-      {{ b_formset.empty_form.id }}
-      {{ b_formset.empty_form.label }}
-      {{ b_formset.empty_form.starts_at }}
-      {{ b_formset.empty_form.duration_min }}
-      {{ b_formset.empty_form.DELETE }}
+    {{ b_formset.empty_form.id }}
+    {{ b_formset.empty_form.label }}
+    {{ b_formset.empty_form.starts_at }}
+    {{ b_formset.empty_form.duration_min }}
+    {{ b_formset.empty_form.DELETE }}
   </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function(){
-    
-    // --- 1. Simulation Logic for Auto-fill ---
     const afInputs = ['af_count', 'af_start', 'af_period', 'af_gap', 'af_break_after', 'af_break_dur'];
     const afElements = afInputs.map(id => document.getElementById(id));
     const simResult = document.getElementById('simulationResult');
@@ -412,9 +739,8 @@ document.addEventListener('DOMContentLoaded', function(){
     const nextDayWarn = document.getElementById('nextDayWarning');
 
     function calculateEndTime() {
-        // Collect values
         const count = parseInt(afElements[0].value) || 0;
-        const startStr = afElements[1].value; // "HH:MM"
+        const startStr = afElements[1].value;
         const periodMin = parseInt(afElements[2].value) || 0;
         const gapMin = parseInt(afElements[3].value) || 0;
         const breakAfter = parseInt(afElements[4].value) || 0;
@@ -426,31 +752,25 @@ document.addEventListener('DOMContentLoaded', function(){
             return;
         }
 
-        // Parse Time
         const [hh, mm] = startStr.split(':').map(Number);
         let totalMinutes = hh * 60 + mm;
 
-        // Loop Calculation
         for (let i = 1; i <= count; i++) {
-            totalMinutes += periodMin; // Period duration
-            // Add break if applicable
+            totalMinutes += periodMin;
             if (breakDur > 0 && i === breakAfter && i < count) {
-                 totalMinutes += breakDur;
+                totalMinutes += breakDur;
             }
-            // Add gap if not last period
             if (i < count) {
                 totalMinutes += gapMin;
             }
         }
 
-        // Convert back to HH:MM
         let endH = Math.floor(totalMinutes / 60);
         const endM = totalMinutes % 60;
         const daysPassed = Math.floor(endH / 24);
         endH = endH % 24;
 
         const timeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
-        
         simTimeSpan.textContent = timeStr + (daysPassed > 0 ? ` (+${daysPassed} يوم)` : '');
         simResult.classList.remove('hidden');
 
@@ -462,58 +782,45 @@ document.addEventListener('DOMContentLoaded', function(){
     }
 
     afElements.forEach(el => {
-        if(el) el.addEventListener('input', calculateEndTime);
+        if (el) el.addEventListener('input', calculateEndTime);
     });
-    // Initial Calc
     calculateEndTime();
 
-
-    // --- 2. Dynamic Formsets ---
-    
     function extractByName(html, fullName) {
-         const re = new RegExp(`<[^>]+name="${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*>`, 'g');
-         const m = html.match(re);
-         return m ? m[0] : '';
+        const re = new RegExp(`<[^>]+name="${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*>`, 'g');
+        const m = html.match(re);
+        return m ? m[0] : '';
     }
 
     function addFormRow(prefix, containerId, tmplId, emptyFormId) {
         const totalInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
         const idx = parseInt(totalInput.value, 10);
         const container = document.getElementById(containerId);
-        
-        // Clone empty form structure (just to get the HTML text)
-        // We use the template script content for layout, but fields from empty-form div
         const emptyFormDiv = document.getElementById(emptyFormId);
-        // Note: Django Formsets need correct IDs/Names. 
-        // We will do a string replace on a cloned version of the empty form div to send into extractByName
-        const rawHtml_fields = emptyFormDiv.innerHTML.replaceAll(/__prefix__/g, idx);
-
-        // Get the layout template
+        const rawHtmlFields = emptyFormDiv.innerHTML.replaceAll(/__prefix__/g, idx);
         let layoutHtml = document.getElementById(tmplId).innerHTML;
-        
+
         if (prefix === 'p') {
-             // Extract generated fields
-             const idF = extractByName(rawHtml_fields, `p-${idx}-id`);
-             const idxF = extractByName(rawHtml_fields, `p-${idx}-index`);
-             const stF = extractByName(rawHtml_fields, `p-${idx}-starts_at`);
-             const enF = extractByName(rawHtml_fields, `p-${idx}-ends_at`);
-             const delF = extractByName(rawHtml_fields, `p-${idx}-DELETE`);
-             
-             // Inject into layout
-             layoutHtml = layoutHtml
+            const idF = extractByName(rawHtmlFields, `p-${idx}-id`);
+            const idxF = extractByName(rawHtmlFields, `p-${idx}-index`);
+            const stF = extractByName(rawHtmlFields, `p-${idx}-starts_at`);
+            const enF = extractByName(rawHtmlFields, `p-${idx}-ends_at`);
+            const delF = extractByName(rawHtmlFields, `p-${idx}-DELETE`);
+
+            layoutHtml = layoutHtml
                 .replace('__ID__', idF)
                 .replace('__INDEX__', idxF)
                 .replace('__STARTS__', stF)
                 .replace('__ENDS__', enF)
                 .replace('__DELETE__', delF);
         } else {
-             const idF = extractByName(rawHtml_fields, `b-${idx}-id`);
-             const lbF = extractByName(rawHtml_fields, `b-${idx}-label`);
-             const stF = extractByName(rawHtml_fields, `b-${idx}-starts_at`);
-             const duF = extractByName(rawHtml_fields, `b-${idx}-duration_min`);
-             const delF = extractByName(rawHtml_fields, `b-${idx}-DELETE`);
+            const idF = extractByName(rawHtmlFields, `b-${idx}-id`);
+            const lbF = extractByName(rawHtmlFields, `b-${idx}-label`);
+            const stF = extractByName(rawHtmlFields, `b-${idx}-starts_at`);
+            const duF = extractByName(rawHtmlFields, `b-${idx}-duration_min`);
+            const delF = extractByName(rawHtmlFields, `b-${idx}-DELETE`);
 
-             layoutHtml = layoutHtml
+            layoutHtml = layoutHtml
                 .replace('__BID__', idF)
                 .replace('__LABEL__', lbF)
                 .replace('__BSTART__', stF)
@@ -522,70 +829,61 @@ document.addEventListener('DOMContentLoaded', function(){
         }
 
         container.insertAdjacentHTML('beforeend', layoutHtml);
+        const emptyNote = container.querySelector('.day-empty-note');
+        if (emptyNote) emptyNote.remove();
         totalInput.value = idx + 1;
     }
 
     const addPBtn = document.getElementById('addPeriod');
-    if(addPBtn) addPBtn.addEventListener('click', () => addFormRow('p', 'periods', 'period-empty', 'period-empty-form'));
+    if (addPBtn) addPBtn.addEventListener('click', () => addFormRow('p', 'periods', 'period-empty', 'period-empty-form'));
 
     const addBBtn = document.getElementById('addBreak');
-    if(addBBtn) addBBtn.addEventListener('click', () => addFormRow('b', 'breaks', 'break-empty', 'break-empty-form'));
+    if (addBBtn) addBBtn.addEventListener('click', () => addFormRow('b', 'breaks', 'break-empty', 'break-empty-form'));
 
-    // Soft Delete Logic
     document.addEventListener('click', function(e){
-        // Delegate for rows (periods and breaks)
         const btn = e.target.closest('.row-delete, .row-undo');
-        if(!btn) return;
+        if (!btn) return;
 
         const row = btn.closest('[data-row-kind]');
-        const isPeriod = row.dataset.rowKind === 'p';
-        const prefix = isPeriod ? 'p' : 'b';
-        
-        // Find the DELETE input. 
-        // We can find it by finding an input that ends with -DELETE inside this row
-        const delInput = row.querySelector(`input[name$="-DELETE"]`);
-        
-        if(!delInput) return;
+        const delInput = row.querySelector('input[name$="-DELETE"]');
+        if (!delInput) return;
 
         const delBtn = row.querySelector('.row-delete');
         const undoBtn = row.querySelector('.row-undo');
-        
-        if(btn.classList.contains('row-delete')){
+
+        if (btn.classList.contains('row-delete')) {
             delInput.checked = true;
-            row.classList.add('opacity-50', 'ring-1', 'ring-rose-400', 'bg-rose-50', 'dark:bg-rose-900/10');
-            row.classList.remove('bg-white', 'dark:bg-slate-800');
-            // Disable inputs
+            row.classList.add('opacity-50', 'ring-1', 'ring-rose-400', 'bg-rose-50');
             row.querySelectorAll('input:not([type=hidden]):not([name$="-DELETE"]), select').forEach(i => i.parentElement.style.pointerEvents = 'none');
             delBtn.classList.add('hidden');
             undoBtn.classList.remove('hidden');
         } else {
             delInput.checked = false;
-            row.classList.remove('opacity-50', 'ring-1', 'ring-rose-400', 'bg-rose-50', 'dark:bg-rose-900/10');
-            row.classList.add('bg-white', 'dark:bg-slate-800'); // Restore default bg
-            // Enable inputs
+            row.classList.remove('opacity-50', 'ring-1', 'ring-rose-400', 'bg-rose-50');
             row.querySelectorAll('input:not([type=hidden]):not([name$="-DELETE"]), select').forEach(i => i.parentElement.style.pointerEvents = 'auto');
             delBtn.classList.remove('hidden');
             undoBtn.classList.add('hidden');
         }
     });
 
-    // Auto Index
-    document.getElementById('autoIndex').addEventListener('click', function(){
-        const rows = document.querySelectorAll('#periods .period-row');
-        let i = 1;
-        rows.forEach(row => {
-             const del = row.querySelector('input[name$="-DELETE"]');
-             if(del && del.checked) return;
-             
-             const idxInput = row.querySelector('input[name$="-index"]');
-             if(idxInput) idxInput.value = i++;
-        });
-    });
+    const autoIndexBtn = document.getElementById('autoIndex');
+    if (autoIndexBtn) {
+        autoIndexBtn.addEventListener('click', function(){
+            const rows = document.querySelectorAll('#periods .period-row');
+            let i = 1;
+            rows.forEach(row => {
+                const del = row.querySelector('input[name$="-DELETE"]');
+                if (del && del.checked) return;
 
-    // Show manual save button on change
+                const idxInput = row.querySelector('input[name$="-index"]');
+                if (idxInput) idxInput.value = i++;
+            });
+        });
+    }
+
     const cntInput = document.getElementById('{{ form.periods_count.auto_id }}');
     const saveCntBtn = document.getElementById('saveCountBtn');
-    if(cntInput && saveCntBtn) {
+    if (cntInput && saveCntBtn) {
         cntInput.addEventListener('input', () => saveCntBtn.classList.remove('hidden'));
     }
 });

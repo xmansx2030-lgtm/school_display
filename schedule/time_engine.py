@@ -350,14 +350,9 @@ def build_day_snapshot(settings, now=None):
 
     py_weekday = today.weekday()
     # DB: Monday=1 .. Sunday=7
-    weekday = _normalize_weekday_for_db(py_weekday)
+    actual_weekday = _normalize_weekday_for_db(py_weekday)
     # Legacy deployments (old dashboard) used: Sunday=0 .. Saturday=6
-    weekday_legacy = (py_weekday + 1) % 7
-    
-    # ✅ Test mode override: للسوبر أدمن لتشغيل الشاشة في أيام الإجازة
-    test_override = getattr(settings, "test_mode_weekday_override", None)
-    if test_override is not None and 1 <= test_override <= 7:
-        weekday = test_override
+    actual_weekday_legacy = (py_weekday + 1) % 7
 
     # theme mapping (لو عندك "default")
     raw_theme = (getattr(settings, "theme", None) or "indigo").strip().lower()
@@ -376,6 +371,26 @@ def build_day_snapshot(settings, now=None):
     }
     settings_payload.update(_resolve_display_messages(settings))
     active_days_index = _build_active_days_index(settings)
+    day_qs = getattr(settings, "day_schedules", None)
+
+    actual_days, actual_resolved_weekday = _load_active_days_for_weekday(
+        day_qs,
+        actual_weekday,
+        actual_weekday_legacy,
+        active_days_index=active_days_index,
+    )
+
+    # Test mode is intended to show a chosen schedule on holidays only. If the
+    # real current weekday has an active schedule, prefer it so a stale override
+    # cannot keep the display in the wrong day.
+    test_override = getattr(settings, "test_mode_weekday_override", None)
+    if not actual_days and test_override is not None and 1 <= test_override <= 7:
+        weekday = test_override
+        weekday_legacy = None
+    else:
+        weekday = actual_resolved_weekday
+        weekday_legacy = actual_weekday_legacy
+
     next_school_day = _next_school_day_info(
         settings,
         today,
@@ -385,13 +400,15 @@ def build_day_snapshot(settings, now=None):
     )
 
     # الحصول على جدول اليوم (All Active Schedules for this weekday)
-    day_qs = getattr(settings, "day_schedules", None)
-    days, weekday = _load_active_days_for_weekday(
-        day_qs,
-        weekday,
-        weekday_legacy,
-        active_days_index=active_days_index,
-    )
+    if weekday == actual_resolved_weekday and weekday_legacy == actual_weekday_legacy:
+        days = actual_days
+    else:
+        days, weekday = _load_active_days_for_weekday(
+            day_qs,
+            weekday,
+            weekday_legacy,
+            active_days_index=active_days_index,
+        )
 
     if not days:
         # Optimization: Strict stop on holidays (reduced to 15m to allow updates/wake-up)

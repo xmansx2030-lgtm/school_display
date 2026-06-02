@@ -2,17 +2,34 @@ from __future__ import annotations
 
 import io
 import json
-from datetime import timedelta
+from datetime import datetime, time as dt_time, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import RequestFactory, SimpleTestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
+from core.models import DisplayScreen, School
 from schedule import api_views as av
+from schedule import cache_utils as cu
+from schedule import signals as sig
 from schedule import snapshot_materializer as sm
 from schedule import snapshot_observability as so
 from schedule.management.commands.display_snapshot_worker import Command as SnapshotWorkerCommand
+from notices.models import Announcement, Excellence
+from schedule.models import (
+    Break,
+    ClassLesson,
+    DaySchedule,
+    DutyAssignment,
+    Period,
+    SchoolClass,
+    SchoolSettings,
+    Subject,
+    Teacher,
+)
+from standby.models import StandbyAssignment
+from schedule.time_engine import build_day_snapshot
 
 
 class FakeRedis:
@@ -51,6 +68,35 @@ class FakeRedis:
 
     def eval(self, script, numkeys, key, *args):
         raise NotImplementedError
+
+
+class TimeEngineTestModeOverrideTests(TestCase):
+    def setUp(self):
+        self.settings = SchoolSettings.objects.create(
+            name="مدرسة اختبار الوقت",
+            timezone_name="Asia/Riyadh",
+            test_mode_weekday_override=1,
+        )
+        monday = DaySchedule.objects.create(settings=self.settings, weekday=1, is_active=True)
+        tuesday = DaySchedule.objects.create(settings=self.settings, weekday=2, is_active=True)
+
+        Period.objects.create(day=monday, index=1, starts_at=dt_time(8, 30), ends_at=dt_time(9, 15))
+        Period.objects.create(day=tuesday, index=1, starts_at=dt_time(2, 30), ends_at=dt_time(3, 20))
+
+    def test_real_active_weekday_takes_precedence_over_test_override(self):
+        snap = build_day_snapshot(self.settings, now=datetime.fromisoformat("2026-06-02T02:31:00+03:00"))
+
+        self.assertEqual(snap["meta"]["weekday"], 2)
+        self.assertEqual(snap["state"]["type"], "period")
+        self.assertEqual(snap["state"]["period_index"], 1)
+        self.assertEqual(snap["state"]["from"], "02:30")
+
+    def test_test_override_still_applies_when_actual_day_has_no_schedule(self):
+        snap = build_day_snapshot(self.settings, now=datetime.fromisoformat("2026-06-06T08:35:00+03:00"))
+
+        self.assertEqual(snap["meta"]["weekday"], 1)
+        self.assertEqual(snap["state"]["type"], "period")
+        self.assertEqual(snap["state"]["from"], "08:30")
 
 
 @override_settings(
@@ -234,6 +280,275 @@ class SnapshotCacheValidationTests(SimpleTestCase):
 
         self.assertIsNone(entry)
         self.assertEqual(reason, "past_wake_boundary")
+
+
+class SnapshotInvalidationTests(TestCase):
+    def test_invalidation_deletes_current_snapshot_namespace_keys(self):
+        school = School.objects.create(name="مدرسة الكاش", slug="cache-school")
+        screen = DisplayScreen.objects.create(school=school, name="الشاشة")
+        token_hash = cu.sha256(screen.token)
+        today = timezone.localdate().isoformat()
+        settings = SchoolSettings.objects.create(name="مدرسة الكاش", school=school, schedule_revision=12)
+
+        keys = []
+        for ns in cu.SNAPSHOT_CACHE_NAMESPACES:
+            keys.extend([
+                f"snapshot:{ns}:school:{school.id}:day:{today}",
+                f"snapshot:last:{ns}:{school.id}:{today}",
+                f"display:snapshot:{ns}:{token_hash}",
+                f"display:snapshot:{ns}:{school.id}:{token_hash}",
+                f"display:snapshot:{ns}:{school.id}:rev:{settings.schedule_revision}:{token_hash}",
+            ])
+        for key in keys:
+            cu.cache.set(key, "stale", timeout=300)
+
+        cu.invalidate_display_snapshot_cache_for_school_id(school.id)
+
+        for key in keys:
+            with self.subTest(key=key):
+                self.assertIsNone(cu.cache.get(key))
+
+
+class DisplayWebSocketInvalidationTests(SimpleTestCase):
+    @override_settings(DISPLAY_WS_ENABLED=True)
+    def test_websocket_invalidation_broadcasts_every_nearby_update(self):
+        class FakeChannelLayer:
+            def __init__(self):
+                self.sent = []
+
+            async def group_send(self, group_name, event):
+                self.sent.append((group_name, event))
+
+        layer = FakeChannelLayer()
+
+        with patch("channels.layers.get_channel_layer", return_value=layer):
+            sig._broadcast_invalidate_ws(7, 101)
+            sig._broadcast_invalidate_ws(7, 102)
+
+        self.assertEqual(len(layer.sent), 2)
+        self.assertEqual([event["revision"] for _, event in layer.sent], [101, 102])
+
+
+class DisplaySignalInvalidationTests(TestCase):
+    def setUp(self):
+        self.school = School.objects.create(name="مدرسة التحديثات", slug="updates-school")
+        self.settings = SchoolSettings.objects.create(
+            name="مدرسة التحديثات",
+            school=self.school,
+            timezone_name="Asia/Riyadh",
+        )
+        self.screen = DisplayScreen.objects.create(school=self.school, name="الشاشة الرئيسية")
+        self.day = DaySchedule.objects.create(settings=self.settings, weekday=2, is_active=True)
+        self.school_class = SchoolClass.objects.create(settings=self.settings, name="الأول أ")
+        self.subject = Subject.objects.create(school=self.school, name="رياضيات")
+        self.teacher = Teacher.objects.create(school=self.school, name="أحمد")
+        self.token_hash = cu.sha256(self.screen.token)
+        cu.cache.clear()
+
+    def _prime_snapshot_keys(self) -> list[str]:
+        self.settings.refresh_from_db()
+        today = timezone.localdate().isoformat()
+        rev = int(self.settings.schedule_revision or 0)
+        keys = []
+        for ns in cu.SNAPSHOT_CACHE_NAMESPACES:
+            keys.extend([
+                f"snapshot:{ns}:school:{self.school.id}:day:{today}",
+                f"snapshot:last:{ns}:{self.school.id}:{today}",
+                f"display:snapshot:{ns}:{self.token_hash}",
+                f"display:snapshot:{ns}:{self.school.id}:{self.token_hash}",
+                f"display:snapshot:{ns}:{self.school.id}:rev:{rev}:{self.token_hash}",
+                f"display:snapshot:{ns}:{self.school.id}:rev:{rev + 1}:{self.token_hash}",
+            ])
+        for key in keys:
+            cu.cache.set(key, "stale", timeout=300)
+        cu.cache.delete(f"display:force_refresh:{self.token_hash}")
+        cu.cache.delete(f"display:rev_bump_window:{self.school.id}")
+        return keys
+
+    def _assert_dashboard_source_change_refreshes_display(self, mutate):
+        keys = self._prime_snapshot_keys()
+
+        mutate()
+
+        for key in keys:
+            with self.subTest(key=key):
+                self.assertIsNone(cu.cache.get(key))
+        self.assertEqual(cu.cache.get(f"display:force_refresh:{self.token_hash}"), "1")
+
+    def test_standby_assignment_save_refreshes_display_without_manual_reload(self):
+        self._assert_dashboard_source_change_refreshes_display(
+            lambda: StandbyAssignment.objects.create(
+                school=self.school,
+                date=timezone.localdate(),
+                period_index=3,
+                class_name="الأول أ",
+                teacher_name="معلم انتظار",
+                notes="اختبار",
+            )
+        )
+
+    def test_all_snapshot_source_saves_refresh_display_without_manual_reload(self):
+        sources = [
+            (
+                "settings",
+                lambda: (
+                    setattr(self.settings, "display_before_badge", "مرحبا"),
+                    self.settings.save(),
+                ),
+            ),
+            (
+                "period",
+                lambda: Period.objects.create(
+                    day=self.day,
+                    index=1,
+                    starts_at=dt_time(8, 0),
+                    ends_at=dt_time(8, 45),
+                ),
+            ),
+            (
+                "break",
+                lambda: Break.objects.create(
+                    day=self.day,
+                    label="فسحة",
+                    starts_at=dt_time(9, 0),
+                    duration_min=15,
+                ),
+            ),
+            (
+                "class_lesson",
+                lambda: ClassLesson.objects.create(
+                    settings=self.settings,
+                    school_class=self.school_class,
+                    weekday=2,
+                    period_index=2,
+                    subject=self.subject,
+                    teacher=self.teacher,
+                ),
+            ),
+            (
+                "school_class",
+                lambda: (
+                    setattr(self.school_class, "name", "الأول ب"),
+                    self.school_class.save(),
+                ),
+            ),
+            (
+                "subject",
+                lambda: (
+                    setattr(self.subject, "name", "علوم"),
+                    self.subject.save(),
+                ),
+            ),
+            (
+                "teacher",
+                lambda: (
+                    setattr(self.teacher, "name", "محمد"),
+                    self.teacher.save(),
+                ),
+            ),
+            (
+                "duty",
+                lambda: DutyAssignment.objects.create(
+                    school=self.school,
+                    date=timezone.localdate(),
+                    teacher_name="معلم مناوبة",
+                    duty_type=DutyAssignment.DUTY_DUTY,
+                ),
+            ),
+            (
+                "announcement",
+                lambda: Announcement.objects.create(
+                    school=self.school,
+                    title="تنبيه",
+                    body="اختبار التحديث",
+                ),
+            ),
+            (
+                "excellence",
+                lambda: Excellence.objects.create(
+                    school=self.school,
+                    teacher_name="معلم متميز",
+                    reason="نشاط صفي",
+                ),
+            ),
+            (
+                "school",
+                lambda: (
+                    setattr(self.school, "name", "مدرسة التحديثات الجديدة"),
+                    self.school.save(),
+                ),
+            ),
+        ]
+
+        for label, mutate in sources:
+            with self.subTest(source=label):
+                self._assert_dashboard_source_change_refreshes_display(mutate)
+
+
+class SnapshotPayloadBuildTests(SimpleTestCase):
+    def _fake_settings(self):
+        return SimpleNamespace(
+            school=None,
+            school_id=7,
+            schedule_revision=12,
+            theme="indigo",
+            featured_panel="excellence",
+            refresh_interval_sec=60,
+            standby_scroll_speed=0.8,
+            periods_scroll_speed=0.5,
+            display_accent_color="",
+            get_display_before_title=lambda: "قبل الدوام",
+            get_display_before_badge=lambda: "أهلا بكم",
+            get_display_after_title=lambda: "بعد الدوام",
+            get_display_after_badge=lambda: "أحسنتم",
+            get_display_after_holiday_title=lambda: "إجازة سعيدة",
+            get_display_after_holiday_badge=lambda: "إجازة",
+            get_display_holiday_title=lambda: "اليوم إجازة",
+            get_display_holiday_badge=lambda: "إجازة",
+        )
+
+    def test_steady_snapshot_merges_dashboard_content(self):
+        day_snap = {
+            "now": timezone.now().isoformat(),
+            "meta": {
+                "date": "2026-04-20",
+                "weekday": 1,
+                "is_school_day": True,
+                "is_active_window": False,
+            },
+            "settings": {"refresh_interval_sec": 60},
+            "state": {"type": "off", "reason": "after_hours"},
+            "day_path": [],
+            "period_classes": [],
+            "period_classes_map": {},
+            "standby": [],
+            "excellence": [],
+            "announcements": [],
+        }
+
+        def merge_content(_request, snap, _settings_obj):
+            snap["announcements"] = [{"message": "تنبيه مباشر"}]
+
+        request = RequestFactory().get("/api/display/snapshot/")
+        with (
+            patch.object(av, "_call_build_day_snapshot", return_value=day_snap),
+            patch.object(av, "_merge_real_data_into_snapshot", side_effect=merge_content) as merge_real,
+            patch.object(av, "_build_period_classes_map", return_value={}),
+            patch.object(av, "_metrics_incr", lambda *args, **kwargs: None),
+            patch.object(av, "_metrics_add", lambda *args, **kwargs: None),
+            patch.object(av, "_metrics_set_max", lambda *args, **kwargs: None),
+            patch.object(av, "_metrics_log_maybe", lambda *args, **kwargs: None),
+        ):
+            snap, _build_ms = av._build_snapshot_payload(
+                request,
+                self._fake_settings(),
+                school_id=7,
+                rev=12,
+            )
+
+        merge_real.assert_called_once()
+        self.assertEqual(snap["state"]["type"], "OFF_HOURS")
+        self.assertEqual(snap["announcements"], [{"message": "تنبيه مباشر"}])
 
 
 class SnapshotObservabilityTests(SimpleTestCase):

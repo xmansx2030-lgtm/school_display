@@ -1,322 +1,486 @@
 {% extends "dashboard/_base.html" %}
-{% load static %}
+
 {% block title %}إدارة الفصول والمواد والمعلمين/المعلمات{% endblock %}
 {% block page_title %}إدارة الفصول والمواد والمعلمين/المعلمات{% endblock %}
 {% block page_description %}أضف وعدّل الفصول والمواد والمعلمين/المعلمات بسرعة من صفحة واحدة مخصصة لإعداد بيانات المدرسة.{% endblock %}
 
-{% block content %}
-<div class="max-w-6xl mx-auto space-y-8">
+{% block extra_css %}
+<style>
+  .school-data-page {
+    --data-accent: #145a6a;
+    --data-accent-dark: #123b4a;
+    --data-warm: #b48b57;
+    --data-border: rgba(124, 116, 102, 0.16);
+    --data-muted: #5f6d78;
+  }
 
-  <!-- إحصائيات سريعة -->
-  <div class="dashboard-toolbar flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-    <div class="flex items-center gap-3">
-      <a
-        href="{% url 'dashboard:index' %}"
-        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M15 19l-7-7 7-7"/>
-        </svg>
-        العودة للرئيسية
+  .school-data-command,
+  .school-data-stat,
+  .school-data-panel,
+  .school-data-note {
+    border: 1px solid var(--data-border);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
+  }
+
+  .school-data-command {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .school-data-copy {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    min-width: 0;
+  }
+
+  .school-data-icon,
+  .school-data-stat-icon,
+  .school-data-panel-icon,
+  .school-data-delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+
+  .school-data-icon {
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 10px;
+    background: rgba(20, 90, 106, 0.09);
+    color: var(--data-accent);
+  }
+
+  .school-data-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .school-data-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 2.45rem;
+    border-radius: 10px;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 900;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  }
+
+  .school-data-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .school-data-btn-primary {
+    border: 1px solid var(--data-accent-dark);
+    background: var(--data-accent-dark);
+    color: #fffaf3;
+  }
+
+  .school-data-btn-soft {
+    border: 1px solid rgba(20, 90, 106, 0.18);
+    background: rgba(20, 90, 106, 0.06);
+    color: var(--data-accent-dark);
+  }
+
+  .school-data-stats {
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .school-data-stat {
+    position: relative;
+    overflow: hidden;
+    min-height: 5.7rem;
+    padding: 0.9rem;
+  }
+
+  .school-data-stat::after {
+    content: "";
+    position: absolute;
+    inset-inline-end: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--data-accent);
+  }
+
+  .school-data-stat.is-warm::after {
+    background: var(--data-warm);
+  }
+
+  .school-data-stat.is-soft::after {
+    background: #64748b;
+  }
+
+  .school-data-stat-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+  }
+
+  .school-data-stat-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9px;
+    background: rgba(20, 90, 106, 0.08);
+    color: var(--data-accent);
+  }
+
+  .school-data-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .school-data-panel {
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .school-data-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.8rem;
+    border-bottom: 1px solid rgba(124, 116, 102, 0.12);
+    padding: 1rem;
+  }
+
+  .school-data-panel-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    min-width: 0;
+  }
+
+  .school-data-panel-icon {
+    width: 2.15rem;
+    height: 2.15rem;
+    border-radius: 10px;
+    background: rgba(20, 90, 106, 0.09);
+    color: var(--data-accent);
+  }
+
+  .school-data-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(20, 90, 106, 0.09);
+    color: var(--data-accent-dark);
+    padding: 0.3rem 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .school-data-panel-body {
+    display: grid;
+    gap: 0.9rem;
+    padding: 1rem;
+  }
+
+  .school-data-form {
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .school-data-field {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .school-data-field label {
+    color: var(--data-muted);
+    font-size: 0.74rem;
+    font-weight: 900;
+  }
+
+  .school-data-field input {
+    width: 100%;
+  }
+
+  .school-data-list {
+    display: grid;
+    gap: 0.55rem;
+    max-height: 20rem;
+    overflow-y: auto;
+    padding-inline-end: 0.15rem;
+  }
+
+  .school-data-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem;
+    border: 1px solid rgba(124, 116, 102, 0.1);
+    border-radius: 10px;
+    background: #fbfcfd;
+    padding: 0.65rem 0.75rem;
+  }
+
+  .school-data-item-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #173042;
+    font-size: 0.88rem;
+    font-weight: 800;
+  }
+
+  .school-data-delete {
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 9px;
+    border: 1px solid rgba(225, 29, 72, 0.18);
+    background: rgba(255, 241, 242, 0.88);
+    color: #e11d48;
+    transition: background 0.18s ease, border-color 0.18s ease;
+  }
+
+  .school-data-delete:hover {
+    border-color: rgba(225, 29, 72, 0.3);
+    background: rgba(255, 228, 230, 0.95);
+  }
+
+  .school-data-empty {
+    border: 1px dashed rgba(124, 116, 102, 0.2);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+    color: var(--data-muted);
+    font-size: 0.84rem;
+  }
+
+  .school-data-note {
+    padding: 0.9rem 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .school-data-command {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+    }
+
+    .school-data-stats {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1180px) {
+    .school-data-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 767px) {
+    .school-data-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .school-data-btn {
+      width: 100%;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="school-data-page mx-auto space-y-5">
+  <section class="school-data-command">
+    <div class="school-data-copy">
+      <span class="school-data-icon" aria-hidden="true"><i class="fa-solid fa-building-columns"></i></span>
+      <div class="min-w-0">
+        <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-400">بيانات المدرسة</div>
+        <h3 class="mt-1 text-base font-black text-slate-900">الفصول والمواد والمعلمون/المعلمات</h3>
+        <p class="mt-1 text-sm leading-6 text-slate-500">جهّز بيانات المدرسة الأساسية قبل توزيع الجدول اليومي على الفصول.</p>
+      </div>
+    </div>
+    <div class="school-data-actions">
+      <a href="{% url 'dashboard:index' %}" class="school-data-btn school-data-btn-soft">
+        <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        <span>العودة للرئيسية</span>
       </a>
     </div>
+  </section>
 
-    <div class="grid grid-cols-3 gap-3 text-xs md:text-sm">
-      <div class="dashboard-mini-card px-4 py-2 rounded-2xl bg-white border border-slate-200 flex flex-col items-start">
-        <span class="text-slate-500">عدد الفصول</span>
-        <span class="text-lg md:text-xl font-bold text-indigo-600">
-          {{ classes|length }}
-        </span>
+  <section class="school-data-stats" aria-label="ملخص بيانات المدرسة">
+    <div class="school-data-stat">
+      <div class="school-data-stat-top">
+        <dt class="text-xs font-bold text-slate-500">الفصول</dt>
+        <span class="school-data-stat-icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
       </div>
-      <div class="dashboard-mini-card px-4 py-2 rounded-2xl bg-white border border-slate-200 flex flex-col items-start">
-        <span class="text-slate-500">عدد المواد</span>
-        <span class="text-lg md:text-xl font-bold text-indigo-600">
-          {{ subjects|length }}
-        </span>
-      </div>
-      <div class="dashboard-mini-card px-4 py-2 rounded-2xl bg-white border border-slate-200 flex flex-col items-start">
-        <span class="text-slate-500">عدد المعلمين</span>
-        <span class="text-lg md:text-xl font-bold text-indigo-600">
-          {{ teachers|length }}
-        </span>
-      </div>
+      <dd class="mt-3 font-mono text-3xl font-black text-slate-900" dir="ltr">{{ classes|length }}</dd>
     </div>
-  </div>
-
-  <details id="help-school-data" class="dashboard-help-banner" open>
-    <summary class="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 md:flex-row md:items-center md:justify-between">
-      <div>
-        <div class="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">شرح تجهيز البيانات</div>
-        <h3 class="mt-2 text-lg font-black text-slate-900">كيف تُدخل الفصول والمواد والمعلمين؟</h3>
-        <p class="mt-1 text-sm text-slate-500">قبل توزيع الجدول اليومي يجب أولاً تجهيز بيانات المدرسة الأساسية من هذه الصفحة.</p>
+    <div class="school-data-stat is-soft">
+      <div class="school-data-stat-top">
+        <dt class="text-xs font-bold text-slate-500">المواد</dt>
+        <span class="school-data-stat-icon" aria-hidden="true"><i class="fa-solid fa-book-open"></i></span>
       </div>
-      <span class="dashboard-status-pill dashboard-status-pill--slate">اضغط للطي أو التوسيع</span>
-    </summary>
-    <div class="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[320px,1fr]">
-      <div class="dashboard-help-figure p-3">
-        <img src="{% static 'img/dashboard-help/school-data.svg' %}" alt="إدخال بيانات المدرسة" class="rounded-2xl">
-      </div>
-      <div class="space-y-4">
-        <ul class="dashboard-help-list space-y-3 text-sm leading-7 text-slate-600">
-          <li>ابدأ بإضافة الفصول الدراسية لأن الجدول اليومي يعتمد عليها مباشرة.</li>
-          <li>بعد ذلك أضف المواد الأساسية التي ستظهر في الجداول وشاشات العرض.</li>
-          <li>أدخل أسماء المعلمين أو المعلمات بنفس الصياغة التي تريد ظهورها  على الشاشة.</li>
-        </ul>
-
-      </div>
+      <dd class="mt-3 font-mono text-3xl font-black text-slate-900" dir="ltr">{{ subjects|length }}</dd>
     </div>
-  </details>
+    <div class="school-data-stat is-warm">
+      <div class="school-data-stat-top">
+        <dt class="text-xs font-bold text-slate-500">المعلمون/المعلمات</dt>
+        <span class="school-data-stat-icon" aria-hidden="true"><i class="fa-solid fa-user-tie"></i></span>
+      </div>
+      <dd class="mt-3 font-mono text-3xl font-black text-slate-900" dir="ltr">{{ teachers|length }}</dd>
+    </div>
+  </section>
 
-  <!-- الشبكة الرئيسية -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-    <!-- الفصول -->
-    <div class="dashboard-section-card bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="h-8 w-8 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M4 6h16M4 10h16M4 14h10M4 18h6"/>
-            </svg>
+  <section class="school-data-grid">
+    <article class="school-data-panel">
+      <div class="school-data-panel-header">
+        <div class="school-data-panel-title">
+          <span class="school-data-panel-icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
+          <div class="min-w-0">
+            <h3 class="text-sm font-black text-slate-900">الفصول</h3>
+            <p class="mt-1 text-xs leading-5 text-slate-500">أسماء الفصول التي سيُبنى عليها الجدول.</p>
           </div>
-          <h2 class="font-semibold text-slate-800">الفصول</h2>
         </div>
-        <span class="text-xs px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium">
-          {{ classes|length }} فصل
-        </span>
+        <span class="school-data-count">{{ classes|length }} فصل</span>
       </div>
-
-      <div class="p-5 space-y-4 flex-1 flex flex-col">
-        <!-- ✅ إضافة فصل عبر نفس الصفحة -->
-        <form method="post" action="{% url 'dashboard:add_class' %}" class="space-y-3">
+      <div class="school-data-panel-body">
+        <form method="post" action="{% url 'dashboard:add_class' %}" class="school-data-form">
           {% csrf_token %}
           <input type="hidden" name="action" value="add_class">
-
-          <div class="space-y-1">
-            <label class="block text-xs font-medium text-slate-600">اسم الفصل</label>
-            <div class="relative">
-              <input
-                type="text"
-                name="name"
-                required
-                maxlength="120"
-                placeholder="مثال: 1 / أ أو ثالث متوسط 2"
-                class="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/70 focus:border-indigo-500 text-sm placeholder-slate-400 bg-slate-50/60"
-              >
-              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 6h16M4 10h16M4 14h10M4 18h6"/>
-                </svg>
-              </span>
-            </div>
+          <div class="school-data-field">
+            <label for="class-name">اسم الفصل</label>
+            <input id="class-name" type="text" name="name" required maxlength="120" placeholder="مثال: 1 / أ أو ثالث متوسط 2">
           </div>
-
-          <button
-            type="submit"
-            class="w-full inline-flex justify-center items-center gap-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold py-2.5 shadow-sm hover:bg-indigo-700 transition-colors"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 4v16m8-8H4"/>
-            </svg>
-            إضافة فصل
+          <button type="submit" class="school-data-btn school-data-btn-primary">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            <span>إضافة فصل</span>
           </button>
         </form>
 
-        <div class="pt-2 border-t border-slate-100 mt-2"></div>
-
-        <div class="flex-1 min-h-[160px] max-h-72 overflow-y-auto space-y-2 pr-1">
+        <div class="school-data-list">
           {% for c in classes %}
-          <div class="flex items-center justify-between bg-slate-50 hover:bg-slate-100 rounded-xl px-3 py-2.5 text-sm">
-            <span class="truncate text-slate-800">{{ c.name }}</span>
-
-            <form method="post" action="{% url 'dashboard:delete_class' c.id %}">
-              {% csrf_token %}
-              <button
-                type="submit"
-                onclick="return confirm('سيتم حذف هذا الفصل من النظام، هل أنت متأكد؟');"
-                class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200"
-              >
-                حذف
-              </button>
-            </form>
-          </div>
+            <div class="school-data-item">
+              <span class="school-data-item-name">{{ c.name }}</span>
+              <form method="post" action="{% url 'dashboard:delete_class' c.id %}">
+                {% csrf_token %}
+                <button type="submit" onclick="return confirm('سيتم حذف هذا الفصل من النظام، هل أنت متأكد؟');" class="school-data-delete" title="حذف الفصل" aria-label="حذف الفصل">
+                  <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+                </button>
+              </form>
+            </div>
           {% empty %}
-          <p class="text-center text-slate-400 text-sm mt-4">
-            لا توجد فصول بعد، ابدأ بإضافة أول فصل من النموذج أعلاه.
-          </p>
+            <div class="school-data-empty">لا توجد فصول بعد.</div>
           {% endfor %}
         </div>
       </div>
-    </div>
+    </article>
 
-    <!-- المواد -->
-    <div class="dashboard-section-card bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="h-8 w-8 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 6v12m-6-6h12"/>
-            </svg>
+    <article class="school-data-panel">
+      <div class="school-data-panel-header">
+        <div class="school-data-panel-title">
+          <span class="school-data-panel-icon" aria-hidden="true"><i class="fa-solid fa-book-open"></i></span>
+          <div class="min-w-0">
+            <h3 class="text-sm font-black text-slate-900">المواد</h3>
+            <p class="mt-1 text-xs leading-5 text-slate-500">مواد الجدول التي تظهر في الحصص والشاشات.</p>
           </div>
-          <h2 class="font-semibold text-slate-800">المواد</h2>
         </div>
-        <span class="text-xs px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium">
-          {{ subjects|length }} مادة
-        </span>
+        <span class="school-data-count">{{ subjects|length }} مادة</span>
       </div>
-
-      <div class="p-5 space-y-4 flex-1 flex flex-col">
-        <!-- ✅ إضافة مادة عبر نفس الصفحة -->
-        <form method="post" action="{% url 'dashboard:add_subject' %}" class="space-y-3">
+      <div class="school-data-panel-body">
+        <form method="post" action="{% url 'dashboard:add_subject' %}" class="school-data-form">
           {% csrf_token %}
           <input type="hidden" name="action" value="add_subject">
-
-          <div class="space-y-1">
-            <label class="block text-xs font-medium text-slate-600">اسم المادة</label>
-            <div class="relative">
-              <input
-                type="text"
-                name="name"
-                required
-                maxlength="120"
-                placeholder="مثال: الرياضيات، القرآن الكريم، العلوم"
-                class="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/70 focus:border-indigo-500 text-sm placeholder-slate-400 bg-slate-50/60"
-              >
-              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 6v12m-6-6h12"/>
-                </svg>
-              </span>
-            </div>
+          <div class="school-data-field">
+            <label for="subject-name">اسم المادة</label>
+            <input id="subject-name" type="text" name="name" required maxlength="120" placeholder="مثال: الرياضيات، القرآن الكريم، العلوم">
           </div>
-
-          <button
-            type="submit"
-            class="w-full inline-flex justify-center items-center gap-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold py-2.5 shadow-sm hover:bg-indigo-700 transition-colors"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 4v16m8-8H4"/>
-            </svg>
-            إضافة مادة
+          <button type="submit" class="school-data-btn school-data-btn-primary">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            <span>إضافة مادة</span>
           </button>
         </form>
 
-        <div class="pt-2 border-t border-slate-100 mt-2"></div>
-
-        <div class="flex-1 min-h-[160px] max-h-72 overflow-y-auto space-y-2 pr-1">
+        <div class="school-data-list">
           {% for s in subjects %}
-          <div class="flex items-center justify-between bg-slate-50 hover:bg-slate-100 rounded-xl px-3 py-2.5 text-sm">
-            <span class="truncate text-slate-800">{{ s.name }}</span>
-
-            <form method="post" action="{% url 'dashboard:delete_subject' s.id %}">
-              {% csrf_token %}
-              <button
-                type="submit"
-                onclick="return confirm('سيتم حذف هذه المادة من النظام، هل أنت متأكد؟');"
-                class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200"
-              >
-                حذف
-              </button>
-            </form>
-          </div>
+            <div class="school-data-item">
+              <span class="school-data-item-name">{{ s.name }}</span>
+              <form method="post" action="{% url 'dashboard:delete_subject' s.id %}">
+                {% csrf_token %}
+                <button type="submit" onclick="return confirm('سيتم حذف هذه المادة من النظام، هل أنت متأكد؟');" class="school-data-delete" title="حذف المادة" aria-label="حذف المادة">
+                  <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+                </button>
+              </form>
+            </div>
           {% empty %}
-          <p class="text-center text-slate-400 text-sm mt-4">
-            لا توجد مواد بعد، أضف المواد الأساسية للمناهج الدراسية.
-          </p>
+            <div class="school-data-empty">لا توجد مواد بعد.</div>
           {% endfor %}
         </div>
       </div>
-    </div>
+    </article>
 
-    <!-- المعلمون/المعلمات -->
-    <div class="dashboard-section-card bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="h-8 w-8 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M5.121 17.804A6 6 0 0112 14a6 6 0 016.879 3.804M15 11a3 3 0 10-6 0 3 3 0 006 0z"/>
-            </svg>
+    <article class="school-data-panel">
+      <div class="school-data-panel-header">
+        <div class="school-data-panel-title">
+          <span class="school-data-panel-icon" aria-hidden="true"><i class="fa-solid fa-user-tie"></i></span>
+          <div class="min-w-0">
+            <h3 class="text-sm font-black text-slate-900">المعلمون/المعلمات</h3>
+            <p class="mt-1 text-xs leading-5 text-slate-500">الأسماء التي ستستخدم في الجدول والتكليفات.</p>
           </div>
-          <h2 class="font-semibold text-slate-800">المعلمون/المعلمات</h2>
         </div>
-        <span class="text-xs px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium">
-          {{ teachers|length }} معلم
-        </span>
+        <span class="school-data-count">{{ teachers|length }} معلم</span>
       </div>
-
-      <div class="p-5 space-y-4 flex-1 flex flex-col">
-        <!-- ✅ إضافة معلم عبر نفس الصفحة -->
-        <form method="post" action="{% url 'dashboard:add_teacher' %}" class="space-y-3">
+      <div class="school-data-panel-body">
+        <form method="post" action="{% url 'dashboard:add_teacher' %}" class="school-data-form">
           {% csrf_token %}
           <input type="hidden" name="action" value="add_teacher">
-
-          <div class="space-y-1">
-            <label class="block text-xs font-medium text-slate-600">اسم المعلم/المعلمة</label>
-            <div class="relative">
-              <input
-                type="text"
-                name="name"
-                required
-                maxlength="120"
-                placeholder="مثال: أحمد بن علي أو أ. منى العتيبي"
-                class="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/70 focus:border-indigo-500 text-sm placeholder-slate-400 bg-slate-50/60"
-              >
-              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M5.121 17.804A6 6 0 0112 14a6 6 0 016.879 3.804M15 11a3 3 0 10-6 0 3 3 0 006 0z"/>
-                </svg>
-              </span>
-            </div>
+          <div class="school-data-field">
+            <label for="teacher-name">اسم المعلم/المعلمة</label>
+            <input id="teacher-name" type="text" name="name" required maxlength="120" placeholder="مثال: أحمد بن علي أو أ. منى العتيبي">
           </div>
-
-          <button
-            type="submit"
-            class="w-full inline-flex justify-center items-center gap-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold py-2.5 shadow-sm hover:bg-indigo-700 transition-colors"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 4v16m8-8H4"/>
-            </svg>
-            إضافة معلم/معلمة
+          <button type="submit" class="school-data-btn school-data-btn-primary">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            <span>إضافة معلم/معلمة</span>
           </button>
         </form>
 
-        <div class="pt-2 border-t border-slate-100 mt-2"></div>
-
-        <div class="flex-1 min-h-[160px] max-h-72 overflow-y-auto space-y-2 pr-1">
+        <div class="school-data-list">
           {% for t in teachers %}
-          <div class="flex items-center justify-between bg-slate-50 hover:bg-slate-100 rounded-xl px-3 py-2.5 text-sm">
-            <span class="truncate text-slate-800">{{ t.name }}</span>
-
-            <form method="post" action="{% url 'dashboard:delete_teacher' t.id %}">
-              {% csrf_token %}
-              <button
-                type="submit"
-                onclick="return confirm('سيتم حذف هذا المعلم/المعلمة من النظام، هل أنت متأكد؟');"
-                class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200"
-              >
-                حذف
-              </button>
-            </form>
-          </div>
+            <div class="school-data-item">
+              <span class="school-data-item-name">{{ t.name }}</span>
+              <form method="post" action="{% url 'dashboard:delete_teacher' t.id %}">
+                {% csrf_token %}
+                <button type="submit" onclick="return confirm('سيتم حذف هذا المعلم/المعلمة من النظام، هل أنت متأكد؟');" class="school-data-delete" title="حذف المعلم/المعلمة" aria-label="حذف المعلم/المعلمة">
+                  <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+                </button>
+              </form>
+            </div>
           {% empty %}
-          <p class="text-center text-slate-400 text-sm mt-4">
-            لا يوجد معلمون بعد، ابدأ بإضافة الطاقم التعليمي.
-          </p>
+            <div class="school-data-empty">لا يوجد معلمون بعد.</div>
           {% endfor %}
         </div>
       </div>
-    </div>
+    </article>
+  </section>
 
-  </div>
+  <section class="school-data-note">
+    <div class="flex items-start gap-3 text-sm text-slate-500">
+      <span class="school-data-panel-icon" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span>
+      <div>
+        <h3 class="text-sm font-black text-slate-800">ترتيب العمل</h3>
+        <p class="mt-1 leading-6">ابدأ بالفصول، ثم المواد، ثم المعلمين/المعلمات. بعدها انتقل إلى الجدول اليومي لتوزيع الحصص.</p>
+      </div>
+    </div>
+  </section>
 </div>
 {% endblock %}

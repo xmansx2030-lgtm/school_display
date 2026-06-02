@@ -1,230 +1,562 @@
 {% extends "dashboard/_base.html" %}
-{% load static %}
 
 {% block title %}حصص الانتظار{% endblock %}
 {% block page_title %}حصص الانتظار{% endblock %}
 {% block page_description %}إدارة حصص الانتظار للمعلمين{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto">
-    <div class="mb-6">
-        <div class="dashboard-toolbar flex items-center justify-end mb-5">
-            <a href="{% url 'dashboard:standby_create' %}?date={{ selected_date|date:'Y-m-d' }}"
-               class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                <span>إضافة حصة انتظار</span>
-            </a>
-        </div>
+<div class="max-w-7xl mx-auto pb-8 md:pb-12">
+  <section class="standby-command-panel mb-4">
+    <div class="min-w-0">
+      <h2>حصص الانتظار</h2>
+      <p>راجع تكليفات الانتظار حسب اليوم وأضف التكليفات التي تظهر على شاشة العرض.</p>
+    </div>
+    <a href="{% url 'dashboard:standby_create' %}?date={{ selected_date|date:'Y-m-d' }}" class="standby-primary-action">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
+      <span>إضافة حصة انتظار</span>
+    </a>
+  </section>
 
-        <!-- فلاتر -->
-        <form method="get" class="dashboard-section-card bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-            <div class="flex flex-col md:flex-row md:items-end gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">التاريخ</label>
-                    <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}"
-                           class="px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-                <div class="md:mr-auto">
-                    <button type="submit"
-                            class="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-all duration-200">
-                        تطبيق
-                    </button>
-                </div>
-            </div>
-        </form>
+  <form method="get" class="standby-filter-panel mb-4">
+    <div>
+      <label for="standbyDate">التاريخ</label>
+      <input id="standbyDate" type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+    </div>
+    <button type="submit" class="standby-secondary-action">تطبيق</button>
+  </form>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-5">
-            <div class="dashboard-mini-card bg-white rounded-2xl border border-slate-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg></div>
-                    <div><p class="text-[11px] text-slate-400 font-bold">إجمالي الحصص</p><p class="text-lg font-black text-slate-800">{{ total_count }}</p></div>
-                </div>
-            </div>
-            <div class="dashboard-mini-card bg-white rounded-2xl border border-slate-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center"><svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></div>
-                    <div><p class="text-[11px] text-slate-400 font-bold">معلمين مختلفين</p><p class="text-lg font-black text-indigo-600">{{ teachers_count|default:0 }}</p></div>
-                </div>
-            </div>
-            <div class="dashboard-mini-card bg-white rounded-2xl border border-slate-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center"><svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg></div>
-                    <div><p class="text-[11px] text-slate-400 font-bold">في هذه الصفحة</p><p class="text-lg font-black text-amber-600">{{ page.object_list|length }}</p></div>
-                </div>
-            </div>
-        </div>
+  <section class="standby-summary-strip mb-4" aria-label="ملخص حصص الانتظار">
+    <div class="standby-summary-item">
+      <span>إجمالي الحصص</span>
+      <strong>{{ total_count|default:0 }}</strong>
+    </div>
+    <div class="standby-summary-item">
+      <span>معلمون مختلفون</span>
+      <strong>{{ teachers_count|default:0 }}</strong>
+    </div>
+    <div class="standby-summary-item">
+      <span>في هذه الصفحة</span>
+      <strong>{{ page.object_list|length }}</strong>
+    </div>
+    <div class="standby-summary-item">
+      <span>اليوم المحدد</span>
+      <strong class="date-value">{{ selected_date|date:"Y-m-d" }}</strong>
+    </div>
+  </section>
+
+  <section class="standby-list-section">
+    <div class="standby-section-heading">
+      <div>
+        <h3>بطاقات الانتظار</h3>
+        <p>كل بطاقة توضّح الحصة والفصل والمعلم والملاحظة الخاصة بها.</p>
+      </div>
+      <span>{{ page.object_list|length }} من {{ page.paginator.count }}</span>
     </div>
 
-    <!-- جدول حصص الانتظار -->
-    <div class="dashboard-section-card bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="text-sm font-bold text-slate-700">قائمة حصص الانتظار</h3>
-            <span class="text-xs text-slate-400">{{ selected_date|date:"j F Y" }}</span>
-        </div>
-
-        <!-- الجدول -->
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50 text-slate-600">
-                    <tr>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">التاريخ</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">الحصّة</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">الفصل</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">المعلّم</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">ملاحظة</th>
-                        <th class="p-4 text-right font-semibold border-b border-slate-200">إجراءات</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-200">
-                    {% for s in page.object_list %}
-                    <tr class="hover:bg-slate-50 transition-all duration-200 group">
-                        <td class="p-4 font-medium text-slate-800">
-                            <div class="flex items-center space-x-2 space-x-reverse">
-                                <span>{{ s.date }}</span>
-                                {% if s.is_today %}
-                                <span class="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-full font-medium">اليوم</span>
-                                {% endif %}
-                            </div>
-                        </td>
-                        <td class="p-4">
-                            <span class="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-800 rounded-full font-semibold text-sm">
-                                {{ s.period_index }}
-                            </span>
-                        </td>
-                        <td class="p-4 font-medium text-slate-800">{{ s.class_name }}</td>
-                        <td class="p-4">
-                            <div class="flex items-center space-x-3 space-x-reverse">
-                                <div class="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center">
-                                    <span class="text-slate-600 text-sm font-semibold">{{ s.teacher_name|first }}</span>
-                                </div>
-                                <span class="font-semibold text-slate-800">{{ s.teacher_name }}</span>
-                            </div>
-                        </td>
-                        <td class="p-4 text-slate-600 max-w-xs">
-                            {% if s.notes %}
-                                <div class="truncate" title="{{ s.notes }}">{{ s.notes }}</div>
-                            {% else %}
-                                <span class="text-slate-400">-</span>
-                            {% endif %}
-                        </td>
-                        <td class="p-4">
-                            <div class="flex items-center space-x-3 space-x-reverse opacity-70 group-hover:opacity-100 transition-opacity duration-200">
-                                <!-- إزالة رابط التعديل مؤقتاً -->
-                                <!--
-                                <a href="#" 
-                                   class="text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center space-x-1 space-x-reverse transition-all duration-200">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                    </svg>
-                                    <span>تعديل</span>
-                                </a>
-                                -->
-                                <form method="post" action="{% url 'dashboard:standby_delete' s.pk %}" 
-                                      onsubmit="return confirmDelete('{{ s.teacher_name }}', '{{ s.date }}', '{{ s.period_index }}');" class="inline">
-                                    {% csrf_token %}
-                                    <button type="submit" 
-                                            class="text-rose-600 hover:text-rose-800 font-medium text-sm flex items-center space-x-1 space-x-reverse transition-all duration-200">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                        </svg>
-                                        <span>حذف</span>
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="p-8 text-center text-slate-500">
-                            <div class="flex flex-col items-center justify-center space-y-4">
-                                <svg class="w-16 h-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                                </svg>
-                                <div>
-                                    <h4 class="text-lg font-semibold text-slate-700 mb-2">لا توجد حصص انتظار</h4>
-                                    <p class="text-slate-500 mb-4">لم يتم إضافة أي حصص انتظار بعد</p>
-                                    <a href="{% url 'dashboard:standby_create' %}" 
-                                       class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200">
-                                        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                        </svg>
-                                        إضافة أول حصة انتظار
-                                    </a>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- الترقيم -->
-    {% if page.paginator.num_pages > 1 %}
-    <div class="mt-8 flex items-center justify-between">
-        <div class="text-sm text-slate-600">
-            عرض <span class="font-semibold">{{ page.start_index }}-{{ page.end_index }}</span> من 
-            <span class="font-semibold">{{ page.paginator.count }}</span> سجل
-        </div>
-        <div class="flex items-center space-x-2 space-x-reverse">
-            {% if page.has_previous %}
-                <a href="?page={{ page.previous_page_number }}" 
-                   class="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium rounded-xl transition-all duration-200 flex items-center space-x-2 space-x-reverse">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                    </svg>
-                    <span>السابق</span>
-                </a>
-            {% endif %}
-
-            <div class="flex items-center space-x-1 space-x-reverse">
-                {% for num in page.paginator.page_range %}
-                    {% if num == page.number %}
-                        <span class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-xl">{{ num }}</span>
-                    {% else %}
-                        <a href="?page={{ num }}" class="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium rounded-xl transition-all duration-200">
-                            {{ num }}
-                        </a>
-                    {% endif %}
-                {% endfor %}
+    {% if page.object_list %}
+      <div class="standby-card-grid">
+        {% for s in page.object_list %}
+          <article class="standby-card {% if s.is_today %}is-today{% endif %}">
+            <div class="standby-card-top">
+              <div class="standby-period">
+                <span>الحصة</span>
+                <strong>{{ s.period_index }}</strong>
+              </div>
+              <div class="standby-teacher">
+                <div class="standby-avatar">{{ s.teacher_name|first }}</div>
+                <div class="min-w-0">
+                  <h3>{{ s.teacher_name }}</h3>
+                  <p>{{ s.class_name }}</p>
+                </div>
+              </div>
+              {% if s.is_today %}
+                <span class="standby-today-pill">اليوم</span>
+              {% endif %}
             </div>
 
-            {% if page.has_next %}
-                <a href="?page={{ page.next_page_number }}" 
-                   class="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium rounded-xl transition-all duration-200 flex items-center space-x-2 space-x-reverse">
-                    <span>التالي</span>
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                    </svg>
-                </a>
-            {% endif %}
+            <div class="standby-card-meta">
+              <div>
+                <span>التاريخ</span>
+                <strong>{{ s.date|date:"Y-m-d" }}</strong>
+              </div>
+              <div>
+                <span>الملاحظة</span>
+                {% if s.notes %}
+                  <strong>{{ s.notes }}</strong>
+                {% else %}
+                  <strong>بدون ملاحظة</strong>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="standby-card-actions">
+              <form method="post" action="{% url 'dashboard:standby_delete' s.pk %}" onsubmit="return confirmDelete('{{ s.teacher_name|escapejs }}', '{{ s.date|date:'Y-m-d' }}', '{{ s.period_index }}');">
+                {% csrf_token %}
+                <button type="submit" class="standby-danger-action">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  <span>حذف</span>
+                </button>
+              </form>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="standby-empty-state">
+        <div class="standby-empty-icon">
+          <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5s3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18s-3.332.477-4.5 1.253"/></svg>
         </div>
-    </div>
+        <h3>لا توجد حصص انتظار</h3>
+        <p>لم يتم إضافة تكليفات انتظار لهذا التاريخ.</p>
+        <a href="{% url 'dashboard:standby_create' %}?date={{ selected_date|date:'Y-m-d' }}" class="standby-primary-action">إضافة أول حصة</a>
+      </div>
     {% endif %}
+  </section>
+
+  {% if page.paginator.num_pages > 1 %}
+    <nav class="standby-pagination mt-5" aria-label="ترقيم حصص الانتظار">
+      <span>عرض {{ page.start_index }}-{{ page.end_index }} من {{ page.paginator.count }}</span>
+      <div>
+        {% if page.has_previous %}
+          <a href="?date={{ selected_date|date:'Y-m-d' }}&page={{ page.previous_page_number }}">السابق</a>
+        {% endif %}
+        {% for num in page.paginator.page_range %}
+          {% if num == page.number %}
+            <strong>{{ num }}</strong>
+          {% else %}
+            <a href="?date={{ selected_date|date:'Y-m-d' }}&page={{ num }}">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+        {% if page.has_next %}
+          <a href="?date={{ selected_date|date:'Y-m-d' }}&page={{ page.next_page_number }}">التالي</a>
+        {% endif %}
+      </div>
+    </nav>
+  {% endif %}
 </div>
 
 <script>
-// تأكيد الحذف مع تفاصيل أكثر
 function confirmDelete(teacherName, date, period) {
-    const message = `هل أنت متأكد من أنك تريد حذف حصة الانتظار التالية؟\n\nالمعلم/ـة: ${teacherName}\nالتاريخ: ${date}\nالحصة: ${period}\n\nهذا الإجراء لا يمكن التراجع عنه.`;
-    return confirm(message);
+  return confirm(`هل تريد حذف حصة الانتظار؟\n\nالمعلم/ـة: ${teacherName}\nالتاريخ: ${date}\nالحصة: ${period}\n\nلا يمكن التراجع عن هذا الإجراء.`);
 }
-
-// تأثيرات تحميل الصفوف
-document.addEventListener('DOMContentLoaded', function() {
-    const rows = document.querySelectorAll('tbody tr');
-    rows.forEach((row, index) => {
-        row.style.opacity = '0';
-        row.style.transform = 'translateX(20px)';
-        row.style.transition = `opacity 0.6s ease, transform 0.6s ease`;
-        
-        setTimeout(() => {
-            row.style.opacity = '1';
-            row.style.transform = 'translateX(0)';
-        }, 100 + (index * 50));
-    });
-});
 </script>
 
+<style>
+.standby-command-panel,
+.standby-filter-panel,
+.standby-summary-strip,
+.standby-section-heading {
+  border-radius: 14px;
+}
+
+.standby-command-panel,
+.standby-filter-panel,
+.standby-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.standby-command-panel h2,
+.standby-section-heading h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.standby-command-panel p,
+.standby-section-heading p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.standby-filter-panel > div {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.standby-filter-panel label {
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.standby-filter-panel input {
+  min-height: 2.35rem;
+  border: 1px solid #dbe3ea;
+  border-radius: 0.65rem;
+  padding: 0.45rem 0.7rem;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.standby-primary-action,
+.standby-secondary-action,
+.standby-danger-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.35rem;
+  border-radius: 0.65rem;
+  padding: 0 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 900;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.standby-primary-action {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.standby-primary-action:hover {
+  background: #1e293b;
+}
+
+.standby-secondary-action {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.standby-secondary-action:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.standby-danger-action {
+  background: #ffffff;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+}
+
+.standby-danger-action:hover {
+  background: #fff1f2;
+  border-color: #fda4af;
+}
+
+.standby-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.standby-summary-item {
+  padding: 0.95rem 1rem;
+  border-inline-start: 1px solid #e2e8f0;
+}
+
+.standby-summary-item:first-child {
+  border-inline-start: 0;
+}
+
+.standby-summary-item span,
+.standby-card-meta span,
+.standby-period span {
+  display: block;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.standby-summary-item strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: #0f172a;
+  font-size: 1.25rem;
+  font-weight: 950;
+}
+
+.standby-summary-item .date-value {
+  font-size: 0.95rem;
+  direction: ltr;
+  text-align: right;
+}
+
+.standby-list-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.standby-section-heading > span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.standby-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.standby-card {
+  position: relative;
+  display: grid;
+  gap: 1rem;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
+}
+
+.standby-card::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 4px;
+  background: #94a3b8;
+}
+
+.standby-card.is-today::before {
+  background: #10b981;
+}
+
+.standby-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.standby-period {
+  display: grid;
+  place-items: center;
+  width: 4.2rem;
+  height: 4.2rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  flex: 0 0 auto;
+}
+
+.standby-period strong {
+  color: #0f172a;
+  font-size: 1.45rem;
+  font-weight: 950;
+}
+
+.standby-teacher {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.standby-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.8rem;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-weight: 950;
+  flex: 0 0 auto;
+}
+
+.standby-teacher h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.98rem;
+  font-weight: 950;
+}
+
+.standby-teacher p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.standby-today-pill {
+  border-radius: 999px;
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  color: #047857;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.standby-card-meta {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  gap: 0.65rem;
+}
+
+.standby-card-meta > div {
+  border-radius: 0.8rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.7rem 0.8rem;
+}
+
+.standby-card-meta strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: #0f172a;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.standby-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #edf2f7;
+  padding-top: 0.85rem;
+}
+
+.standby-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 18rem;
+  padding: 3rem 1rem;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.standby-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 4.75rem;
+  height: 4.75rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.standby-empty-state h3 {
+  margin: 0.35rem 0 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.standby-empty-state p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.standby-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.standby-pagination div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.standby-pagination a,
+.standby-pagination strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  border-radius: 0.65rem;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  padding: 0 0.7rem;
+  font-weight: 900;
+}
+
+.standby-pagination strong {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+@media (max-width: 1100px) {
+  .standby-command-panel,
+  .standby-filter-panel,
+  .standby-section-heading,
+  .standby-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .standby-summary-strip,
+  .standby-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .standby-summary-item:nth-child(odd) {
+    border-inline-start: 0;
+  }
+
+  .standby-summary-item:nth-child(n + 3) {
+    border-top: 1px solid #e2e8f0;
+  }
+}
+
+@media (max-width: 720px) {
+  .standby-card-grid,
+  .standby-card-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .standby-card-top {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .standby-period {
+    width: 100%;
+  }
+
+  .standby-card-actions,
+  .standby-card-actions form,
+  .standby-card-actions button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .standby-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .standby-summary-item,
+  .standby-summary-item:nth-child(odd) {
+    border-inline-start: 0;
+  }
+
+  .standby-summary-item + .standby-summary-item {
+    border-top: 1px solid #e2e8f0;
+  }
+}
+</style>
 {% endblock %}

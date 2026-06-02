@@ -3,6 +3,7 @@ from django.http import HttpResponse, JsonResponse
 from django.urls import path, include, reverse
 from django.conf import settings
 from django.conf.urls.static import static
+from django.template.loader import render_to_string
 from django.utils import timezone
 
 from core.static_assets import build_static_response
@@ -65,6 +66,16 @@ def robots_txt(request):
     return resp
 
 
+def service_worker(request):
+    """Serve the root service worker requested by browsers with old registrations."""
+    content = render_to_string("sw.js")
+    body = b"" if request.method == "HEAD" else content.encode("utf-8")
+    resp = HttpResponse(body, content_type="application/javascript; charset=utf-8")
+    resp["Content-Length"] = str(len(content.encode("utf-8")))
+    resp["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return resp
+
+
 def sitemap_xml(request):
     """Serve a tiny sitemap for public pages to stop crawler 404 noise."""
     lastmod = timezone.localdate().isoformat()
@@ -106,6 +117,10 @@ urlpatterns = [
 
     # robots.txt (serve directly to avoid startup/runtime failures in test/dev)
     path("robots.txt", robots_txt, name="robots_txt"),
+
+    # Service worker aliases (satisfy stale browser/PWA registrations without 404 noise)
+    path("service-worker.js", service_worker, name="service_worker"),
+    path("sw.js", service_worker, name="sw_js"),
 
     # sitemap.xml (prevents noisy 404s from crawlers and helps indexing)
     path("sitemap.xml", sitemap_xml, name="sitemap_xml"),

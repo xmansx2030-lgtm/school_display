@@ -145,7 +145,7 @@
         h4 {
             font-family: 'Changa', sans-serif;
             line-height: 1.15;
-            letter-spacing: -0.02em;
+            letter-spacing: 0;
         }
 
         .container {
@@ -281,7 +281,7 @@
         .nav-actions {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 9px;
             min-width: 0;
             flex-shrink: 0;
         }
@@ -329,14 +329,14 @@
         }
 
         .hero {
-            padding: 34px 0 72px;
+            padding: 28px 0 62px;
         }
 
         .hero-shell {
             position: relative;
             overflow: hidden;
             border-radius: 42px;
-            padding: 34px;
+            padding: 26px;
             background:
                 linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.54)),
                 linear-gradient(135deg, rgba(201, 154, 72, 0.08), rgba(24, 160, 125, 0.08));
@@ -361,13 +361,14 @@
             z-index: 1;
             display: grid;
             grid-template-columns: minmax(0, 1.02fr) minmax(min(390px, 100%), 0.98fr);
-            gap: 36px;
-            align-items: center;
+            gap: 30px;
+            align-items: start;
         }
 
         .hero-copy {
             display: grid;
-            gap: 24px;
+            gap: 14px;
+            align-content: start;
         }
 
         .hero-copy .eyebrow {
@@ -375,8 +376,9 @@
         }
 
         .hero-copy h1 {
-            font-size: clamp(2.8rem, 5vw, 5rem);
+            font-size: clamp(2.45rem, 4.35vw, 4.45rem);
             color: var(--ink-950);
+            max-width: 680px;
         }
 
         .hero-copy h1 span {
@@ -387,20 +389,20 @@
         .hero-copy p {
             max-width: 640px;
             color: var(--text-soft);
-            font-size: 1.14rem;
+            font-size: 1.08rem;
         }
 
         .hero-points {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px;
+            gap: 10px;
         }
 
         .hero-point {
             display: flex;
             align-items: flex-start;
             gap: 12px;
-            padding: 16px 18px;
+            padding: 14px 16px;
             border-radius: 18px;
             background: rgba(255, 255, 255, 0.76);
             border: 1px solid rgba(13, 28, 50, 0.06);
@@ -426,13 +428,13 @@
 
         .hero-point span {
             color: var(--text-soft);
-            font-size: 0.93rem;
+            font-size: 0.88rem;
         }
 
         .hero-actions {
             display: flex;
             flex-wrap: wrap;
-            gap: 14px;
+            gap: 10px;
             align-items: center;
         }
 
@@ -464,7 +466,7 @@
 
         .hero-visual {
             position: relative;
-            min-height: 620px;
+            height: 560px;
         }
 
         .visual-stack {
@@ -1008,16 +1010,19 @@
 
         .pricing-grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));
+            max-width: 1160px;
+            margin-inline: auto;
         }
 
         .price-card {
             position: relative;
-            padding: 30px;
+            padding: 26px;
             background: rgba(255, 255, 255, 0.88);
             border: 1px solid rgba(13, 28, 50, 0.07);
             box-shadow: var(--shadow-sm);
             display: grid;
-            gap: 18px;
+            gap: 14px;
+            align-content: start;
         }
 
         .price-card.popular {
@@ -1071,7 +1076,7 @@
         .feature-list {
             list-style: none;
             display: grid;
-            gap: 12px;
+            gap: 9px;
         }
 
         .feature-list li {
@@ -1213,6 +1218,8 @@
         .form-input,
         .form-select {
             width: 100%;
+            max-width: 100%;
+            min-width: 0;
             padding: 14px 16px;
             border-radius: 16px;
             border: 1px solid rgba(13, 28, 50, 0.12);
@@ -1276,6 +1283,87 @@
             color: #067647;
             background: #ecfdf3;
             border: 1px solid rgba(6, 118, 71, 0.16);
+        }
+
+        .trial-result {
+            display: none;
+            margin-bottom: 18px;
+            border: 1px solid rgba(6, 118, 71, 0.16);
+            background:
+                radial-gradient(circle at top right, rgba(24, 160, 125, 0.14), transparent 34%),
+                #f7fffb;
+            border-radius: 22px;
+            padding: 18px;
+        }
+
+        .trial-result.active {
+            display: block;
+        }
+
+        .trial-result h3 {
+            margin: 0 0 8px;
+            color: #064e3b;
+            font-size: 1.05rem;
+        }
+
+        .trial-result p {
+            margin: 0;
+            color: #0f5132;
+            line-height: 1.8;
+            font-weight: 700;
+        }
+
+        .trial-login-grid {
+            display: grid;
+            gap: 10px;
+            margin: 14px 0;
+        }
+
+        .trial-login-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            border-radius: 16px;
+            border: 1px solid rgba(6, 118, 71, 0.12);
+            background: white;
+            padding: 11px 12px;
+        }
+
+        .trial-login-item span {
+            color: var(--text-faint);
+            font-size: 0.82rem;
+            font-weight: 800;
+        }
+
+        .trial-login-item strong {
+            color: var(--ink-950);
+            direction: ltr;
+            unicode-bidi: plaintext;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.92rem;
+        }
+
+        .trial-result-actions {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .trial-copy-btn {
+            border: 1px solid rgba(6, 118, 71, 0.16);
+            background: white;
+            color: #067647;
+            border-radius: 16px;
+            padding: 0 14px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .trial-complete .form-group,
+        .trial-complete #submitOrderBtn {
+            display: none;
         }
 
         .trial-only {
@@ -1399,22 +1487,22 @@
             }
 
             .hero-visual {
-                min-height: 700px;
+                height: 540px;
             }
 
             .display-frame {
-                inset: 66px 34px 0;
+                inset: 58px 40px 64px;
             }
 
             .ops-card {
                 top: auto;
-                bottom: 156px;
+                bottom: 128px;
                 left: 18px;
             }
 
             .video-card {
-                left: 54px;
-                right: 54px;
+                left: 70px;
+                right: 70px;
             }
 
             .marquee-strip {
@@ -1450,25 +1538,60 @@
             }
 
             .hero-visual {
-                min-height: 650px;
+                position: relative;
+                height: auto;
+                min-height: auto;
+                margin-top: 12px;
+            }
+
+            .visual-stack {
+                position: relative;
+                height: auto;
+                display: grid;
+                gap: 14px;
+            }
+
+            .floating-pill {
+                position: static;
+                width: fit-content;
+                max-width: 100%;
+                font-size: 0.86rem;
             }
 
             .display-frame {
-                inset: 68px 8px 140px;
+                display: none;
             }
 
             .ops-card {
-                width: 200px;
-                bottom: 178px;
+                position: relative;
+                inset: unset;
+                width: 100%;
+                padding: 16px;
             }
 
             .support-card {
-                width: 190px;
-                right: 0;
+                display: none;
+            }
+
+            .video-card {
+                position: relative;
+                inset: unset;
+                padding: 10px;
+                border-radius: 20px;
             }
 
             .cta-panel {
                 padding: 28px;
+            }
+
+            .price-card {
+                max-width: 680px;
+                width: 100%;
+                margin-inline: auto;
+            }
+
+            .price-card .feature-list {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
         }
 
@@ -1508,6 +1631,11 @@
 
             .logo-copy strong {
                 font-size: 0.88rem;
+                display: block;
+                max-width: 132px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
             .logo {
@@ -1523,6 +1651,7 @@
             .nav-actions .btn-outline {
                 padding: 10px 12px;
                 font-size: 0.85rem;
+                min-height: 42px;
             }
 
             .hero {
@@ -1535,7 +1664,8 @@
             }
 
             .hero-copy h1 {
-                font-size: 1.85rem;
+                font-size: clamp(1.65rem, 7vw, 2rem);
+                max-width: 100%;
             }
 
             .hero-copy p {
@@ -1581,6 +1711,10 @@
             .hero-meta-item {
                 min-width: unset;
                 padding: 10px 14px;
+            }
+
+            .price-card .feature-list {
+                grid-template-columns: 1fr;
             }
 
             .hero-visual {
@@ -1837,12 +1971,16 @@
             .modal-overlay {
                 align-items: end;
                 padding: 0;
+                overflow-x: hidden;
             }
 
             .modal-card {
                 width: 100%;
+                max-width: 100%;
                 max-height: 92vh;
+                box-sizing: border-box;
                 overflow-y: auto;
+                overflow-x: hidden;
                 padding: 24px 18px;
                 border-radius: 24px 24px 0 0;
                 transform: translateY(100%);
@@ -1883,7 +2021,7 @@
                 left: 10px;
                 bottom: calc(10px + env(safe-area-inset-bottom, 0px));
                 z-index: 1100;
-                display: flex;
+                display: none;
                 align-items: center;
                 justify-content: space-between;
                 gap: 10px;
@@ -1918,13 +2056,17 @@
                 width: calc(100% - 16px);
             }
 
+            .mobile-cta.is-visible {
+                display: flex;
+            }
+
             .hero-shell {
                 padding: 14px;
                 border-radius: 20px;
             }
 
             .hero-copy h1 {
-                font-size: 1.55rem;
+                font-size: clamp(1.42rem, 8vw, 1.62rem);
             }
 
             .hero-copy p {
@@ -2006,6 +2148,10 @@
             .nav-actions .btn-outline {
                 padding: 9px 10px;
                 font-size: 0.8rem;
+            }
+
+            .logo-copy {
+                display: none;
             }
 
             .cta-panel h2 {
@@ -2170,6 +2316,20 @@
                                 منصة واحدة تدير الجدول المباشر، حصص الانتظار، الإعلانات، التكريم، المناوبات، والرسائل اليومية في شاشة أنيقة تتحدث تلقائياً وتمنح المدرسة حضوراً تنظيمياً يليق باسمها.
                             </p>
 
+                            <div class="hero-actions">
+                                <button class="btn" onclick="openOrderModal('تجربة مجانية', '14 يوم', '0')">
+                                    ابدأ التجربة المجانية
+                                </button>
+                                <button class="btn-outline" data-scroll="#demo-video">
+                                    شاهد العرض التوضيحي
+                                    <i class="fa-solid fa-play"></i>
+                                </button>
+                                <a class="btn-soft" href="https://wa.me/966537720207" target="_blank" rel="noreferrer">
+                                    واتساب مباشر
+                                    <i class="fa-brands fa-whatsapp"></i>
+                                </a>
+                            </div>
+
                             <div class="hero-points">
                                 <div class="hero-point">
                                     <i class="fa-solid fa-clock"></i>
@@ -2199,20 +2359,6 @@
                                         <span>مساندة مستمرة أثناء التهيئة والتشغيل حتى تستفيد المدرسة من الشاشة فعلياً.</span>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div class="hero-actions">
-                                <button class="btn" onclick="openOrderModal('تجربة مجانية', '14 يوم', '0')">
-                                    ابدأ التجربة المجانية
-                                </button>
-                                <button class="btn-outline" data-scroll="#demo-video">
-                                    شاهد العرض التوضيحي
-                                    <i class="fa-solid fa-play"></i>
-                                </button>
-                                <a class="btn-soft" href="https://wa.me/966537720207" target="_blank" rel="noreferrer">
-                                    واتساب مباشر
-                                    <i class="fa-brands fa-whatsapp"></i>
-                                </a>
                             </div>
 
                             <div class="hero-meta">
@@ -2695,6 +2841,25 @@
 
                 <div class="form-alert" id="formAlert" role="status"></div>
 
+                <div class="trial-result" id="trialResult" aria-live="polite">
+                    <h3>تم إنشاء تجربة المدرسة بنجاح</h3>
+                    <p>تم تسجيل دخولك تلقائيا. عند العودة لاحقا يمكنك الدخول برقم الجوال أو باسم المستخدم التالي مع كلمة المرور التي اخترتها.</p>
+                    <div class="trial-login-grid">
+                        <div class="trial-login-item">
+                            <span>رقم الجوال للدخول</span>
+                            <strong id="trialLoginMobile">—</strong>
+                        </div>
+                        <div class="trial-login-item">
+                            <span>اسم المستخدم</span>
+                            <strong id="trialLoginUsername">—</strong>
+                        </div>
+                    </div>
+                    <div class="trial-result-actions">
+                        <a class="btn btn-block" id="trialDashboardLink" href="{{ dashboard_url|default:'/dashboard/' }}" style="border-radius:16px; text-align:center;">الدخول إلى لوحة التحكم الآن</a>
+                        <button class="trial-copy-btn" type="button" id="copyTrialUsername">نسخ</button>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label class="form-label" for="schoolName">اسم المدرسة</label>
                     <input type="text" id="schoolName" name="school_name" class="form-input" placeholder="مثال: ثانوية الملك عبدالله" required autocomplete="organization">
@@ -2815,15 +2980,28 @@
         const submitOrderBtn = document.getElementById('submitOrderBtn');
         const submitOrderText = document.getElementById('submitOrderText');
         const formAlert = document.getElementById('formAlert');
+        const trialResult = document.getElementById('trialResult');
+        const trialLoginMobile = document.getElementById('trialLoginMobile');
+        const trialLoginUsername = document.getElementById('trialLoginUsername');
+        const trialDashboardLink = document.getElementById('trialDashboardLink');
+        const copyTrialUsername = document.getElementById('copyTrialUsername');
+        const mobileCta = document.querySelector('.mobile-cta');
         const revealElements = document.querySelectorAll('.reveal');
 
-        window.addEventListener('scroll', () => {
+        function updateScrollChrome() {
             if (window.scrollY > 24) {
                 header.classList.add('scrolled');
             } else {
                 header.classList.remove('scrolled');
             }
-        });
+
+            if (mobileCta) {
+                mobileCta.classList.toggle('is-visible', window.scrollY > 520);
+            }
+        }
+
+        window.addEventListener('scroll', updateScrollChrome, { passive: true });
+        updateScrollChrome();
 
         document.querySelectorAll('[data-scroll]').forEach((button) => {
             button.addEventListener('click', () => {
@@ -2944,10 +3122,37 @@
         function clearFormFeedback() {
             formAlert.className = 'form-alert';
             formAlert.textContent = '';
+            if (trialResult) trialResult.classList.remove('active');
+            if (orderForm) orderForm.classList.remove('trial-complete');
+            if (copyTrialUsername) copyTrialUsername.textContent = 'نسخ';
             document.querySelectorAll('[data-error-for]').forEach((errorEl) => {
                 errorEl.textContent = '';
                 const group = errorEl.closest('.form-group');
                 if (group) group.classList.remove('has-error');
+            });
+        }
+
+        function showTrialSuccess(payload) {
+            const username = payload.username || '';
+            const mobile = payload.mobile || document.getElementById('mobile').value || '';
+            if (trialLoginUsername) trialLoginUsername.textContent = username || '—';
+            if (trialLoginMobile) trialLoginMobile.textContent = mobile || '—';
+            if (trialDashboardLink) trialDashboardLink.href = payload.redirect_url || '{{ dashboard_url|default:"/dashboard/" }}';
+            if (trialResult) trialResult.classList.add('active');
+            orderForm.classList.add('trial-complete');
+            showFormAlert('success', 'تم تجهيز الحساب. احتفظ ببيانات الدخول الظاهرة هنا.');
+        }
+
+        if (copyTrialUsername) {
+            copyTrialUsername.addEventListener('click', async () => {
+                const value = trialLoginUsername ? trialLoginUsername.textContent.trim() : '';
+                if (!value || value === '—') return;
+                try {
+                    await navigator.clipboard.writeText(value);
+                    copyTrialUsername.textContent = 'تم النسخ';
+                } catch (error) {
+                    copyTrialUsername.textContent = 'انسخ يدويا';
+                }
             });
         }
 
@@ -3008,10 +3213,7 @@
                     return;
                 }
 
-                showFormAlert('success', 'تم إنشاء حساب المدرسة بنجاح. سننقلك الآن إلى لوحة التحكم.');
-                window.setTimeout(() => {
-                    window.location.href = payload.redirect_url || '{{ dashboard_url|default:"/dashboard/" }}';
-                }, 900);
+                showTrialSuccess(payload);
             } catch (error) {
                 showFormAlert('error', 'تعذر الاتصال بالخادم. تحقق من الاتصال ثم أعد المحاولة.');
             } finally {

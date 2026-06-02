@@ -7,6 +7,7 @@ import io
 import math
 import logging
 import os
+import re
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
@@ -76,11 +77,38 @@ from schedule.cache_utils import (
     get_schedule_revision_for_school_id,
     invalidate_display_snapshot_cache_for_school_id,
 )
+from schedule.time_engine import build_day_snapshot
 
 if TYPE_CHECKING:
     pass
 
 UserModel = get_user_model()
+
+_ARABIC_DIGITS_TRANS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+
+
+def _normalize_login_mobile(value: str) -> str:
+    raw = (value or "").translate(_ARABIC_DIGITS_TRANS)
+    digits = re.sub(r"\D+", "", raw)
+    if digits.startswith("00966"):
+        digits = "0" + digits[5:]
+    elif digits.startswith("966"):
+        digits = "0" + digits[3:]
+    return digits
+
+
+def _resolve_login_identifier(identifier: str) -> str:
+    """Allow users to sign in with username or the mobile saved on their profile."""
+    identifier = (identifier or "").strip()
+    mobile = _normalize_login_mobile(identifier)
+    if re.fullmatch(r"05\d{8}", mobile or ""):
+        try:
+            profile = UserModel.objects.select_related("profile").filter(profile__mobile=mobile).first()
+        except Exception:
+            profile = None
+        if profile is not None:
+            return getattr(profile, "username", identifier)
+    return identifier
 
 WEEKDAY_MAP = {
     1: "الاثنين",
@@ -708,6 +736,8 @@ def _build_dashboard_onboarding_context(request, school, settings_obj=None):
             "total_required": total_required,
             "progress_percent": progress_percent,
             "next_step_title": next_step["title"] if next_step else "تم تجهيز الأساسيات",
+            "next_step_url": next_step["cta_url"] if next_step else reverse("dashboard:index"),
+            "next_step_cta_label": next_step["cta_label"] if next_step else "العودة للرئيسية",
             "guide_url": reverse("dashboard:help_getting_started"),
         },
     }
@@ -787,7 +817,8 @@ def login_view(request):
         u = (request.POST.get("username") or "").strip()
         p = request.POST.get("password") or ""
         next_url = _safe_next_url(request, default_name="dashboard:index")
-        user = authenticate(request, username=u, password=p)
+        auth_username = _resolve_login_identifier(u)
+        user = authenticate(request, username=auth_username, password=p)
         if user:
             login(request, user)
             try:
@@ -882,6 +913,7 @@ def index(request):
     Excellence = ExcellenceModel()
     StandbyAssignment = StandbyAssignmentModel()
     SchoolSettings = SchoolSettingsModel()
+    DisplayScreen = DisplayScreenModel()
 
     school, response = get_active_school_or_redirect(request)
     if response:
@@ -890,13 +922,40 @@ def index(request):
         return render(request, "dashboard/no_school.html")
 
     today = timezone.localdate()
+    now = timezone.now()
+    live_since = now - timedelta(minutes=65)
+    screens_qs = DisplayScreen.objects.filter(school=school)
+    live_screens_count = screens_qs.filter(last_seen__gte=live_since).count()
+    active_screens_count = screens_qs.filter(is_active=True).count()
+
     stats = {
         "ann_count": Announcement.objects.filter(school=school).count(),
         "exc_count": Excellence.objects.filter(school=school).count(),
         "standby_today": StandbyAssignment.objects.filter(school=school, date=today).count(),
+        "screens_count": screens_qs.count(),
+        "active_screens_count": active_screens_count,
+        "live_screens_count": live_screens_count,
     }
 
     settings_obj = SchoolSettings.objects.filter(school=school).first()
+    day_snapshot = {}
+    current_state = {}
+    current_period = None
+    next_period = None
+    if settings_obj:
+        try:
+            day_snapshot = build_day_snapshot(settings_obj)
+            current_state = day_snapshot.get("state") or {}
+            current_period = day_snapshot.get("current_period")
+            next_period = day_snapshot.get("next_period")
+        except Exception:
+            logger.exception("dashboard index day snapshot failed school_id=%s", getattr(school, "id", None))
+            day_snapshot = {}
+            current_state = {}
+
+    today_weekday = today.isoweekday()
+    today_weekday_label = WEEKDAY_MAP.get(today_weekday, "")
+    schedule_revision = int(getattr(settings_obj, "schedule_revision", 0) or 0) if settings_obj else 0
 
     SubModel = _get_subscription_model()
     subscription = None
@@ -912,6 +971,13 @@ def index(request):
             "stats": stats,
             "settings": settings_obj,
             "subscription": subscription,
+            "today": today,
+            "today_weekday_label": today_weekday_label,
+            "day_snapshot": day_snapshot,
+            "current_state": current_state,
+            "current_period": current_period,
+            "next_period": next_period,
+            "schedule_revision": schedule_revision,
             **onboarding_context,
         },
     )
@@ -1075,6 +1141,8 @@ def days_list(request):
     days.sort(key=lambda d: WEEKDAY_SORT.get(d.weekday, 99))
 
     total_periods = 0
+    active_days_count = 0
+    holiday_days_count = 0
     for d in days:
         d.day_name = WEEKDAY_MAP.get(d.weekday, str(d.weekday))
         d.breaks_count = d.breaks.count()
@@ -1087,16 +1155,23 @@ def days_list(request):
             diff = end_dt - start_dt
             hours, remainder = divmod(diff.seconds, 3600)
             minutes = remainder // 60
-            d.total_duration = f"{hours}س {minutes}د"
+            d.total_duration = f"{hours:02d}:{minutes:02d}"
         else:
             d.first_period_time = "--:--"
             d.last_period_time = "--:--"
             d.total_duration = "--:--"
-        total_periods += d.periods_count or 0
+        if d.is_active:
+            active_days_count += 1
+            total_periods += d.periods_count or 0
+        else:
+            holiday_days_count += 1
 
-    avg_periods = total_periods / len(days) if days else 0
-    max_periods_day = max(days, key=lambda d: d.periods_count) if days else None
-    min_periods_day = min(days, key=lambda d: d.periods_count) if days else None
+    active_days = [d for d in days if d.is_active]
+    avg_periods = total_periods / active_days_count if active_days_count else 0
+    max_periods_day = max(active_days, key=lambda d: d.periods_count) if active_days else None
+    min_periods_day = min(active_days, key=lambda d: d.periods_count) if active_days else None
+    last_updated = timezone.localtime().strftime("%H:%M")
+    avg_periods_display = f"{avg_periods:.1f}"
 
     return render(
         request,
@@ -1105,8 +1180,12 @@ def days_list(request):
             "days": days,
             "total_periods": total_periods,
             "avg_periods": avg_periods,
+            "avg_periods_display": avg_periods_display,
+            "active_days_count": active_days_count,
+            "holiday_days_count": holiday_days_count,
             "max_periods_day": max_periods_day,
             "min_periods_day": min_periods_day,
+            "last_updated": last_updated,
         },
     )
 
@@ -1325,8 +1404,48 @@ def ann_list(request):
     if response:
         return response
     qs = Announcement.objects.filter(school=school).order_by("-starts_at", "-id")
+    now = timezone.now()
+    active_q = (
+        Q(is_active=True)
+        & (Q(starts_at__lte=now) | Q(starts_at__isnull=True))
+        & (Q(expires_at__gt=now) | Q(expires_at__isnull=True))
+    )
+    future_q = Q(is_active=True) & Q(starts_at__gt=now)
+
+    active_count = qs.filter(active_q).count()
+    future_count = qs.filter(future_q).count()
+    total_count = qs.count()
+    expired_count = max(total_count - active_count - future_count, 0)
+
     page = Paginator(qs, 10).get_page(request.GET.get("page"))
-    return render(request, "dashboard/ann_list.html", {"page": page})
+    for ann in page.object_list:
+        if ann.active_now:
+            ann.dashboard_status_key = "active"
+            ann.dashboard_status_label = "فعال الآن"
+            ann.dashboard_status_hint = "يظهر على الشاشة"
+        elif ann.is_active and ann.starts_at and ann.starts_at > now:
+            ann.dashboard_status_key = "future"
+            ann.dashboard_status_label = "مجدول"
+            ann.dashboard_status_hint = "سيظهر لاحقاً"
+        elif not ann.is_active:
+            ann.dashboard_status_key = "paused"
+            ann.dashboard_status_label = "متوقف"
+            ann.dashboard_status_hint = "لن يظهر على الشاشة"
+        else:
+            ann.dashboard_status_key = "expired"
+            ann.dashboard_status_label = "منتهي"
+            ann.dashboard_status_hint = "انتهت مدة عرضه"
+
+    return render(
+        request,
+        "dashboard/ann_list.html",
+        {
+            "page": page,
+            "active_count": active_count,
+            "future_count": future_count,
+            "expired_count": expired_count,
+        },
+    )
 
 
 @manager_required
@@ -1341,6 +1460,7 @@ def ann_create(request):
             ann = form.save(commit=False)
             ann.school = school
             ann.save()
+            _invalidate_display_cache(school)
             messages.success(request, "تم إنشاء التنبيه.")
             return redirect("dashboard:ann_list")
         messages.error(request, "الرجاء تصحيح الأخطاء.")
@@ -1399,6 +1519,19 @@ def exc_list(request):
     max_p = Excellence.objects.filter(school=school).aggregate(m=Max("priority"))["m"] or 0
 
     page = Paginator(qs, 12).get_page(request.GET.get("page"))
+    for item in page.object_list:
+        if item.active_now:
+            item.dashboard_status_key = "active"
+            item.dashboard_status_label = "نشطة"
+            item.dashboard_status_hint = "تظهر على الشاشة"
+        elif item.start_at and item.start_at > now:
+            item.dashboard_status_key = "future"
+            item.dashboard_status_label = "مجدولة"
+            item.dashboard_status_hint = "ستظهر لاحقاً"
+        else:
+            item.dashboard_status_key = "expired"
+            item.dashboard_status_label = "منتهية"
+            item.dashboard_status_hint = "انتهت مدة العرض"
 
     return render(
         request,
@@ -1513,6 +1646,14 @@ def standby_create(request):
     if response:
         return response
 
+    initial = {}
+    q_date = (request.GET.get("date") or "").strip()
+    if q_date:
+        try:
+            initial["date"] = timezone.datetime.strptime(q_date, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+
     if request.method == "POST":
         form = StandbyForm(request.POST, school=school)
         if form.is_valid():
@@ -1524,7 +1665,7 @@ def standby_create(request):
             return redirect("dashboard:standby_list")
         messages.error(request, "الرجاء تصحيح الأخطاء.")
     else:
-        form = StandbyForm(school=school)
+        form = StandbyForm(initial=initial, school=school)
 
     return render(request, "dashboard/standby_form.html", {"form": form, "title": "إضافة تكليف"})
 
@@ -1612,6 +1753,7 @@ def duty_create(request):
             obj = form.save(commit=False)
             obj.school = school
             obj.save()
+            _invalidate_display_cache(school)
             messages.success(request, "تم إضافة تكليف الإشراف/المناوبة.")
             return redirect("dashboard:duty_list")
         messages.error(request, "الرجاء تصحيح الأخطاء.")
@@ -1636,6 +1778,7 @@ def duty_edit(request, pk: int):
             updated = form.save(commit=False)
             updated.school = school
             updated.save()
+            _invalidate_display_cache(school)
             messages.success(request, "تم حفظ التعديلات.")
             return redirect("dashboard:duty_list")
         messages.error(request, "الرجاء تصحيح الأخطاء.")
@@ -1654,6 +1797,7 @@ def duty_delete(request, pk: int):
         return response
     obj = get_object_or_404(DutyAssignment, pk=pk, school=school)
     obj.delete()
+    _invalidate_display_cache(school)
     messages.success(request, "تم الحذف.")
     return redirect("dashboard:duty_list")
 
@@ -2487,6 +2631,28 @@ def _admin_school_form_class():
     return AdminSchoolForm
 
 
+def _admin_model_field_name(model, *field_names: str) -> str | None:
+    """Return the first existing concrete field name from a compatibility list."""
+    for field_name in field_names:
+        try:
+            model._meta.get_field(field_name)
+            return field_name
+        except Exception:
+            continue
+    return None
+
+
+def _admin_order_by_existing(model, queryset, *candidates: str):
+    fields: list[str] = []
+    for candidate in candidates:
+        field_name = candidate[1:] if candidate.startswith("-") else candidate
+        if _admin_model_field_name(model, field_name):
+            fields.append(candidate)
+    if fields:
+        return queryset.order_by(*fields)
+    return queryset.order_by("-id")
+
+
 @login_required
 def switch_school(request, school_id=None):
     profile = _get_or_create_profile(request.user)
@@ -2561,7 +2727,6 @@ def system_admin_dashboard(request):
             "subscriptions_count": active_subs,
             "revenue": revenue,
             "open_subscription_requests": open_requests,
-            "hide_admin_sidebar": True,
         },
     )
 
@@ -2572,10 +2737,12 @@ def system_schools_list(request):
     DisplayScreen = DisplayScreenModel()
 
     q = (request.GET.get("q") or "").strip()
-    schools = School.objects.all().order_by("-created_at", "-id")
+    schools = School.objects.all()
 
     if q:
         schools = schools.filter(Q(name__icontains=q) | Q(slug__icontains=q))
+
+    schools = _admin_order_by_existing(School, schools, "-created_at", "-id")
 
     # attach live stats
     try:
@@ -2589,8 +2756,11 @@ def system_schools_list(request):
 
     if _model_has_field(DisplayScreen, "is_active"):
         screens_qs = screens_qs.filter(is_active=True)
-    if _model_has_field(DisplayScreen, "last_seen_at"):
-        screens_qs = screens_qs.filter(last_seen_at__gte=active_since)
+    last_seen_field = _admin_model_field_name(DisplayScreen, "last_seen_at", "last_seen")
+    if last_seen_field:
+        screens_qs = screens_qs.filter(**{f"{last_seen_field}__gte": active_since})
+    if _model_has_field(DisplayScreen, "bound_device_id"):
+        screens_qs = screens_qs.exclude(bound_device_id__isnull=True).exclude(bound_device_id="")
 
     active_counts = {
         row["school_id"]: row["c"]
@@ -2598,8 +2768,10 @@ def system_schools_list(request):
         if row.get("school_id")
     }
 
-    schools_list = list(schools)
-    for s in schools_list:
+    paginator = Paginator(schools, 25)
+    page_obj = paginator.get_page(request.GET.get("page") or 1)
+
+    for s in page_obj.object_list:
         setattr(s, "active_screens_now", int(active_counts.get(s.id, 0) or 0))
         settings_obj = getattr(s, "schedule_settings", None)
         setattr(s, "refresh_interval_sec", getattr(settings_obj, "refresh_interval_sec", None))
@@ -2608,7 +2780,8 @@ def system_schools_list(request):
         request,
         "admin/schools_list.html",
         {
-            "schools": schools_list,
+            "schools": page_obj.object_list,
+            "page_obj": page_obj,
             "q": q,
             "active_window_seconds": active_window_seconds,
         },
@@ -2938,9 +3111,8 @@ def system_subscriptions_list(request):
         # status لو موجود
         if hasattr(sub, "status"):
             try:
-                if str(sub.status) == "cancelled":
+                if str(sub.status) != "active":
                     return False
-                # لو status == active غالباً يعني ساري (مع مراعاة التاريخ)
             except Exception:
                 pass
 
@@ -2969,46 +3141,34 @@ def system_subscriptions_list(request):
             v = getattr(sub, "end_date", None)
         return v
 
-    # أعداد الإجمالي/النشط/غير النشط (بدون كسر لو اختلفت الحقول)
-    # نحاول DB أولاً إن أمكن، وإلا نحسب بعد جلب بسيط
-    try:
-        total_count = qs.count()
-    except Exception:
-        total_count = 0
-
-    # فلترة حسب status من الرابط
-    if status == "active":
-        # أفضلية فلترة DB إن كان عندك is_active/end_date
-        if hasattr(SubModel, "is_active") and (hasattr(SubModel, "end_date") or hasattr(SubModel, "ends_at")):
-            # هذا فرع متسامح – لكن بعض الأنظمة لا تقبل هذا مباشرة
-            # لذا نكتفي بفلترة Python في الصفحات
-            pass
-    elif status == "inactive":
-        pass
-
     # ترتيب
     # new: -starts_at, -id | legacy: -start_date, -id
-    if hasattr(SubModel, "starts_at"):
-        qs = qs.order_by("-starts_at", "-id")
-    elif hasattr(SubModel, "start_date"):
-        qs = qs.order_by("-start_date", "-id")
-    else:
-        qs = qs.order_by("-id")
+    qs = _admin_order_by_existing(SubModel, qs, "-starts_at", "-start_date", "-id")
 
-    # Pagination
-    paginator = Paginator(qs, 25)
+    # نحسب الحالة على كامل النتائج قبل الترقيم حتى لا تظهر صفحات فارغة بعد الفلترة.
+    try:
+        all_subscriptions = list(qs)
+    except Exception:
+        all_subscriptions = []
+
+    total_count = len(all_subscriptions)
+    active_count = sum(1 for sub in all_subscriptions if _is_active_obj(sub))
+    inactive_count = total_count - active_count
+
+    if status == "active":
+        display_subscriptions = [sub for sub in all_subscriptions if _is_active_obj(sub)]
+    elif status == "inactive":
+        display_subscriptions = [sub for sub in all_subscriptions if not _is_active_obj(sub)]
+    else:
+        display_subscriptions = all_subscriptions
+
+    paginator = Paginator(display_subscriptions, 25)
     page_obj = paginator.get_page(request.GET.get("page") or 1)
 
     # بناء rows جاهزة للقالب
-    # + تطبيق فلتر active/inactive هنا بشكل نهائي وآمن
     filtered_rows = []
     for sub in page_obj.object_list:
         is_active = _is_active_obj(sub)
-
-        if status == "active" and not is_active:
-            continue
-        if status == "inactive" and is_active:
-            continue
 
         school_obj = getattr(sub, "school", None)
         plan_obj = getattr(sub, "plan", None)
@@ -3024,18 +3184,6 @@ def system_subscriptions_list(request):
                 "is_active": is_active,
             }
         )
-
-    # حساب العدادات بشكل موثوق (على كامل qs) — بحساب بسيط
-    # (لو كانت كبيرة جدًا لاحقًا نعملها Query-level حسب حقولك)
-    try:
-        all_list = list(qs[:2000])  # حد أمان
-    except Exception:
-        all_list = []
-
-    if all_list:
-        active_count = sum(1 for s in all_list if _is_active_obj(s))
-        inactive_count = len(all_list) - active_count
-        total_count = len(all_list)
 
     return render(
         request,
@@ -3337,16 +3485,21 @@ def system_subscription_requests_list(request):
                 | Q(plan__name__icontains=q)
             )
 
+        counts_qs = qs
+
+        if req_type:
+            counts_qs = counts_qs.filter(request_type=req_type)
+
+        open_count = counts_qs.filter(status__in=["submitted", "under_review"]).count()
+        approved_count = counts_qs.filter(status="approved").count()
+        rejected_count = counts_qs.filter(status="rejected").count()
+
         if status:
             qs = qs.filter(status=status)
         if req_type:
             qs = qs.filter(request_type=req_type)
 
         qs = qs.order_by("-created_at", "-id")
-
-        open_count = qs.filter(status__in=["submitted", "under_review"]).count()
-        approved_count = qs.filter(status="approved").count()
-        rejected_count = qs.filter(status="rejected").count()
 
         paginator = Paginator(qs, 25)
         page_obj = paginator.get_page(request.GET.get("page") or 1)
@@ -3365,7 +3518,7 @@ def system_subscription_requests_list(request):
             "page_obj": page_obj,
             "q": q,
             "status": status,
-            "type": req_type,
+            "request_type": req_type,
             "open_count": open_count,
             "approved_count": approved_count,
             "rejected_count": rejected_count,
@@ -4259,7 +4412,6 @@ def system_reports(request):
         "max_monthly_subscriptions": max_monthly_subscriptions,
         "schools_distribution": schools_distribution,
         "schools_distribution_total": schools_distribution_total,
-        "hide_admin_sidebar": True,
     }
     return render(request, "admin/reports.html", context)
 

@@ -2,89 +2,134 @@
 
 {% block title %}دليل البدء{% endblock %}
 {% block page_title %}دليل البدء السريع{% endblock %}
-{% block page_description %}شرح خطوة بخطوة لاستخدام المنصة داخل المدرسة من أول شاشة عرض حتى تخصيص الثيم والكرت المميز.{% endblock %}
+{% block page_description %}مسار واضح لتجهيز شاشة المدرسة: أنشئ الشاشة، أدخل بيانات المدرسة، اضبط الحصص، ثم خصص شكل العرض.{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto space-y-8">
-    <section class="dashboard-onboarding-shell p-6 md:p-8 lg:p-10">
-        <div class="relative z-10 space-y-8">
-            <div class="dashboard-onboarding-hero">
-                <div class="max-w-3xl">
-                <div class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[11px] font-bold text-slate-500 shadow-sm border border-slate-200">
+<div class="max-w-7xl mx-auto space-y-6">
+    <section class="dashboard-onboarding-shell dashboard-guide-hero p-5 md:p-7 lg:p-8">
+        <div class="relative z-10 dashboard-guide-hero-grid">
+            <div class="dashboard-guide-hero-copy">
+                <div class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[11px] font-extrabold text-slate-600 shadow-sm border border-slate-200">
                     <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                    مسار الاستخدام الأساسي داخل لوحة المدرسة
+                    ابدأ من هنا
                 </div>
-                <h2 class="mt-4 text-3xl md:text-4xl font-black text-slate-900">ابدأ تشغيل المنصة بخطوات واضحة ومدعومة بالصور</h2>
-                <p class="mt-3 text-sm md:text-base text-slate-500 leading-relaxed">
-                    هذا الدليل يجمع المسار العملي الكامل: إنشاء شاشة عرض، تجهيز الفصول والمواد والمعلمين، ضبط توقيت الحصص، ثم تخصيص لون الثيم والكرت المميز من الإعدادات.
+                <h2 class="mt-4 text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 leading-tight">
+                    جهّز منصة العرض المدرسي بخطوات قصيرة وواضحة
+                </h2>
+                <p class="mt-3 max-w-3xl text-sm md:text-base text-slate-600 leading-8">
+                    اتبع هذا المسار بالترتيب حتى تظهر شاشة المدرسة بشكل صحيح: شاشة عرض مفعلة، بيانات فصول ومواد ومعلمين، جدول حصص مضبوط، ثم هوية بصرية تناسب المدرسة.
                 </p>
+
+                <div class="dashboard-guide-hero-actions mt-5">
+                    {% if setup_summary.progress_percent >= 100 %}
+                        <a href="{% url 'dashboard:index' %}" class="dashboard-guide-primary-action">
+                            <span>العودة للرئيسية</span>
+                            <svg class="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        </a>
+                    {% else %}
+                        <a href="{{ setup_summary.next_step_url }}" class="dashboard-guide-primary-action">
+                            <span>{{ setup_summary.next_step_cta_label }}</span>
+                            <svg class="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        </a>
+                    {% endif %}
+                    <a href="#guide-steps" class="dashboard-guide-secondary-action">استعراض الخطوات</a>
                 </div>
-
-                <aside class="dashboard-onboarding-panel">
-                    <div class="flex items-center justify-between gap-3 text-xs text-white/70">
-                        <span>نسبة إكمال الأساسيات</span>
-                        <span>{{ setup_summary.completed_required }}/{{ setup_summary.total_required }}</span>
-                    </div>
-                    <div class="dashboard-onboarding-progress mt-3 h-2.5 bg-white/15">
-                        <span style="width: {{ setup_summary.progress_percent }}%;"></span>
-                    </div>
-                    <p class="mt-4 text-3xl font-black text-white">{{ setup_summary.progress_percent }}%</p>
-                    <p class="mt-1 text-sm font-bold text-white/95">مكتمل من إعدادات البداية</p>
-                    <p class="mt-3 text-xs leading-6 text-white/70">الخطوة التالية: {{ setup_summary.next_step_title }}</p>
-                </aside>
             </div>
 
-            <div class="dashboard-onboarding-overview">
-                {% for step in setup_steps %}
-                    <div class="dashboard-onboarding-mini">
-                        <div class="flex items-center justify-between gap-3">
-                            <span class="dashboard-onboarding-step-no">{{ forloop.counter|stringformat:"02d" }}</span>
-                            <span class="dashboard-status-pill dashboard-status-pill--{{ step.status_tone }}">{{ step.status_label }}</span>
-                        </div>
-                        <h4 class="mt-4 text-base font-black text-slate-900">{{ step.title }}</h4>
-                        <p class="mt-1 text-xs leading-6 text-slate-500">{{ step.metric_label }}: {{ step.metric_value }}</p>
+            <aside class="dashboard-onboarding-panel dashboard-guide-progress-card">
+                <div class="flex items-center justify-between gap-3 text-xs text-white/70">
+                    <span>جاهزية الأساسيات</span>
+                    <span>{{ setup_summary.completed_required }}/{{ setup_summary.total_required }}</span>
+                </div>
+                <div class="dashboard-onboarding-progress mt-3 h-2.5 bg-white/15">
+                    <span style="width: {{ setup_summary.progress_percent }}%;"></span>
+                </div>
+                <div class="mt-5 flex items-end justify-between gap-4">
+                    <div>
+                        <p class="text-4xl font-black text-white leading-none">{{ setup_summary.progress_percent }}%</p>
+                        <p class="mt-2 text-sm font-bold text-white/90">مكتمل من خطوات التشغيل الأساسية</p>
                     </div>
-                {% endfor %}
-            </div>
+                    <div class="dashboard-guide-progress-ring" aria-hidden="true">
+                        <span>{{ setup_summary.completed_required }}</span>
+                    </div>
+                </div>
+                <div class="dashboard-guide-next mt-5">
+                    <span>الخطوة التالية</span>
+                    <strong>{{ setup_summary.next_step_title }}</strong>
+                </div>
+            </aside>
         </div>
     </section>
 
-    <div class="grid grid-cols-1 gap-6">
+    <section class="dashboard-guide-map" aria-label="ملخص خطوات البدء">
         {% for step in setup_steps %}
-            <section class="dashboard-guide-section p-6 md:p-7">
+            <a href="#step-{{ step.key }}" class="dashboard-guide-map-item{% if step.is_complete %} is-complete{% endif %}">
+                <span class="dashboard-onboarding-step-no">{{ forloop.counter|stringformat:"02d" }}</span>
+                <div>
+                    <strong>{{ step.title }}</strong>
+                    <small>{{ step.metric_label }}: {{ step.metric_value }}</small>
+                </div>
+                <span class="dashboard-status-pill dashboard-status-pill--{{ step.status_tone }}">{{ step.status_label }}</span>
+            </a>
+        {% endfor %}
+    </section>
+
+    <div id="guide-steps" class="grid grid-cols-1 gap-5">
+        {% for step in setup_steps %}
+            <section id="step-{{ step.key }}" class="dashboard-guide-section dashboard-guide-step p-5 md:p-6">
                 <div class="dashboard-guide-grid">
                     <div class="dashboard-guide-content">
                         <div class="flex flex-wrap items-center gap-3">
                             <span class="dashboard-onboarding-step-no">{{ forloop.counter|stringformat:"02d" }}</span>
-                            <span class="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">{{ step.eyebrow }}</span>
+                            <span class="text-[11px] font-extrabold text-slate-400">{{ step.eyebrow }}</span>
                             <span class="dashboard-status-pill dashboard-status-pill--{{ step.status_tone }}">{{ step.status_label }}</span>
                         </div>
-                        <h3 class="mt-3 text-2xl font-black text-slate-900">{{ step.title }}</h3>
-                        <p class="mt-2 text-sm text-slate-500 leading-7">{{ step.description }}</p>
+
+                        <h3 class="mt-4 text-xl md:text-2xl font-black text-slate-900">{{ step.title }}</h3>
+                        <p class="mt-2 text-sm text-slate-600 leading-8">{{ step.description }}</p>
 
                         <div class="dashboard-guide-metric mt-4">
-                            <span class="text-slate-400">{{ step.metric_label }}</span>
-                            <span class="text-slate-900">{{ step.metric_value }}</span>
+                            <span>{{ step.metric_label }}</span>
+                            <strong>{{ step.metric_value }}</strong>
                         </div>
 
-                        <ul class="dashboard-help-list mt-5 space-y-3 text-sm text-slate-600 leading-7">
-                            {% for tip in step.tips %}
-                                <li>{{ tip }}</li>
-                            {% endfor %}
-                        </ul>
+                        <div class="dashboard-guide-note mt-5">
+                            <span>ما الذي ستنجزه؟</span>
+                            <p>
+                                {% if step.key == "screens" %}
+                                    يصبح لديك رابط شاشة جاهز للفتح على التلفاز أو الجهاز المخصص للعرض.
+                                {% elif step.key == "school-data" %}
+                                    تتوفر الفصول والمواد والمعلمون كخيارات جاهزة داخل الجداول اليومية.
+                                {% elif step.key == "schedule" %}
+                                    تعرف الشاشة أوقات الحصص والفسح والانتقال بينها تلقائيا طوال اليوم الدراسي.
+                                {% else %}
+                                    يظهر العرض بهوية المدرسة مع الكرت المميز المناسب لأسلوب إدارتها اليومي.
+                                {% endif %}
+                            </p>
+                        </div>
+
+                        <div class="mt-5">
+                            <h4 class="text-sm font-black text-slate-900">طريقة التنفيذ</h4>
+                            <ul class="dashboard-help-list mt-3 space-y-3 text-sm text-slate-600 leading-7">
+                                {% for tip in step.tips %}
+                                    <li>{{ tip }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
 
                         <div class="mt-6 flex flex-wrap items-center gap-3">
-                            <a href="{{ step.cta_url }}" class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 transition">
+                            <a href="{{ step.cta_url }}" class="dashboard-guide-primary-action dashboard-guide-primary-action--compact">
                                 <span>{{ step.cta_label }}</span>
                                 <svg class="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                             </a>
-                            <a href="{% url 'dashboard:index' %}" class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 transition">العودة للرئيسية</a>
+                            <a href="{% url 'dashboard:index' %}" class="dashboard-guide-secondary-action">الرئيسية</a>
                         </div>
                     </div>
 
-                    <div class="dashboard-help-figure p-4">
+                    <figure class="dashboard-help-figure dashboard-guide-figure p-3">
                         <img src="{{ step.image_url }}" alt="{{ step.title }}" class="rounded-2xl">
-                    </div>
+                        <figcaption>{{ step.title }}</figcaption>
+                    </figure>
                 </div>
             </section>
         {% endfor %}

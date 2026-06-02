@@ -1,157 +1,517 @@
 {% extends "dashboard/_base.html" %}
-{% load static %}
 
 {% block title %}{{ title }}{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_description %}إدارة تكليفات الإشراف والمناوبة التي تظهر في شاشة العرض{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto">
-    <div class="mb-8">
-        <div class="flex items-center justify-end mb-6">
-            <div class="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
-                <div class="flex items-center space-x-2 space-x-reverse">
-                    <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l7 4v6c0 5-3 8-7 8s-7-3-7-8V7l7-4z"></path>
-                    </svg>
-                    <span class="text-indigo-700 font-medium">إشراف/مناوبة</span>
-                </div>
-            </div>
+<div class="max-w-6xl mx-auto pb-8 md:pb-12">
+  <section class="duty-form-intro mb-4">
+    <div>
+      <h2>{% if form.instance.pk %}تعديل التكليف{% else %}تكليف جديد{% endif %}</h2>
+      <p>حدد المعلم ونوع التكليف والمكان حتى يظهر في لوحة الإشراف والمناوبة.</p>
+    </div>
+    <a href="{% url 'dashboard:duty_list' %}" class="duty-form-secondary">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      <span>رجوع للقائمة</span>
+    </a>
+  </section>
+
+  <form method="post" class="duty-form-shell" id="dutyForm">
+    {% csrf_token %}
+    <div class="duty-form-main">
+      <section class="duty-form-card">
+        <div class="duty-form-card-heading">
+          <h3>بيانات التكليف</h3>
+          <p>هذه البيانات تظهر في بطاقة الإشراف والمناوبة على الشاشة.</p>
         </div>
 
-        <div class="bg-indigo-50 border border-indigo-200 rounded-2xl p-4">
-            <div class="flex items-start space-x-3 space-x-reverse">
-                <svg class="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <div class="text-indigo-700 text-sm">
-                    <p class="font-medium mb-1">ملاحظة:</p>
-                    <p>تظهر هذه البيانات في شاشة العرض عندما يكون خيار “الكرت المميز” مضبوطًا على “لوحة الإشراف والمناوبة”.</p>
-                </div>
-            </div>
+        {% if form.non_field_errors %}
+          <div class="duty-field-error duty-non-field">{{ form.non_field_errors|join:" | " }}</div>
+        {% endif %}
+
+        <div class="duty-field-grid">
+          <div class="duty-field">
+            <label for="{{ form.date.id_for_label }}">
+              {{ form.date.label }}
+              {% if form.date.field.required %}<span>*</span>{% endif %}
+            </label>
+            {{ form.date }}
+            {% if form.date.errors %}<div class="duty-field-error">{{ form.date.errors }}</div>{% endif %}
+          </div>
+
+          <div class="duty-field">
+            <label for="{{ form.duty_type.id_for_label }}">
+              {{ form.duty_type.label }}
+              {% if form.duty_type.field.required %}<span>*</span>{% endif %}
+            </label>
+            {{ form.duty_type }}
+            {% if form.duty_type.errors %}<div class="duty-field-error">{{ form.duty_type.errors }}</div>{% endif %}
+          </div>
+
+          <div class="duty-field">
+            <label for="{{ form.teacher.id_for_label }}">
+              {{ form.teacher.label }}
+              {% if form.teacher.field.required %}<span>*</span>{% endif %}
+            </label>
+            {{ form.teacher }}
+            {% if form.teacher.errors %}<div class="duty-field-error">{{ form.teacher.errors }}</div>{% endif %}
+          </div>
+
+          <div class="duty-field">
+            <label for="{{ form.location.id_for_label }}">
+              {{ form.location.label }}
+              {% if form.location.field.required %}<span>*</span>{% endif %}
+            </label>
+            {{ form.location }}
+            {% if form.location.errors %}<div class="duty-field-error">{{ form.location.errors }}</div>{% endif %}
+          </div>
+
+          <div class="duty-field">
+            <label for="{{ form.priority.id_for_label }}">
+              {{ form.priority.label }}
+              {% if form.priority.field.required %}<span>*</span>{% endif %}
+            </label>
+            {{ form.priority }}
+            {% if form.priority.errors %}<div class="duty-field-error">{{ form.priority.errors }}</div>{% endif %}
+          </div>
+
+          <label class="duty-toggle-row" for="{{ form.is_active.id_for_label }}">
+            {{ form.is_active }}
+            <span>
+              <strong>{{ form.is_active.label }}</strong>
+              <small>عند التعطيل يبقى التكليف محفوظًا لكنه لا يظهر ضمن العرض النشط.</small>
+            </span>
+          </label>
         </div>
+      </section>
     </div>
 
-    <form method="post" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        {% csrf_token %}
-
-        <div class="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l7 4v6c0 5-3 8-7 8s-7-3-7-8V7l7-4z"></path>
-                        </svg>
-                    </div>
-                    <div>
-                        <h2 class="text-base font-bold text-white">بيانات التكليف</h2>
-                        <p class="text-indigo-200 text-xs">املأ البيانات المطلوبة</p>
-                    </div>
-                </div>
-                <span class="text-xs font-bold text-indigo-200 bg-white/15 px-3 py-1 rounded-full">{% if form.instance.pk %}تعديل{% else %}جديد{% endif %}</span>
-            </div>
+    <aside class="duty-preview-panel">
+      <div class="duty-preview-heading">
+        <span>معاينة التكليف</span>
+        <strong id="previewStatus">نشط</strong>
+      </div>
+      <div class="duty-preview-card">
+        <div class="duty-preview-type" id="previewType">نوع التكليف</div>
+        <h3 id="previewTeacher">اسم المعلم/ـة</h3>
+        <p id="previewLocation">المكان</p>
+      </div>
+      <dl class="duty-preview-meta">
+        <div>
+          <dt>التاريخ</dt>
+          <dd id="previewDate">-</dd>
         </div>
-
-        <div class="p-6 space-y-6">
-            {% if form.non_field_errors %}
-                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-rose-700">
-                    {{ form.non_field_errors }}
-                </div>
-            {% endif %}
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-2">
-                    <label for="{{ form.date.id_for_label }}" class="block text-sm font-medium text-slate-700">{{ form.date.label }}</label>
-                    {{ form.date }}
-                    {% if form.date.errors %}<div class="text-rose-600 text-sm">{{ form.date.errors }}</div>{% endif %}
-                </div>
-
-                <div class="space-y-2">
-                    <label for="{{ form.duty_type.id_for_label }}" class="block text-sm font-medium text-slate-700">{{ form.duty_type.label }}</label>
-                    {{ form.duty_type }}
-                    {% if form.duty_type.errors %}<div class="text-rose-600 text-sm">{{ form.duty_type.errors }}</div>{% endif %}
-                </div>
-
-                <div class="space-y-2 md:col-span-2">
-                    <label for="{{ form.teacher.id_for_label }}" class="flex items-center text-sm font-medium text-slate-700">
-                        {{ form.teacher.label }}
-                        <span class="mr-2 text-xs text-slate-500 font-normal">(اختر من القائمة)</span>
-                    </label>
-                    {{ form.teacher }}
-                    {% if form.teacher.help_text %}
-                        <p class="text-xs text-slate-500">{{ form.teacher.help_text }}</p>
-                    {% endif %}
-                    {% if form.teacher.errors %}<div class="text-rose-600 text-sm">{{ form.teacher.errors }}</div>{% endif %}
-                </div>
-
-                <div class="space-y-2 md:col-span-2">
-                    <label for="{{ form.location.id_for_label }}" class="block text-sm font-medium text-slate-700">{{ form.location.label }}</label>
-                    {{ form.location }}
-                    {% if form.location.errors %}<div class="text-rose-600 text-sm">{{ form.location.errors }}</div>{% endif %}
-                </div>
-
-                <div class="space-y-2">
-                    <label for="{{ form.priority.id_for_label }}" class="block text-sm font-medium text-slate-700">{{ form.priority.label }}</label>
-                    {{ form.priority }}
-                    {% if form.priority.errors %}<div class="text-rose-600 text-sm">{{ form.priority.errors }}</div>{% endif %}
-                </div>
-
-                <div class="space-y-2">
-                    <label for="{{ form.is_active.id_for_label }}" class="block text-sm font-medium text-slate-700">{{ form.is_active.label }}</label>
-                    <div class="flex items-center gap-2">
-                        {{ form.is_active }}
-                        <span class="text-sm text-slate-600">تفعيل العرض في شاشة اليوم</span>
-                    </div>
-                    {% if form.is_active.errors %}<div class="text-rose-600 text-sm">{{ form.is_active.errors }}</div>{% endif %}
-                </div>
-            </div>
-
-            <div class="flex items-center justify-between pt-4 border-t border-slate-200">
-                <button type="submit"
-                        class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
-                    حفظ
-                </button>
-                <div class="flex items-center space-x-3 space-x-reverse">
-                    <a href="{% url 'dashboard:duty_list' %}" class="px-6 py-3 border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium rounded-xl transition-all duration-200">رجوع للقائمة</a>
-
-                    {% if form.instance.pk %}
-                    <button type="submit"
-                            formaction="{% url 'dashboard:duty_delete' form.instance.pk %}"
-                            formmethod="post"
-                            onclick="return confirm('هل تريد حذف هذا التكليف؟');"
-                            class="px-4 py-3 text-rose-600 hover:bg-rose-50 font-medium rounded-xl transition-all duration-200 border border-rose-200">حذف</button>
-                    {% endif %}
-                </div>
-            </div>
+        <div>
+          <dt>الأولوية</dt>
+          <dd id="previewPriority">10</dd>
         </div>
-    </form>
+      </dl>
+    </aside>
+
+    <div class="duty-form-actions">
+      <button type="submit" class="duty-form-primary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <span>حفظ التكليف</span>
+      </button>
+      <a href="{% url 'dashboard:duty_list' %}" class="duty-form-secondary">إلغاء</a>
+
+      {% if form.instance.pk %}
+        <button type="submit"
+                formaction="{% url 'dashboard:duty_delete' form.instance.pk %}"
+                formmethod="post"
+                onclick="return confirm('هل تريد حذف هذا التكليف؟ لا يمكن التراجع عن هذا الإجراء.');"
+                class="duty-form-danger">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          <span>حذف التكليف</span>
+        </button>
+      {% endif %}
+    </div>
+  </form>
 </div>
 
 <script>
-// Add basic Tailwind-like inputs if widgets don't set classes
-(function() {
-  const ids = [
-    "{{ form.date.id_for_label }}",
-    "{{ form.teacher.id_for_label }}",
-    "{{ form.duty_type.id_for_label }}",
-    "{{ form.location.id_for_label }}",
-    "{{ form.priority.id_for_label }}"
-  ];
-  ids.forEach(function(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.classList.add(
-      "w-full",
-      "px-4",
-      "py-2",
-      "border",
-      "border-slate-300",
-      "rounded-xl",
-      "focus:ring-2",
-      "focus:ring-emerald-500",
-      "focus:border-emerald-500"
-    );
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.duty-form-shell input, .duty-form-shell select').forEach(input => {
+    input.classList.add('duty-input');
   });
-})();
+
+  const dateInput = document.getElementById('{{ form.date.id_for_label }}');
+  const typeInput = document.getElementById('{{ form.duty_type.id_for_label }}');
+  const teacherInput = document.getElementById('{{ form.teacher.id_for_label }}');
+  const locationInput = document.getElementById('{{ form.location.id_for_label }}');
+  const priorityInput = document.getElementById('{{ form.priority.id_for_label }}');
+  const activeInput = document.getElementById('{{ form.is_active.id_for_label }}');
+
+  function selectedText(select, fallback) {
+    if (!select) return fallback;
+    const option = select.options[select.selectedIndex];
+    return option && option.value ? option.text : fallback;
+  }
+
+  function valueOr(value, fallback) {
+    return value && value.trim() ? value : fallback;
+  }
+
+  function updatePreview() {
+    document.getElementById('previewDate').textContent = valueOr(dateInput?.value || '', '-');
+    document.getElementById('previewType').textContent = selectedText(typeInput, 'نوع التكليف');
+    document.getElementById('previewTeacher').textContent = selectedText(teacherInput, 'اسم المعلم/ـة');
+    document.getElementById('previewLocation').textContent = valueOr(locationInput?.value || '', 'المكان');
+    document.getElementById('previewPriority').textContent = valueOr(priorityInput?.value || '', '10');
+    document.getElementById('previewStatus').textContent = activeInput && activeInput.checked ? 'نشط' : 'غير نشط';
+  }
+
+  [dateInput, typeInput, teacherInput, locationInput, priorityInput, activeInput].forEach(el => {
+    if (el) el.addEventListener('input', updatePreview);
+    if (el) el.addEventListener('change', updatePreview);
+  });
+  updatePreview();
+});
 </script>
+
+<style>
+.duty-form-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+}
+
+.duty-form-intro h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.duty-form-intro p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.duty-form-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 1rem;
+  align-items: start;
+}
+
+.duty-form-main {
+  display: grid;
+  gap: 1rem;
+}
+
+.duty-form-card,
+.duty-preview-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
+}
+
+.duty-form-card-heading {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.duty-form-card-heading h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.duty-form-card-heading p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.duty-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.duty-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.duty-field label {
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.duty-field label span {
+  color: #e11d48;
+}
+
+.duty-input {
+  width: 100%;
+  min-height: 2.65rem;
+  border: 1px solid #dbe3ea !important;
+  border-radius: 0.75rem !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  padding: 0.65rem 0.8rem !important;
+  font-size: 0.86rem !important;
+  font-weight: 700 !important;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.duty-input:focus {
+  outline: none;
+  border-color: #0f766e !important;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.11);
+}
+
+.duty-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  border-radius: 0.9rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.8rem;
+  cursor: pointer;
+}
+
+.duty-toggle-row input {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.15rem;
+  accent-color: #0f766e;
+}
+
+.duty-toggle-row strong,
+.duty-toggle-row small {
+  display: block;
+}
+
+.duty-toggle-row strong {
+  color: #0f172a;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.duty-toggle-row small {
+  margin-top: 0.2rem;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.duty-field-error {
+  color: #be123c;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.duty-non-field {
+  grid-column: 1 / -1;
+  border-radius: 0.8rem;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  padding: 0.75rem;
+}
+
+.duty-preview-panel {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.duty-preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.duty-preview-heading span {
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.duty-preview-heading strong {
+  border-radius: 999px;
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  color: #047857;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.duty-preview-card {
+  border-radius: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 1rem;
+}
+
+.duty-preview-type {
+  display: inline-flex;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.duty-preview-card h3 {
+  margin: 0.75rem 0 0;
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 950;
+}
+
+.duty-preview-card p {
+  margin: 0.35rem 0 0;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.duty-preview-meta {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.duty-preview-meta div {
+  border-radius: 0.8rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.7rem 0.8rem;
+}
+
+.duty-preview-meta dt,
+.duty-preview-meta dd {
+  margin: 0;
+}
+
+.duty-preview-meta dt {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.duty-preview-meta dd {
+  margin-top: 0.2rem;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 900;
+  direction: ltr;
+  text-align: right;
+}
+
+.duty-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.duty-form-primary,
+.duty-form-secondary,
+.duty-form-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  border-radius: 0.7rem;
+  padding: 0 1rem;
+  font-size: 0.82rem;
+  font-weight: 900;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.duty-form-primary {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.duty-form-primary:hover {
+  background: #1e293b;
+}
+
+.duty-form-secondary {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.duty-form-secondary:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.duty-form-danger {
+  margin-inline-start: auto;
+  background: #ffffff;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+}
+
+.duty-form-danger:hover {
+  background: #fff1f2;
+  border-color: #fda4af;
+}
+
+@media (max-width: 1000px) {
+  .duty-form-intro {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .duty-form-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .duty-preview-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 680px) {
+  .duty-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .duty-form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .duty-form-primary,
+  .duty-form-secondary,
+  .duty-form-danger {
+    width: 100%;
+    margin-inline-start: 0;
+  }
+}
+</style>
 {% endblock %}

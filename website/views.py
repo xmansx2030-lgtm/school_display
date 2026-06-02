@@ -233,6 +233,10 @@ def trial_signup(request):
             "ok": True,
             "message": "تم تجهيز تجربة المدرسة بنجاح.",
             "redirect_url": reverse("dashboard:index"),
+            "login_url": reverse("dashboard:login"),
+            "username": result.user.username,
+            "mobile": getattr(getattr(result.user, "profile", None), "mobile", "") or mobile,
+            "school_name": result.school.name,
         }
     )
 

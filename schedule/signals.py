@@ -65,24 +65,10 @@ def _broadcast_invalidate_ws(school_id: int, revision: int) -> None:
     if not getattr(settings, "DISPLAY_WS_ENABLED", False):
         return
 
-    try:
-        debounce_sec = int(getattr(settings, "DISPLAY_WS_INVALIDATE_DEBOUNCE_SEC", 3) or 3)
-    except Exception:
-        debounce_sec = 3
-    debounce_sec = max(2, min(5, debounce_sec))
-
-    try:
-        debounce_key = f"display:ws:invalidate:debounce:{int(school_id)}"
-        if not bool(cache.add(debounce_key, str(int(revision or 0)), timeout=debounce_sec)):
-            logger.info(
-                "WS broadcast debounced: school_id=%s revision=%s window=%ss",
-                int(school_id),
-                int(revision or 0),
-                int(debounce_sec),
-            )
-            return
-    except Exception:
-        pass
+    # Do not debounce/drop update events here. The display client already
+    # coalesces snapshot fetches after receiving WS invalidations; suppressing
+    # a second nearby event can leave ws-live screens stale until a manual
+    # refresh when two dashboard saves happen close together.
     
     try:
         from asgiref.sync import async_to_sync

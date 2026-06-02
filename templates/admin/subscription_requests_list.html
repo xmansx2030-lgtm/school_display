@@ -1,6 +1,9 @@
-{% extends "dashboard/_base.html" %}
+{% extends "admin/admin_base.html" %}
 
 {% block title %}طلبات التجديد والاشتراك{% endblock %}
+{% block page_icon %}receipt{% endblock %}
+{% block page_title %}طلبات التجديد والاشتراك{% endblock %}
+{% block page_description %}مراجعة طلبات العملاء وإيصالات التحويل واعتماد الاشتراكات أو رفضها.{% endblock %}
 
 {% block content %}
 <div class="space-y-8">
@@ -52,9 +55,9 @@
             <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>مرفوضة</option>
           </select>
           <select name="type" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm bg-slate-50">
-            <option value="" {% if not type %}selected{% endif %}>كل الأنواع</option>
-            <option value="renewal" {% if type == 'renewal' %}selected{% endif %}>تجديد</option>
-            <option value="new" {% if type == 'new' %}selected{% endif %}>اشتراك جديد</option>
+            <option value="" {% if not request_type %}selected{% endif %}>كل الأنواع</option>
+            <option value="renewal" {% if request_type == 'renewal' %}selected{% endif %}>تجديد</option>
+            <option value="new" {% if request_type == 'new' %}selected{% endif %}>اشتراك جديد</option>
           </select>
         </div>
         <div class="mt-3">
@@ -115,11 +118,11 @@
         <div class="flex items-center gap-2">
           {% if page_obj.has_previous %}
             <a class="px-3 py-1 rounded-lg border border-slate-200 hover:bg-slate-50"
-               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status }}&type={{ type }}">السابق</a>
+               href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if request_type %}&type={{ request_type }}{% endif %}">السابق</a>
           {% endif %}
           {% if page_obj.has_next %}
             <a class="px-3 py-1 rounded-lg border border-slate-200 hover:bg-slate-50"
-               href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status }}&type={{ type }}">التالي</a>
+               href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if request_type %}&type={{ request_type }}{% endif %}">التالي</a>
           {% endif %}
         </div>
       </div>

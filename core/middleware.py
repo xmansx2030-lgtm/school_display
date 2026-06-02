@@ -243,6 +243,7 @@ class DisplayTokenMiddleware:
     NO_TOKEN_PATHS = {
         "/api/display/ping/",
         "/api/display/metrics/",
+        "/api/display/ws-metrics/",
     }
 
     def __init__(self, get_response):

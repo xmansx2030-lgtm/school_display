@@ -5,221 +5,558 @@
 {% block page_title %}جداول الأيام الدراسية{% endblock %}
 {% block page_description %}تحكم كامل في التوقيت الدراسي. قم بإدارة الحصص والفسح لكل يوم على حدة، مع تحديث فوري لشاشات العرض.{% endblock %}
 
+{% block extra_css %}
+<style>
+  .dashboard-days {
+    --days-accent: #145a6a;
+    --days-accent-dark: #123b4a;
+    --days-warm: #b48b57;
+    --days-border: rgba(124, 116, 102, 0.16);
+    --days-muted: #5f6d78;
+  }
+
+  .days-command-panel,
+  .days-stat-card,
+  .day-card,
+  .days-info-band {
+    border: 1px solid var(--days-border);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
+  }
+
+  .days-command-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .days-command-copy {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    min-width: 0;
+  }
+
+  .days-command-icon,
+  .days-stat-icon,
+  .day-status-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+
+  .days-command-icon {
+    width: 2.55rem;
+    height: 2.55rem;
+    border-radius: 10px;
+    background: rgba(20, 90, 106, 0.1);
+    color: var(--days-accent);
+  }
+
+  .days-command-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .days-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 2.45rem;
+    border-radius: 10px;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.8rem;
+    font-weight: 800;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  }
+
+  .days-action-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .days-action-btn--primary {
+    border: 1px solid var(--days-accent-dark);
+    background: var(--days-accent-dark);
+    color: #fffaf3;
+  }
+
+  .days-action-btn--secondary {
+    border: 1px solid rgba(20, 90, 106, 0.18);
+    background: rgba(20, 90, 106, 0.06);
+    color: var(--days-accent-dark);
+  }
+
+  .days-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .days-stat-card {
+    position: relative;
+    overflow: hidden;
+    min-height: 6.25rem;
+    padding: 0.95rem;
+  }
+
+  .days-stat-card::after {
+    content: "";
+    position: absolute;
+    inset-inline-end: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--days-accent);
+    opacity: 0.85;
+  }
+
+  .days-stat-card--warm::after {
+    background: var(--days-warm);
+  }
+
+  .days-stat-card--soft::after {
+    background: #64748b;
+  }
+
+  .days-stat-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .days-stat-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9px;
+    background: rgba(20, 90, 106, 0.08);
+    color: var(--days-accent);
+  }
+
+  .days-stat-card--warm .days-stat-icon {
+    background: rgba(180, 139, 87, 0.12);
+    color: #90672d;
+  }
+
+  .days-stat-card--soft .days-stat-icon {
+    background: rgba(100, 116, 139, 0.1);
+    color: #475569;
+  }
+
+  .days-stat-card dd .font-mono {
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+
+  .days-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 0.9rem;
+  }
+
+  .day-card {
+    position: relative;
+    display: flex;
+    min-height: 17.5rem;
+    overflow: hidden;
+    flex-direction: column;
+    transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .day-card:hover {
+    border-color: rgba(20, 90, 106, 0.28);
+    box-shadow: 0 14px 30px rgba(23, 48, 66, 0.1);
+    transform: translateY(-2px);
+  }
+
+  .day-card::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 4px;
+    background: var(--days-accent);
+  }
+
+  .day-card.is-holiday::before {
+    background: var(--days-warm);
+  }
+
+  .day-card.is-holiday {
+    background: linear-gradient(180deg, #fff 0%, rgba(255, 251, 242, 0.78) 100%);
+  }
+
+  .day-card-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: 1rem;
+  }
+
+  .day-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .day-card-title {
+    font-size: 1.15rem;
+    font-weight: 900;
+    line-height: 1.25;
+    color: #173042;
+  }
+
+  .day-status-icon {
+    width: 2.05rem;
+    height: 2.05rem;
+    border-radius: 10px;
+    background: rgba(20, 90, 106, 0.08);
+    color: var(--days-accent);
+  }
+
+  .day-card.is-holiday .day-status-icon {
+    background: rgba(180, 139, 87, 0.14);
+    color: #9a6e2f;
+  }
+
+  .day-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: fit-content;
+    border-radius: 999px;
+    padding: 0.24rem 0.55rem;
+    font-size: 0.68rem;
+    font-weight: 800;
+  }
+
+  .day-pill--active {
+    background: rgba(20, 90, 106, 0.09);
+    color: var(--days-accent-dark);
+  }
+
+  .day-pill--holiday {
+    background: rgba(180, 139, 87, 0.16);
+    color: #835723;
+  }
+
+  .day-counts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+
+  .day-count-box {
+    border-radius: 10px;
+    background: #f8fafc;
+    padding: 0.65rem;
+    text-align: center;
+  }
+
+  .day-count-box span {
+    display: block;
+  }
+
+  .day-timeline {
+    margin-top: auto;
+    display: grid;
+    gap: 0.45rem;
+    color: var(--days-muted);
+    font-size: 0.72rem;
+  }
+
+  .day-time-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .day-time-value {
+    direction: ltr;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-weight: 800;
+    color: #173042;
+  }
+
+  .day-duration-value {
+    direction: ltr;
+    unicode-bidi: isolate;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .day-card-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2.45rem;
+    gap: 0.55rem;
+    border-top: 1px solid rgba(124, 116, 102, 0.12);
+    background: #fbfcfd;
+    padding: 0.75rem;
+  }
+
+  .day-edit-btn,
+  .day-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.45rem;
+    border-radius: 10px;
+    font-weight: 900;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  }
+
+  .day-edit-btn {
+    gap: 0.45rem;
+    background: var(--days-accent-dark);
+    color: #fffaf3;
+    font-size: 0.82rem;
+  }
+
+  .day-edit-btn:hover {
+    background: var(--days-accent);
+  }
+
+  .day-toggle-btn {
+    width: 2.45rem;
+    border: 1px solid rgba(180, 139, 87, 0.28);
+    background: #fff;
+    color: #9a6e2f;
+  }
+
+  .day-toggle-btn.is-enable {
+    border-color: rgba(20, 90, 106, 0.24);
+    color: var(--days-accent);
+  }
+
+  .day-toggle-btn:hover {
+    background: #f8fafc;
+  }
+
+  .days-info-band {
+    padding: 0.9rem 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .days-command-panel {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      padding: 1.15rem;
+    }
+
+    .days-command-actions {
+      justify-content: flex-end;
+    }
+
+    .days-stats-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .days-grid {
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 767px) {
+    .days-command-copy {
+      gap: 0.65rem;
+    }
+
+    .days-command-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .days-action-btn {
+      width: 100%;
+      padding-inline: 0.55rem;
+    }
+
+    .days-grid {
+      grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+      gap: 0.7rem;
+    }
+
+    .day-card {
+      min-height: 16.75rem;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-7xl mx-auto space-y-8">
+<div class="dashboard-days mx-auto space-y-5">
 
-  <details id="help-day-schedule" class="dashboard-help-banner" open>
-    <summary class="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 md:flex-row md:items-center md:justify-between">
-      <div>
-        <div class="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">شرح ضبط التوقيت</div>
-        <h3 class="mt-2 text-lg font-black text-slate-900">كيف تضبط توقيت الحصص اليومية؟</h3>
-        <p class="mt-1 text-sm text-slate-500">من هذه الصفحة تحدد أيام الدراسة، ثم تدخل داخل كل يوم لضبط عدد الحصص وأوقاتها بدقة.</p>
-      </div>
-      <span class="dashboard-status-pill dashboard-status-pill--slate">اضغط للطي أو التوسيع</span>
-    </summary>
-    <div class="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[320px,1fr]">
-      <div class="dashboard-help-figure p-3">
-        <img src="{% static 'img/dashboard-help/day-schedule.svg' %}" alt="ضبط توقيت الحصص" class="rounded-2xl">
-      </div>
-      <div class="space-y-4">
-        <ul class="dashboard-help-list space-y-3 text-sm leading-7 text-slate-600">
-          <li>فعّل الأيام الدراسية الفعلية، وألغِ الأيام التي لا تريد إظهارها على الشاشات.</li>
-          <li>اضغط على <strong class="text-slate-800">تحرير</strong> داخل اليوم لضبط عدد الحصص ووقت البداية والنهاية والفسح.</li>
-          <li>بعد حفظ التوقيت، افتح <strong class="text-slate-800">الجدول اليومي</strong> لإسناد المادة والمعلم لكل حصة.</li>
-        </ul>
-
+  <section class="days-command-panel">
+    <div class="days-command-copy">
+      <span class="days-command-icon" aria-hidden="true"><i class="fa-regular fa-calendar-days"></i></span>
+      <div class="min-w-0">
+        <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-400">إعداد الأسبوع الدراسي</div>
+        <h3 class="mt-1 text-base font-black text-slate-900">اضبط الأيام والتوقيت ثم وزع الحصص اليومية</h3>
+        <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-500">التفعيل هنا يحدد ما يظهر على الشاشات. تفاصيل المواد والمعلمين تدار من الجدول اليومي بعد تثبيت أوقات الحصص.</p>
       </div>
     </div>
-  </details>
+    <div class="days-command-actions">
+      <a href="{% url 'dashboard:timetable_day' %}" class="days-action-btn days-action-btn--primary">
+        <i class="fa-solid fa-table-cells-large" aria-hidden="true"></i>
+        <span>الجدول اليومي</span>
+      </a>
+    </div>
+  </section>
 
-  <!-- Statistics Grid -->
-  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    <!-- Total Days -->
-    <div class="dashboard-mini-card group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">
-      <div class="absolute right-0 top-0 h-24 w-24 translate-x-8 translate-y-[-8px] rounded-full bg-indigo-50 transition-transform group-hover:scale-150"></div>
-      <div class="relative">
-        <dt class="truncate text-sm font-medium text-slate-500">عدد الأيام</dt>
-        <dd class="mt-2 flex items-baseline gap-2">
-          <span class="font-mono text-3xl font-bold tracking-tight text-slate-900">{{ days|length|default:0 }}</span>
-          <span class="text-xs text-slate-400">يوم</span>
-        </dd>
+  <section class="days-stats-grid" aria-label="ملخص الأيام الدراسية">
+    <div class="days-stat-card">
+      <div class="days-stat-top">
+        <dt class="text-xs font-bold text-slate-500">الأيام المفعلة</dt>
+        <span class="days-stat-icon" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
       </div>
+      <dd class="mt-3 flex items-end gap-2">
+        <span class="font-mono text-3xl font-black text-slate-900">{{ active_days_count|default:0 }}</span>
+        <span class="pb-1 text-xs font-bold text-slate-400">من {{ days|length|default:0 }}</span>
+      </dd>
     </div>
 
-    <!-- Avg Periods -->
-    <div class="dashboard-mini-card group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">
-      <div class="absolute right-0 top-0 h-24 w-24 translate-x-8 translate-y-[-8px] rounded-full bg-emerald-50 transition-transform group-hover:scale-150"></div>
-      <div class="relative">
-        <dt class="truncate text-sm font-medium text-slate-500">متوسط الحصص / يوم</dt>
-        <dd class="mt-2 flex items-baseline gap-2">
-          <span class="font-mono text-3xl font-bold tracking-tight text-slate-900">
-            {% with dcount=days|length %}
-                {% if dcount %}
-                  {% if avg_periods %}
-                    {{ avg_periods|floatformat:1 }}
-                  {% else %}
-                    {% widthratio total_periods dcount 1 %}
-                  {% endif %}
-                {% else %}
-                  0
-                {% endif %}
-              {% endwith %}
-          </span>
-          <span class="text-xs text-slate-400">حصة</span>
-        </dd>
+    <div class="days-stat-card days-stat-card--soft">
+      <div class="days-stat-top">
+        <dt class="text-xs font-bold text-slate-500">إجمالي الحصص</dt>
+        <span class="days-stat-icon" aria-hidden="true"><i class="fa-solid fa-list-ol"></i></span>
       </div>
+      <dd class="mt-3 flex items-end gap-2">
+        <span class="font-mono text-3xl font-black text-slate-900">{{ total_periods|default:0 }}</span>
+        <span class="pb-1 text-xs font-bold text-slate-400">حصة</span>
+      </dd>
     </div>
 
-    <!-- Max Periods -->
-    <div class="dashboard-mini-card group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">
-      <div class="absolute right-0 top-0 h-24 w-24 translate-x-8 translate-y-[-8px] rounded-full bg-violet-50 transition-transform group-hover:scale-150"></div>
-      <div class="relative">
-        <dt class="truncate text-sm font-medium text-slate-500">الأكثر كثافة</dt>
-        <dd class="mt-2 flex items-baseline gap-2">
-          <span class="text-xl font-bold tracking-tight text-slate-900">{{ max_periods_day.day_name|default:"-" }}</span>
-        </dd>
+    <div class="days-stat-card">
+      <div class="days-stat-top">
+        <dt class="text-xs font-bold text-slate-500">متوسط الحصص</dt>
+        <span class="days-stat-icon" aria-hidden="true"><i class="fa-solid fa-chart-simple"></i></span>
       </div>
+      <dd class="mt-3 flex items-end gap-2">
+        <span class="font-mono text-3xl font-black text-slate-900">{{ avg_periods_display|default:"0.0" }}</span>
+        <span class="pb-1 text-xs font-bold text-slate-400">لكل يوم</span>
+      </dd>
     </div>
 
-     <!-- Min Periods -->
-    <div class="dashboard-mini-card group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">
-      <div class="absolute right-0 top-0 h-24 w-24 translate-x-8 translate-y-[-8px] rounded-full bg-amber-50 transition-transform group-hover:scale-150"></div>
-      <div class="relative">
-        <dt class="truncate text-sm font-medium text-slate-500">الأقل كثافة</dt>
-        <dd class="mt-2 flex items-baseline gap-2">
-          <span class="text-xl font-bold tracking-tight text-slate-900">{{ min_periods_day.day_name|default:"-" }}</span>
-        </dd>
+    <div class="days-stat-card days-stat-card--warm">
+      <div class="days-stat-top">
+        <dt class="text-xs font-bold text-slate-500">أيام الإجازة</dt>
+        <span class="days-stat-icon" aria-hidden="true"><i class="fa-regular fa-moon"></i></span>
       </div>
+      <dd class="mt-3 flex items-end gap-2">
+        <span class="font-mono text-3xl font-black text-slate-900">{{ holiday_days_count|default:0 }}</span>
+        <span class="pb-1 text-xs font-bold text-slate-400">يوم</span>
+      </dd>
     </div>
-  </div>
+  </section>
 
-  <!-- Days List Grid -->
-  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+  <section class="days-grid" aria-label="أيام الأسبوع الدراسي">
     {% for d in days %}
-    <div class="dashboard-section-card group relative flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md {% if not d.is_active %} opacity-70 {% endif %}">
-       
-       <!-- Status Stripe -->
-       <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r {% if d.is_active %} from-indigo-500 to-violet-500 {% else %} from-amber-300 to-amber-400 {% endif %}"></div>
-
-       <!-- Card Content -->
-       <div class="flex-1 p-6">
-          <div class="flex items-start justify-between">
-            <div>
-               <h3 class="text-2xl font-bold text-slate-800">{{ d.day_name }}</h3>
-               {% if d.is_active %}
-               <span class="inline-block mt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                  اليوم {{ forloop.counter }}
-               </span>
-               {% else %}
-               <span class="inline-block mt-2 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-700">
-                  إجازة
-               </span>
-               {% endif %}
+    <article class="day-card {% if not d.is_active %}is-holiday{% endif %}">
+       <div class="day-card-body">
+          <div class="day-card-head">
+            <div class="min-w-0">
+              <h3 class="day-card-title">{{ d.day_name }}</h3>
+              {% if d.is_active %}
+                <span class="day-pill day-pill--active"><i class="fa-solid fa-check" aria-hidden="true"></i> يوم دراسي</span>
+              {% else %}
+                <span class="day-pill day-pill--holiday"><i class="fa-regular fa-moon" aria-hidden="true"></i> إجازة</span>
+              {% endif %}
             </div>
-            
-            {% if d.is_active %}
-            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-indigo-600" title="يوم دراسي">
-               <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-               </svg>
-            </div>
-            {% else %}
-            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-600" title="إجازة">
-               <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-               </svg>
-            </div>
-            {% endif %}
+            <span class="day-status-icon" title="{% if d.is_active %}يوم دراسي{% else %}إجازة{% endif %}" aria-hidden="true">
+              {% if d.is_active %}
+                <i class="fa-solid fa-book-open"></i>
+              {% else %}
+                <i class="fa-regular fa-moon"></i>
+              {% endif %}
+            </span>
           </div>
 
-          <div class="my-6 space-y-3">
-             <div class="flex items-center justify-between rounded-xl bg-slate-50 p-3">
-               <span class="text-xs font-medium text-slate-500">الحصص</span>
-               <span class="font-mono text-lg font-bold text-slate-700">{{ d.periods_count }}</span>
+          <div class="day-counts">
+             <div class="day-count-box">
+               <span class="text-[11px] font-bold text-slate-500">الحصص</span>
+               <span class="mt-1 font-mono text-xl font-black text-slate-900">{{ d.periods_count }}</span>
              </div>
-             <div class="flex items-center justify-between rounded-xl bg-slate-50 p-3">
-               <span class="text-xs font-medium text-slate-500">الفسح</span>
-               <span class="font-mono text-lg font-bold text-slate-700">{{ d.breaks_count }}</span>
+             <div class="day-count-box">
+               <span class="text-[11px] font-bold text-slate-500">الفسح</span>
+               <span class="mt-1 font-mono text-xl font-black text-slate-900">{{ d.breaks_count }}</span>
              </div>
           </div>
 
-          <div class="space-y-1">
-             <div class="flex items-center gap-2 text-xs text-slate-500">
-                <div class="h-1.5 w-1.5 rounded-full bg-indigo-400"></div>
-                <span>البداية: <span class="font-mono font-medium text-slate-700">{{ d.first_period_time|default:"--:--" }}</span></span>
+          <div class="day-timeline">
+             <div class="day-time-row">
+                <span><i class="fa-regular fa-clock ml-1 text-slate-400" aria-hidden="true"></i> البداية</span>
+                <span class="day-time-value">{{ d.first_period_time|default:"--:--" }}</span>
              </div>
-             <div class="flex items-center gap-2 text-xs text-slate-500">
-                <div class="h-1.5 w-1.5 rounded-full bg-rose-400"></div>
-                <span>النهاية: <span class="font-mono font-medium text-slate-700">{{ d.last_period_time|default:"--:--" }}</span></span>
+             <div class="day-time-row">
+                <span><i class="fa-solid fa-flag-checkered ml-1 text-slate-400" aria-hidden="true"></i> النهاية</span>
+                <span class="day-time-value">{{ d.last_period_time|default:"--:--" }}</span>
+             </div>
+             <div class="day-time-row">
+                <span><i class="fa-regular fa-hourglass-half ml-1 text-slate-400" aria-hidden="true"></i> المدة</span>
+                <span class="day-time-value day-duration-value">{{ d.total_duration|default:"--:--" }}</span>
              </div>
           </div>
        </div>
 
-       <!-- Action Area -->
-       <div class="border-t border-slate-100 bg-slate-50/50 p-4">
-          <div class="grid grid-cols-[1fr,auto] gap-3">
-             <a href="{% url 'dashboard:day_edit' d.weekday %}" 
-                class="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-2.5 text-sm font-bold text-white transition-all hover:bg-indigo-700 hover:shadow-lg focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
+       <div class="day-card-actions">
+             <a href="{% url 'dashboard:day_edit' d.weekday %}" class="day-edit-btn">
+                <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
                 تحرير
              </a>
              
              <form method="post" action="{% url 'dashboard:day_toggle' d.weekday %}">
                {% csrf_token %}
-               <button type="submit" 
-                       class="flex h-10 w-10 items-center justify-center rounded-xl border transition-all hover:shadow-md focus:ring-2 focus:ring-offset-2 {% if d.is_active %} border-amber-200 bg-white text-amber-500 hover:bg-amber-50 hover:border-amber-300 {% else %} border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:border-emerald-300 {% endif %}"
+               <button type="submit" class="day-toggle-btn {% if not d.is_active %}is-enable{% endif %}"
                        title="{% if d.is_active %}تحويل لإجازة{% else %}تفعيل كيوم دراسي{% endif %}">
                   {% if d.is_active %}
-                  <!-- Moon icon: click to make holiday -->
-                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
+                    <i class="fa-regular fa-moon" aria-hidden="true"></i>
                   {% else %}
-                  <!-- Book icon: click to make school day -->
-                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
+                    <i class="fa-solid fa-book-open" aria-hidden="true"></i>
                   {% endif %}
                </button>
              </form>
-          </div>
        </div>
-    </div>
+    </article>
     {% empty %}
-    <div class="col-span-full py-12 text-center">
-       <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-          <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
+    <div class="col-span-full rounded-xl border border-slate-200 bg-white py-12 text-center">
+       <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+          <i class="fa-regular fa-calendar-days text-2xl" aria-hidden="true"></i>
        </div>
        <h3 class="text-lg font-medium text-slate-900">لا توجد أيام مجدولة</h3>
        <p class="mt-1 text-slate-500">يرجى تهيئة الأيام الدراسية أولاً.</p>
     </div>
     {% endfor %}
-  </div>
+  </section>
 
-  <!-- Footer Info -->
   {% if days %}
-  <div class="dashboard-info-band rounded-2xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
-     <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <ul class="space-y-1">
+  <section class="days-info-band text-sm text-slate-500">
+     <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <ul class="space-y-1.5">
            <li class="flex items-center gap-2">
-              <svg class="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              <i class="fa-solid fa-circle-check text-emerald-500" aria-hidden="true"></i>
               <span>جميع التغييرات تنعكس فوراً على الشاشات المرتبطة.</span>
            </li>
            <li class="flex items-center gap-2">
-              <svg class="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-              <span>تأكد من تفعيل الأيام الصحيحة (الأجازات الرسمية يجب تعطيلها).</span>
+              <i class="fa-solid fa-circle-check text-emerald-500" aria-hidden="true"></i>
+              <span>أيام الإجازة المعطلة لن تظهر كجدول دراسي على شاشة العرض.</span>
            </li>
         </ul>
-        <div class="text-right">
+        <div class="text-right md:text-left">
            <span class="block text-xs font-semibold uppercase tracking-wider text-slate-400">آخر تحديث</span>
            <span class="font-mono text-slate-700">{{ last_updated|default:"الآن" }}</span>
         </div>
      </div>
-  </div>
+  </section>
   {% endif %}
 
 </div>

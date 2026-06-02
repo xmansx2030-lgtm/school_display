@@ -93,6 +93,14 @@ class SchoolSettingsForm(forms.ModelForm):
             "theme",
             "standby_scroll_speed",
             "periods_scroll_speed",
+            "display_before_title",
+            "display_before_badge",
+            "display_after_title",
+            "display_after_badge",
+            "display_after_holiday_title",
+            "display_after_holiday_badge",
+            "display_holiday_title",
+            "display_holiday_badge",
             "display_accent_color",
             "test_mode_weekday_override",
         ]
@@ -109,6 +117,14 @@ class SchoolSettingsForm(forms.ModelForm):
             # for empty hidden color inputs, which can override the selected
             # theme on the display screen.
             "display_accent_color": forms.HiddenInput(),
+            "display_before_title": forms.TextInput(attrs={"dir": "rtl", "maxlength": "150"}),
+            "display_before_badge": forms.TextInput(attrs={"dir": "rtl", "maxlength": "40"}),
+            "display_after_title": forms.TextInput(attrs={"dir": "rtl", "maxlength": "150"}),
+            "display_after_badge": forms.TextInput(attrs={"dir": "rtl", "maxlength": "40"}),
+            "display_after_holiday_title": forms.TextInput(attrs={"dir": "rtl", "maxlength": "150"}),
+            "display_after_holiday_badge": forms.TextInput(attrs={"dir": "rtl", "maxlength": "40"}),
+            "display_holiday_title": forms.TextInput(attrs={"dir": "rtl", "maxlength": "150"}),
+            "display_holiday_badge": forms.TextInput(attrs={"dir": "rtl", "maxlength": "40"}),
             
             "test_mode_weekday_override": forms.Select(),
         }
@@ -496,9 +512,29 @@ class AnnouncementForm(forms.ModelForm):
         model = Announcement
         fields = ["title", "body", "level", "starts_at", "expires_at", "is_active"]
         widgets = {
-            "starts_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
-            "expires_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "starts_at": forms.DateTimeInput(
+                format="%Y-%m-%dT%H:%M",
+                attrs={"type": "datetime-local"},
+            ),
+            "expires_at": forms.DateTimeInput(
+                format="%Y-%m-%dT%H:%M",
+                attrs={"type": "datetime-local"},
+            ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ("starts_at", "expires_at"):
+            if name in self.fields:
+                self.fields[name].input_formats = ["%Y-%m-%dT%H:%M"]
+
+    def clean(self):
+        cleaned = super().clean()
+        starts_at = cleaned.get("starts_at")
+        expires_at = cleaned.get("expires_at")
+        if starts_at and expires_at and expires_at <= starts_at:
+            raise ValidationError("وقت انتهاء التنبيه يجب أن يكون بعد وقت البداية.")
+        return cleaned
 
 
 class ExcellenceForm(forms.ModelForm):
@@ -519,12 +555,21 @@ class ExcellenceForm(forms.ModelForm):
         widgets = {
             "teacher_name": forms.TextInput(attrs={"maxlength": 100}),
             "reason": forms.TextInput(attrs={"maxlength": 200}),
-            "start_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
-            "end_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "start_at": forms.DateTimeInput(
+                format="%Y-%m-%dT%H:%M",
+                attrs={"type": "datetime-local"},
+            ),
+            "end_at": forms.DateTimeInput(
+                format="%Y-%m-%dT%H:%M",
+                attrs={"type": "datetime-local"},
+            ),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        for name in ("start_at", "end_at"):
+            if name in self.fields:
+                self.fields[name].input_formats = ["%Y-%m-%dT%H:%M"]
         if "teacher_name" in self.fields:
             self.fields["teacher_name"].label = "اسم المتميز/ة"
         if "photo" in self.fields and hasattr(self.fields["photo"].widget, "attrs"):
@@ -697,7 +742,7 @@ class DutyAssignmentForm(forms.ModelForm):
             "is_active",
         ]
         widgets = {
-            "date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "date": forms.DateInput(attrs={"type": "date", "class": "form-control", "dir": "ltr", "lang": "en"}),
             "location": forms.TextInput(attrs={"maxlength": 120, "class": "form-control"}),
             "priority": forms.NumberInput(attrs={"class": "form-control"}),
         }

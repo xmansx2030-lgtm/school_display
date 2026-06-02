@@ -1,6 +1,9 @@
-{% extends "dashboard/_base.html" %}
+{% extends "admin/admin_base.html" %}
 
 {% block title %}تفاصيل طلب الاشتراك{% endblock %}
+{% block page_icon %}receipt{% endblock %}
+{% block page_title %}تفاصيل طلب الاشتراك{% endblock %}
+{% block page_description %}مراجعة بيانات الطلب والإيصال واتخاذ إجراء مناسب حسب حالته.{% endblock %}
 
 {% block content %}
 <div class="max-w-5xl mx-auto space-y-6">
@@ -86,15 +89,25 @@
 
           <form method="post" class="space-y-3">
             {% csrf_token %}
-            <textarea name="admin_note" rows="3" placeholder="ملاحظة للإدارة/المدرسة (اختياري)" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"></textarea>
+            <textarea name="admin_note" rows="3" placeholder="ملاحظة للإدارة/المدرسة (اختياري)" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">{{ obj.admin_note }}</textarea>
 
             <div class="flex flex-col sm:flex-row gap-2">
-              <button name="action" value="under_review" class="flex-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2">قيد المراجعة</button>
-              <button name="action" value="approve" class="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2">اعتماد</button>
-              <button name="action" value="reject" class="flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2">رفض</button>
+              {% if obj.status != 'approved' and obj.status != 'rejected' %}
+                <button name="action" value="under_review" class="flex-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2">قيد المراجعة</button>
+                <button name="action" value="approve" class="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2">اعتماد</button>
+                <button name="action" value="reject" class="flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2">رفض</button>
+              {% elif obj.status == 'approved' %}
+                <span class="flex-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold py-2 text-center">
+                  تم اعتماد الطلب
+                </span>
+              {% else %}
+                <span class="flex-1 rounded-xl bg-rose-50 text-rose-700 border border-rose-100 font-semibold py-2 text-center">
+                  تم رفض الطلب
+                </span>
+              {% endif %}
             </div>
 
-            <p class="text-xs text-slate-500">عند الاعتماد: يتم إنشاء اشتراك يبدأ من تاريخ رفع الطلب.</p>
+            <p class="text-xs text-slate-500">عند الاعتماد: يتم إنشاء اشتراك يبدأ من تاريخ التفعيل المطلوب.</p>
           </form>
         </div>
       </div>

@@ -1,4 +1,4 @@
-{% extends "dashboard/_base.html" %}
+{% extends "admin/admin_base.html" %}
 
 {% block title %}إدارة الموظفين{% endblock %}
 {% block page_title %}إدارة الموظفين{% endblock %}
@@ -141,13 +141,13 @@
       </div>
       <div class="flex items-center gap-1">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}"
+        <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}"
            class="px-2 py-1 text-xs rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
           السابقة
         </a>
         {% endif %}
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}"
+        <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}"
            class="px-2 py-1 text-xs rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
           التالية
         </a>
