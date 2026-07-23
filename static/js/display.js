@@ -189,6 +189,7 @@
     dom.dateG = $("dateGregorian");
     dom.dateH = $("dateHijri");
     dom.clock = $("clock");
+    dom.boardStatusText = $("boardStatusText");
 
     dom.alertContainer = $("alertContainer");
     dom.alertTitle = $("alertTitle");
@@ -197,14 +198,19 @@
     dom.badgeKind = $("badgeKind");
     dom.heroRange = $("heroRange");
     dom.heroTitle = $("heroTitle");
+    dom.heroSubtitle = $("heroSubtitle");
+    dom.activityLabel = $("activityLabel");
     dom.currentScheduleList = $("currentScheduleList");
 
     dom.circleProgress = $("circleProgress");
     dom.countdown = $("countdown");
+    dom.countdownGlyph = $("countdownGlyph");
+    dom.countdownLabel = $("countdownLabel");
     dom.progressBar = $("progressBar");
 
     dom.miniSchedule = $("miniSchedule");
     dom.nextLabel = $("nextLabel");
+    dom.dayTimelinePanel = $("dayTimelinePanel");
 
     dom.exSlot = $("exSlot");
     dom.exIndex = $("exIndex");
@@ -218,9 +224,11 @@
 
     dom.pcCount = $("pcCount");
     dom.periodClassesTrack = $("periodClassesTrack");
+    dom.periodCard = $("periodCard");
 
     dom.sbCount = $("sbCount");
     dom.standbyTrack = $("standbyTrack");
+    dom.standbyCard = $("standbyCard");
 
     // Blocking overlay
     dom.blocker = $("blocker");
@@ -2741,6 +2749,110 @@
     return true;
   }
 
+  // ===== Adaptive board presentation =====
+  function setBoardData(name, value) {
+    try {
+      if (!document.body || !name) return;
+      document.body.dataset[name] = String(value);
+    } catch (e) {}
+  }
+
+  function refreshAdaptiveLayout() {
+    if (!document.body) return;
+
+    const periodEmpty = document.body.dataset.periodEmpty === "1";
+    const standbyEmpty = document.body.dataset.standbyEmpty === "1";
+    const featuredEmpty = document.body.dataset.featuredEmpty === "1";
+    const stateType = safeText(document.body.dataset.displayState || "");
+    const sideEmpty = periodEmpty && standbyEmpty;
+    const quietState =
+      stateType === "after" ||
+      stateType === "holiday" ||
+      stateType === "off";
+
+    setBoardData("sideEmpty", sideEmpty ? "1" : "0");
+    setBoardData(
+      "layoutMode",
+      sideEmpty ? (featuredEmpty || quietState ? "ambient" : "wide") : "standard"
+    );
+
+    try { scheduleFit(0); } catch (e) {}
+  }
+
+  const BOARD_STATE_PRESENTATION = {
+    period: {
+      status: "حصة جارية الآن",
+      subtitle: "متابعة مباشرة للحصة والنشاط الحالي مع تحديث تلقائي للوقت.",
+      activity: "تفاصيل النشاط",
+      countdownLabel: "المتبقي",
+      glyph: "◉",
+    },
+    break: {
+      status: "وقت الاستراحة",
+      subtitle: "استراحة هادئة قبل استكمال بقية اليوم الدراسي.",
+      activity: "حالة الاستراحة",
+      countdownLabel: "تنتهي خلال",
+      glyph: "◇",
+    },
+    before: {
+      status: "الاستعداد لليوم",
+      subtitle: "يوم دراسي منظم يبدأ باستعداد جميل وحضور مبكر.",
+      activity: "الاستعداد الآن",
+      countdownLabel: "يبدأ خلال",
+      glyph: "☀",
+    },
+    after: {
+      status: "اكتمل اليوم الدراسي",
+      subtitle: "شكرًا لعطائكم اليوم، نلقاكم في يوم دراسي جديد بإذن الله.",
+      activity: "رسالة اليوم",
+      countdownLabel: "يوم مكتمل",
+      glyph: "✓",
+    },
+    holiday: {
+      status: "إجازة مدرسية",
+      subtitle: "نتمنى لمنسوبي المدرسة وطلابها إجازة سعيدة ووقتًا ممتعًا.",
+      activity: "رسالة المدرسة",
+      countdownLabel: "إجازة سعيدة",
+      glyph: "✦",
+    },
+    off: {
+      status: "خارج وقت الدوام",
+      subtitle: "الشاشة جاهزة وستعود تلقائيًا مع بداية اليوم الدراسي القادم.",
+      activity: "رسالة المدرسة",
+      countdownLabel: "الشاشة جاهزة",
+      glyph: "✦",
+    },
+    day: {
+      status: "اليوم الدراسي",
+      subtitle: "متابعة مباشرة لجدول اليوم والأنشطة المدرسية.",
+      activity: "النشاط الحالي",
+      countdownLabel: "المتبقي",
+      glyph: "◆",
+    },
+  };
+
+  function applyBoardStatePresentation(stateType, countdownActive) {
+    const normalized = normalizeDisplayStateType(stateType || "") || "day";
+    const copy = BOARD_STATE_PRESENTATION[normalized] || BOARD_STATE_PRESENTATION.day;
+
+    setBoardData("displayState", normalized);
+    setBoardData("countdownActive", countdownActive ? "1" : "0");
+    setTextIfChanged(dom.boardStatusText, copy.status);
+    setTextIfChanged(dom.heroSubtitle, copy.subtitle);
+    setTextIfChanged(dom.activityLabel, copy.activity);
+    setTextIfChanged(dom.countdownLabel, copy.countdownLabel);
+    setTextIfChanged(dom.countdownGlyph, copy.glyph);
+    refreshAdaptiveLayout();
+  }
+
+  function makeBoardEmptyState(message) {
+    const msg = document.createElement("div");
+    msg.className = "board-empty-state";
+    msg.textContent = safeText(message || "لا توجد بيانات حالياً");
+    msg.setAttribute("role", "status");
+    return msg;
+  }
+
   // ===== Render: Alert =====
   function normalizeAnnouncementLevel(level) {
     const raw = safeText(level || "").trim().toLowerCase();
@@ -2751,6 +2863,7 @@
   }
 
   function renderAlert(title, details, level) {
+    setBoardData("announcementEmpty", "0");
     toggleHidden(dom.alertContainer, false);
     if (dom.alertContainer) dom.alertContainer.dataset.alertLevel = normalizeAnnouncementLevel(level);
     setTextIfChanged(dom.alertTitle, title || "تنبيه");
@@ -3502,10 +3615,15 @@
 
     if (!cls && !periodTitle && !activity && range.indexOf("--:--") >= 0) {
       const msg = document.createElement("div");
-      msg.style.textAlign = "center";
-      msg.style.opacity = "0.75";
-      msg.style.padding = "10px 12px";
-      msg.textContent = "لا توجد حصص حالية الآن";
+      const emptyMessages = {
+        before: "نستعد الآن لانطلاق أولى فعاليات اليوم الدراسي",
+        after: "شكرًا لكل من أسهم في نجاح هذا اليوم",
+        holiday: "نتمنى لكم إجازة هادئة وسعيدة",
+        off: "سنعود تلقائيًا مع بداية الدوام القادم",
+        day: "تظهر تفاصيل النشاط هنا عند بدء الجدول",
+      };
+      msg.className = "hero-empty-message";
+      msg.textContent = emptyMessages[stType] || "لا توجد حصة جارية الآن";
       msg.setAttribute("role", "status");
       dom.currentScheduleList.appendChild(msg);
       return;
@@ -3532,6 +3650,7 @@
 
     timeline.sort((a, b) => (hmToMs(a.start, baseMs) || 0) - (hmToMs(b.start, baseMs) || 0));
     const shown = timeline.filter((x) => !isEnded(x.end, baseMs));
+    setBoardData("timelineEmpty", shown.length ? "0" : "1");
 
     const sig = JSON.stringify(shown.map((x) => [x.start, x.end, x.label]));
     if (sig !== last.miniSig) {
@@ -3549,6 +3668,7 @@
         shown.forEach((x) => {
           const box = document.createElement("div");
           box.setAttribute("role", "listitem");
+          box.className = "mini-schedule-item";
           box.style.flex = "0 0 auto";
           box.style.borderRadius = "14px";
           box.style.border = "1px solid rgba(255,255,255,0.10)";
@@ -3563,12 +3683,13 @@
           box.style.transition = "opacity .2s ease";
 
           const t = document.createElement("span");
-          t.className = "num-font";
+          t.className = "num-font mini-schedule-item__time";
           t.style.fontSize = "12px";
           t.style.opacity = "0.75";
           t.textContent = toTimeStr(x.start);
 
           const l = document.createElement("span");
+          l.className = "mini-schedule-item__label";
           l.style.fontWeight = "1000";
           l.style.fontSize = "16px";
           l.style.lineHeight = "1";
@@ -3586,7 +3707,9 @@
 
     miniItems.forEach((it) => {
       if (!it.el) return;
-      it.el.style.opacity = isNowBetween(it.start, it.end, baseMs) ? "1" : "0.65";
+      const active = isNowBetween(it.start, it.end, baseMs);
+      it.el.style.opacity = active ? "1" : "0.65";
+      try { it.el.classList.toggle("is-active", active); } catch (e) {}
     });
   }
 
@@ -3633,10 +3756,12 @@
 
     if (!annList.length) {
       annPtr = 0;
-      renderAlert("لا توجد تنبيهات حالياً", "—", "info");
+      setBoardData("announcementEmpty", "1");
+      toggleHidden(dom.alertContainer, true);
       return;
     }
 
+    setBoardData("announcementEmpty", "0");
     annPtr = clamp(annPtr, 0, Math.max(0, annList.length - 1));
     showAnnouncement(annPtr);
     if (annList.length > 1) annTimer = setInterval(() => showAnnouncement(annPtr + 1), ANN_INT);
@@ -4093,6 +4218,8 @@
     }
 
     if (dom.pcCount) setTextIfChanged(dom.pcCount, String(arr.length));
+    setBoardData("periodEmpty", arr.length ? "0" : "1");
+    refreshAdaptiveLayout();
     if (!dom.periodClassesTrack || !periodsScroller) return;
 
     // Include runtime state in signature so empty-state message updates correctly
@@ -4100,13 +4227,10 @@
     const sig = (rt.dayOver ? "1" : "0") + "|" + safeText((rt && rt.activeStateType) || "") + "|" + listSignature(arr, "periods");
     periodsScroller.render(sig, () => {
       if (!arr.length) {
-        const msg = document.createElement("div");
-        msg.style.textAlign = "center";
-        msg.style.opacity = "0.75";
-        msg.style.padding = "30px 12px";
-        msg.textContent = !rt.isSchoolDay ? DISPLAY_COPY.holidayTitle : (rt.dayOver ? DISPLAY_COPY.afterEmpty : "لا يوجد حصص جارية الآن");
-        msg.setAttribute("role", "status");
-        return msg;
+        const emptyText = !rt.isSchoolDay
+          ? "لا توجد حصص في يوم الإجازة"
+          : (rt.dayOver ? "اكتمل جدول اليوم الدراسي" : "لا توجد حصة جارية الآن");
+        return makeBoardEmptyState(emptyText);
       }
 
       const list = document.createElement("div");
@@ -4151,18 +4275,17 @@
     }
 
     if (dom.sbCount) setTextIfChanged(dom.sbCount, String(arr.length));
+    setBoardData("standbyEmpty", arr.length ? "0" : "1");
+    refreshAdaptiveLayout();
     if (!dom.standbyTrack || !standbyScroller) return;
 
     const sig = listSignature(arr, "standby");
     standbyScroller.render(sig, () => {
       if (!arr.length) {
-        const msg = document.createElement("div");
-        msg.style.textAlign = "center";
-        msg.style.opacity = "0.75";
-        msg.style.padding = "30px 12px";
-        msg.textContent = !rt.isSchoolDay ? DISPLAY_COPY.holidayTitle : (rt.dayOver ? DISPLAY_COPY.afterEmpty : "لا توجد حصص انتظار");
-        msg.setAttribute("role", "status");
-        return msg;
+        const emptyText = !rt.isSchoolDay
+          ? "لا توجد حصص انتظار في يوم الإجازة"
+          : (rt.dayOver ? "اكتملت تكليفات الانتظار لهذا اليوم" : "لا توجد حصص انتظار حالياً");
+        return makeBoardEmptyState(emptyText);
       }
 
       const list = document.createElement("div");
@@ -4579,15 +4702,37 @@
     const s = (snap && snap.settings) || {};
     const mode = safeText(s.featured_panel || "excellence");
     const showDuty = mode === "duty";
+    const dutyRaw =
+      snap && snap.duty && Array.isArray(snap.duty.items)
+        ? snap.duty.items
+        : (snap && Array.isArray(snap.duty) ? snap.duty : []);
+    const excellenceRaw = snap && Array.isArray(snap.excellence) ? snap.excellence : [];
+    const excellenceHasItems = excellenceRaw.some((x) => {
+      x = x || {};
+      return !!(
+        x.name ||
+        x.student_name ||
+        x.teacher_name ||
+        x.full_name ||
+        x.display_name ||
+        (x.student && x.student.name) ||
+        (x.teacher && x.teacher.name)
+      );
+    });
+    const hasFeatured = showDuty ? dutyRaw.length > 0 : excellenceHasItems;
 
-    toggleHidden(dom.exCard, showDuty);
-    toggleHidden(dom.dutyCard, !showDuty);
+    setBoardData("featuredMode", showDuty ? "duty" : "excellence");
+    setBoardData("featuredEmpty", hasFeatured ? "0" : "1");
+
+    toggleHidden(dom.exCard, showDuty || !hasFeatured);
+    toggleHidden(dom.dutyCard, !showDuty || !hasFeatured);
 
     if (showDuty) {
       renderDuty(snap.duty || { items: [] });
     } else {
       renderExcellence(snap.excellence || []);
     }
+    refreshAdaptiveLayout();
   }
 
   // ===== Main state render =====
@@ -4764,6 +4909,11 @@
         onCountdownZero();
       }
     }
+
+    applyBoardStatePresentation(
+      stType,
+      hasActiveCountdown && typeof countdownSeconds === "number" && countdownSeconds > 0
+    );
 
     if ((stType === "period" || stType === "break") && stateFrom && stateTo) {
       const start = hmToMs(stateFrom, baseMs);
