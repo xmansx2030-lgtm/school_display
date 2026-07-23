@@ -539,7 +539,7 @@
   const cfg = {
     REFRESH_EVERY: 30, // conservative default for large fleets; can be overridden from server
     WS_FALLBACK_POLL_EVERY: 180, // when WS is healthy, keep only a sparse safety poll
-    WS_LIVE_STATUS_CHECK_SEC: 45, // sparse safety net when WS/cache misses cross-process updates
+    WS_LIVE_STATUS_CHECK_SEC: 60, // sparse safety net when WS/cache misses cross-process updates
     STANDBY_SPEED: 0.8,
     PERIODS_SPEED: 0.5,
     MEDIA_PREFIX: "/media/",

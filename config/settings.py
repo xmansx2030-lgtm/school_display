@@ -126,7 +126,7 @@ DISPLAY_ALLOW_MULTI_DEVICE = env_bool("DISPLAY_ALLOW_MULTI_DEVICE", "False")
 # is only a safety net for missed cross-process events.
 DISPLAY_WS_LIVE_STATUS_CHECK_SEC = env_int_clamped(
     "DISPLAY_WS_LIVE_STATUS_CHECK_SEC",
-    45,
+    60,
     15,
     300,
 )

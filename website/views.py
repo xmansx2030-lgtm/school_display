@@ -160,7 +160,7 @@ def _build_display_context(request, key: str | None) -> dict | None:
         "logo_url": logo_url,
         "refresh_interval_sec": getattr(settings_obj, "refresh_interval_sec", 30),
         "ws_live_status_check_sec": int(
-            getattr(django_settings, "DISPLAY_WS_LIVE_STATUS_CHECK_SEC", 45) or 45
+            getattr(django_settings, "DISPLAY_WS_LIVE_STATUS_CHECK_SEC", 60) or 60
         ),
         "standby_scroll_speed": getattr(settings_obj, "standby_scroll_speed", 0.8),
         "periods_scroll_speed": getattr(settings_obj, "periods_scroll_speed", 0.5),
