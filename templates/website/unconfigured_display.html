@@ -6,7 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
     <title>لوحة العرض الذكية للمدارس | منصة تشغيل الشاشة المدرسية باحتراف</title>
-    <meta name="description" content="صفحة تسويقية فاخرة لمنصة شاشة المدرسة الذكية: جدولة حية، انتظار، إعلانات، تكريم، وإدارة يومية متكاملة بنفس المزايا في كل الباقات.">
+    <meta name="description" content="حوّل أي شاشة في مدرستك إلى لوحة عرض ذكية للجدول الحي، حصص الانتظار، الإعلانات، التكريم والمناوبات. جرّب المنصة كاملة مجاناً لمدة {{ landing_trial.duration_days }} يوماً.">
+    <meta name="robots" content="index,follow,max-image-preview:large">
+    <link rel="canonical" href="https://school-display.com/">
+
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ar_SA">
+    <meta property="og:site_name" content="لوحة العرض الذكية">
+    <meta property="og:title" content="لوحة العرض الذكية للمدارس">
+    <meta property="og:description" content="جدول حي، انتظار، إعلانات، تكريم ومناوبات في شاشة مدرسية واحدة تتحدث تلقائياً.">
+    <meta property="og:url" content="https://school-display.com/">
+    <meta property="og:image" content="https://school-display.com/favicon.png?v=20260723-logo1">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="لوحة العرض الذكية للمدارس">
+    <meta name="twitter:description" content="شغّل شاشة مدرستك باحتراف وابدأ تجربة كاملة لمدة {{ landing_trial.duration_days }} يوماً.">
 
     <meta name="theme-color" content="#07111f">
 
@@ -17,6 +30,24 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Changa:wght@500;700;800&family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "لوحة العرض الذكية للمدارس",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "url": "https://school-display.com/",
+      "description": "منصة لإدارة شاشة المدرسة والجدول الحي وحصص الانتظار والإعلانات والتكريم والمناوبات.",
+      "offers": {
+        "@type": "Offer",
+        "price": "{{ landing_trial.price|floatformat:'-2' }}",
+        "priceCurrency": "SAR",
+        "description": "{{ landing_trial.name|escapejs }} لمدة {{ landing_trial.duration_days }} يوماً"
+      }
+    }
+    </script>
 
     <style>
         :root {
@@ -988,6 +1019,18 @@
             font-weight: 800;
         }
 
+        .pricing-sync-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            padding: 10px 15px;
+            border-radius: 999px;
+            background: rgba(24, 160, 125, 0.1);
+            color: var(--mint-500);
+            font-size: 0.84rem;
+            font-weight: 900;
+        }
+
         .plan-switch {
             display: inline-flex;
             max-width: 100%;
@@ -1108,6 +1151,27 @@
             width: 100%;
             border-radius: 18px;
             padding: 15px 20px;
+        }
+
+        .pricing-empty {
+            grid-column: 1 / -1;
+            display: grid;
+            justify-items: center;
+            gap: 12px;
+            padding: 42px 24px;
+            border: 1px dashed rgba(13, 28, 50, 0.18);
+            border-radius: var(--radius-md);
+            background: rgba(255, 255, 255, 0.72);
+            text-align: center;
+        }
+
+        .pricing-empty > i {
+            color: var(--gold-500);
+            font-size: 2rem;
+        }
+
+        .pricing-empty p {
+            color: var(--text-soft);
         }
 
         .faq-grid {
@@ -1245,6 +1309,18 @@
             color: var(--text-faint);
             font-weight: 700;
         }
+
+        .form-consent {
+            display: flex;
+            align-items: flex-start;
+            gap: 7px;
+            margin-top: 10px;
+            color: var(--text-faint);
+            font-size: .76rem;
+            line-height: 1.65;
+        }
+
+        .form-consent i { margin-top: 4px; color: var(--mint-500); }
 
         .field-error {
             display: none;
@@ -2242,6 +2318,191 @@
             }
         }
 
+        /* Conversion-focused landing refinements */
+        .skip-link {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            z-index: 4000;
+            transform: translateY(-160%);
+            border-radius: 12px;
+            padding: 10px 16px;
+            color: #fff;
+            background: var(--ink-950);
+            font-weight: 800;
+            transition: transform .18s ease;
+        }
+
+        .skip-link:focus { transform: translateY(0); }
+
+        .hero { padding: 12px 0 42px; }
+        .hero-shell { padding: 34px; border-radius: 36px; }
+        .hero-grid {
+            grid-template-columns: minmax(0, .92fr) minmax(460px, 1.08fr);
+            align-items: center;
+            gap: 38px;
+        }
+        .hero-copy { gap: 17px; }
+        .hero-copy h1 { max-width: 650px; font-size: clamp(2.55rem, 3.7vw, 3.75rem); line-height: 1.12; }
+        .hero-copy p { max-width: 610px; font-size: 1.06rem; line-height: 1.9; }
+        .hero-actions { gap: 12px; }
+        .hero-actions .btn,
+        .hero-actions .btn-outline { min-height: 52px; padding-inline: 20px; }
+
+        .hero-assurance {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            color: #334155;
+            font-size: .86rem;
+            font-weight: 800;
+        }
+        .hero-assurance span { display: inline-flex; align-items: center; gap: 7px; }
+        .hero-assurance i { color: var(--mint-500); }
+
+        .hero-meta {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0,1fr));
+            gap: 9px;
+        }
+        .hero-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            padding: 11px 12px;
+            border-radius: 15px;
+        }
+        .hero-meta-item > i {
+            display: grid;
+            place-items: center;
+            width: 34px;
+            height: 34px;
+            flex: 0 0 auto;
+            border-radius: 11px;
+            color: var(--gold-500);
+            background: rgba(201,154,72,.11);
+        }
+        .hero-meta-item strong { font-size: .9rem; line-height: 1.25; }
+        .hero-meta-item span { display: block; margin-top: 2px; font-size: .7rem; line-height: 1.3; }
+        .hero-whatsapp {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            width: fit-content;
+            min-height: 44px;
+            padding-block: 8px;
+            color: var(--mint-500);
+            font-size: .84rem;
+            font-weight: 800;
+        }
+        .hero-whatsapp:hover { text-decoration: underline; text-underline-offset: 4px; }
+        .hero-whatsapp i { font-size: 1.1rem; }
+
+        .hero-visual { height: 515px; }
+        .display-frame { inset: 48px 2px 12px 28px; }
+        .ops-card { top: 104px; left: -12px; width: 198px; padding: 15px; }
+        .ops-item { font-size: .82rem; }
+        .support-card { right: 6px; bottom: 6px; width: 205px; padding: 15px; }
+        .support-card small i { margin-inline-end: 5px; }
+        .support-card strong { font-size: 1rem; }
+        .support-card span { font-size: .76rem; line-height: 1.55; }
+
+        .demo-section { padding-top: 48px; padding-bottom: 48px; }
+        .demo-shell {
+            display: grid;
+            grid-template-columns: minmax(0,.78fr) minmax(480px,1.22fr);
+            align-items: center;
+            gap: 34px;
+            overflow: hidden;
+            padding: 28px;
+            border: 1px solid rgba(255,255,255,.76);
+            border-radius: 32px;
+            background: linear-gradient(135deg, rgba(255,255,255,.86), rgba(239,250,247,.82));
+            box-shadow: var(--shadow-md);
+        }
+        .demo-copy .eyebrow { margin: 0 0 14px; }
+        .demo-copy h2 { font-size: clamp(1.7rem,3vw,2.65rem); }
+        .demo-copy > p { margin-top: 12px; color: var(--text-soft); font-size: .98rem; }
+        .demo-points { display: grid; gap: 9px; margin-top: 18px; list-style: none; }
+        .demo-points li { display: flex; align-items: center; gap: 9px; color: #334155; font-size: .86rem; font-weight: 700; }
+        .demo-points i { color: var(--mint-500); }
+        .video-launch {
+            position: relative;
+            display: grid;
+            place-items: center;
+            min-height: 330px;
+            overflow: hidden;
+            border: 8px solid #0d1c32;
+            border-radius: 26px;
+            color: #fff;
+            background: linear-gradient(145deg,#102946,#07111f);
+            box-shadow: 0 30px 65px rgba(7,17,31,.25);
+            cursor: pointer;
+        }
+        .video-launch::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg,transparent 30%,rgba(7,17,31,.84));
+            pointer-events: none;
+        }
+        .video-launch-grid { position: absolute; inset: 18px; border-radius: 16px; background: #eef5fa; }
+        .video-launch-sidebar { position: absolute; inset: 0 auto 0 0; width: 24%; border-radius: 16px 0 0 16px; background: #163b5b; }
+        .video-launch-main { position: absolute; inset: 14% 29% 34% 7%; display: grid; place-items: center; border-radius: 16px; color: #fff; background: linear-gradient(135deg,#0d8b6a,#18a07d); font-size: 1.35rem; box-shadow: 0 12px 30px rgba(13,139,106,.28); }
+        .video-launch-card { position: absolute; right: 28%; height: 18%; border-radius: 12px; background: #fff; box-shadow: 0 8px 20px rgba(13,28,50,.1); }
+        .video-launch-card.one { top: 14%; width: 29%; }
+        .video-launch-card.two { top: 36%; width: 29%; }
+        .video-launch > strong,
+        .video-launch > small { position: relative; z-index: 2; align-self: end; }
+        .video-launch > strong { margin-top: auto; font-family: 'Changa',sans-serif; font-size: 1.05rem; }
+        .video-launch > small { align-self: start; margin-top: 4px; color: rgba(255,255,255,.72); font-size: .72rem; }
+        .video-launch iframe { position: absolute; inset: 0; z-index: 4; width: 100%; height: 100%; border: 0; }
+
+        @media (max-width: 1180px) {
+            .hero-grid { grid-template-columns: 1fr; }
+            .hero-copy { max-width: 780px; }
+            .hero-visual { height: 500px; }
+            .demo-shell { grid-template-columns: 1fr; }
+            .video-launch { min-height: 380px; }
+        }
+
+        @media (max-width: 900px) {
+            .display-frame { display: block; position: relative; inset: auto; height: 390px; }
+            .ops-card { display: none; }
+            .hero-visual { height: auto; }
+        }
+
+        @media (max-width: 720px) {
+            .hero-shell { padding: 18px; }
+            .hero-copy { gap: 14px; }
+            .hero-copy h1 { font-size: clamp(1.85rem,8vw,2.35rem); line-height: 1.18; }
+            .hero-copy p { font-size: .94rem; line-height: 1.8; }
+            .hero-assurance { display: grid; gap: 7px; font-size: .8rem; }
+            .hero-meta { grid-template-columns: 1fr; }
+            .hero-meta-item { padding: 9px 10px; }
+            .hero-whatsapp { width: 100%; justify-content: center; font-size: .8rem; }
+            .display-frame { height: 320px; padding: 9px; }
+            .screen-grid { display: none; }
+            .screen-highlight h3 { font-size: 1.05rem; }
+            .support-card { display: none; }
+            .demo-section { padding: 28px 0; }
+            .demo-shell { gap: 22px; padding: 18px; border-radius: 24px; }
+            .demo-copy h2 { font-size: 1.55rem; }
+            .video-launch { min-height: 230px; border-width: 6px; border-radius: 20px; }
+        }
+
+        @media (max-width: 420px) {
+            .hero-copy h1 { font-size: 1.72rem; }
+            .hero-actions { display: grid; grid-template-columns: 1fr; }
+            .hero-actions .btn,
+            .hero-actions .btn-outline { width: 100%; }
+            .display-frame { height: 300px; }
+            .screen-brand small { display: none; }
+            .screen-live { font-size: .7rem; }
+            .marquee-strip { display: none; }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             html {
                 scroll-behavior: auto;
@@ -2263,10 +2524,11 @@
 </head>
 <body>
     {% url 'dashboard:login' as login_url %}
+    <a class="skip-link" href="#mainContent">تجاوز إلى المحتوى الرئيسي</a>
 
     <header id="header">
         <div class="container">
-            <div class="nav-shell">
+            <nav class="nav-shell" aria-label="التنقل الرئيسي">
                 <a href="#top" class="logo" aria-label="العودة إلى أعلى الصفحة">
                     <div class="logo-mark"><i class="fa-solid fa-layer-group"></i></div>
                     <div class="logo-copy">
@@ -2290,16 +2552,17 @@
                         <span>دخول النظام</span>
                     </a>
                     {% endif %}
-                    <button class="btn" onclick="openOrderModal('تجربة مجانية', '14 يوم', '0')">
+                    <button type="button" class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">
                         ابدأ التجربة
                         <i class="fa-solid fa-arrow-left"></i>
                     </button>
                 </div>
-            </div>
+            </nav>
         </div>
     </header>
 
-    <main id="top">
+    <main id="mainContent" tabindex="-1">
+        <span id="top" aria-hidden="true"></span>
         <section class="hero">
             <div class="container">
                 <div class="hero-shell reveal">
@@ -2307,77 +2570,52 @@
                         <div class="hero-copy">
                             <div class="eyebrow">
                                 <i class="fa-solid fa-crown"></i>
-                                تجربة مجانية 14 يوم بكل المزايا
+                                تجربة كاملة {{ landing_trial.duration_days }} يوماً — بلا بطاقة بنكية
                             </div>
 
                             <h1>
-                                حوّل شاشة مدرستك إلى
-                                <span>واجهة احترافية تصنع الانطباع يومياً</span>
+                                كل ما يحدث في المدرسة،
+                                <span>يظهر في وقته وبصورة تليق بها</span>
                             </h1>
 
                             <p>
-                                منصة واحدة تدير الجدول المباشر، حصص الانتظار، الإعلانات، التكريم، المناوبات، والرسائل اليومية في شاشة أنيقة تتحدث تلقائياً وتمنح المدرسة حضوراً تنظيمياً يليق باسمها.
+                                حوّل أي تلفاز إلى شاشة مدرسية ذكية تعرض الجدول الحي، الانتظار، المناوبات، الإعلانات والتكريم تلقائياً — وتديرها من لوحة واحدة.
                             </p>
 
                             <div class="hero-actions">
-                                <button class="btn" onclick="openOrderModal('تجربة مجانية', '14 يوم', '0')">
+                                <button type="button" class="btn" id="heroTrialCta" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">
                                     ابدأ التجربة المجانية
                                 </button>
-                                <button class="btn-outline" data-scroll="#demo-video">
-                                    شاهد العرض التوضيحي
+                                <button type="button" class="btn-outline" data-scroll="#demo-video">
+                                    شاهد المنصة تعمل
                                     <i class="fa-solid fa-play"></i>
                                 </button>
-                                <a class="btn-soft" href="https://wa.me/966537720207" target="_blank" rel="noreferrer">
-                                    واتساب مباشر
-                                    <i class="fa-brands fa-whatsapp"></i>
-                                </a>
                             </div>
 
-                            <div class="hero-points">
-                                <div class="hero-point">
-                                    <i class="fa-solid fa-clock"></i>
-                                    <div>
-                                        <strong>تشغيل سريع بدون تعقيد</strong>
-                                        <span>نبدأ معك من الطلب حتى تفعيل الشاشة الأولى بخطوات واضحة وسريعة.</span>
-                                    </div>
-                                </div>
-                                <div class="hero-point">
-                                    <i class="fa-solid fa-mobile-screen-button"></i>
-                                    <div>
-                                        <strong>إدارة كاملة من الجوال</strong>
-                                        <span>تحكم في المحتوى والظهور اليومي من أي مكان بدون الحاجة لجهاز ثابت.</span>
-                                    </div>
-                                </div>
-                                <div class="hero-point">
-                                    <i class="fa-solid fa-display"></i>
-                                    <div>
-                                        <strong>كل الباقات بنفس القوة</strong>
-                                        <span>نفس النظام الكامل للجميع، والاختلاف فقط في عدد الشاشات التي تحتاجها المدرسة.</span>
-                                    </div>
-                                </div>
-                                <div class="hero-point">
-                                    <i class="fa-solid fa-headset"></i>
-                                    <div>
-                                        <strong>دعم فني يفهم البيئة المدرسية</strong>
-                                        <span>مساندة مستمرة أثناء التهيئة والتشغيل حتى تستفيد المدرسة من الشاشة فعلياً.</span>
-                                    </div>
-                                </div>
+                            <div class="hero-assurance">
+                                <span><i class="fa-solid fa-circle-check"></i> كل المزايا مشمولة</span>
+                                <span><i class="fa-solid fa-circle-check"></i> تعمل على التلفاز الحالي</span>
+                                <span><i class="fa-solid fa-circle-check"></i> تهيئة ودعم مباشر</span>
                             </div>
 
                             <div class="hero-meta">
                                 <div class="hero-meta-item">
-                                    <strong>14 يوم</strong>
-                                    <span>تجربة مجانية بكامل الخصائص</span>
+                                    <i class="fa-regular fa-calendar-check"></i>
+                                    <div><strong>{{ landing_trial.duration_days }} يوماً</strong><span>تجربة كاملة</span></div>
                                 </div>
                                 <div class="hero-meta-item">
-                                    <strong>نفس المزايا</strong>
-                                    <span>بدون نسخ مخففة أو باقات ناقصة</span>
+                                    <i class="fa-solid fa-display"></i>
+                                    <div><strong>شاشتك الحالية</strong><span>لا أجهزة خاصة</span></div>
                                 </div>
                                 <div class="hero-meta-item">
-                                    <strong>تحكم لحظي</strong>
-                                    <span>تحديثات مباشرة لمحتوى الشاشة</span>
+                                    <i class="fa-solid fa-mobile-screen-button"></i>
+                                    <div><strong>من أي جهاز</strong><span>إدارة سهلة وآمنة</span></div>
                                 </div>
                             </div>
+
+                            <a class="hero-whatsapp" href="https://wa.me/966537720207" target="_blank" rel="noreferrer">
+                                <i class="fa-brands fa-whatsapp"></i> تفضّل التواصل أولاً؟ تحدث معنا على واتساب
+                            </a>
                         </div>
 
                         <div class="hero-visual">
@@ -2453,18 +2691,9 @@
                                 </div>
 
                                 <div class="support-card">
-                                    <small>قيمة تسويقية حقيقية</small>
-                                    <strong>الشاشة لا تعرض معلومات فقط</strong>
-                                    <span>بل تنقل صورة المدرسة ككيان منظم، حديث، ومهتم بالتفاصيل أمام الطلاب والزوار.</span>
-                                </div>
-
-                                <div class="video-card surface-card" id="demo-video">
-                                    <iframe
-                                        src="https://www.youtube-nocookie.com/embed/9XoiP6vPu-Y?rel=0&modestbranding=1&controls=1"
-                                        title="عرض توضيحي لنظام لوحة العرض الذكية"
-                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                        allowfullscreen>
-                                    </iframe>
+                                    <small><i class="fa-solid fa-bolt"></i> تحديث تلقائي</small>
+                                    <strong>غيّر المعلومة مرة واحدة</strong>
+                                    <span>وتصل إلى شاشات المدرسة دون نقل ملفات أو إعادة تصميم.</span>
                                 </div>
                             </div>
                         </div>
@@ -2486,11 +2715,38 @@
             </div>
         </section>
 
+        <section class="section demo-section" id="demo-video" aria-labelledby="demoTitle">
+            <div class="container">
+                <div class="demo-shell reveal">
+                    <div class="demo-copy">
+                        <div class="eyebrow"><i class="fa-solid fa-circle-play"></i> جولة سريعة</div>
+                        <h2 id="demoTitle">شاهد كيف تتحول البيانات اليومية إلى شاشة جاهزة للعرض</h2>
+                        <p>جولة عملية توضح شاشة المدرسة ولوحة التحكم وطريقة إدارة المحتوى، قبل أن تبدأ التجربة.</p>
+                        <ul class="demo-points">
+                            <li><i class="fa-solid fa-check"></i> أقل من أربع دقائق</li>
+                            <li><i class="fa-solid fa-check"></i> بدون تسجيل أو بيانات</li>
+                            <li><i class="fa-solid fa-check"></i> يعمل على الجوال والديسكتوب</li>
+                        </ul>
+                    </div>
+                    <button type="button" class="video-launch" id="videoLaunch" aria-label="تشغيل العرض التوضيحي للمنصة">
+                        <span class="video-launch-grid" aria-hidden="true">
+                            <span class="video-launch-sidebar"></span>
+                            <span class="video-launch-main"><i class="fa-solid fa-play"></i></span>
+                            <span class="video-launch-card one"></span>
+                            <span class="video-launch-card two"></span>
+                        </span>
+                        <strong>تشغيل العرض التوضيحي</strong>
+                        <small>اضغط للمشاهدة — لن يُحمّل YouTube قبل ذلك</small>
+                    </button>
+                </div>
+            </div>
+        </section>
+
         <section class="section" id="why">
             <div class="container">
                 <div class="section-header reveal">
                     <div class="eyebrow"><i class="fa-solid fa-gem"></i> لماذا نحن</div>
-                    <h2>لأننا لا نبيع شاشة إضافية, بل نبيع صورة مدرسة متقنة</h2>
+                    <h2>ليس الهدف شاشة إضافية، بل يوم مدرسي أوضح وصورة أكثر احترافية</h2>
                     <p>المنتج الجيد في البيئة المدرسية ليس مجرد ميزة تقنية. القيمة الحقيقية تظهر عندما يشعر الزائر والطالب والمعلم أن كل شيء منظم، واضح، واحترافي منذ اللحظة الأولى.</p>
                 </div>
 
@@ -2620,7 +2876,7 @@
             <div class="container">
                 <div class="section-header reveal">
                     <div class="eyebrow"><i class="fa-solid fa-route"></i> آلية البدء</div>
-                    <h2>ابدأ خلال وقت قصير, وانتقل من التجربة إلى التشغيل الفعلي بثقة</h2>
+                    <h2>ابدأ خلال وقت قصير، وانتقل من التجربة إلى التشغيل الفعلي بثقة</h2>
                     <p>المسار واضح ومباشر. لا تحتاج المدرسة إلى مشروع تقني معقد حتى تحصل على شاشة احترافية تعمل فعلاً وتضيف قيمة يومية.</p>
                 </div>
 
@@ -2652,7 +2908,7 @@
                         <strong>ميزة مهمة للإدارة</strong>
                         <p>لا توجد قفزات سعرية بسبب حجب الخصائص. القيمة ثابتة، والتوسع يتم فقط بحسب عدد الشاشات.</p>
                     </div>
-                    <button class="btn" onclick="openOrderModal('تجربة مجانية', '14 يوم', '0')">اطلب التجربة الآن</button>
+                    <button class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">اطلب التجربة الآن</button>
                 </div>
             </div>
         </section>
@@ -2666,109 +2922,58 @@
                     <div class="pricing-note">
                         لا توجد مزايا مخفية أو نسخة أقل جودة في الباقات الأقل. المدرسة تحصل على كامل المنصة، ثم تحدد فقط حجم التوسع الذي تحتاجه.
                     </div>
-
-                    <div class="plan-switch" role="group" aria-label="مدة الاشتراك">
-                        <button type="button" onclick="switchPlan('6')" id="btn6" aria-pressed="false">6 أشهر</button>
-                        <button type="button" onclick="switchPlan('12')" id="btn12" aria-pressed="true" style="background: var(--ink-950); color: white;">سنة كاملة</button>
+                    <div class="pricing-sync-note">
+                        <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i>
+                        الباقات والأسعار محدثة مباشرة من لوحة إدارة المنصة
                     </div>
                 </div>
 
                 <div class="pricing-grid">
-                    <div class="price-card reveal" style="border-color: rgba(24, 160, 125, 0.22);">
-                        <div class="plan-badge" style="background: rgba(24, 160, 125, 0.12); color: var(--mint-500);">مجاناً</div>
-                        <h3>التجربة المجانية</h3>
-                        <p class="plan-meta">للتأكد من ملاءمة النظام قبل قرار الاشتراك</p>
-                        <div class="price-val-static">0</div>
-                        <span class="price-period">ريال سعودي / 14 يوم</span>
+                    {% for plan in landing_plans %}
+                    <article class="price-card reveal{% if plan.is_trial %} popular{% endif %}" data-plan-code="{{ plan.code }}">
+                        <div class="plan-badge">
+                            {% if plan.is_trial %}تجربة مجانية{% elif plan.is_free %}مجانية{% else %}متاحة للاشتراك{% endif %}
+                        </div>
+                        <h3>{{ plan.name }}</h3>
+                        <p class="plan-meta">مدة الباقة: {{ plan.duration_label }}</p>
+                        <div class="{% if plan.is_free %}price-val-static{% else %}price-val{% endif %}">{{ plan.price|floatformat:"-2" }}</div>
+                        <span class="price-period">ريال سعودي / {{ plan.duration_label }}</span>
                         <ul class="feature-list">
                             <li><i class="fa-solid fa-check"></i> جميع مزايا النظام كاملة</li>
-                            <li><i class="fa-solid fa-check"></i> شاشة واحدة للتجربة</li>
-                            <li><i class="fa-solid fa-check"></i> تفعيل سريع ومتابعة أولية</li>
-                            <li><i class="fa-solid fa-check"></i> بدون رسوم مسبقة</li>
+                            <li>
+                                <i class="fa-solid fa-display"></i>
+                                الشاشات:
+                                {% if plan.max_screens %}{{ plan.max_screens }}{% else %}غير محدودة{% endif %}
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-users"></i>
+                                المستخدمون:
+                                {% if plan.max_users %}{{ plan.max_users }}{% else %}غير محدودين{% endif %}
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-school"></i>
+                                المدارس:
+                                {% if plan.max_schools %}{{ plan.max_schools }}{% else %}غير محدودة{% endif %}
+                            </li>
                         </ul>
-                        <p class="feature-note">أفضل خيار للمدارس التي تريد رؤية الأثر عملياً قبل الاشتراك.</p>
-                        <button class="btn btn-block" style="background: linear-gradient(135deg, var(--mint-400), var(--mint-500));" onclick="openOrderModal('تجربة مجانية', '14 يوم', '0')">ابدأ التجربة</button>
+                        <button
+                            class="{% if plan.is_trial %}btn{% else %}btn-outline{% endif %} btn-block"
+                            data-plan="{{ plan.name }}"
+                            data-period="{{ plan.duration_label }}"
+                            data-price="{{ plan.price|floatformat:'-2' }}"
+                            data-is-trial="{{ plan.is_trial|yesno:'true,false' }}"
+                            onclick="openPlanFromButton(this)">
+                            {% if plan.is_trial %}ابدأ التجربة{% else %}اطلب هذه الباقة{% endif %}
+                        </button>
+                    </article>
+                    {% empty %}
+                    <div class="pricing-empty reveal">
+                        <i class="fa-solid fa-tags"></i>
+                        <h3>سيتم نشر الباقات قريباً</h3>
+                        <p>لا توجد باقات مفعلة حالياً. يمكنك التواصل معنا للحصول على عرض مناسب.</p>
+                        <a class="btn-outline" href="https://wa.me/966537720207" target="_blank" rel="noreferrer">تواصل عبر واتساب</a>
                     </div>
-
-                    <div class="price-card reveal">
-                        <div class="plan-badge">تشغيل أساسي احترافي</div>
-                        <h3>شاشة واحدة</h3>
-                        <p class="plan-meta">لبداية مركزة في مدخل المدرسة أو الموقع الأهم</p>
-                        <div class="price-val" data-p6="460" data-p12="720">720</div>
-                        <span class="price-period">ريال سعودي / سنوياً</span>
-                        <ul class="feature-list">
-                            <li><i class="fa-solid fa-check"></i> جميع مزايا النظام كاملة</li>
-                            <li><i class="fa-solid fa-check"></i> لوحة تحكم وإدارة محتوى</li>
-                            <li><i class="fa-solid fa-check"></i> دعم فني وتفعيل سريع</li>
-                            <li><i class="fa-solid fa-check"></i> عدد الشاشات: 1</li>
-                        </ul>
-                        <p class="feature-note">مثالية للمدارس التي تريد نقطة عرض رئيسية تظهر اليوم الدراسي بصورة احترافية.</p>
-                        <button class="btn-outline btn-block" onclick="openOrderModal('شاشة واحدة', currentPeriod, getCurrentPrice(this))">اطلب هذه الباقة</button>
-                    </div>
-
-                    <div class="price-card reveal">
-                        <div class="plan-badge">تغطية أفضل للحركة</div>
-                        <h3>شاشتان</h3>
-                        <p class="plan-meta">لتوزيع العرض بين مدخل المدرسة ومنطقة نشاط أو انتظار</p>
-                        <div class="price-val" data-p6="760" data-p12="1320">1320</div>
-                        <span class="price-period">ريال سعودي / سنوياً</span>
-                        <ul class="feature-list">
-                            <li><i class="fa-solid fa-check"></i> جميع مزايا النظام كاملة</li>
-                            <li><i class="fa-solid fa-check"></i> لوحة تحكم وإدارة محتوى</li>
-                            <li><i class="fa-solid fa-check"></i> دعم فني وتفعيل سريع</li>
-                            <li><i class="fa-solid fa-check"></i> عدد الشاشات: 2</li>
-                        </ul>
-                        <p class="feature-note">مناسبة عندما تريد الإدارة حضوراً بصرياً أقوى في أكثر من مساحة داخل المدرسة.</p>
-                        <button class="btn-outline btn-block" onclick="openOrderModal('شاشتان', currentPeriod, getCurrentPrice(this))">اطلب هذه الباقة</button>
-                    </div>
-
-                    <div class="price-card popular reveal">
-                        <div class="plan-badge">الأكثر طلباً</div>
-                        <h3>3 شاشات</h3>
-                        <p class="plan-meta">توزيع متوازن بين المداخل والممرات والمواقع الحيوية</p>
-                        <div class="price-val" data-p6="1020" data-p12="1800">1800</div>
-                        <span class="price-period">ريال سعودي / سنوياً</span>
-                        <ul class="feature-list">
-                            <li><i class="fa-solid fa-check"></i> جميع مزايا النظام كاملة</li>
-                            <li><i class="fa-solid fa-check"></i> لوحة تحكم وإدارة محتوى</li>
-                            <li><i class="fa-solid fa-check"></i> دعم فني وتفعيل سريع</li>
-                            <li><i class="fa-solid fa-check"></i> عدد الشاشات: 3</li>
-                        </ul>
-                        <p class="feature-note">الخيار الأنسب للمدارس التي تريد حضوراً بصرياً واضحاً ومنظماً في أكثر من نقطة مؤثرة.</p>
-                        <button class="btn btn-block" style="background: linear-gradient(135deg, var(--gold-400), var(--gold-500));" onclick="openOrderModal('3 شاشات', currentPeriod, getCurrentPrice(this))">اطلب هذه الباقة</button>
-                    </div>
-
-                    <div class="price-card reveal">
-                        <div class="plan-badge">تغطية أوسع</div>
-                        <h3>4 شاشات</h3>
-                        <p class="plan-meta">مناسب للمدارس الأكبر أو التي تريد توزيعاً أفضل للمحتوى</p>
-                        <div class="price-val" data-p6="1240" data-p12="2200">2200</div>
-                        <span class="price-period">ريال سعودي / سنوياً</span>
-                        <ul class="feature-list">
-                            <li><i class="fa-solid fa-check"></i> جميع مزايا النظام كاملة</li>
-                            <li><i class="fa-solid fa-check"></i> لوحة تحكم وإدارة محتوى</li>
-                            <li><i class="fa-solid fa-check"></i> دعم فني وتفعيل سريع</li>
-                            <li><i class="fa-solid fa-check"></i> عدد الشاشات: 4</li>
-                        </ul>
-                        <p class="feature-note">يعطي تغطية متقدمة للمناطق المختلفة مع بقاء الإدارة مركزية وسهلة.</p>
-                        <button class="btn-outline btn-block" onclick="openOrderModal('4 شاشات', currentPeriod, getCurrentPrice(this))">اطلب هذه الباقة</button>
-                    </div>
-
-                    <div class="price-card reveal">
-                        <div class="plan-badge">حضور مؤسسي كامل</div>
-                        <h3>5 شاشات</h3>
-                        <p class="plan-meta">للمدارس التي تريد تجربة عرض قوية وممتدة على نطاق أوسع</p>
-                        <div class="price-val" data-p6="1400" data-p12="2500">2500</div>
-                        <span class="price-period">ريال سعودي / سنوياً</span>
-                        <ul class="feature-list">
-                            <li><i class="fa-solid fa-check"></i> جميع مزايا النظام كاملة</li>
-                            <li><i class="fa-solid fa-check"></i> لوحة تحكم وإدارة محتوى</li>
-                            <li><i class="fa-solid fa-check"></i> دعم فني وتفعيل سريع</li>
-                            <li><i class="fa-solid fa-check"></i> عدد الشاشات: 5</li>
-                        </ul>
-                        <p class="feature-note">مثالية عند الرغبة في حضور بصري موحّد في أكثر من مبنى أو مساحة تشغيلية.</p>
-                        <button class="btn-outline btn-block" onclick="openOrderModal('5 شاشات', currentPeriod, getCurrentPrice(this))">اطلب هذه الباقة</button>
-                    </div>
+                    {% endfor %}
                 </div>
 
                 <div class="section-header" style="margin-top: 26px; margin-bottom: 0;">
@@ -2814,11 +3019,11 @@
             <div class="container">
                 <div class="cta-panel reveal">
                     <div>
-                        <h2>إذا كانت المدرسة تهتم بتجربة الطالب والانطباع المؤسسي, فهذه الشاشة جزء من الصورة</h2>
-                        <p>ابدأ مجاناً لمدة 14 يوم، اختبر التشغيل الكامل على أرض الواقع، ثم اختر عدد الشاشات المناسب لمدرستك بعد أن ترى النتيجة بنفسك.</p>
+                        <h2>إذا كانت المدرسة تهتم بتجربة الطالب والانطباع المؤسسي، فالشاشة جزء من الصورة</h2>
+                        <p>ابدأ مجاناً لمدة {{ landing_trial.duration_days }} يوم، اختبر التشغيل الكامل على أرض الواقع، ثم اختر عدد الشاشات المناسب لمدرستك بعد أن ترى النتيجة بنفسك.</p>
                     </div>
                     <div style="display:flex; gap:12px; flex-wrap:wrap;">
-                        <button class="btn" onclick="openOrderModal('تجربة مجانية', '14 يوم', '0')">ابدأ التجربة المجانية</button>
+                        <button class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">ابدأ التجربة المجانية</button>
                         <a class="btn-outline" href="https://wa.me/966537720207" target="_blank" rel="noreferrer">تواصل واتساب</a>
                     </div>
                 </div>
@@ -2919,6 +3124,7 @@
                     <i class="fa-brands fa-whatsapp"></i>
                     <span id="submitOrderText">إرسال الطلب</span>
                 </button>
+                <p class="form-consent"><i class="fa-solid fa-lock"></i> نستخدم هذه البيانات لإنشاء التجربة والتواصل بشأن حساب المدرسة فقط، ولا نطلب بيانات دفع.</p>
             </form>
         </div>
     </div>
@@ -2967,14 +3173,13 @@
 
     <div class="mobile-cta">
         <div>
-            <strong>تجربة مجانية 14 يوم</strong>
+            <strong>{{ landing_trial.name }} {{ landing_trial.duration_days }} يوم</strong>
             <small>ابدأ الآن بكل المزايا</small>
         </div>
-        <button class="btn" onclick="openOrderModal('تجربة مجانية', '14 يوم', '0')">ابدأ</button>
+        <button class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">ابدأ</button>
     </div>
 
     <script>
-        let currentPeriod = '12';
         let activeOrderIsTrial = false;
         let lastModalTrigger = null;
 
@@ -2990,7 +3195,22 @@
         const trialDashboardLink = document.getElementById('trialDashboardLink');
         const copyTrialUsername = document.getElementById('copyTrialUsername');
         const mobileCta = document.querySelector('.mobile-cta');
+        const videoLaunch = document.getElementById('videoLaunch');
         const revealElements = document.querySelectorAll('.reveal');
+
+        if (videoLaunch) {
+            videoLaunch.addEventListener('click', () => {
+                if (videoLaunch.dataset.loaded === '1') return;
+                const iframe = document.createElement('iframe');
+                iframe.src = 'https://www.youtube-nocookie.com/embed/9XoiP6vPu-Y?rel=0&modestbranding=1&controls=1&autoplay=1';
+                iframe.title = 'عرض توضيحي لنظام لوحة العرض الذكية';
+                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                iframe.allowFullscreen = true;
+                iframe.loading = 'lazy';
+                videoLaunch.dataset.loaded = '1';
+                videoLaunch.appendChild(iframe);
+            });
+        }
 
         function updateScrollChrome() {
             if (window.scrollY > 24) {
@@ -3031,61 +3251,29 @@
             revealElements.forEach((element) => element.classList.add('visible'));
         }
 
-        function switchPlan(period) {
-            currentPeriod = period;
-            const btn6 = document.getElementById('btn6');
-            const btn12 = document.getElementById('btn12');
-            const vals = document.querySelectorAll('.price-val');
-
-            if (period === '12') {
-                btn12.setAttribute('aria-pressed', 'true');
-                btn6.setAttribute('aria-pressed', 'false');
-                btn12.style.background = 'var(--ink-950)';
-                btn12.style.color = 'white';
-                btn6.style.background = 'transparent';
-                btn6.style.color = 'var(--text-soft)';
-
-                vals.forEach((element) => {
-                    element.innerText = element.getAttribute('data-p12');
-                    element.nextElementSibling.innerText = 'ريال سعودي / سنوياً';
-                });
-            } else {
-                btn6.setAttribute('aria-pressed', 'true');
-                btn12.setAttribute('aria-pressed', 'false');
-                btn6.style.background = 'var(--ink-950)';
-                btn6.style.color = 'white';
-                btn12.style.background = 'transparent';
-                btn12.style.color = 'var(--text-soft)';
-
-                vals.forEach((element) => {
-                    element.innerText = element.getAttribute('data-p6');
-                    element.nextElementSibling.innerText = 'ريال سعودي / 6 أشهر';
-                });
-            }
+        function openPlanFromButton(buttonElement) {
+            openOrderModal(
+                buttonElement.dataset.plan || '',
+                buttonElement.dataset.period || '',
+                buttonElement.dataset.price || '0',
+                buttonElement.dataset.isTrial === 'true'
+            );
         }
 
-        function getCurrentPrice(buttonElement) {
-            const card = buttonElement.closest('.price-card');
-            const priceElement = card ? card.querySelector('.price-val') : null;
-            return priceElement ? priceElement.innerText : '0';
-        }
-
-        function openOrderModal(plan, period, price) {
+        function openOrderModal(plan, period, price, isTrial = null) {
             lastModalTrigger = document.activeElement;
             clearFormFeedback();
-            activeOrderIsTrial = plan.includes('تجربة');
+            activeOrderIsTrial = typeof isTrial === 'boolean' ? isTrial : plan.includes('تجربة');
             document.getElementById('p_plan').value = plan;
 
-            let periodText = period;
-            if (period === '12') periodText = 'سنة كاملة';
-            if (period === '6') periodText = '6 أشهر';
+            const periodText = period;
 
             document.getElementById('p_period').value = periodText;
             document.getElementById('p_price').value = price;
 
             if (activeOrderIsTrial) {
                 document.getElementById('modalTitle').innerText = 'طلب تجربة مجانية';
-                document.getElementById('modalSubtitle').innerText = 'أنشئ حساب المدرسة الآن واحصل على 14 يوم بكل المزايا';
+                document.getElementById('modalSubtitle').innerText = 'أنشئ حساب المدرسة الآن واحصل على {{ landing_trial.duration_days }} يوم بكل المزايا';
                 orderForm.classList.add('trial-mode');
                 submitOrderBtn.querySelector('i').className = 'fa-solid fa-wand-magic-sparkles';
                 submitOrderText.innerText = 'إنشاء التجربة الآن';
@@ -3292,15 +3480,15 @@
             const period = document.getElementById('p_period').value;
             const price = document.getElementById('p_price').value;
 
-            let message = `السلام عليكم، أرغب ب${plan.includes('تجربة') ? 'تجربة النظام' : 'الاشتراك في النظام'} بشكل رسمي.\n\n`;
+            let message = `السلام عليكم، أرغب ب${activeOrderIsTrial ? 'تجربة النظام' : 'الاشتراك في النظام'} بشكل رسمي.\n\n`;
             message += '📄 *بيانات الطلب:*\n';
             message += `- المدرسة: ${school} (${type})\n`;
             message += `- المدينة: ${city}\n`;
             message += `- المسؤول: ${name}\n`;
             message += `- الجوال: ${mobileNumber}\n\n`;
 
-            if (plan.includes('تجربة')) {
-                message += '🎁 *نوع الطلب:* تجربة مجانية لمدة 14 يوم\n';
+            if (activeOrderIsTrial) {
+                message += '🎁 *نوع الطلب:* {{ landing_trial.name|escapejs }} لمدة {{ landing_trial.duration_days }} يوم\n';
                 message += '- المطلوب: تفعيل التجربة بكامل المزايا\n';
                 message += '- الهدف: تقييم النظام على أرض الواقع قبل الاشتراك';
             } else {

@@ -1,161 +1,194 @@
 {% extends "admin/admin_base.html" %}
 
-{% block title %}إدارة المستخدمين{% endblock %}
-{% block page_title %}إدارة المستخدمين في النظام{% endblock %}
-{% block page_description %}
-عرض وإدارة مستخدمي لوحة التحكم وربطهم بالمدارس والصلاحيات.
+{% block title %}مدراء المدارس{% endblock %}
+{% block page_icon %}user-tie{% endblock %}
+{% block page_title %}مدراء المدارس والحسابات{% endblock %}
+{% block page_description %}اربط كل مدير بمدرسته وتابع حالة الحساب وآخر دخول.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">مدراء المدارس</span>
+{% endblock %}
+{% block page_actions %}
+  <a href="{% url 'dashboard:system_user_create' %}{% if school_id %}?school={{ school_id }}{% endif %}" class="admin-btn admin-btn-primary">
+    <i class="fas fa-user-plus"></i> إضافة مدير
+  </a>
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-
-  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-    <div>
-      <h1 class="text-2xl md:text-3xl font-bold text-slate-900">
-        إدارة المستخدمين
-      </h1>
-      <p class="text-slate-500 mt-1 text-sm md:text-base">
-        أضف مستخدمين جدد، عدّل الصلاحيات، واربط كل مستخدم بمدرسة محددة إن لزم.
-      </p>
+<div class="space-y-5">
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="admin-metric-card" style="--metric-color:#7c3aed">
+      <span class="admin-metric-icon"><i class="fas fa-user-tie"></i></span>
+      <p class="admin-metric-value">{{ managers_count }}</p>
+      <p class="admin-metric-label">مدير مدرسة</p>
     </div>
-
-    <div class="flex flex-col sm:flex-row gap-3">
-      <form method="get" class="flex items-center gap-2">
-        <input
-          type="text"
-          name="q"
-          value="{{ q }}"
-          placeholder="بحث باسم المستخدم أو البريد أو المدرسة..."
-          class="w-full sm:w-72 px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-        >
-        {% if q %}
-        <a href="{% url 'dashboard:system_users_list' %}"
-           class="text-xs text-slate-500 hover:text-slate-700">
-          مسح البحث
-        </a>
-        {% endif %}
-      </form>
-
-      <a href="{% url 'dashboard:system_user_create' %}"
-         class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-indigo-600 shadow-md hover:shadow-lg hover:from-indigo-600 hover:to-indigo-700 transition">
-        <span class="ml-2">➕</span>
-        <span>إضافة مستخدم</span>
-      </a>
+    <a href="?role=unassigned" class="admin-metric-card" style="--metric-color:#d97706">
+      <span class="admin-metric-icon"><i class="fas fa-user-slash"></i></span>
+      <p class="admin-metric-value">{{ unassigned_managers_count }}</p>
+      <p class="admin-metric-label">غير مرتبطين بمدرسة</p>
+    </a>
+    <a href="?role=manager&state=inactive" class="admin-metric-card" style="--metric-color:#e11d48">
+      <span class="admin-metric-icon"><i class="fas fa-user-lock"></i></span>
+      <p class="admin-metric-value">{{ inactive_managers_count }}</p>
+      <p class="admin-metric-label">حسابات موقوفة</p>
+    </a>
+    <div class="admin-metric-card" style="--metric-color:#2563eb">
+      <span class="admin-metric-icon"><i class="fas fa-filter"></i></span>
+      <p class="admin-metric-value">{{ filtered_users_count }}</p>
+      <p class="admin-metric-label">ضمن النتائج الحالية</p>
     </div>
-  </div>
+  </section>
 
-  <div class="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="min-w-full text-sm">
-        <thead class="bg-slate-50 text-slate-600">
+  <form method="get" class="admin-filter-bar admin-no-print">
+    <div class="admin-filter-field is-search">
+      <label for="userSearch">بحث</label>
+      <input id="userSearch" type="search" name="q" value="{{ q }}" placeholder="الاسم، المستخدم، البريد أو المدرسة...">
+    </div>
+    <div class="admin-filter-field">
+      <label for="userRole">نوع الحساب</label>
+      <select id="userRole" name="role">
+        <option value="manager" {% if role == "manager" %}selected{% endif %}>مدراء المدارس</option>
+        <option value="unassigned" {% if role == "unassigned" %}selected{% endif %}>غير مرتبطين</option>
+        <option value="system" {% if role == "system" %}selected{% endif %}>حسابات النظام</option>
+        <option value="all" {% if role == "all" %}selected{% endif %}>كل الحسابات</option>
+      </select>
+    </div>
+    <div class="admin-filter-field">
+      <label for="userSchool">المدرسة</label>
+      <select id="userSchool" name="school">
+        <option value="">كل المدارس</option>
+        {% for school in schools_options %}
+          <option value="{{ school.pk }}" {% if school_id == school.pk|stringformat:"s" %}selected{% endif %}>{{ school.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="admin-filter-field">
+      <label for="userState">حالة الحساب</label>
+      <select id="userState" name="state">
+        <option value="">كل الحالات</option>
+        <option value="active" {% if state == "active" %}selected{% endif %}>نشط</option>
+        <option value="inactive" {% if state == "inactive" %}selected{% endif %}>موقوف</option>
+      </select>
+    </div>
+    <button type="submit" class="admin-btn admin-btn-primary"><i class="fas fa-filter"></i> تطبيق</button>
+    {% if q or state or school_id or role != "manager" %}
+      <a href="{% url 'dashboard:system_users_list' %}" class="admin-btn admin-btn-secondary"><i class="fas fa-xmark"></i> مسح</a>
+    {% endif %}
+  </form>
+
+  <section class="admin-panel">
+    <div class="admin-panel-header">
+      <div>
+        <h2 class="text-base font-black text-slate-900">الحسابات</h2>
+        <p class="mt-1 text-xs text-slate-500">يمكن ربط المدير بأكثر من مدرسة وتحديد مدرسة نشطة.</p>
+      </div>
+      <span class="text-xs font-bold text-slate-500">{{ filtered_users_count }} حساباً</span>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
           <tr>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">المستخدم</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">البريد</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">المدارس</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">الصلاحيات</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">آخر تسجيل دخول</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">إجراءات</th>
+            <th>المدير</th>
+            <th>بيانات التواصل</th>
+            <th>المدارس المرتبطة</th>
+            <th>الحالة والصلاحية</th>
+            <th>آخر دخول</th>
+            <th>الإجراءات</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
-          {% for u in page_obj.object_list %}
-          <tr class="hover:bg-slate-50 transition">
-            <td class="p-3">
-              <div class="font-semibold text-slate-900">{{ u.username }}</div>
-              <div class="text-[11px] text-slate-500">
-                {% if u.get_full_name %}{{ u.get_full_name }}{% endif %}
-              </div>
-            </td>
-            <td class="p-3 text-slate-600 text-xs">
-              {% if u.email %}
-              {{ u.email }}
-              {% else %}
-              <span class="text-slate-400">لا يوجد</span>
-              {% endif %}
-            </td>
-            <td class="p-3 text-xs">
-              <div class="flex flex-wrap gap-1">
-                {% for school in u.profile.schools.all %}
-                  <span class="px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 font-medium">
-                    {{ school.name }}
+        <tbody>
+          {% for user in page_obj.object_list %}
+            <tr>
+              <td>
+                <div class="flex items-center gap-3">
+                  <span class="w-10 h-10 rounded-full bg-violet-50 text-violet-700 flex items-center justify-center font-black">
+                    {{ user.username|slice:":1"|upper }}
                   </span>
-                {% empty %}
-                  <span class="px-2.5 py-1 rounded-full bg-slate-50 text-slate-500 font-medium">
-                    بدون مدرسة
-                  </span>
-                {% endfor %}
-              </div>
-            </td>
-            <td class="p-3 text-xs">
-              <div class="flex flex-wrap gap-1">
-                {% if u.is_active %}
-                <span class="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold">نشط</span>
+                  <div>
+                    <strong class="block text-sm text-slate-900">{{ user.get_full_name|default:user.username }}</strong>
+                    <span class="text-[10px] text-slate-400">@{{ user.username }}</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="block text-xs">{{ user.email|default:"لا يوجد بريد" }}</span>
+                {% if user.profile.mobile %}<span class="mt-1 block text-[10px] text-slate-400">{{ user.profile.mobile }}</span>{% endif %}
+              </td>
+              <td>
+                <div class="flex max-w-xs flex-wrap gap-1">
+                  {% for school in user.profile.schools.all %}
+                    <a href="{% url 'dashboard:system_school_edit' school.pk %}" class="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700">
+                      {{ school.name }}
+                    </a>
+                  {% empty %}
+                    <span class="admin-status admin-status-warning">بدون مدرسة</span>
+                  {% endfor %}
+                </div>
+              </td>
+              <td>
+                <div class="flex flex-wrap gap-1">
+                  {% if user.is_active %}
+                    <span class="admin-status admin-status-success">نشط</span>
+                  {% else %}
+                    <span class="admin-status admin-status-danger">موقوف</span>
+                  {% endif %}
+                  {% if user.is_superuser %}
+                    <span class="admin-status admin-status-warning">مدير نظام</span>
+                  {% elif user.is_staff %}
+                    <span class="admin-status admin-status-info">موظف</span>
+                  {% else %}
+                    <span class="admin-status admin-status-muted">مدير مدرسة</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="whitespace-nowrap">
+                {% if user.last_login %}
+                  <strong class="block text-xs text-slate-700">{{ user.last_login|date:"Y-m-d" }}</strong>
+                  <span class="text-[10px] text-slate-400">{{ user.last_login|date:"H:i" }}</span>
                 {% else %}
-                <span class="px-2 py-1 rounded-full bg-rose-50 text-rose-700 font-semibold">موقوف</span>
+                  <span class="admin-status admin-status-muted">لم يدخل بعد</span>
                 {% endif %}
-                {% if u.is_staff %}
-                <span class="px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 font-semibold">Staff</span>
-                {% endif %}
-                {% if u.is_superuser %}
-                <span class="px-2 py-1 rounded-full bg-amber-50 text-amber-700 font-semibold">Superuser</span>
-                {% endif %}
-              </div>
-            </td>
-            <td class="p-3 text-xs text-slate-500">
-              {% if u.last_login %}
-              {{ u.last_login|date:"Y-m-d H:i" }}
-              {% else %}
-              -
-              {% endif %}
-            </td>
-            <td class="p-3">
-              <div class="flex items-center gap-2">
-                <a href="{% url 'dashboard:system_user_edit' u.pk %}"
-                   class="text-xs px-2.5 py-1.5 rounded-lg bg-sky-50 text-sky-700 font-medium hover:bg-sky-100">
-                  تعديل
-                </a>
-                {% if request.user.is_superuser %}
-                  <a href="{% url 'dashboard:system_user_delete' u.pk %}"
-                     class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 font-medium hover:bg-rose-100">
-                    حذف
+              </td>
+              <td>
+                <div class="flex items-center gap-2 whitespace-nowrap">
+                  <a href="{% url 'dashboard:system_user_edit' user.pk %}" class="admin-btn admin-btn-secondary" style="min-height:2.15rem;padding:.35rem .65rem">
+                    <i class="fas fa-pen"></i> تعديل
                   </a>
-                {% endif %}
-              </div>
-            </td>
-          </tr>
+                  {% if request.user.is_superuser and request.user.pk != user.pk %}
+                    <a href="{% url 'dashboard:system_user_delete' user.pk %}" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center" title="حذف الحساب">
+                      <i class="fas fa-trash"></i>
+                    </a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
           {% empty %}
-          <tr>
-            <td colspan="6" class="p-6 text-center text-slate-400 text-sm">
-              لا يوجد مستخدمون حالياً.
-            </td>
-          </tr>
+            <tr>
+              <td colspan="6">
+                <div class="admin-empty">
+                  <i class="fas fa-users mb-3 text-3xl text-slate-300"></i>
+                  <h3 class="font-black text-slate-700">لا توجد حسابات مطابقة</h3>
+                  <p class="mt-1 text-xs">غيّر الفلاتر أو أضف مديراً جديداً.</p>
+                </div>
+              </td>
+            </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
 
     {% if page_obj.has_other_pages %}
-    <div class="px-4 py-3 flex items-center justify-between border-t border-slate-100 bg-slate-50/60">
-      <div class="text-xs text-slate-500">
-        صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}
+      <div class="flex items-center justify-between gap-3 border-t border-slate-100 p-4 admin-no-print">
+        <span class="text-xs text-slate-500">صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</span>
+        <div class="flex gap-2">
+          {% if page_obj.has_previous %}
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.previous_page_number }}&q={{ q|urlencode }}&state={{ state }}&role={{ role }}&school={{ school_id }}">السابقة</a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.next_page_number }}&q={{ q|urlencode }}&state={{ state }}&role={{ role }}&school={{ school_id }}">التالية</a>
+          {% endif %}
+        </div>
       </div>
-      <div class="flex items-center gap-1">
-        {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}"
-           class="px-2 py-1 text-xs rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
-          السابقة
-        </a>
-        {% endif %}
-        {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}"
-           class="px-2 py-1 text-xs rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
-          التالية
-        </a>
-        {% endif %}
-      </div>
-    </div>
     {% endif %}
-  </div>
-
+  </section>
 </div>
 {% endblock %}

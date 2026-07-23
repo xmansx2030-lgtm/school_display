@@ -13,7 +13,7 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
 
-from core.models import DisplayScreen
+from core.models import DisplayScreen, SubscriptionPlan
 from schedule.models import SchoolSettings
 from .services import (
     TrialSignupError,
@@ -192,6 +192,43 @@ def home(request):
     key = request.GET.get("token") or None
     ctx = _build_display_context(request, key)
     if not ctx:
+        active_plans = list(
+            SubscriptionPlan.objects.filter(is_active=True).order_by("sort_order", "price", "id")
+        )
+        landing_plans = []
+        for plan in active_plans:
+            duration_days = int(plan.duration_days or 0)
+            duration_label = f"{duration_days} يوماً" if duration_days else "مدة مفتوحة"
+            is_trial = plan.code == "free-trial" or (
+                plan.price == 0 and "تجرب" in plan.name
+            )
+            landing_plans.append(
+                {
+                    "id": plan.pk,
+                    "code": plan.code,
+                    "name": plan.name,
+                    "price": plan.price,
+                    "duration_days": duration_days,
+                    "duration_label": duration_label,
+                    "max_schools": plan.max_schools,
+                    "max_users": plan.max_users,
+                    "max_screens": plan.max_screens,
+                    "is_trial": is_trial,
+                    "is_free": plan.price == 0,
+                }
+            )
+
+        landing_trial = next(
+            (plan for plan in landing_plans if plan["is_trial"]),
+            {
+                "name": "تجربة مجانية",
+                "price": 0,
+                "duration_days": 14,
+                "duration_label": "14 يوماً",
+                "is_trial": True,
+                "is_free": True,
+            },
+        )
         return render(
             request,
             "website/unconfigured_display.html",
@@ -200,6 +237,8 @@ def home(request):
                 "login_url": reverse("dashboard:login"),
                 "trial_signup_url": reverse("website:trial_signup"),
                 "dashboard_url": reverse("dashboard:index"),
+                "landing_plans": landing_plans,
+                "landing_trial": landing_trial,
             },
         )
     return render(request, "website/display.html", ctx)

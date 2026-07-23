@@ -156,6 +156,7 @@ urlpatterns = [
     path("admin-panel/plans/", views.system_plans_list, name="system_plans_list"),
     path("admin-panel/plans/add/", views.system_plan_create, name="system_plan_create"),
     path("admin-panel/plans/<int:pk>/edit/", views.system_plan_edit, name="system_plan_edit"),
+    path("admin-panel/plans/<int:pk>/toggle/", views.system_plan_toggle, name="system_plan_toggle"),
     path("admin-panel/plans/<int:pk>/delete/", views.system_plan_delete, name="system_plan_delete"),
 
     # Reports

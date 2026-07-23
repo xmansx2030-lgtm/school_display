@@ -1370,7 +1370,7 @@
 
   .dashboard-settings .dashboard-section-card p,
   .dashboard-settings .dashboard-form-shell p {
-    font-size: 0.7rem !important;
+    font-size: 0.78rem !important;
   }
 
   .dashboard-settings #settingsForm input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]),
@@ -1405,7 +1405,7 @@
   }
 
   .dashboard-settings .settings-actions {
-    flex-direction: column-reverse;
+    flex-direction: column;
     align-items: stretch;
   }
 

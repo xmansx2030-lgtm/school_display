@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import time
+from datetime import time, timedelta
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -293,6 +293,23 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertNotContains(response, "internal mobile")
         self.assertNotContains(response, "مدرسة مدرسة التجربة")
 
+    def test_school_settings_exposes_clear_sections_and_display_preview(self):
+        screen = DisplayScreen.objects.create(
+            name="الشاشة الرئيسية",
+            school=self.school,
+            is_active=True,
+        )
+
+        response = self.client.get(reverse("dashboard:settings"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "الهوية والمظهر")
+        self.assertContains(response, "رسائل الشاشة")
+        self.assertContains(response, "سرعة العرض")
+        self.assertContains(response, "معاينة شاشة المدرسة")
+        self.assertContains(response, f"/s/{screen.short_code}/")
+        self.assertContains(response, "كل التغييرات محفوظة")
+
     def test_connected_screen_is_reported_live_in_screen_list(self):
         screen = DisplayScreen.objects.create(
             name="الشاشة الرئيسية",
@@ -524,3 +541,157 @@ class RefactoredRoutingAndPermissionTests(TestCase):
         )
         ticket = SupportTicket.objects.get(user=self.manager, subject="طلب مساعدة")
         self.assertEqual(ticket.school, self.school_a)
+
+
+@override_settings(
+    CACHES=TEST_CACHES,
+    TWO_FACTOR_REQUIRED_FOR_PRIVILEGED=False,
+)
+class SystemAdminExperienceTests(TestCase):
+    def setUp(self):
+        self.admin = get_user_model().objects.create_superuser(
+            username="admin_experience",
+            email="admin-experience@example.com",
+            password="StrongPass123!",
+        )
+        self.school = School.objects.create(name="مدرسة الإدارة", slug="admin-school")
+        self.manager = get_user_model().objects.create_user(
+            username="school_director",
+            email="director@example.com",
+            password="StrongPass123!",
+        )
+        self.profile = UserProfile.objects.create(user=self.manager, active_school=self.school)
+        self.profile.schools.add(self.school)
+        self.plan = SubscriptionPlan.objects.create(
+            code="admin-pro",
+            name="الباقة الاحترافية",
+            price=990,
+            duration_days=365,
+            max_users=7,
+            max_screens=2,
+            max_schools=1,
+        )
+        SchoolSubscription.objects.create(
+            school=self.school,
+            plan=self.plan,
+            starts_at=timezone.localdate(),
+            ends_at=timezone.localdate() + timedelta(days=12),
+            status="active",
+        )
+        self.client.force_login(self.admin)
+
+    def test_admin_dashboard_prioritizes_daily_operations(self):
+        response = self.client.get(reverse("dashboard:system_admin_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "مركز إدارة المنصة")
+        self.assertContains(response, "تحتاج إلى انتباهك")
+        self.assertContains(response, "اشتراكات تنتهي قريباً")
+        self.assertContains(response, "الباقات والأسعار")
+
+    def test_admin_lists_expose_school_manager_and_subscription_filters(self):
+        schools_response = self.client.get(
+            reverse("dashboard:system_schools_list"),
+            {"plan": self.plan.pk},
+        )
+        managers_response = self.client.get(
+            reverse("dashboard:system_users_list"),
+            {"school": self.school.pk, "role": "manager"},
+        )
+        subscriptions_response = self.client.get(
+            reverse("dashboard:system_subscriptions_list"),
+            {"status": "expiring"},
+        )
+
+        self.assertContains(schools_response, self.school.name)
+        self.assertContains(schools_response, self.plan.name)
+        self.assertContains(managers_response, self.manager.username)
+        self.assertContains(subscriptions_response, "ينتهي قريباً")
+        self.assertContains(subscriptions_response, self.school.name)
+
+    def test_plan_cards_show_limits_and_usage(self):
+        response = self.client.get(reverse("dashboard:system_plans_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.plan.name)
+        self.assertContains(response, "اشتراكات سارية")
+        self.assertContains(response, "إضافة باقة جديدة")
+        self.assertContains(response, "تعديل")
+        self.assertContains(response, "حذف")
+        self.assertContains(response, "2")
+        self.assertContains(response, "7")
+
+    def test_superuser_in_support_group_keeps_plan_management_navigation(self):
+        self.admin.groups.add(Group.objects.get_or_create(name="Support")[0])
+
+        response = self.client.get(reverse("dashboard:system_plans_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "إدارة الباقات والأسعار")
+        self.assertContains(response, reverse("dashboard:system_plan_create"))
+
+    def test_plan_crud_and_activation_controls(self):
+        create_response = self.client.post(
+            reverse("dashboard:system_plan_create"),
+            {
+                "name": "الباقة الجديدة",
+                "code": "NEW-PLAN",
+                "price": "1499.00",
+                "duration_days": "365",
+                "max_schools": "1",
+                "max_users": "10",
+                "max_screens": "3",
+                "sort_order": "2",
+                "is_active": "on",
+            },
+        )
+        self.assertRedirects(create_response, reverse("dashboard:system_plans_list"))
+        created_plan = SubscriptionPlan.objects.get(code="new-plan")
+
+        edit_response = self.client.post(
+            reverse("dashboard:system_plan_edit", args=[created_plan.pk]),
+            {
+                "name": "الباقة الجديدة المطورة",
+                "code": "new-plan",
+                "price": "1799.00",
+                "duration_days": "365",
+                "max_schools": "1",
+                "max_users": "15",
+                "max_screens": "4",
+                "sort_order": "2",
+                "is_active": "on",
+            },
+        )
+        self.assertRedirects(edit_response, reverse("dashboard:system_plans_list"))
+        created_plan.refresh_from_db()
+        self.assertEqual(created_plan.name, "الباقة الجديدة المطورة")
+        self.assertEqual(created_plan.max_screens, 4)
+
+        toggle_response = self.client.post(
+            reverse("dashboard:system_plan_toggle", args=[created_plan.pk])
+        )
+        self.assertRedirects(toggle_response, reverse("dashboard:system_plans_list"))
+        created_plan.refresh_from_db()
+        self.assertFalse(created_plan.is_active)
+
+        delete_response = self.client.post(
+            reverse("dashboard:system_plan_delete", args=[created_plan.pk])
+        )
+        self.assertRedirects(delete_response, reverse("dashboard:system_plans_list"))
+        self.assertFalse(SubscriptionPlan.objects.filter(pk=created_plan.pk).exists())
+
+    def test_used_plan_is_archived_instead_of_breaking_subscription_history(self):
+        response = self.client.get(
+            reverse("dashboard:system_plan_delete", args=[self.plan.pk])
+        )
+        self.assertContains(response, "هذه الباقة مستخدمة")
+        self.assertContains(response, "إيقاف الباقة بأمان")
+
+        response = self.client.post(
+            reverse("dashboard:system_plan_delete", args=[self.plan.pk])
+        )
+
+        self.assertRedirects(response, reverse("dashboard:system_plans_list"))
+        self.plan.refresh_from_db()
+        self.assertFalse(self.plan.is_active)
+        self.assertTrue(SchoolSubscription.objects.filter(plan=self.plan).exists())

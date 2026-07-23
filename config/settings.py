@@ -388,6 +388,7 @@ INSTALLED_APPS = [
     "website",
     "dashboard",
     "subscriptions.apps.SubscriptionsConfig",
+    "telegram_alerts.apps.TelegramAlertsConfig",
 ]
 
 
@@ -519,7 +520,9 @@ if not REDIS_CONFIGURED and not (DEBUG or RUNNING_TESTS):
 CACHE_REDIS_URL = REDIS_CACHE_URL
 CHANNELS_REDIS_URL = REDIS_CHANNELS_URL
 
-if REDIS_CONFIGURED:
+if RUNNING_TESTS:
+    logger.info("test_runtime cache=locmem channels=in-memory")
+elif REDIS_CONFIGURED:
     logger.info(
         "redis_config cache=%s channels=%s",
         REDIS_CACHE_URL,
@@ -536,7 +539,16 @@ CACHE_REDIS_MAX_CONNECTIONS = env_int(
 # Default cache TTL as a safety net (seconds)
 DEFAULT_CACHE_TIMEOUT = env_int("CACHE_DEFAULT_TIMEOUT", str(60 * 30))  # 30 minutes
 
-if REDIS_CONFIGURED:
+if RUNNING_TESTS:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "school-display-tests",
+            "TIMEOUT": DEFAULT_CACHE_TIMEOUT,
+            "KEY_PREFIX": "school_display_tests",
+        }
+    }
+elif REDIS_CONFIGURED:
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
@@ -575,7 +587,13 @@ else:
 # =========================
 # Channels Layer (WebSocket)
 # =========================
-if REDIS_CONFIGURED:
+if RUNNING_TESTS:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
+elif REDIS_CONFIGURED:
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -831,3 +849,51 @@ LOGOUT_REDIRECT_URL = "dashboard:login"
 # Site base URL
 # =========================
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "https://school-display.com")
+
+
+# =========================
+# Telegram administrator alerts
+# =========================
+# Secrets must live in the runtime environment only. Never commit the bot token.
+TELEGRAM_ALERTS_ENABLED = env_bool("TELEGRAM_ALERTS_ENABLED", "False")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_ADMIN_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "").strip()
+TELEGRAM_API_BASE_URL = os.getenv("TELEGRAM_API_BASE_URL", "https://api.telegram.org").strip().rstrip("/")
+TELEGRAM_ALERTS_BASE_URL = (
+    os.getenv("TELEGRAM_ALERTS_BASE_URL", SITE_BASE_URL).strip().rstrip("/")
+    or SITE_BASE_URL.rstrip("/")
+)
+TELEGRAM_ALERT_EXPIRY_DAYS = tuple(
+    sorted(
+        {
+            max(0, min(365, int(value)))
+            for value in env_list("TELEGRAM_ALERT_EXPIRY_DAYS", "30,14,7,3,1,0")
+            if value.lstrip("+-").isdigit()
+        },
+        reverse=True,
+    )
+)
+TELEGRAM_ALERT_HTTP_TIMEOUT_SECONDS = env_int_clamped(
+    "TELEGRAM_ALERT_HTTP_TIMEOUT_SECONDS",
+    10,
+    2,
+    30,
+)
+TELEGRAM_ALERT_POLL_INTERVAL_SECONDS = env_int_clamped(
+    "TELEGRAM_ALERT_POLL_INTERVAL_SECONDS",
+    10,
+    2,
+    300,
+)
+TELEGRAM_ALERT_BATCH_SIZE = env_int_clamped(
+    "TELEGRAM_ALERT_BATCH_SIZE",
+    20,
+    1,
+    100,
+)
+TELEGRAM_ALERT_MAX_ATTEMPTS = env_int_clamped(
+    "TELEGRAM_ALERT_MAX_ATTEMPTS",
+    10,
+    1,
+    30,
+)

@@ -41,9 +41,22 @@
     setOpen(false);
   }
 
+  function initializeGlobalSearch() {
+    var searchInput = document.getElementById("adminGlobalSearch");
+    if (!searchInput) return;
+    document.addEventListener("keydown", function (event) {
+      if ((event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === "k") {
+        event.preventDefault();
+        searchInput.focus();
+        searchInput.select();
+      }
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     initializeClock();
     initializeSidebar();
+    initializeGlobalSearch();
     var animated = document.querySelector(".animate-fade-in");
     if (animated) animated.style.animation = "fadeIn 0.5s ease-out";
     var printButton = document.getElementById("adminPrintBtn");

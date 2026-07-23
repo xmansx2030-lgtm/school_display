@@ -1,138 +1,206 @@
 {% extends "admin/admin_base.html" %}
 
 {% block title %}إدارة المدارس{% endblock %}
-{% block page_title %}إدارة المدارس في المنصّة{% endblock %}
-{% block page_description %}
-عرض، إضافة، وتعديل المدارس في النظام وربطها بالاشتراكات والمستخدمين.
+{% block page_icon %}school{% endblock %}
+{% block page_title %}المدارس{% endblock %}
+{% block page_description %}تابع حالة المدرسة ومديرها واشتراكها وشاشاتها من مكان واحد.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">المدارس</span>
+{% endblock %}
+{% block page_actions %}
+  <a href="{% url 'dashboard:system_school_create' %}" class="admin-btn admin-btn-primary">
+    <i class="fas fa-plus"></i> إضافة مدرسة
+  </a>
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-
-  <!-- رأس الصفحة + بحث -->
-  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-    <div>
-      <h1 class="text-2xl md:text-3xl font-bold text-slate-900">
-        إدارة المدارس
-      </h1>
-      <p class="text-slate-500 mt-1 text-sm md:text-base">
-        يمكنك من هنا إضافة مدرسة جديدة، تعديل بيانات المدارس الحالية، أو إيقاف الاشتراك.
-      </p>
+<div class="space-y-5">
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="admin-metric-card" style="--metric-color:#2563eb">
+      <span class="admin-metric-icon"><i class="fas fa-school"></i></span>
+      <p class="admin-metric-value">{{ total_schools_count }}</p>
+      <p class="admin-metric-label">إجمالي المدارس</p>
     </div>
-
-    <div class="flex flex-col sm:flex-row gap-3">
-      <form method="get" class="flex items-center gap-2">
-        <input
-          type="text"
-          name="q"
-          value="{{ q }}"
-          placeholder="بحث باسم المدرسة أو الرابط..."
-          class="w-full sm:w-64 px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-        >
-        {% if q %}
-        <a href="{% url 'dashboard:system_schools_list' %}"
-           class="text-xs text-slate-500 hover:text-slate-700">
-          مسح البحث
-        </a>
-        {% endif %}
-      </form>
-
-      <a href="{% url 'dashboard:system_school_create' %}"
-         class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-500 to-emerald-600 shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-emerald-700 transition">
-        <span class="ml-2">➕</span>
-        <span>إضافة مدرسة</span>
-      </a>
+    <div class="admin-metric-card" style="--metric-color:#059669">
+      <span class="admin-metric-icon"><i class="fas fa-circle-check"></i></span>
+      <p class="admin-metric-value">{{ active_schools_count }}</p>
+      <p class="admin-metric-label">مدارس نشطة</p>
     </div>
-  </div>
+    <div class="admin-metric-card" style="--metric-color:#e11d48">
+      <span class="admin-metric-icon"><i class="fas fa-circle-pause"></i></span>
+      <p class="admin-metric-value">{{ inactive_schools_count }}</p>
+      <p class="admin-metric-label">مدارس موقوفة</p>
+    </div>
+    <div class="admin-metric-card" style="--metric-color:#7c3aed">
+      <span class="admin-metric-icon"><i class="fas fa-filter"></i></span>
+      <p class="admin-metric-value">{{ filtered_schools_count }}</p>
+      <p class="admin-metric-label">ضمن النتائج الحالية</p>
+    </div>
+  </section>
 
-  <!-- الجدول -->
-  <div class="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="min-w-full text-sm">
-        <thead class="bg-slate-50 text-slate-600">
+  <form method="get" class="admin-filter-bar admin-no-print">
+    <div class="admin-filter-field is-search">
+      <label for="schoolSearch">بحث</label>
+      <input id="schoolSearch" type="search" name="q" value="{{ q }}" placeholder="اسم المدرسة، الرابط، المدير أو البريد...">
+    </div>
+    <div class="admin-filter-field">
+      <label for="schoolState">حالة المدرسة</label>
+      <select id="schoolState" name="state">
+        <option value="">كل الحالات</option>
+        <option value="active" {% if state == "active" %}selected{% endif %}>نشطة</option>
+        <option value="inactive" {% if state == "inactive" %}selected{% endif %}>موقوفة</option>
+      </select>
+    </div>
+    <div class="admin-filter-field">
+      <label for="schoolPlan">الباقة</label>
+      <select id="schoolPlan" name="plan">
+        <option value="">كل الباقات</option>
+        {% for plan in plans %}
+          <option value="{{ plan.pk }}" {% if plan_id == plan.pk|stringformat:"s" %}selected{% endif %}>{{ plan.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="admin-filter-field">
+      <label for="screenState">حالة الشاشة</label>
+      <select id="screenState" name="screen">
+        <option value="">كل الشاشات</option>
+        <option value="online" {% if screen_state == "online" %}selected{% endif %}>متصلة الآن</option>
+        <option value="offline" {% if screen_state == "offline" %}selected{% endif %}>غير متصلة</option>
+        <option value="none" {% if screen_state == "none" %}selected{% endif %}>بلا شاشة</option>
+      </select>
+    </div>
+    <button type="submit" class="admin-btn admin-btn-primary"><i class="fas fa-filter"></i> تطبيق</button>
+    {% if q or state or plan_id or screen_state %}
+      <a href="{% url 'dashboard:system_schools_list' %}" class="admin-btn admin-btn-secondary"><i class="fas fa-xmark"></i> مسح</a>
+    {% endif %}
+  </form>
+
+  <section class="admin-panel">
+    <div class="admin-panel-header">
+      <div>
+        <h2 class="text-base font-black text-slate-900">قائمة المدارس</h2>
+        <p class="mt-1 text-xs text-slate-500">تظهر الشاشة متصلة إذا وصل تحديث منها خلال آخر {{ active_window_seconds }} ثانية.</p>
+      </div>
+      <span class="text-xs font-bold text-slate-500">{{ filtered_schools_count }} نتيجة</span>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
           <tr>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">اسم المدرسة</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">الرابط (slug)</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">شاشات نشطة الآن</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">زمن التحديث</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">الحالة</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">تاريخ الإنشاء</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">إجراءات</th>
+            <th>المدرسة</th>
+            <th>المدراء</th>
+            <th>الاشتراك</th>
+            <th>الشاشات</th>
+            <th>الحالة</th>
+            <th>أضيفت</th>
+            <th>الإجراءات</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
-  {% if schools %}
-      {% for s in schools %}
-      <tr>
-        <td class="px-4 py-3">{{ s.name }}</td>
-        <td class="px-4 py-3">{{ s.slug }}</td>
-        <td class="px-4 py-3">
-          <span class="font-semibold text-slate-900">{{ s.active_screens_now|default:0 }}</span>
-        </td>
-        <td class="px-4 py-3">
-          {% if s.refresh_interval_sec %}
-            <span class="text-slate-900 font-semibold">{{ s.refresh_interval_sec }}</span>
-            <span class="text-slate-500">ث</span>
-          {% else %}
-            <span class="text-slate-400">—</span>
-          {% endif %}
-        </td>
-        <td class="px-4 py-3">
-            {% if s.is_active %}
-                <span class="text-emerald-600 font-semibold">نشط</span>
-            {% else %}
-                <span class="text-red-500 font-semibold">موقوف</span>
-            {% endif %}
-        </td>
-        <td class="px-4 py-3">{{ s.created_at|date:"Y-m-d" }}</td>
-        <td class="px-4 py-3 text-left">
-            <div class="flex items-center justify-end gap-2">
-              <a href="{% url 'dashboard:system_school_edit' s.id %}"
-                 class="text-xs px-2.5 py-1.5 rounded-lg bg-sky-50 text-sky-700 font-medium hover:bg-sky-100">تعديل</a>
-              {% if request.user.is_superuser %}
-                <a href="{% url 'dashboard:system_school_delete' s.id %}"
-                   class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 font-medium hover:bg-rose-100">
-                   حذف
-                </a>
-              {% endif %}
-            </div>
-        </td>
-      </tr>
-      {% endfor %}
-  {% else %}
-      <tr>
-        <td colspan="7" class="text-center py-6 text-slate-500">
-          لا توجد مدارس حاليًا.
-        </td>
-      </tr>
-  {% endif %}
+        <tbody>
+          {% for school in schools %}
+            <tr>
+              <td>
+                <div class="flex items-center gap-3">
+                  <span class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black">
+                    {{ school.name|slice:":1" }}
+                  </span>
+                  <div>
+                    <strong class="block text-sm text-slate-900">{{ school.name }}</strong>
+                    <span class="text-[10px] text-slate-400">{{ school.slug }}</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                {% if school.managers_count %}
+                  <a href="{% url 'dashboard:system_users_list' %}?school={{ school.pk }}&role=manager" class="font-black text-violet-700">
+                    {{ school.managers_count }} مدير
+                  </a>
+                {% else %}
+                  <a href="{% url 'dashboard:system_user_create' %}" class="admin-status admin-status-warning">بدون مدير</a>
+                {% endif %}
+              </td>
+              <td>
+                {% if school.current_subscription %}
+                  <a href="{% url 'dashboard:system_subscription_edit' school.current_subscription.pk %}">
+                    <strong class="block text-xs text-slate-800">{{ school.current_plan.name|default:"باقة غير محددة" }}</strong>
+                    {% if school.current_subscription.is_active %}
+                      <span class="text-[10px] text-emerald-600">
+                        {% if school.subscription_end %}حتى {{ school.subscription_end|date:"Y-m-d" }}{% else %}مفتوح المدة{% endif %}
+                      </span>
+                    {% else %}
+                      <span class="text-[10px] text-rose-600">غير سارٍ</span>
+                    {% endif %}
+                  </a>
+                {% else %}
+                  <a href="{% url 'dashboard:system_subscription_create' %}" class="admin-status admin-status-danger">بدون اشتراك</a>
+                {% endif %}
+              </td>
+              <td>
+                <div class="flex items-center gap-2">
+                  {% if school.active_screens_now %}
+                    <span class="admin-status admin-status-success">{{ school.active_screens_now }} متصلة</span>
+                  {% elif school.screens_count %}
+                    <span class="admin-status admin-status-muted">{{ school.screens_count }} غير متصلة</span>
+                  {% else %}
+                    <span class="admin-status admin-status-warning">بلا شاشة</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td>
+                {% if school.is_active %}
+                  <span class="admin-status admin-status-success">نشطة</span>
+                {% else %}
+                  <span class="admin-status admin-status-danger">موقوفة</span>
+                {% endif %}
+              </td>
+              <td class="whitespace-nowrap text-slate-500">{{ school.created_at|date:"Y-m-d" }}</td>
+              <td>
+                <div class="flex items-center gap-2 whitespace-nowrap">
+                  <a href="{% url 'dashboard:system_school_edit' school.pk %}" class="admin-btn admin-btn-secondary" style="min-height:2.15rem;padding:.35rem .65rem">
+                    <i class="fas fa-pen"></i> تعديل
+                  </a>
+                  <a href="{% url 'dashboard:system_users_list' %}?school={{ school.pk }}&role=manager" class="w-8 h-8 rounded-lg bg-violet-50 text-violet-700 flex items-center justify-center" title="مدراء المدرسة">
+                    <i class="fas fa-users"></i>
+                  </a>
+                  <a href="{% url 'dashboard:system_subscriptions_list' %}?q={{ school.name|urlencode }}" class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center" title="اشتراكات المدرسة">
+                    <i class="fas fa-credit-card"></i>
+                  </a>
+                  {% if request.user.is_superuser %}
+                    <a href="{% url 'dashboard:system_school_delete' school.pk %}" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center" title="حذف المدرسة">
+                      <i class="fas fa-trash"></i>
+                    </a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7">
+                <div class="admin-empty">
+                  <i class="fas fa-school mb-3 text-3xl text-slate-300"></i>
+                  <h3 class="font-black text-slate-700">لا توجد مدارس مطابقة</h3>
+                  <p class="mt-1 text-xs">غيّر الفلاتر أو أضف مدرسة جديدة.</p>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
         </tbody>
       </table>
     </div>
 
-    <!-- ترقيم الصفحات -->
     {% if page_obj.has_other_pages %}
-    <div class="px-4 py-3 flex items-center justify-between border-t border-slate-100 bg-slate-50/60">
-      <div class="text-xs text-slate-500">
-        صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}
+      <div class="flex items-center justify-between gap-3 border-t border-slate-100 p-4 admin-no-print">
+        <span class="text-xs text-slate-500">صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</span>
+        <div class="flex gap-2">
+          {% if page_obj.has_previous %}
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.previous_page_number }}&q={{ q|urlencode }}&state={{ state }}&plan={{ plan_id }}&screen={{ screen_state }}">السابقة</a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.next_page_number }}&q={{ q|urlencode }}&state={{ state }}&plan={{ plan_id }}&screen={{ screen_state }}">التالية</a>
+          {% endif %}
+        </div>
       </div>
-      <div class="flex items-center gap-1">
-        {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}"
-           class="px-2 py-1 text-xs rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
-          السابقة
-        </a>
-        {% endif %}
-        {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}"
-           class="px-2 py-1 text-xs rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
-          التالية
-        </a>
-        {% endif %}
-      </div>
-    </div>
     {% endif %}
-  </div>
-
+  </section>
 </div>
 {% endblock %}

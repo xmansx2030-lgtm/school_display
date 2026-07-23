@@ -1,226 +1,266 @@
 {% extends "admin/admin_base.html" %}
 
-{% block title %}لوحة إدارة النظام{% endblock %}
-{% block page_title %}لوحة إدارة النظام (SaaS){% endblock %}
-{% block page_description %}إدارة المدارس والمستخدمين والاشتراكات{% endblock %}
+{% block title %}مركز إدارة المنصة{% endblock %}
+{% block page_icon %}chart-pie{% endblock %}
+{% block page_title %}مركز إدارة المنصة{% endblock %}
+{% block page_description %}كل ما يحتاج المتابعة اليوم: المدارس والمدراء والاشتراكات والشاشات.{% endblock %}
+{% block breadcrumb %}{% endblock %}
+
+{% block page_actions %}
+  {% if not is_support_staff %}
+    <a href="{% url 'dashboard:system_school_create' %}" class="admin-btn admin-btn-primary">
+      <i class="fas fa-plus"></i> مدرسة جديدة
+    </a>
+    <a href="{% url 'dashboard:system_subscription_create' %}" class="admin-btn admin-btn-success">
+      <i class="fas fa-file-circle-plus"></i> اشتراك جديد
+    </a>
+  {% endif %}
+{% endblock %}
 
 {% block content %}
-
-<div class="space-y-8">
-
-  <!-- بطاقات الإحصائيات -->
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-    
-    {% if not is_support_staff %}
-      <!-- عدد المدارس -->
-      <div class="bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-        <div class="flex justify-between items-start">
-          <div>
-            <div class="text-4xl font-bold">{{ schools_count }}</div>
-            <div class="text-blue-100 mt-2 text-lg font-medium">المدارس</div>
-            <div class="text-blue-200 text-sm mt-1">نشطة في النظام</div>
-          </div>
-          <div class="w-16 h-16 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-            <span class="text-3xl">🏫</span>
-          </div>
-        </div>
-        <div class="mt-6 pt-4 border-t border-blue-400/30">
-          <a href="{% url 'dashboard:system_schools_list' %}" 
-             class="inline-flex items-center text-sm text-blue-100 hover:text-white font-medium">
-            عرض المدارس
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-          </a>
-        </div>
-      </div>
-    {% endif %}
-
-    <!-- عدد المستخدمين -->
-    <div class="bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-      <div class="flex justify-between items-start">
+<div class="space-y-6">
+  {% if global_query %}
+    <section class="admin-panel">
+      <div class="admin-panel-header">
         <div>
-          <div class="text-4xl font-bold">{{ users_count }}</div>
-          <div class="text-purple-100 mt-2 text-lg font-medium">المستخدمين</div>
-          <div class="text-purple-200 text-sm mt-1">مسجلين في النظام</div>
+          <h2 class="font-black text-slate-900">نتائج البحث عن «{{ global_query }}»</h2>
+          <p class="mt-1 text-xs text-slate-500">نتائج سريعة من المدارس والحسابات والاشتراكات.</p>
         </div>
-        <div class="w-16 h-16 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-          <span class="text-3xl">👥</span>
-        </div>
-      </div>
-      <div class="mt-6 pt-4 border-t border-purple-400/30">
-        {% if not is_support_staff %}
-          <a href="{% url 'dashboard:system_users_list' %}" 
-             class="inline-flex items-center text-sm text-purple-100 hover:text-white font-medium">
-            عرض المستخدمين
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-          </a>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- الاشتراكات النشطة -->
-    <div class="bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-      <div class="flex justify-between items-start">
-        <div>
-          <div class="text-4xl font-bold">{{ subscriptions_count }}</div>
-          <div class="text-emerald-100 mt-2 text-lg font-medium">الاشتراكات</div>
-          <div class="text-emerald-200 text-sm mt-1">نشطة حالياً</div>
-        </div>
-        <div class="w-16 h-16 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-          <span class="text-3xl">💳</span>
-        </div>
-      </div>
-      <div class="mt-6 pt-4 border-t border-emerald-400/30">
-        {% if not is_support_staff %}
-          <a href="{% url 'dashboard:system_subscriptions_list' %}" 
-             class="inline-flex items-center text-sm text-emerald-100 hover:text-white font-medium">
-            عرض الاشتراكات
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-          </a>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- طلبات التجديد/الاشتراك -->
-    <div class="bg-gradient-to-br from-rose-500 via-rose-600 to-rose-700 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-      <div class="flex justify-between items-start">
-        <div>
-          <div class="text-4xl font-bold">{{ open_subscription_requests|default:"0" }}</div>
-          <div class="text-rose-100 mt-2 text-lg font-medium">طلبات الاشتراك</div>
-          <div class="text-rose-200 text-sm mt-1">قيد المراجعة</div>
-        </div>
-        <div class="w-16 h-16 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-          <span class="text-3xl">🧾</span>
-        </div>
-      </div>
-      <div class="mt-6 pt-4 border-t border-rose-400/30">
-        {% if not is_support_staff %}
-          <a href="{% url 'dashboard:system_subscription_requests_list' %}"
-             class="inline-flex items-center text-sm text-rose-100 hover:text-white font-medium">
-            مراجعة الطلبات
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-          </a>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- الإيرادات (إذا كنت تريد إضافتها لاحقاً) -->
-    <div class="bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-      <div class="flex justify-between items-start">
-        <div>
-          <div class="text-4xl font-bold">{{ revenue|default:"0" }}</div>
-          <div class="text-amber-100 mt-2 text-lg font-medium">الإيرادات</div>
-          <div class="text-amber-200 text-sm mt-1">ريال سعودي</div>
-        </div>
-        <div class="w-16 h-16 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-          <span class="text-3xl">💰</span>
-        </div>
-      </div>
-      <div class="mt-6 pt-4 border-t border-amber-400/30">
-        {% if not is_support_staff %}
-          <a href="{% url 'dashboard:system_reports' %}" 
-             class="inline-flex items-center text-sm text-amber-100 hover:text-white font-medium">
-            تقرير الإيرادات
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-          </a>
-        {% endif %}
-      </div>
-    </div>
-
-  </div>
-
-  <!-- الإجراءات السريعة -->
-  <div class="mt-8">
-    <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-      الإجراءات السريعة
-    </h2>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {% for item in admin_nav_links %}
-        <a href="{{ item.url }}"
-           class="group relative bg-gradient-to-br
-             {% if item.tone == 'blue' %}from-white to-blue-50 border-blue-100
-             {% elif item.tone == 'purple' %}from-white to-purple-50 border-purple-100
-             {% elif item.tone == 'sky' %}from-white to-sky-50 border-sky-100
-             {% elif item.tone == 'emerald' %}from-white to-emerald-50 border-emerald-100
-             {% elif item.tone == 'amber' %}from-white to-amber-50 border-amber-100
-             {% elif item.tone == 'rose' %}from-white to-rose-50 border-rose-100
-             {% else %}from-white to-slate-50 border-slate-200{% endif %}
-             rounded-2xl border p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-          {% if item.badge_count > 0 %}
-            <span class="absolute -top-3 -left-3 inline-flex items-center justify-center min-w-8 h-8 px-2 rounded-full bg-rose-600 text-white text-xs font-bold shadow-lg">
-              {{ item.badge_count }}
-            </span>
-          {% endif %}
-          <div class="flex items-start gap-4">
-            <div class="w-14 h-14 rounded-xl bg-gradient-to-br
-              {% if item.tone == 'blue' %}from-blue-100 to-blue-200
-              {% elif item.tone == 'purple' %}from-purple-100 to-purple-200
-              {% elif item.tone == 'sky' %}from-sky-100 to-sky-200
-              {% elif item.tone == 'emerald' %}from-emerald-100 to-emerald-200
-              {% elif item.tone == 'amber' %}from-amber-100 to-amber-200
-              {% elif item.tone == 'rose' %}from-rose-100 to-rose-200
-              {% else %}from-slate-100 to-slate-200{% endif %}
-              flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <span class="text-2xl">{{ item.emoji }}</span>
-            </div>
-            <div class="flex-1">
-              <h3 class="text-xl font-bold text-slate-800 mb-2">{{ item.title }}</h3>
-              <p class="text-slate-600 text-sm mb-4">{{ item.description }}</p>
-              <div class="flex items-center font-medium text-sm
-                {% if item.tone == 'blue' %}text-blue-600
-                {% elif item.tone == 'purple' %}text-purple-600
-                {% elif item.tone == 'sky' %}text-sky-600
-                {% elif item.tone == 'emerald' %}text-emerald-600
-                {% elif item.tone == 'amber' %}text-amber-600
-                {% elif item.tone == 'rose' %}text-rose-600
-                {% else %}text-slate-600{% endif %}">
-                <span>الذهاب</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2 group-hover:translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-              </div>
-            </div>
-          </div>
+        <a href="{% url 'dashboard:system_admin_dashboard' %}" class="admin-btn admin-btn-secondary">
+          <i class="fas fa-xmark"></i> إغلاق البحث
         </a>
-      {% endfor %}
-    </div>
-  </div>
-
-  <!-- قسم آخر (يمكنك إضافته لاحقاً) -->
-  <div class="mt-12 p-6 bg-gradient-to-r from-slate-50 to-gray-50 rounded-2xl border border-slate-200">
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
-      <div>
-        <h3 class="text-xl font-bold text-slate-800 mb-2">💡 نصائح سريعة للإدارة</h3>
-        <p class="text-slate-600">
-          تأكد من مراجعة الاشتراكات المنتهية أسبوعياً • تحقق من حسابات المستخدمين غير النشطة • قم بعمل نسخة احتياطية للبيانات شهرياً
-        </p>
       </div>
-      <div class="flex gap-3">
-        <button onclick="window.print()" 
-                class="px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium transition-colors">
-          طباعة التقرير
-        </button>
-        <a href="{% url 'dashboard:system_reports' %}" 
-           class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium transition-colors">
-          عرض التقارير
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
+        <div class="rounded-xl border border-slate-200 p-4">
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="text-sm font-black text-slate-800"><i class="fas fa-school ml-2 text-blue-600"></i>المدارس</h3>
+            <a href="{% url 'dashboard:system_schools_list' %}?q={{ global_query|urlencode }}" class="text-xs font-bold text-blue-600">عرض الكل</a>
+          </div>
+          <div class="space-y-2">
+            {% for school in search_results.schools %}
+              <a href="{% url 'dashboard:system_school_edit' school.pk %}" class="block rounded-lg bg-slate-50 px-3 py-2 hover:bg-blue-50">
+                <span class="block text-xs font-bold text-slate-800">{{ school.name }}</span>
+                <span class="text-[10px] text-slate-400">{{ school.slug }}</span>
+              </a>
+            {% empty %}
+              <p class="py-5 text-center text-xs text-slate-400">لا توجد مدارس مطابقة.</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 p-4">
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="text-sm font-black text-slate-800"><i class="fas fa-user-tie ml-2 text-violet-600"></i>الحسابات</h3>
+            <a href="{% url 'dashboard:system_users_list' %}?q={{ global_query|urlencode }}&role=all" class="text-xs font-bold text-blue-600">عرض الكل</a>
+          </div>
+          <div class="space-y-2">
+            {% for user in search_results.users %}
+              <a href="{% url 'dashboard:system_user_edit' user.pk %}" class="block rounded-lg bg-slate-50 px-3 py-2 hover:bg-violet-50">
+                <span class="block text-xs font-bold text-slate-800">{{ user.get_full_name|default:user.username }}</span>
+                <span class="text-[10px] text-slate-400">{{ user.email|default:"بدون بريد" }}</span>
+              </a>
+            {% empty %}
+              <p class="py-5 text-center text-xs text-slate-400">لا توجد حسابات مطابقة.</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 p-4">
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="text-sm font-black text-slate-800"><i class="fas fa-credit-card ml-2 text-emerald-600"></i>الاشتراكات</h3>
+            <a href="{% url 'dashboard:system_subscriptions_list' %}?q={{ global_query|urlencode }}" class="text-xs font-bold text-blue-600">عرض الكل</a>
+          </div>
+          <div class="space-y-2">
+            {% for subscription in search_results.subscriptions %}
+              <a href="{% url 'dashboard:system_subscription_edit' subscription.pk %}" class="block rounded-lg bg-slate-50 px-3 py-2 hover:bg-emerald-50">
+                <span class="block text-xs font-bold text-slate-800">{{ subscription.school.name }}</span>
+                <span class="text-[10px] text-slate-400">{{ subscription.plan.name }}</span>
+              </a>
+            {% empty %}
+              <p class="py-5 text-center text-xs text-slate-400">لا توجد اشتراكات مطابقة.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4" aria-label="مؤشرات المنصة">
+    <a href="{% url 'dashboard:system_schools_list' %}" class="admin-metric-card" style="--metric-color:#2563eb">
+      <div class="flex items-start justify-between">
+        <span class="admin-metric-icon"><i class="fas fa-school"></i></span>
+        <span class="admin-status admin-status-success">{{ active_schools_count }} نشطة</span>
+      </div>
+      <p class="admin-metric-value">{{ schools_count }}</p>
+      <p class="admin-metric-label">مدرسة في المنصة</p>
+      <p class="admin-metric-note">{{ inactive_schools_count }} مدرسة موقوفة</p>
+    </a>
+
+    <a href="{% url 'dashboard:system_users_list' %}" class="admin-metric-card" style="--metric-color:#7c3aed">
+      <div class="flex items-start justify-between">
+        <span class="admin-metric-icon"><i class="fas fa-user-tie"></i></span>
+        {% if unassigned_users_count %}
+          <span class="admin-status admin-status-warning">{{ unassigned_users_count }} بلا مدرسة</span>
+        {% else %}
+          <span class="admin-status admin-status-success">مكتملة</span>
+        {% endif %}
+      </div>
+      <p class="admin-metric-value">{{ managers_count }}</p>
+      <p class="admin-metric-label">مدير مدرسة</p>
+      <p class="admin-metric-note">{{ users_count }} حساباً إجمالاً</p>
+    </a>
+
+    <a href="{% url 'dashboard:system_subscriptions_list' %}" class="admin-metric-card" style="--metric-color:#059669">
+      <div class="flex items-start justify-between">
+        <span class="admin-metric-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+        {% if expiring_subs_count %}
+          <span class="admin-status admin-status-warning">{{ expiring_subs_count }} تنتهي قريباً</span>
+        {% else %}
+          <span class="admin-status admin-status-success">مستقرة</span>
+        {% endif %}
+      </div>
+      <p class="admin-metric-value">{{ subscriptions_count }}</p>
+      <p class="admin-metric-label">اشتراكاً سارياً</p>
+      <p class="admin-metric-note">{{ revenue }} ر.س قيمة الباقات النشطة</p>
+    </a>
+
+    <a href="{% url 'dashboard:system_schools_list' %}?screen=online" class="admin-metric-card" style="--metric-color:#0891b2">
+      <div class="flex items-start justify-between">
+        <span class="admin-metric-icon"><i class="fas fa-display"></i></span>
+        <span class="admin-status {% if live_screens_count %}admin-status-success{% else %}admin-status-muted{% endif %}">
+          {{ live_screens_count }} متصلة
+        </span>
+      </div>
+      <p class="admin-metric-value">{{ total_screens_count }}</p>
+      <p class="admin-metric-label">شاشة مفعلة</p>
+      <p class="admin-metric-note">الاتصال خلال آخر دقيقتين</p>
+    </a>
+  </section>
+
+  <section class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+    <div class="xl:col-span-2 admin-panel">
+      <div class="admin-panel-header">
+        <div>
+          <h2 class="text-base font-black text-slate-900">الإجراءات الأكثر استخداماً</h2>
+          <p class="mt-1 text-xs text-slate-500">اختصارات مرتبة حسب دورة عمل المدرسة.</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
+        {% if not is_support_staff %}
+          <a href="{% url 'dashboard:system_school_create' %}" class="admin-quick-link">
+            <span class="admin-metric-icon" style="--metric-color:#2563eb"><i class="fas fa-school-circle-check"></i></span>
+            <span><strong class="block text-sm text-slate-800">إضافة مدرسة</strong><small class="text-[11px] text-slate-500">إنشاء المدرسة وبياناتها</small></span>
+          </a>
+          <a href="{% url 'dashboard:system_user_create' %}" class="admin-quick-link">
+            <span class="admin-metric-icon" style="--metric-color:#7c3aed"><i class="fas fa-user-plus"></i></span>
+            <span><strong class="block text-sm text-slate-800">إضافة مدير</strong><small class="text-[11px] text-slate-500">ربطه بمدرسة وصلاحيات</small></span>
+          </a>
+          <a href="{% url 'dashboard:system_subscription_create' %}" class="admin-quick-link">
+            <span class="admin-metric-icon" style="--metric-color:#059669"><i class="fas fa-file-circle-plus"></i></span>
+            <span><strong class="block text-sm text-slate-800">تفعيل اشتراك</strong><small class="text-[11px] text-slate-500">اختيار المدرسة والباقة</small></span>
+          </a>
+          <a href="{% url 'dashboard:system_plans_list' %}" class="admin-quick-link">
+            <span class="admin-metric-icon" style="--metric-color:#4f46e5"><i class="fas fa-tags"></i></span>
+            <span><strong class="block text-sm text-slate-800">إدارة الباقات</strong><small class="text-[11px] text-slate-500">الأسعار والحدود والمدد</small></span>
+          </a>
+        {% endif %}
+        <a href="{% url 'dashboard:system_subscription_requests_list' %}" class="admin-quick-link">
+          <span class="admin-metric-icon" style="--metric-color:#e11d48"><i class="fas fa-receipt"></i></span>
+          <span><strong class="block text-sm text-slate-800">مراجعة الطلبات</strong><small class="text-[11px] text-slate-500">{{ open_subscription_requests }} بانتظار الإجراء</small></span>
+        </a>
+        <a href="{% url 'dashboard:system_support_tickets' %}" class="admin-quick-link">
+          <span class="admin-metric-icon" style="--metric-color:#d97706"><i class="fas fa-headset"></i></span>
+          <span><strong class="block text-sm text-slate-800">تذاكر الدعم</strong><small class="text-[11px] text-slate-500">{{ admin_new_support_tickets_count }} تذكرة مفتوحة</small></span>
         </a>
       </div>
     </div>
-  </div>
 
+    <aside class="admin-panel">
+      <div class="admin-panel-header">
+        <div>
+          <h2 class="text-base font-black text-slate-900">تحتاج إلى انتباهك</h2>
+          <p class="mt-1 text-xs text-slate-500">أهم العناصر التي قد تعطل الخدمة أو البيع.</p>
+        </div>
+      </div>
+      <div class="px-4">
+        <a href="{% url 'dashboard:system_subscription_requests_list' %}?status=submitted" class="admin-alert-item">
+          <span class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center"><i class="fas fa-receipt"></i></span>
+          <span class="flex-1"><strong class="block text-xs text-slate-800">طلبات بانتظار المراجعة</strong><small class="text-[11px] text-slate-500">{{ open_subscription_requests }} طلباً</small></span>
+          <strong class="text-sm text-rose-600">{{ open_subscription_requests }}</strong>
+        </a>
+        <a href="{% url 'dashboard:system_subscriptions_list' %}?status=expiring" class="admin-alert-item">
+          <span class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center"><i class="fas fa-hourglass-half"></i></span>
+          <span class="flex-1"><strong class="block text-xs text-slate-800">تنتهي خلال 30 يوماً</strong><small class="text-[11px] text-slate-500">تواصل قبل توقف الخدمة</small></span>
+          <strong class="text-sm text-amber-600">{{ expiring_subs_count }}</strong>
+        </a>
+        <a href="{% url 'dashboard:system_schools_list' %}?state=active" class="admin-alert-item">
+          <span class="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center"><i class="fas fa-link-slash"></i></span>
+          <span class="flex-1"><strong class="block text-xs text-slate-800">مدارس بلا اشتراك سارٍ</strong><small class="text-[11px] text-slate-500">تحتاج تفعيل أو مراجعة</small></span>
+          <strong class="text-sm text-violet-600">{{ schools_without_subscription_count }}</strong>
+        </a>
+        <a href="{% url 'dashboard:system_users_list' %}?role=unassigned" class="admin-alert-item">
+          <span class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><i class="fas fa-user-slash"></i></span>
+          <span class="flex-1"><strong class="block text-xs text-slate-800">مدراء غير مرتبطين</strong><small class="text-[11px] text-slate-500">لن تظهر لهم مدرسة</small></span>
+          <strong class="text-sm text-blue-600">{{ unassigned_users_count }}</strong>
+        </a>
+      </div>
+    </aside>
+  </section>
+
+  <section class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+    <div class="admin-panel">
+      <div class="admin-panel-header">
+        <div>
+          <h2 class="text-base font-black text-slate-900">اشتراكات تنتهي قريباً</h2>
+          <p class="mt-1 text-xs text-slate-500">مرتبة حسب أقرب تاريخ انتهاء.</p>
+        </div>
+        <a href="{% url 'dashboard:system_subscriptions_list' %}?status=expiring" class="text-xs font-black text-blue-600">عرض الكل</a>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table" style="min-width:38rem">
+          <thead><tr><th>المدرسة</th><th>الباقة</th><th>الانتهاء</th><th></th></tr></thead>
+          <tbody>
+            {% for subscription in expiring_subscriptions %}
+              <tr>
+                <td class="font-bold text-slate-900">{{ subscription.school.name }}</td>
+                <td>{{ subscription.plan.name }}</td>
+                <td><span class="admin-status admin-status-warning">{{ subscription.ends_at|date:"Y-m-d" }}</span></td>
+                <td><a href="{% url 'dashboard:system_subscription_edit' subscription.pk %}" class="text-xs font-black text-blue-600">تجديد</a></td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4"><div class="admin-empty"><i class="fas fa-circle-check mb-2 text-2xl text-emerald-500"></i><p>لا توجد اشتراكات قريبة الانتهاء.</p></div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="admin-panel">
+      <div class="admin-panel-header">
+        <div>
+          <h2 class="text-base font-black text-slate-900">أحدث المدارس</h2>
+          <p class="mt-1 text-xs text-slate-500">تحقق من اكتمال المدير والشاشات بعد الإضافة.</p>
+        </div>
+        <a href="{% url 'dashboard:system_schools_list' %}" class="text-xs font-black text-blue-600">عرض الكل</a>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table" style="min-width:38rem">
+          <thead><tr><th>المدرسة</th><th>المدراء</th><th>الشاشات</th><th></th></tr></thead>
+          <tbody>
+            {% for school in recent_schools %}
+              <tr>
+                <td><strong class="block text-slate-900">{{ school.name }}</strong><small class="text-[10px] text-slate-400">{{ school.created_at|date:"Y-m-d" }}</small></td>
+                <td>{{ school.managers_total }}</td>
+                <td>{{ school.screens_total }}</td>
+                <td><a href="{% url 'dashboard:system_school_edit' school.pk %}" class="text-xs font-black text-blue-600">فتح</a></td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4"><div class="admin-empty">لا توجد مدارس بعد.</div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 </div>
-
 {% endblock %}

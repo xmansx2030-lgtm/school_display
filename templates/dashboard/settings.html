@@ -6,53 +6,69 @@
 {% block page_description %}تخصيص هوية العرض، الأمان، وخيارات النظام{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto pb-8 md:pb-12 dashboard-settings">
-    <div class="settings-tabs mb-5 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-1.5" role="tablist" aria-label="أقسام إعدادات المدرسة">
-        <button type="button" id="settings-tab-appearance" class="settings-tab-btn is-active" data-settings-tab="appearance" role="tab" aria-selected="true" aria-controls="settings-panel-appearance">المظهر</button>
-        <button type="button" id="settings-tab-copy" class="settings-tab-btn" data-settings-tab="copy" role="tab" aria-selected="false" aria-controls="settings-panel-copy">نصوص الشاشة</button>
-        <button type="button" id="settings-tab-runtime" class="settings-tab-btn" data-settings-tab="runtime" role="tab" aria-selected="false" aria-controls="settings-panel-runtime">التحديث</button>
-        <button type="button" id="settings-tab-security" class="settings-tab-btn" data-settings-tab="security" role="tab" aria-selected="false" aria-controls="settings-panel-security">الأمان</button>
-    </div>
+<div class="max-w-6xl mx-auto pb-8 md:pb-12 dashboard-settings" data-initial-settings-tab="{{ initial_settings_tab|default:'appearance' }}">
+    <section class="settings-hero" aria-labelledby="settingsHeroTitle">
+        <div class="settings-hero-copy">
+            <span class="settings-eyebrow">مركز تخصيص العرض</span>
+            <h2 id="settingsHeroTitle">اضبط هوية شاشة {{ school.name }}</h2>
+            <p>غيّر الشعار والألوان والنصوص وسرعة العرض من مكان واحد. تنعكس التغييرات على شاشات المدرسة بعد الحفظ.</p>
+        </div>
+        <div class="settings-hero-actions">
+            {% if display_preview_url %}
+                <a href="{{ display_preview_url }}" target="_blank" rel="noopener" class="settings-preview-btn">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                    <span>معاينة شاشة المدرسة</span>
+                </a>
+            {% endif %}
+            <span class="settings-save-state" data-save-state aria-live="polite"><i></i> كل التغييرات محفوظة</span>
+        </div>
+    </section>
+
+    <div class="settings-tabs" role="tablist" aria-label="أقسام إعدادات المدرسة">
+        <button type="button" id="settings-tab-appearance" class="settings-tab-btn is-active" data-settings-tab="appearance" role="tab" aria-selected="true" aria-controls="settings-panel-appearance">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3a9 9 0 1 0 0 18h1.4a1.6 1.6 0 0 0 .2-3.2h-.7a1.9 1.9 0 0 1-1.9-1.9v-.2a1.9 1.9 0 0 1 1.9-1.9H16A5 5 0 0 0 21 9c0-3.3-4-6-9-6Z"/><path stroke-linecap="round" d="M7.5 10h.01M9.5 6.8h.01M14 6.5h.01M17.2 9h.01"/></svg>
+            <span>الهوية والمظهر</span>
+        </button>
+        <button type="button" id="settings-tab-copy" class="settings-tab-btn" data-settings-tab="copy" role="tab" aria-selected="false" aria-controls="settings-panel-copy">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>
+            <span>رسائل الشاشة</span>
+        </button>
+        <button type="button" id="settings-tab-runtime" class="settings-tab-btn" data-settings-tab="runtime" role="tab" aria-selected="false" aria-controls="settings-panel-runtime">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 12h16M8 7v10M16 9v6"/></svg>
+            <span>سرعة العرض</span>
+        </button>
+        <button type="button" id="settings-tab-security" class="settings-tab-btn" data-settings-tab="security" role="tab" aria-selected="false" aria-controls="settings-panel-security">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3 5 6v5c0 4.8 2.8 8.1 7 10 4.2-1.9 7-5.2 7-10V6l-7-3Z"/><path stroke-linecap="round" d="m9.5 12 1.6 1.6 3.6-3.8"/></svg>
+            <span>الأمان</span>
+                  </div>
 
     <!-- Security Card -->
-    <div id="settings-panel-security" class="dashboard-section-card dashboard-spotlight bg-white rounded-xl border border-slate-200 p-4 md:p-6 mb-5 md:mb-6 hidden" data-settings-tab-panel="security" role="tabpanel" aria-labelledby="settings-tab-security" tabindex="0">
-        <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div class="flex items-start gap-4">
-                <div class="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
-                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                </div>
-                <div>
-                    <h2 class="text-base font-bold text-slate-800">الأمان والحماية</h2>
-                    <p class="text-sm text-slate-500">احمِ الحساب بكلمة مرور قوية وتحقق ثنائي من تطبيق المصادقة.</p>
-                    <p class="mt-2 text-xs font-bold {% if two_factor_enabled %}text-emerald-700{% else %}text-amber-700{% endif %}">
-                        المصادقة الثنائية: {% if two_factor_enabled %}مفعلة{% else %}غير مفعلة{% endif %}
-                    </p>
-                </div>
-            </div>
-            <div class="flex w-full md:w-auto flex-col sm:flex-row gap-2">
-                <a href="{% url 'dashboard:two_factor_setup' %}"
-                   class="w-full md:w-auto justify-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs md:text-sm rounded-lg transition flex items-center gap-2">
-                    <span>{% if two_factor_enabled %}عرض المصادقة الثنائية{% else %}تفعيل المصادقة الثنائية{% endif %}</span>
-                </a>
-                <a href="{% url 'dashboard:change_password' %}?next={% url 'dashboard:settings' %}"
-                   class="w-full md:w-auto justify-center px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs md:text-sm rounded-lg transition flex items-center gap-2">
-                    <span>تغيير كلمة المرور</span>
-                </a>
-            </div>
+    <section id="settings-panel-security" class="settings-security-panel hidden" data-settings-tab-panel="security" role="tabpanel" aria-labelledby="settings-tab-security" tabindex="0">
+        <div class="settings-section-heading">
+            <div><span>حماية الحساب</span><h3>إعدادات الدخول والأمان</h3></div>
+            <p>راجع وسائل حماية الحساب المسؤول عن إدارة شاشات المدرسة.</p>
         </div>
-    </div>
+        <div class="settings-security-grid">
+            <article class="settings-security-card {% if two_factor_enabled %}is-secure{% endif %}">
+                <div class="settings-card-icon"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3 5 6v5c0 4.8 2.8 8.1 7 10 4.2-1.9 7-5.2 7-10V6l-7-3Z"/><path stroke-linecap="round" d="m9.5 12 1.6 1.6 3.6-3.8"/></svg></div>
+                <div class="settings-security-copy">
+                    <span class="settings-status-pill {% if two_factor_enabled %}is-on{% else %}is-off{% endif %}">{% if two_factor_enabled %}مفعلة{% else %}موصى بها{% endif %}</span>
+                    <h4>المصادقة الثنائية</h4>
+                    <p>تضيف رمزًا متغيرًا من تطبيق المصادقة بعد كلمة المرور.</p>
+                </div>
+                <a href="{% url 'dashboard:two_factor_setup' %}" class="settings-card-action">{% if two_factor_enabled %}إدارة المصادقة الثنائية{% else %}تفعيل المصادقة الثنائية{% endif %}</a>
+            </article>
+            <article class="settings-security-card">
+                <div class="settings-card-icon"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="10" width="16" height="10" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg></div>
+                <div class="settings-security-copy"><span class="settings-status-pill is-neutral">حساب المدير</span><h4>كلمة المرور</h4><p>استخدم كلمة مرور فريدة وطويلة، وحدّثها عند تغير مسؤول النظام.</p></div>
+                <a href="{% url 'dashboard:change_password' %}?next={% url 'dashboard:settings' %}" class="settings-card-action is-dark">تغيير كلمة المرور</a>
+            </article>
+        </div>
+    </section>
 
     <!-- Main Settings Form -->
-    <div class="dashboard-form-shell bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" data-settings-form-shell>
-        <div class="px-4 py-3.5 md:px-6 md:py-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <svg class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                إعدادات العرض والنظام
-            </h3>
-            <span class="text-[10px] font-bold px-3 py-1 rounded-full bg-slate-50 text-slate-400 border border-slate-200">الإعدادات العامة</span>
-        </div>
-
-        <form method="post" enctype="multipart/form-data" id="settingsForm" class="relative p-4 md:p-6 lg:p-8" novalidate>
+    <div class="dashboard-form-shell settings-form-shell" data-settings-form-shell>
+        <form method="post" enctype="multipart/form-data" id="settingsForm" class="relative" novalidate>
             {% csrf_token %}
             
             {% if form.non_field_errors %}
@@ -70,24 +86,30 @@
 
             <div class="space-y-6">
                 <section id="settings-panel-appearance" data-settings-tab-panel="appearance" class="settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-appearance" tabindex="0">
+                    <div class="settings-section-heading">
+                        <div><span>الهوية البصرية</span><h3>كيف تظهر مدرستك على الشاشة؟</h3></div>
+                        <p>اختر الشعار واللون والمحتوى البارز. يمكنك فتح المعاينة قبل أو بعد الحفظ.</p>
+                    </div>
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
-                        <div class="group relative">
-                            <label for="{{ form.logo.id_for_label }}" class="text-sm font-bold text-slate-600 mb-2 flex items-center justify-between">
-                                <span>اسم المدرسة</span>
-                            </label>
-                            <div class="dashboard-control-surface flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3.5 text-sm">
-                                <span class="font-bold text-slate-800">{{ school.name }}</span>
-                                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">للعرض فقط</span>
+                        <div class="settings-identity-card">
+                            <div class="settings-logo-preview" data-logo-preview>
+                                {% if form.instance.logo %}
+                                    <img src="{{ form.instance.logo.url }}" alt="شعار {{ school.name }} الحالي">
+                                {% else %}
+                                    <span>{{ school.name|slice:':1' }}</span>
+                                {% endif %}
                             </div>
-                        </div>
-
-                        <div class="group relative">
-                            <label class="text-sm font-bold text-slate-600 mb-2 flex items-center justify-between">
-                                <span>{{ form.logo.label }}</span>
-                            </label>
-                            {{ form.logo }}
-                            {% if form.logo.help_text %}<p class="mt-2 text-xs text-slate-400">{{ form.logo.help_text }}</p>{% endif %}
-                            {% if form.logo.errors %}<div class="mt-2 text-sm text-rose-600 font-bold bg-rose-50 px-3 py-1 rounded-lg inline-block">{% for error in form.logo.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            <div class="settings-identity-copy">
+                                <span>اسم المدرسة</span>
+                                <strong>{{ school.name }}</strong>
+                                <small>يظهر الاسم والشعار في شاشة العرض</small>
+                            </div>
+                            <div class="settings-logo-upload">
+                                <label for="{{ form.logo.id_for_label }}">{{ form.logo.label }}</label>
+                                {{ form.logo }}
+                                <p id="logoHelp">PNG أو JPG أو WebP، ويفضل شعار مربع بخلفية شفافة.</p>
+                                {% if form.logo.errors %}<div class="settings-field-error" role="alert">{% for error in form.logo.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
                         </div>
 
                         <!-- Featured Card Selector -->
@@ -102,7 +124,7 @@
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                                 </div>
                             </div>
-                            <p class="text-xs text-slate-400 mt-3 font-medium">اختر المحتوى الذي سيظهر في المساحة الكبيرة على الشاشة.</p>
+                            <p id="{{ form.featured_panel.id_for_label }}_helptext" class="text-xs text-slate-400 mt-3 font-medium">اختر المحتوى الذي سيظهر في المساحة الكبيرة على الشاشة.</p>
                         </div>
                         
                         <!-- Theme Colors Selector (Visual) -->
@@ -118,49 +140,49 @@
                                 {% comment "Theme options definitions" %} {% endcomment %}
                                 <!-- Indigo -->
                                 <button type="button" class="w-12 h-12 md:w-14 md:h-14 rounded-2xl transition-all duration-200 focus:outline-none ring-offset-2 hover:scale-105 flex items-center justify-center relative shadow-sm"
-                                        data-theme="indigo" data-hex="#6366F1" style="background: #e0e7ff; color: #4338ca;" title="نيلي - Indigo">
+                                        data-theme="indigo" data-hex="#6366F1" style="background: #e0e7ff; color: #4338ca;" title="نيلي" aria-label="اختيار اللون النيلي" aria-pressed="false">
                                     <div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-[#6366F1] shadow-lg shadow-indigo-500/40"></div>
                                         <div class="absolute inset-0 rounded-2xl ring-2 ring-indigo-500 opacity-0 scale-90 transition-all data-[selected=true]:opacity-100 data-[selected=true]:scale-100 pointer-events-none border-selection"></div>
                                 </button>
                                 
                                 <!-- Emerald -->
                                 <button type="button" class="w-12 h-12 md:w-14 md:h-14 rounded-2xl transition-all duration-200 focus:outline-none ring-offset-2 hover:scale-105 flex items-center justify-center relative shadow-sm"
-                                        data-theme="emerald" data-hex="#22C55E" style="background: #dcfce7; color: #15803d;" title="أخضر - Emerald">
+                                        data-theme="emerald" data-hex="#22C55E" style="background: #dcfce7; color: #15803d;" title="أخضر" aria-label="اختيار اللون الأخضر" aria-pressed="false">
                                     <div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-[#22C55E] shadow-lg shadow-emerald-500/40"></div>
                                         <div class="absolute inset-0 rounded-2xl ring-2 ring-emerald-500 opacity-0 scale-90 transition-all data-[selected=true]:opacity-100 data-[selected=true]:scale-100 pointer-events-none border-selection"></div>
                                 </button>
                                 
                                 <!-- Rose -->
                                 <button type="button" class="w-12 h-12 md:w-14 md:h-14 rounded-2xl transition-all duration-200 focus:outline-none ring-offset-2 hover:scale-105 flex items-center justify-center relative shadow-sm"
-                                        data-theme="rose" data-hex="#EC4899" style="background: #fce7f3; color: #be185d;" title="وردي - Rose">
+                                        data-theme="rose" data-hex="#EC4899" style="background: #fce7f3; color: #be185d;" title="وردي" aria-label="اختيار اللون الوردي" aria-pressed="false">
                                     <div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-[#EC4899] shadow-lg shadow-rose-500/40"></div>
                                         <div class="absolute inset-0 rounded-2xl ring-2 ring-rose-500 opacity-0 scale-90 transition-all data-[selected=true]:opacity-100 data-[selected=true]:scale-100 pointer-events-none border-selection"></div>
                                 </button>
                                 
                                 <!-- Cyan -->
                                 <button type="button" class="w-12 h-12 md:w-14 md:h-14 rounded-2xl transition-all duration-200 focus:outline-none ring-offset-2 hover:scale-105 flex items-center justify-center relative shadow-sm"
-                                        data-theme="cyan" data-hex="#06B6D4" style="background: #cffafe; color: #0e7490;" title="سماوي - Cyan">
+                                        data-theme="cyan" data-hex="#06B6D4" style="background: #cffafe; color: #0e7490;" title="سماوي" aria-label="اختيار اللون السماوي" aria-pressed="false">
                                     <div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-[#06B6D4] shadow-lg shadow-cyan-500/40"></div>
                                         <div class="absolute inset-0 rounded-2xl ring-2 ring-cyan-500 opacity-0 scale-90 transition-all data-[selected=true]:opacity-100 data-[selected=true]:scale-100 pointer-events-none border-selection"></div>
                                 </button>
                                 
                                 <!-- Amber -->
                                 <button type="button" class="w-12 h-12 md:w-14 md:h-14 rounded-2xl transition-all duration-200 focus:outline-none ring-offset-2 hover:scale-105 flex items-center justify-center relative shadow-sm"
-                                        data-theme="amber" data-hex="#EAB308" style="background: #fef3c7; color: #b45309;" title="أصفر - Amber">
+                                        data-theme="amber" data-hex="#EAB308" style="background: #fef3c7; color: #b45309;" title="ذهبي" aria-label="اختيار اللون الذهبي" aria-pressed="false">
                                     <div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-[#EAB308] shadow-lg shadow-amber-500/40"></div>
                                         <div class="absolute inset-0 rounded-2xl ring-2 ring-amber-500 opacity-0 scale-90 transition-all data-[selected=true]:opacity-100 data-[selected=true]:scale-100 pointer-events-none border-selection"></div>
                                 </button>
                                 
                                 <!-- Orange -->
                                 <button type="button" class="w-12 h-12 md:w-14 md:h-14 rounded-2xl transition-all duration-200 focus:outline-none ring-offset-2 hover:scale-105 flex items-center justify-center relative shadow-sm"
-                                        data-theme="orange" data-hex="#F97316" style="background: #ffedd5; color: #c2410c;" title="برتقالي - Orange">
+                                        data-theme="orange" data-hex="#F97316" style="background: #ffedd5; color: #c2410c;" title="برتقالي" aria-label="اختيار اللون البرتقالي" aria-pressed="false">
                                     <div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-[#F97316] shadow-lg shadow-orange-500/40"></div>
                                         <div class="absolute inset-0 rounded-2xl ring-2 ring-orange-500 opacity-0 scale-90 transition-all data-[selected=true]:opacity-100 data-[selected=true]:scale-100 pointer-events-none border-selection"></div>
                                 </button>
 
                                 <!-- Violet -->
                                 <button type="button" class="w-12 h-12 md:w-14 md:h-14 rounded-2xl transition-all duration-200 focus:outline-none ring-offset-2 hover:scale-105 flex items-center justify-center relative shadow-sm"
-                                        data-theme="violet" data-hex="#A855F7" style="background: #f3e8ff; color: #7e22ce;" title="بنفسجي - Violet">
+                                        data-theme="violet" data-hex="#A855F7" style="background: #f3e8ff; color: #7e22ce;" title="بنفسجي" aria-label="اختيار اللون البنفسجي" aria-pressed="false">
                                     <div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-[#A855F7] shadow-lg shadow-violet-500/40"></div>
                                         <div class="absolute inset-0 rounded-2xl ring-2 ring-violet-500 opacity-0 scale-90 transition-all data-[selected=true]:opacity-100 data-[selected=true]:scale-100 pointer-events-none border-selection"></div>
                                 </button>
@@ -183,33 +205,50 @@
                 </section>
 
                 <section id="settings-panel-copy" data-settings-tab-panel="copy" class="settings-tab-panel hidden" role="tabpanel" aria-labelledby="settings-tab-copy" tabindex="0">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        {% for field in form %}
-                            {% if field.name == 'display_before_title' or field.name == 'display_before_badge' or field.name == 'display_after_title' or field.name == 'display_after_badge' or field.name == 'display_after_holiday_title' or field.name == 'display_after_holiday_badge' or field.name == 'display_holiday_title' or field.name == 'display_holiday_badge' %}
-                                <div class="group relative">
-                                    <label for="{{ field.id_for_label }}" class="text-sm font-bold text-slate-600 mb-2 flex items-center justify-between">
-                                        <span>{{ field.label }}</span>
-                                    </label>
-                                    {{ field }}
-                                    {% if field.help_text %}<p class="mt-2 text-xs text-slate-400">{{ field.help_text }}</p>{% endif %}
-                                    {% if field.errors %}<div class="mt-2 text-sm text-rose-600 font-bold bg-rose-50 px-3 py-1 rounded-lg inline-block">{% for error in field.errors %}{{ error }}{% endfor %}</div>{% endif %}
-                                </div>
-                            {% endif %}
-                        {% endfor %}
+                    <div class="settings-section-heading">
+                        <div><span>رسائل تلقائية</span><h3>ماذا تعرض الشاشة خارج وقت الحصص؟</h3></div>
+                        <p>خصص عنوانًا رئيسيًا وشارة قصيرة لكل حالة. اجعل النص واضحًا وقابلًا للقراءة من مسافة.</p>
+                    </div>
+                    <div class="settings-copy-grid">
+                        <article class="settings-copy-card">
+                            <div class="settings-copy-card-head"><span class="settings-scenario-icon is-before">01</span><div><h4>قبل بداية الدوام</h4><p>الرسالة الترحيبية قبل أول حصة.</p></div></div>
+                            <div class="settings-field"><label for="{{ form.display_before_title.id_for_label }}">العنوان الرئيسي</label>{{ form.display_before_title }}{% if form.display_before_title.help_text %}<p id="{{ form.display_before_title.id_for_label }}_helptext">{{ form.display_before_title.help_text }}</p>{% endif %}{% if form.display_before_title.errors %}<div class="settings-field-error" role="alert">{% for error in form.display_before_title.errors %}{{ error }}{% endfor %}</div>{% endif %}</div>
+                            <div class="settings-field"><label for="{{ form.display_before_badge.id_for_label }}">الشارة القصيرة</label>{{ form.display_before_badge }}{% if form.display_before_badge.help_text %}<p id="{{ form.display_before_badge.id_for_label }}_helptext">{{ form.display_before_badge.help_text }}</p>{% endif %}{% if form.display_before_badge.errors %}<div class="settings-field-error" role="alert">{% for error in form.display_before_badge.errors %}{{ error }}{% endfor %}</div>{% endif %}</div>
+                        </article>
+                        <article class="settings-copy-card">
+                            <div class="settings-copy-card-head"><span class="settings-scenario-icon is-after">02</span><div><h4>بعد انتهاء الدوام</h4><p>رسالة الختام في يوم دراسي عادي.</p></div></div>
+                            <div class="settings-field"><label for="{{ form.display_after_title.id_for_label }}">العنوان الرئيسي</label>{{ form.display_after_title }}{% if form.display_after_title.help_text %}<p id="{{ form.display_after_title.id_for_label }}_helptext">{{ form.display_after_title.help_text }}</p>{% endif %}{% if form.display_after_title.errors %}<div class="settings-field-error" role="alert">{% for error in form.display_after_title.errors %}{{ error }}{% endfor %}</div>{% endif %}</div>
+                            <div class="settings-field"><label for="{{ form.display_after_badge.id_for_label }}">الشارة القصيرة</label>{{ form.display_after_badge }}{% if form.display_after_badge.help_text %}<p id="{{ form.display_after_badge.id_for_label }}_helptext">{{ form.display_after_badge.help_text }}</p>{% endif %}{% if form.display_after_badge.errors %}<div class="settings-field-error" role="alert">{% for error in form.display_after_badge.errors %}{{ error }}{% endfor %}</div>{% endif %}</div>
+                        </article>
+                        <article class="settings-copy-card">
+                            <div class="settings-copy-card-head"><span class="settings-scenario-icon is-holiday">03</span><div><h4>بعد الدوام قبل إجازة</h4><p>تظهر عندما يكون اليوم التالي إجازة.</p></div></div>
+                            <div class="settings-field"><label for="{{ form.display_after_holiday_title.id_for_label }}">العنوان الرئيسي</label>{{ form.display_after_holiday_title }}{% if form.display_after_holiday_title.help_text %}<p id="{{ form.display_after_holiday_title.id_for_label }}_helptext">{{ form.display_after_holiday_title.help_text }}</p>{% endif %}{% if form.display_after_holiday_title.errors %}<div class="settings-field-error" role="alert">{% for error in form.display_after_holiday_title.errors %}{{ error }}{% endfor %}</div>{% endif %}</div>
+                            <div class="settings-field"><label for="{{ form.display_after_holiday_badge.id_for_label }}">الشارة القصيرة</label>{{ form.display_after_holiday_badge }}{% if form.display_after_holiday_badge.help_text %}<p id="{{ form.display_after_holiday_badge.id_for_label }}_helptext">{{ form.display_after_holiday_badge.help_text }}</p>{% endif %}{% if form.display_after_holiday_badge.errors %}<div class="settings-field-error" role="alert">{% for error in form.display_after_holiday_badge.errors %}{{ error }}{% endfor %}</div>{% endif %}</div>
+                        </article>
+                        <article class="settings-copy-card">
+                            <div class="settings-copy-card-head"><span class="settings-scenario-icon is-dayoff">04</span><div><h4>يوم الإجازة</h4><p>الرسالة المعروضة طوال يوم الإجازة.</p></div></div>
+                            <div class="settings-field"><label for="{{ form.display_holiday_title.id_for_label }}">العنوان الرئيسي</label>{{ form.display_holiday_title }}{% if form.display_holiday_title.help_text %}<p id="{{ form.display_holiday_title.id_for_label }}_helptext">{{ form.display_holiday_title.help_text }}</p>{% endif %}{% if form.display_holiday_title.errors %}<div class="settings-field-error" role="alert">{% for error in form.display_holiday_title.errors %}{{ error }}{% endfor %}</div>{% endif %}</div>
+                            <div class="settings-field"><label for="{{ form.display_holiday_badge.id_for_label }}">الشارة القصيرة</label>{{ form.display_holiday_badge }}{% if form.display_holiday_badge.help_text %}<p id="{{ form.display_holiday_badge.id_for_label }}_helptext">{{ form.display_holiday_badge.help_text }}</p>{% endif %}{% if form.display_holiday_badge.errors %}<div class="settings-field-error" role="alert">{% for error in form.display_holiday_badge.errors %}{{ error }}{% endfor %}</div>{% endif %}</div>
+                        </article>
                     </div>
                 </section>
 
                 <section id="settings-panel-runtime" data-settings-tab-panel="runtime" class="settings-tab-panel hidden" role="tabpanel" aria-labelledby="settings-tab-runtime" tabindex="0">
+                    <div class="settings-section-heading">
+                        <div><span>حركة المحتوى</span><h3>وازن بين السرعة وسهولة القراءة</h3></div>
+                        <p>ابدأ بالقيم المقترحة، ثم راقب النتيجة من شاشة المعاينة قبل اعتمادها.</p>
+                    </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                         <!-- Standby Speed -->
                         <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group">
                              <label for="{{ form.standby_scroll_speed.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-3">{{ form.standby_scroll_speed.label }}</label>
                              <div class="relative">
                                 {{ form.standby_scroll_speed }}
-                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold bg-slate-100/50 px-2 rounded">1x</span>
+                                <output id="standbyValue" for="{{ form.standby_scroll_speed.id_for_label }}" class="settings-speed-value">{{ form.standby_scroll_speed.value|default:'0.8' }}x</output>
                              </div>
-                             <p class="mt-3 text-xs text-slate-400 font-medium leading-relaxed">سرعة تحرك شريط الانتظار. القيم الأعلى تعني حركة أسرع.</p>
+                             <p id="{{ form.standby_scroll_speed.id_for_label }}_helptext" class="mt-3 text-xs text-slate-400 font-medium leading-relaxed">سرعة تحرك شريط الانتظار. القيمة المقترحة من 0.5 إلى 1.2.</p>
                              <div id="standbyWarn" class="hidden mt-2 text-xs text-rose-600 font-bold bg-rose-50 p-2 rounded-lg">القيمة لا تقل عن 0.5</div>
+                             {% if form.standby_scroll_speed.errors %}<div class="settings-field-error" role="alert">{% for error in form.standby_scroll_speed.errors %}{{ error }}{% endfor %}</div>{% endif %}
                         </div>
 
                         <!-- Periods Speed -->
@@ -217,17 +256,18 @@
                              <label for="{{ form.periods_scroll_speed.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-3">{{ form.periods_scroll_speed.label }}</label>
                              <div class="relative">
                                 {{ form.periods_scroll_speed }}
-                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold bg-slate-100/50 px-2 rounded">1x</span>
+                                <output id="periodsValue" for="{{ form.periods_scroll_speed.id_for_label }}" class="settings-speed-value">{{ form.periods_scroll_speed.value|default:'0.5' }}x</output>
                              </div>
-                             <p class="mt-3 text-xs text-slate-400 font-medium leading-relaxed">سرعة تحرك شريط الحصص الجارية. يفضل أن تكون القيمة منخفضة للقراءة.</p>
+                             <p id="{{ form.periods_scroll_speed.id_for_label }}_helptext" class="mt-3 text-xs text-slate-400 font-medium leading-relaxed">سرعة تحرك جدول الحصص. القيمة المقترحة من 0.5 إلى 1.0.</p>
                              <div id="periodsWarn" class="hidden mt-2 text-xs text-rose-600 font-bold bg-rose-50 p-2 rounded-lg">القيمة لا تقل عن 0.5</div>
+                             {% if form.periods_scroll_speed.errors %}<div class="settings-field-error" role="alert">{% for error in form.periods_scroll_speed.errors %}{{ error }}{% endfor %}</div>{% endif %}
                         </div>
 
                         {% if form.test_mode_weekday_override %}
                         <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group sm:col-span-2">
                             <label for="{{ form.test_mode_weekday_override.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-3">{{ form.test_mode_weekday_override.label }}</label>
                             {{ form.test_mode_weekday_override }}
-                            {% if form.test_mode_weekday_override.help_text %}<p class="mt-3 text-xs text-slate-400 font-medium leading-relaxed">{{ form.test_mode_weekday_override.help_text|safe }}</p>{% endif %}
+                            {% if form.test_mode_weekday_override.help_text %}<p id="{{ form.test_mode_weekday_override.id_for_label }}_helptext" class="mt-3 text-xs text-slate-400 font-medium leading-relaxed">{{ form.test_mode_weekday_override.help_text|safe }}</p>{% endif %}
                             {% if form.test_mode_weekday_override.errors %}<div class="mt-2 text-sm text-rose-600 font-bold bg-rose-50 px-3 py-1 rounded-lg inline-block">{% for error in form.test_mode_weekday_override.errors %}{{ error }}{% endfor %}</div>{% endif %}
                         </div>
                         {% endif %}
@@ -235,14 +275,17 @@
                 </section>
             </div>
 
-             <!-- Footer Actions -->
-              <div class="settings-actions mt-8 md:mt-10 pt-5 md:pt-6 border-t border-slate-100 flex items-center justify-end gap-3">
-                  <a href="{% url 'dashboard:index' %}" class="w-full sm:w-auto text-center px-6 py-3 rounded-xl text-slate-600 font-bold hover:bg-slate-100 hover:text-slate-900 transition-colors">إلغاء</a>
-                  <button type="submit" class="group relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 overflow-hidden font-bold text-white transition bg-emerald-600 rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500">
-                    <span class="mr-2">حفظ التغييرات</span>
-                    <svg class="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                 </button>
-            </div>
+              <div class="settings-actions">
+                  <div class="settings-actions-copy"><strong>جاهز لتطبيق التعديلات؟</strong><span>سيصل التحديث إلى الشاشات تلقائيًا بعد الحفظ.</span></div>
+                  <div class="settings-actions-buttons">
+                    {% if display_preview_url %}<a href="{{ display_preview_url }}" target="_blank" rel="noopener" class="settings-secondary-action">فتح المعاينة</a>{% endif %}
+                    <a href="{% url 'dashboard:index' %}" class="settings-cancel-action">إلغاء</a>
+                    <button type="submit" class="settings-submit-action" data-settings-submit>
+                      <span>حفظ التغييرات</span>
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 12 4 4 10-10"/></svg>
+                    </button>
+                  </div>
+              </div>
 
         </form>
     </div>
@@ -252,17 +295,23 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Style inputs
-    const inputs = document.querySelectorAll('input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]), select, textarea');
+    const form = document.getElementById('settingsForm');
+    const inputs = form ? form.querySelectorAll('input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]), select, textarea') : [];
     inputs.forEach(input => {
         if (input.classList.contains('sr-only')) return;
         input.classList.add('w-full', 'px-4', 'py-3.5', 'rounded-xl', 'border', 'border-slate-200', 'bg-slate-50', 'text-slate-800', 'font-semibold', 'focus:bg-white', 'focus:ring-4', 'focus:ring-indigo-500/10', 'focus:border-indigo-500', 'transition-all', 'duration-200', 'placeholder-slate-400', 'outline-none');
     });
 
-    const form = document.getElementById('settingsForm');
     const standbyEl = document.getElementById('id_standby_scroll_speed');
     const periodsEl = document.getElementById('id_periods_scroll_speed');
+    const standbyValue = document.getElementById('standbyValue');
+    const periodsValue = document.getElementById('periodsValue');
     const accentInput = document.getElementById('id_display_accent_color');
     const themePalette = document.getElementById('displayThemePalette');
+    const saveState = document.querySelector('[data-save-state]');
+    const submitButton = document.querySelector('[data-settings-submit]');
+    const logoInput = document.getElementById('{{ form.logo.id_for_label }}');
+    const logoPreview = document.querySelector('[data-logo-preview]');
 
     const standbyWarn = document.getElementById('standbyWarn');
     const periodsWarn = document.getElementById('periodsWarn');
@@ -289,6 +338,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const active = btn.dataset.settingsTab === selected;
             btn.classList.toggle('is-active', active);
             btn.setAttribute('aria-selected', active ? 'true' : 'false');
+            btn.setAttribute('tabindex', active ? '0' : '-1');
         });
         tabPanels.forEach(panel => {
             const active = panel.dataset.settingsTabPanel === selected;
@@ -298,19 +348,30 @@ document.addEventListener('DOMContentLoaded', function() {
         if (formShell) {
             formShell.classList.toggle('hidden', selected === 'security');
         }
-        try {
-            window.localStorage.setItem('dashboardSettingsTab', selected);
-        } catch (e) {}
+        if (window.location.hash !== `#${selected}`) {
+            window.history.replaceState(null, '', `#${selected}`);
+        }
     }
 
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => activateSettingsTab(btn.dataset.settingsTab));
+        btn.addEventListener('keydown', event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const index = tabButtons.indexOf(btn);
+            let nextIndex = index;
+            if (event.key === 'Home') nextIndex = 0;
+            if (event.key === 'End') nextIndex = tabButtons.length - 1;
+            if (event.key === 'ArrowLeft') nextIndex = (index + 1) % tabButtons.length;
+            if (event.key === 'ArrowRight') nextIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+            const nextButton = tabButtons[nextIndex];
+            activateSettingsTab(nextButton.dataset.settingsTab);
+            nextButton.focus();
+        });
     });
 
-    let initialTab = 'appearance';
-    try {
-        initialTab = window.localStorage.getItem('dashboardSettingsTab') || initialTab;
-    } catch (e) {}
+    const settingsRoot = document.querySelector('.dashboard-settings');
+    let initialTab = (window.location.hash || '').replace('#', '') || settingsRoot?.dataset.initialSettingsTab || 'appearance';
     if (!tabButtons.some(btn => btn.dataset.settingsTab === initialTab)) {
         initialTab = 'appearance';
     }
@@ -363,7 +424,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Update Buttons UI
         document.querySelectorAll('#displayThemePalette button').forEach(btn => {
-            const listIndicator = btn.querySelector('[data-selected]');
+            const listIndicator = btn.querySelector('.border-selection');
             if(btn.dataset.theme === themeName) {
                 btn.setAttribute('aria-pressed', 'true');
                 // Show selection ring
@@ -417,6 +478,41 @@ document.addEventListener('DOMContentLoaded', function() {
             if(!btn) return;
             const theme = btn.dataset.theme;
             setActiveTheme(theme);
+            markUnsaved();
+        });
+    }
+
+    function updateSpeedOutput(input, output) {
+        if (input && output) output.textContent = `${input.value || '0'}x`;
+    }
+    updateSpeedOutput(standbyEl, standbyValue);
+    updateSpeedOutput(periodsEl, periodsValue);
+    if (standbyEl) standbyEl.addEventListener('input', () => updateSpeedOutput(standbyEl, standbyValue));
+    if (periodsEl) periodsEl.addEventListener('input', () => updateSpeedOutput(periodsEl, periodsValue));
+
+    function markUnsaved() {
+        if (!saveState) return;
+        saveState.classList.add('has-changes');
+        saveState.innerHTML = '<i></i> توجد تغييرات غير محفوظة';
+    }
+    if (form) {
+        form.addEventListener('input', markUnsaved);
+        form.addEventListener('change', markUnsaved);
+    }
+
+    if (logoInput && logoPreview) {
+        logoInput.addEventListener('change', () => {
+            const file = logoInput.files && logoInput.files[0];
+            if (!file || !file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.addEventListener('load', () => {
+                logoPreview.innerHTML = '';
+                const image = document.createElement('img');
+                image.src = reader.result;
+                image.alt = 'معاينة الشعار الجديد';
+                logoPreview.appendChild(image);
+            });
+            reader.readAsDataURL(file);
         });
     }
 
@@ -436,6 +532,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 return;
             }
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.classList.add('is-saving');
+                const label = submitButton.querySelector('span');
+                if (label) label.textContent = 'جارٍ الحفظ...';
+            }
         });
     }
 
@@ -443,48 +545,281 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
-/* Custom animations */
 @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
+    from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
-.animate-fade-in-up {
-    animation: fadeInUp 0.5s ease-out forwards;
+
+.dashboard-settings {
+    --settings-ink: #0f172a;
+    --settings-muted: #64748b;
+    --settings-line: #e2e8f0;
+    --settings-brand: #155e75;
+    --settings-brand-dark: #0f172a;
+    --settings-accent: #d6a94a;
 }
 
-select {
+.settings-hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 1rem;
+    padding: 1.6rem 1.75rem;
+    overflow: hidden;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 1.35rem;
+    color: #fff;
+    background:
+        radial-gradient(circle at 15% 10%, rgba(214, 169, 74, 0.22), transparent 32%),
+        linear-gradient(125deg, #0f172a 0%, #164e63 58%, #155e75 100%);
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+}
+
+.settings-hero::after {
+    content: "";
+    position: absolute;
+    inset-inline-end: -3rem;
+    bottom: -5rem;
+    width: 15rem;
+    height: 15rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 50%;
+    box-shadow: 0 0 0 2rem rgba(255, 255, 255, 0.035), 0 0 0 4rem rgba(255, 255, 255, 0.025);
+}
+
+.settings-hero-copy,
+.settings-hero-actions { position: relative; z-index: 1; }
+.settings-hero-copy { max-width: 42rem; }
+.settings-eyebrow {
+    display: inline-flex;
+    margin-bottom: 0.55rem;
+    color: #fde68a;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+}
+.settings-hero h2 { margin: 0; font-size: clamp(1.25rem, 2vw, 1.75rem); font-weight: 900; letter-spacing: -0.02em; }
+.settings-hero p { max-width: 39rem; margin: 0.55rem 0 0; color: #cbd5e1; font-size: 0.86rem; line-height: 1.9; }
+.settings-hero-actions { display: flex; min-width: max-content; flex-direction: column; align-items: stretch; gap: 0.65rem; }
+.settings-preview-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    min-height: 2.8rem;
+    padding: 0.7rem 1rem;
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 0.85rem;
+    color: #fff;
+    background: rgba(255,255,255,.11);
+    font-size: 0.78rem;
+    font-weight: 900;
+    backdrop-filter: blur(8px);
+    transition: .2s ease;
+}
+.settings-preview-btn:hover { background: rgba(255,255,255,.18); transform: translateY(-1px); }
+.settings-preview-btn svg { width: 1.1rem; height: 1.1rem; }
+.settings-save-state { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; color: #a7f3d0; font-size: 0.7rem; font-weight: 800; }
+.settings-save-state i { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 4px rgba(52,211,153,.12); }
+.settings-save-state.has-changes { color: #fde68a; }
+.settings-save-state.has-changes i { background: #fbbf24; box-shadow: 0 0 0 4px rgba(251,191,36,.12); }
+
+.settings-tabs {
+    position: sticky;
+    top: 0.75rem;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+    padding: 0.42rem;
+    border: 1px solid var(--settings-line);
+    border-radius: 1rem;
+    background: rgba(255,255,255,.94);
+    box-shadow: 0 8px 24px rgba(15,23,42,.06);
+    backdrop-filter: blur(12px);
+}
+.settings-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.8rem;
+    border-radius: 0.75rem;
+    padding: 0.65rem 0.8rem;
+    color: #64748b;
+    font-size: 0.8rem;
+    font-weight: 900;
+    transition: .18s ease;
+}
+.settings-tab-btn svg { width: 1.05rem; height: 1.05rem; }
+.settings-tab-btn:hover { color: #0f172a; background: #f8fafc; }
+.settings-tab-btn.is-active { color: #fff; background: linear-gradient(135deg, #0f172a, #164e63); box-shadow: 0 7px 18px rgba(15,23,42,.18); }
+.settings-tab-btn:focus-visible,
+.settings-preview-btn:focus-visible,
+.settings-card-action:focus-visible,
+.settings-submit-action:focus-visible { outline: 3px solid rgba(14,165,233,.28); outline-offset: 2px; }
+
+.settings-form-shell,
+.settings-security-panel {
+    overflow: hidden;
+    border: 1px solid var(--settings-line);
+    border-radius: 1.25rem;
+    background: #fff;
+    box-shadow: 0 12px 35px rgba(15,23,42,.055);
+}
+.settings-tab-panel,
+.settings-security-panel { padding: 1.4rem; animation: fadeInUp .22s ease-out both; }
+.settings-section-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #eef2f7;
+}
+.settings-section-heading > div > span { display: block; margin-bottom: .3rem; color: #0e7490; font-size: .68rem; font-weight: 900; }
+.settings-section-heading h3 { margin: 0; color: #0f172a; font-size: 1.12rem; font-weight: 900; }
+.settings-section-heading > p { max-width: 31rem; margin: 0; color: #64748b; font-size: .76rem; line-height: 1.8; }
+
+.settings-identity-card {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 5.2rem minmax(10rem, .85fr) minmax(18rem, 1.35fr);
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid #dbe5ec;
+    border-radius: 1rem;
+    background: linear-gradient(120deg, #f8fafc, #f0fdfa);
+}
+.settings-logo-preview { display: grid; place-items: center; width: 5.2rem; height: 5.2rem; overflow: hidden; border: 1px solid #dbe5ec; border-radius: 1.15rem; color: #155e75; background: #fff; box-shadow: 0 8px 18px rgba(15,23,42,.08); font-size: 1.7rem; font-weight: 900; }
+.settings-logo-preview img { width: 100%; height: 100%; object-fit: contain; padding: .45rem; }
+.settings-identity-copy { display: flex; min-width: 0; flex-direction: column; }
+.settings-identity-copy span { color: #64748b; font-size: .7rem; font-weight: 800; }
+.settings-identity-copy strong { overflow: hidden; margin-top: .2rem; color: #0f172a; font-size: 1rem; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.settings-identity-copy small { margin-top: .3rem; color: #94a3b8; font-size: .67rem; }
+.settings-logo-upload { padding-inline-start: 1rem; border-inline-start: 1px solid #dbe5ec; }
+.settings-logo-upload label { display: block; margin-bottom: .45rem; color: #334155; font-size: .75rem; font-weight: 900; }
+.settings-logo-upload p { margin: .45rem 0 0; color: #64748b; font-size: .66rem; line-height: 1.6; }
+.settings-logo-upload input[type=file] { padding: .6rem !important; background: #fff !important; }
+.settings-logo-upload input[type=file]::file-selector-button { margin-inline-end: .75rem; border: 0; border-radius: .55rem; padding: .45rem .75rem; color: #fff; background: #155e75; font-size: .7rem; font-weight: 800; cursor: pointer; }
+
+.dashboard-settings .dashboard-control-surface { border-color: #dbe5ec !important; border-radius: 1rem !important; background: linear-gradient(145deg,#fff,#f8fafc) !important; }
+.dashboard-settings select {
     appearance: none;
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
     background-position: left 1rem center;
     background-repeat: no-repeat;
-    background-size: 1.5em 1.5em;
-    padding-left: 2.5rem;
+    background-size: 1.3em 1.3em;
+    padding-left: 2.5rem !important;
 }
 
-.settings-tab-btn {
-    flex: 1 1 9rem;
-    min-height: 2.5rem;
-    border-radius: 0.65rem;
-    padding: 0.6rem 0.9rem;
-    color: #64748b;
-    font-size: 0.82rem;
-    font-weight: 800;
-    transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+.settings-copy-grid,
+.settings-security-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
+.settings-copy-card,
+.settings-security-card { border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; box-shadow: 0 8px 22px rgba(15,23,42,.04); }
+.settings-copy-card { padding: 1rem; }
+.settings-copy-card-head { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+.settings-copy-card-head h4 { margin: 0; color: #0f172a; font-size: .86rem; font-weight: 900; }
+.settings-copy-card-head p { margin: .2rem 0 0; color: #64748b; font-size: .68rem; }
+.settings-scenario-icon { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; flex: 0 0 auto; border-radius: .7rem; color: #1e3a8a; background: #dbeafe; font-size: .68rem; font-weight: 900; }
+.settings-scenario-icon.is-after { color: #065f46; background: #d1fae5; }
+.settings-scenario-icon.is-holiday { color: #92400e; background: #fef3c7; }
+.settings-scenario-icon.is-dayoff { color: #6b21a8; background: #f3e8ff; }
+.settings-field + .settings-field { margin-top: .8rem; }
+.settings-field label { display: block; margin-bottom: .4rem; color: #475569; font-size: .7rem; font-weight: 900; }
+.settings-field > p { margin: .35rem 0 0; color: #94a3b8; font-size: .64rem; line-height: 1.6; }
+.settings-field-error { margin-top: .45rem; border-radius: .5rem; padding: .45rem .6rem; color: #be123c; background: #fff1f2; font-size: .68rem; font-weight: 800; }
+
+.settings-speed-value { position: absolute; inset-inline-start: .7rem; top: 50%; transform: translateY(-50%); min-width: 2.6rem; border-radius: .45rem; padding: .3rem .45rem; color: #155e75; background: #ecfeff; text-align: center; font-size: .72rem; font-weight: 900; pointer-events: none; }
+
+.settings-security-panel { padding: 1.4rem; }
+.settings-security-card { display: grid; grid-template-columns: 3rem 1fr; gap: .85rem; padding: 1rem; }
+.settings-security-card.is-secure { border-color: #a7f3d0; background: linear-gradient(145deg,#fff,#f0fdf4); }
+.settings-card-icon { display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: .85rem; color: #155e75; background: #ecfeff; }
+.settings-card-icon svg { width: 1.4rem; height: 1.4rem; }
+.settings-security-copy { min-width: 0; }
+.settings-security-copy h4 { margin: .45rem 0 .2rem; color: #0f172a; font-size: .9rem; font-weight: 900; }
+.settings-security-copy p { margin: 0; color: #64748b; font-size: .7rem; line-height: 1.7; }
+.settings-status-pill { display: inline-flex; border-radius: 999px; padding: .24rem .55rem; color: #475569; background: #f1f5f9; font-size: .61rem; font-weight: 900; }
+.settings-status-pill.is-on { color: #047857; background: #d1fae5; }
+.settings-status-pill.is-off { color: #b45309; background: #fef3c7; }
+.settings-card-action { grid-column: 1 / -1; display: inline-flex; justify-content: center; min-height: 2.65rem; align-items: center; border-radius: .7rem; color: #fff; background: #155e75; font-size: .74rem; font-weight: 900; transition: .18s ease; }
+.settings-card-action:hover { filter: brightness(.94); transform: translateY(-1px); }
+.settings-card-action.is-dark { background: #0f172a; }
+
+.settings-actions {
+    position: sticky;
+    bottom: .75rem;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 1rem;
+    padding: .8rem;
+    border: 1px solid rgba(203,213,225,.9);
+    border-radius: 1rem;
+    background: rgba(255,255,255,.95);
+    box-shadow: 0 14px 35px rgba(15,23,42,.13);
+    backdrop-filter: blur(14px);
+}
+.settings-actions-copy { display: flex; min-width: 0; flex-direction: column; padding-inline: .35rem; }
+.settings-actions-copy strong { color: #0f172a; font-size: .78rem; font-weight: 900; }
+.settings-actions-copy span { margin-top: .15rem; color: #64748b; font-size: .65rem; }
+.settings-actions-buttons { display: flex; align-items: center; gap: .5rem; }
+.settings-secondary-action,
+.settings-cancel-action,
+.settings-submit-action { display: inline-flex; align-items: center; justify-content: center; min-height: 2.6rem; border-radius: .68rem; padding: .6rem .9rem; font-size: .72rem; font-weight: 900; transition: .18s ease; }
+.settings-secondary-action { color: #155e75; background: #ecfeff; }
+.settings-cancel-action { color: #475569; background: #f8fafc; }
+.settings-submit-action { gap: .45rem; min-width: 8.8rem; color: #fff; background: linear-gradient(135deg,#047857,#059669); box-shadow: 0 7px 16px rgba(5,150,105,.2); }
+.settings-submit-action:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(5,150,105,.25); }
+.settings-submit-action svg { width: 1rem; height: 1rem; }
+.settings-submit-action:disabled { cursor: wait; opacity: .72; transform: none; }
+
+@media (max-width: 767px) {
+    .settings-hero { align-items: stretch; flex-direction: column; gap: 1rem; padding: 1.15rem; border-radius: 1rem; }
+    .settings-hero p { font-size: .8rem; }
+    .settings-hero-actions { min-width: 0; }
+    .settings-tabs { display: flex; top: .45rem; overflow-x: auto; padding: .35rem; scroll-snap-type: x mandatory; scrollbar-width: none; }
+    .settings-tabs::-webkit-scrollbar { display: none; }
+    .settings-tab-btn { min-width: 8.6rem; flex: 0 0 auto; scroll-snap-align: start; font-size: .76rem; }
+    .settings-tab-panel,
+    .settings-security-panel { padding: .9rem; }
+    .settings-section-heading { align-items: flex-start; flex-direction: column; gap: .45rem; }
+    .settings-section-heading h3 { font-size: 1rem; }
+    .settings-section-heading > p { font-size: .74rem; }
+    .settings-identity-card { grid-template-columns: 4.25rem minmax(0,1fr); padding: .8rem; }
+    .settings-logo-preview { width: 4.25rem; height: 4.25rem; border-radius: .9rem; }
+    .settings-logo-upload { grid-column: 1 / -1; padding: .8rem 0 0; border-inline-start: 0; border-top: 1px solid #dbe5ec; }
+    .settings-copy-grid,
+    .settings-security-grid { grid-template-columns: 1fr; }
+    .settings-copy-card { padding: .85rem; }
+    .settings-actions { position: static; align-items: stretch; flex-direction: column; margin: .75rem; }
+    .settings-actions-copy { display: none; }
+    .settings-actions-buttons { display: grid; grid-template-columns: 1fr 1fr; }
+    .settings-submit-action { grid-column: 1 / -1; grid-row: 1; }
+    .settings-secondary-action,
+    .settings-cancel-action,
+    .settings-submit-action { width: 100%; min-height: 2.8rem; font-size: .78rem; }
+    .dashboard-settings #settingsForm input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]),
+    .dashboard-settings #settingsForm select,
+    .dashboard-settings #settingsForm textarea { min-height: 2.65rem !important; padding: .68rem .75rem !important; font-size: .82rem !important; }
+    .dashboard-settings #settingsForm select { padding-left: 2.25rem !important; }
 }
 
-.settings-tab-btn:hover {
-    background: #f8fafc;
-    color: #1e293b;
-}
-
-.settings-tab-btn.is-active {
-    background: #0f172a;
-    color: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
-}
-
-.settings-tab-panel {
-    animation: fadeInUp 0.22s ease-out both;
+@media (prefers-reduced-motion: reduce) {
+    .settings-tab-panel,
+    .settings-security-panel { animation: none; }
+    .settings-preview-btn,
+    .settings-tab-btn,
+    .settings-card-action,
+    .settings-submit-action { transition: none; }
 }
 </style>
 {% endblock %}

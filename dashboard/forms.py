@@ -72,7 +72,16 @@ def _get_profile(user):
 # ========================
 
 class SchoolSettingsForm(forms.ModelForm):
-    logo = forms.ImageField(label="شعار المدرسة", required=False)
+    logo = forms.ImageField(
+        label="شعار المدرسة",
+        required=False,
+        widget=forms.ClearableFileInput(
+            attrs={
+                "accept": "image/png,image/jpeg,image/webp",
+                "aria-describedby": "logoHelp",
+            }
+        ),
+    )
     THEME_ACCENTS = {
         "indigo": "#6366F1",
         "emerald": "#22C55E",
@@ -1352,24 +1361,45 @@ from core.models import SupportTicket
 class SubscriptionPlanForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # المطلوب حسب الطلب: كل خطة جديدة يجب تحديد عدد الأيام
-        if "duration_days" in self.fields:
-            self.fields["duration_days"].required = True
+        self.fields["duration_days"].required = True
+        self.fields["code"].help_text = "رمز داخلي فريد بالإنجليزية، مثل: basic أو annual-pro."
+        self.fields["price"].help_text = "السعر الكامل للباقة بالريال السعودي."
+        self.fields["duration_days"].help_text = "عدد أيام الاشتراك، مثل 365 للباقة السنوية."
 
     class Meta:
         model = SubscriptionPlan
-        fields = "__all__"
+        fields = (
+            "name",
+            "code",
+            "price",
+            "duration_days",
+            "max_schools",
+            "max_users",
+            "max_screens",
+            "sort_order",
+            "is_active",
+        )
         widgets = {
-            "name": forms.TextInput(attrs={"class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500"}),
-            "code": forms.TextInput(attrs={"class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500"}),
-            "price": forms.NumberInput(attrs={"class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500"}),
-            "duration_days": forms.NumberInput(attrs={"class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500"}),
-            "max_users": forms.NumberInput(attrs={"class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500"}),
-            "max_screens": forms.NumberInput(attrs={"class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500"}),
-            "max_schools": forms.NumberInput(attrs={"class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500"}),
-            "sort_order": forms.NumberInput(attrs={"class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500"}),
-            "is_active": forms.CheckboxInput(attrs={"class": "rounded border-slate-300 text-blue-600 focus:ring-blue-500"}),
+            "name": forms.TextInput(attrs={"placeholder": "مثال: الباقة السنوية"}),
+            "code": forms.TextInput(attrs={"placeholder": "annual-pro", "dir": "ltr"}),
+            "price": forms.NumberInput(attrs={"min": "0", "step": "0.01"}),
+            "duration_days": forms.NumberInput(attrs={"min": "1"}),
+            "max_users": forms.NumberInput(attrs={"min": "1", "placeholder": "فارغ = غير محدود"}),
+            "max_screens": forms.NumberInput(attrs={"min": "1", "placeholder": "فارغ = غير محدود"}),
+            "max_schools": forms.NumberInput(attrs={"min": "1"}),
+            "sort_order": forms.NumberInput(attrs={"min": "0"}),
         }
+
+    def clean_code(self):
+        return (self.cleaned_data.get("code") or "").strip().lower()
+
+    def clean(self):
+        cleaned = super().clean()
+        for field_name in ("duration_days", "max_schools"):
+            value = cleaned.get(field_name)
+            if value is not None and value < 1:
+                self.add_error(field_name, "يجب أن تكون القيمة 1 أو أكثر.")
+        return cleaned
 
 from core.models import SupportTicket, TicketComment
 from core.tenant_access import authorized_active_school

@@ -198,7 +198,6 @@
     dom.badgeKind = $("badgeKind");
     dom.heroRange = $("heroRange");
     dom.heroTitle = $("heroTitle");
-    dom.heroSubtitle = $("heroSubtitle");
     dom.activityLabel = $("activityLabel");
     dom.currentScheduleList = $("currentScheduleList");
 
@@ -799,7 +798,9 @@
         var keys = Object.keys(data);
         for (var i = 0; i < keys.length; i++) obj[keys[i]] = data[keys[i]];
       }
-      console.log("[display]", obj);
+      // Serialize so TV consoles and remote support tools retain the fields
+      // instead of reducing every record to an opaque "Object" message.
+      console.log("[display] " + JSON.stringify(obj));
     } catch (e) {}
   }
 
@@ -1942,6 +1943,7 @@
     for (var rk in bellBoundarySeen) {
       if (Object.prototype.hasOwnProperty.call(bellBoundarySeen, rk)) delete bellBoundarySeen[rk];
     }
+    scheduleNextBoundaryBell();
   }
 
   /**
@@ -2109,6 +2111,7 @@
     rt.activeTargetHM = (stType === "before") ? block.from : block.to;
     rt.activeTargetMs = isFinite(Number(targetMs)) ? Number(targetMs) : null;
     rt.dayOver = false;
+    applyBoardStatePresentation(stType, rem > 0);
 
     // Record the currently rendered core state, but do not mark countdown-zero
     // as handled yet. Zero should only be consumed when a boundary transition
@@ -2204,6 +2207,7 @@
     countdownSeconds = null;
     hasActiveCountdown = false;
     progressRange = { start: null, end: null };
+    applyBoardStatePresentation("after", false);
     lastStateCoreSig = "after||" + afterCopy.title + "||||";
     lastZeroHandledCoreSig = lastStateCoreSig;
     try { renderCurrentChips("after", { label: afterCopy.title, from: null, to: null }, null); } catch (e) {}
@@ -2302,6 +2306,7 @@
   let lastReSyncTime = 0;
   const RE_SYNC_COOLDOWN = 30000; // 30 ثانية بين كل re-sync
   let lastServerSyncAt = 0; // آخر وقت وصلنا فيه وقت خادم صالح (status/snapshot)
+  let lastServerHeaderSyncAt = 0; // وقت آخر تزامن من ترويسة غير مخزنة مؤقتًا
   
   let serverTzOffsetMin = null;
   let serverLocalDateStr = null; // YYYY-MM-DD
@@ -2311,7 +2316,7 @@
     return Date.now() + serverOffsetMs;
   }
 
-  function applyServerNowMs(serverNowMs) {
+  function applyServerNowMs(serverNowMs, source) {
     const n = Number(serverNowMs);
     if (!isFinite(n) || n <= 0) return;
     const measured = n - Date.now();
@@ -2326,11 +2331,21 @@
     }
     hasServerClockSync = true;
     lastServerSyncAt = Date.now();
+    if (source === "header") lastServerHeaderSyncAt = lastServerSyncAt;
+    _log("clock_sync", {
+      source: source || "unknown",
+      offsetMs: Math.round(serverOffsetMs),
+      sampleAgeMs: Math.max(0, Math.round(Date.now() - n)),
+    });
     
     // ✅ تحديث آخر وقت معروف للمراقبة
     lastLocalTime = Date.now();
     lastCheckTime = Date.now();
     clockDriftDetected = false;
+
+    // A corrected offset changes every epoch boundary derived from HH:MM.
+    // Re-arm the precise bell timer so it remains aligned after clock sync.
+    try { scheduleNextBoundaryBell(); } catch (e) {}
   }
 
   // ✅ CLOCK DRIFT DETECTION: كشف تغييرات التوقيت المحلي الفجائية
@@ -2793,49 +2808,42 @@
   const BOARD_STATE_PRESENTATION = {
     period: {
       status: "حصة جارية الآن",
-      subtitle: "متابعة مباشرة للحصة والنشاط الحالي مع تحديث تلقائي للوقت.",
       activity: "تفاصيل النشاط",
       countdownLabel: "المتبقي",
       glyph: "◉",
     },
     break: {
       status: "وقت الاستراحة",
-      subtitle: "استراحة هادئة قبل استكمال بقية اليوم الدراسي.",
       activity: "حالة الاستراحة",
       countdownLabel: "تنتهي خلال",
       glyph: "◇",
     },
     before: {
       status: "الاستعداد لليوم",
-      subtitle: "يوم دراسي منظم يبدأ باستعداد جميل وحضور مبكر.",
       activity: "الاستعداد الآن",
       countdownLabel: "يبدأ خلال",
       glyph: "☀",
     },
     after: {
       status: "اكتمل اليوم الدراسي",
-      subtitle: "شكرًا لعطائكم اليوم، نلقاكم في يوم دراسي جديد بإذن الله.",
       activity: "رسالة اليوم",
       countdownLabel: "يوم مكتمل",
       glyph: "✓",
     },
     holiday: {
       status: "إجازة مدرسية",
-      subtitle: "نتمنى لمنسوبي المدرسة وطلابها إجازة سعيدة ووقتًا ممتعًا.",
       activity: "رسالة المدرسة",
       countdownLabel: "إجازة سعيدة",
       glyph: "✦",
     },
     off: {
       status: "خارج وقت الدوام",
-      subtitle: "الشاشة جاهزة وستعود تلقائيًا مع بداية اليوم الدراسي القادم.",
       activity: "رسالة المدرسة",
       countdownLabel: "الشاشة جاهزة",
       glyph: "✦",
     },
     day: {
       status: "اليوم الدراسي",
-      subtitle: "متابعة مباشرة لجدول اليوم والأنشطة المدرسية.",
       activity: "النشاط الحالي",
       countdownLabel: "المتبقي",
       glyph: "◆",
@@ -2849,7 +2857,6 @@
     setBoardData("displayState", normalized);
     setBoardData("countdownActive", countdownActive ? "1" : "0");
     setTextIfChanged(dom.boardStatusText, copy.status);
-    setTextIfChanged(dom.heroSubtitle, copy.subtitle);
     setTextIfChanged(dom.activityLabel, copy.activity);
     setTextIfChanged(dom.countdownLabel, copy.countdownLabel);
     setTextIfChanged(dom.countdownGlyph, copy.glyph);
@@ -3180,14 +3187,17 @@
     lastBellPlayedAt = now;
     var audio = ensureBellAudio();
     if (!audio) return;
+    _log("bell_play_attempt", {
+      unlocked: !!bellUnlocked,
+      readyState: Number(audio.readyState || 0),
+    });
     try {
       audio.pause();
       audio.currentTime = 0;
-      // load() resets the audio element state — required on many TVs/older browsers
-      // where a finished Audio element silently fails on subsequent play() calls.
-      audio.load();
+      // Keep the preloaded buffer. Calling load() here discards it and makes the
+      // bell wait for another network read exactly when the boundary is reached.
       audio.play().catch(function () {
-        // Retry with a fresh Audio element
+        // Retry with a fresh element only when the buffered element genuinely fails.
         try {
           bellAudio = null;
           var fresh = ensureBellAudio();
@@ -3337,6 +3347,7 @@
       rt.activeTargetHM = (stType === "before" ? fromHM : toHM) || null;
       rt.activeTargetMs = isBefore ? startMs : endMs;
       rt.dayOver = false;
+      applyBoardStatePresentation(stType, rem > 0);
 
       // Immediately re-filter standby list (removes ended standby without waiting for server cache/ETag).
       try {
@@ -4172,11 +4183,41 @@
         bellBoundarySeen[key] = 1;
         lastBoundaryBellStateKey = "boundary";
         lastBoundaryBellAt = Date.now();
+        _log("bell_boundary_crossed", {
+          boundaryMs: Math.floor(crossedTs),
+          latenessMs: Math.max(0, Math.round(now - crossedTs)),
+        });
         try { playBellSound(); } catch (e) {}
       }
     }
 
     lastBellBoundaryCheckMs = now;
+  }
+
+  /**
+   * Arm a one-shot timer for the next exact schedule boundary.
+   * The regular ticker remains a safety net for suspended/older TV runtimes,
+   * but this timer avoids the previous 0–2 second polling delay.
+   */
+  function scheduleNextBoundaryBell() {
+    clearNamedTimer("bell_boundary");
+    if (!_dayEngine.blocks.length || !_dayEngine.ringPoints.length) return;
+
+    const now = nowMs();
+    let nextTs = null;
+    for (let i = 0; i < _dayEngine.ringPoints.length; i++) {
+      const ts = Number(_dayEngine.ringPoints[i] || 0);
+      if (!isFinite(ts) || ts <= now) continue;
+      nextTs = ts;
+      break;
+    }
+    if (nextTs === null) return;
+
+    const delayMs = Math.max(20, nextTs - now);
+    setNamedTimer("bell_boundary", function () {
+      try { tickBoundaryBell(); } catch (e) {}
+      scheduleNextBoundaryBell();
+    }, delayMs, "bell_boundary_exact");
   }
 
   function pickRuntimePeriodClasses(payload) {
@@ -4775,11 +4816,14 @@
 
     lastPayloadForFiltering = payload;
 
-    // Legacy/back-compat: if server includes `payload.now`, keep it as a fallback sync source.
-    // Prefer X-Server-Time-MS header (handled in safeFetchSnapshot) because payload bodies may be cached.
+    // Legacy/back-compat: payload.now is only a fallback. Snapshot bodies are cached,
+    // while X-Server-Time-MS is generated per response. Re-applying cached payload.now
+    // after the fresh header would move the display clock backwards by the cache age,
+    // delaying period transitions and the bell by minutes.
     if (payload.now) {
       const serverMs = new Date(payload.now).getTime();
-      if (!isNaN(serverMs)) applyServerNowMs(serverMs);
+      const hasFreshHeaderSync = lastServerHeaderSyncAt > 0 && Date.now() - lastServerHeaderSyncAt < 5000;
+      if (!isNaN(serverMs) && !hasFreshHeaderSync) applyServerNowMs(serverMs, "payload");
 
       // Learn server timezone offset + local date (stable even when payload is cached).
       try {
@@ -5059,10 +5103,9 @@
         try { dayEngineSyncToLocalNow(); } catch (e) {}
       }
 
-      // ✅ Bell boundary check — كل 2 ثانية (الأفضلية للتواني الفردية)
-      if (_tickCount % 2 === 1) {
-        try { tickBoundaryBell(); } catch (e) {}
-      }
+      // Safety net for browsers that suspend exact timers. The dedicated
+      // one-shot boundary timer handles the normal path with sub-second timing.
+      try { tickBoundaryBell(); } catch (e) {}
 
       if (hasActiveCountdown && typeof countdownSeconds === "number") {
         const prev = countdownSeconds;
@@ -5368,7 +5411,7 @@
       // Server clock sync: works even when response body is cached or 304.
       try {
         const h = r.headers.get("X-Server-Time-MS");
-        if (h) applyServerNowMs(h);
+        if (h) applyServerNowMs(h, "header");
       } catch (e) {}
 
       if (r.status === 304) return { _notModified: true };
@@ -5571,7 +5614,7 @@
       // Server clock sync: keep countdown/clock aligned even when we only poll /status.
       try {
         const h = r.headers.get("X-Server-Time-MS");
-        if (h) applyServerNowMs(h);
+        if (h) applyServerNowMs(h, "header");
       } catch (e) {}
 
       if (r.status === 304) {
@@ -7222,6 +7265,13 @@
     cfg.SNAPSHOT_URL = (body.dataset.snapshotUrl || "").toString().trim();
     cfg.SERVER_TOKEN = (body.dataset.apiToken || body.dataset.token || "").toString().trim();
     cfg.SCHOOL_TYPE = (body.dataset.schoolType || "").toString().trim();
+
+    // Warm the bell file during page startup so the first scheduled ring does
+    // not pay a network/decode delay. This does not attempt autoplay.
+    try {
+      var preloadedBell = ensureBellAudio();
+      if (preloadedBell && typeof preloadedBell.load === "function") preloadedBell.load();
+    } catch (e) {}
 
     try {
       const initTheme = (body.dataset.theme || "").trim();

@@ -24,7 +24,8 @@ from django.core.exceptions import PermissionDenied, FieldError
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Max, Q, Sum, Count
+from django.db.models.deletion import ProtectedError
+from django.db.models import Max, Q, Sum, Count, Prefetch
 from django.db.models.functions import TruncMonth
 from django.db.utils import OperationalError, ProgrammingError
 from django.http import HttpResponse, JsonResponse
@@ -1007,6 +1008,29 @@ def school_settings(request):
     else:
         form = SchoolSettingsForm(instance=obj, user=request.user)
 
+    initial_settings_tab = "appearance"
+    if form.errors:
+        error_fields = set(form.errors.keys())
+        copy_fields = {
+            "display_before_title",
+            "display_before_badge",
+            "display_after_title",
+            "display_after_badge",
+            "display_after_holiday_title",
+            "display_after_holiday_badge",
+            "display_holiday_title",
+            "display_holiday_badge",
+        }
+        runtime_fields = {
+            "standby_scroll_speed",
+            "periods_scroll_speed",
+            "test_mode_weekday_override",
+        }
+        if error_fields & copy_fields:
+            initial_settings_tab = "copy"
+        elif error_fields & runtime_fields:
+            initial_settings_tab = "runtime"
+
     return render(
         request,
         "dashboard/settings.html",
@@ -1015,6 +1039,7 @@ def school_settings(request):
             "display_preview_url": preview_url,
             "school": school,
             "two_factor_enabled": get_enabled_config(request.user) is not None,
+            "initial_settings_tab": initial_settings_tab,
         },
     )
 
@@ -2494,43 +2519,152 @@ def switch_school(request, school_id=None):
 @system_staff_required
 def system_admin_dashboard(request):
     School = SchoolModel()
+    DisplayScreen = DisplayScreenModel()
+    today = timezone.localdate()
+    now = timezone.now()
+    expiring_until = today + timedelta(days=30)
+    global_query = (request.GET.get("q") or "").strip()
 
     school_count = School.objects.count()
+    active_schools_count = School.objects.filter(is_active=True).count()
+    inactive_schools_count = school_count - active_schools_count
     user_count = UserModel.objects.count()
+    managers_count = UserModel.objects.filter(is_staff=False, is_superuser=False).count()
+    unassigned_users_count = (
+        UserModel.objects.filter(is_staff=False, is_superuser=False)
+        .filter(Q(profile__isnull=True) | Q(profile__schools__isnull=True))
+        .distinct()
+        .count()
+    )
+
+    total_screens_count = DisplayScreen.objects.filter(is_active=True).count()
+    active_since = now - timedelta(seconds=120)
+    live_screens = DisplayScreen.objects.filter(is_active=True, last_seen__gte=active_since)
+    if _model_has_field(DisplayScreen, "bound_device_id"):
+        live_screens = live_screens.exclude(bound_device_id__isnull=True).exclude(bound_device_id="")
+    live_screens_count = live_screens.count()
 
     SubModel = _get_subscription_model()
     subs_count = SubModel.objects.count() if SubModel is not None else 0
 
-    today = timezone.localdate()
     active_subs = 0
+    expiring_subs_count = 0
+    expired_subs_count = 0
     revenue = 0
+    active_qs = None
+    expiring_subscriptions = []
 
     if SubModel is not None:
-        active_qs = SubModel.objects.filter(status="active").filter(
-            Q(ends_at__isnull=True) | Q(ends_at__gte=today)
-        )
+        active_qs = SubModel.objects.all()
+        if _model_has_field(SubModel, "status"):
+            active_qs = active_qs.filter(status="active")
+        elif _model_has_field(SubModel, "is_active"):
+            active_qs = active_qs.filter(is_active=True)
+        end_field = _admin_model_field_name(SubModel, "ends_at", "end_date")
+        if end_field:
+            active_qs = active_qs.filter(Q(**{f"{end_field}__isnull": True}) | Q(**{f"{end_field}__gte": today}))
         active_subs = active_qs.count()
         revenue = active_qs.aggregate(total=Sum("plan__price"))["total"] or 0
+        if end_field:
+            expiring_qs = active_qs.filter(
+                **{
+                    f"{end_field}__isnull": False,
+                    f"{end_field}__gte": today,
+                    f"{end_field}__lte": expiring_until,
+                }
+            )
+            expired_subs_count = SubModel.objects.filter(**{f"{end_field}__lt": today}).count()
+            expiring_subs_count = expiring_qs.count()
+            try:
+                expiring_subscriptions = list(
+                    expiring_qs.select_related("school", "plan").order_by(end_field)[:6]
+                )
+            except Exception:
+                expiring_subscriptions = list(expiring_qs.order_by(end_field)[:6])
+
+    active_school_ids = set()
+    if active_qs is not None and _model_has_field(SubModel, "school"):
+        active_school_ids = set(active_qs.values_list("school_id", flat=True))
+    schools_without_subscription_count = max(school_count - len(active_school_ids), 0)
 
     Req = _get_subscription_request_model()
     open_requests = 0
+    recent_requests = []
     if Req is not None:
         try:
             open_requests = Req.objects.filter(status__in=["submitted", "under_review"]).count()
+            recent_requests = list(
+                Req.objects.select_related("school", "plan")
+                .filter(status__in=["submitted", "under_review"])
+                .order_by("-created_at", "-id")[:5]
+            )
         except Exception:
             open_requests = 0
+            recent_requests = []
+
+    recent_schools = list(
+        School.objects.annotate(
+            managers_total=Count("users", distinct=True),
+            screens_total=Count("screens", distinct=True),
+        ).order_by("-created_at", "-id")[:5]
+    )
+
+    search_results = {"schools": [], "users": [], "subscriptions": []}
+    if global_query:
+        search_results["schools"] = list(
+            School.objects.filter(
+                Q(name__icontains=global_query) | Q(slug__icontains=global_query)
+            ).order_by("name")[:6]
+        )
+        search_results["users"] = list(
+            UserModel.objects.filter(
+                Q(username__icontains=global_query)
+                | Q(email__icontains=global_query)
+                | Q(first_name__icontains=global_query)
+                | Q(last_name__icontains=global_query)
+                | Q(profile__schools__name__icontains=global_query)
+            )
+            .distinct()
+            .order_by("username")[:6]
+        )
+        if SubModel is not None:
+            try:
+                search_results["subscriptions"] = list(
+                    SubModel.objects.select_related("school", "plan")
+                    .filter(
+                        Q(school__name__icontains=global_query)
+                        | Q(plan__name__icontains=global_query)
+                    )
+                    .order_by("-id")[:6]
+                )
+            except Exception:
+                search_results["subscriptions"] = []
 
     return render(
         request,
         "admin/dashboard.html",
         {
             "schools_count": school_count,
+            "active_schools_count": active_schools_count,
+            "inactive_schools_count": inactive_schools_count,
             "users_count": user_count,
+            "managers_count": managers_count,
+            "unassigned_users_count": unassigned_users_count,
+            "total_screens_count": total_screens_count,
+            "live_screens_count": live_screens_count,
             "subs_count": subs_count,
             "active_subs": active_subs,
             "subscriptions_count": active_subs,
+            "expiring_subs_count": expiring_subs_count,
+            "expired_subs_count": expired_subs_count,
+            "schools_without_subscription_count": schools_without_subscription_count,
+            "expiring_subscriptions": expiring_subscriptions,
             "revenue": revenue,
             "open_subscription_requests": open_requests,
+            "recent_requests": recent_requests,
+            "recent_schools": recent_schools,
+            "global_query": global_query,
+            "search_results": search_results,
         },
     )
 
@@ -2539,12 +2673,38 @@ def system_admin_dashboard(request):
 def system_schools_list(request):
     School = SchoolModel()
     DisplayScreen = DisplayScreenModel()
+    SubModel = _get_subscription_model()
+    today = timezone.localdate()
 
     q = (request.GET.get("q") or "").strip()
-    schools = School.objects.all()
+    state = (request.GET.get("state") or "").strip()
+    screen_state = (request.GET.get("screen") or "").strip()
+    plan_id = (request.GET.get("plan") or "").strip()
+
+    total_schools_count = School.objects.count()
+    active_schools_count = School.objects.filter(is_active=True).count()
+    inactive_schools_count = total_schools_count - active_schools_count
+
+    schools = School.objects.annotate(
+        managers_count=Count("users", distinct=True),
+        screens_count=Count("screens", distinct=True),
+    )
 
     if q:
-        schools = schools.filter(Q(name__icontains=q) | Q(slug__icontains=q))
+        schools = schools.filter(
+            Q(name__icontains=q)
+            | Q(slug__icontains=q)
+            | Q(users__user__username__icontains=q)
+            | Q(users__user__email__icontains=q)
+        ).distinct()
+
+    if state == "active":
+        schools = schools.filter(is_active=True)
+    elif state == "inactive":
+        schools = schools.filter(is_active=False)
+
+    if plan_id and plan_id.isdigit() and SubModel is not None:
+        schools = schools.filter(subscriptions__plan_id=int(plan_id)).distinct()
 
     schools = _admin_order_by_existing(School, schools, "-created_at", "-id")
 
@@ -2571,6 +2731,23 @@ def system_schools_list(request):
         for row in screens_qs.values("school_id").annotate(c=Count("id"))
         if row.get("school_id")
     }
+    online_school_ids = set(active_counts)
+
+    if screen_state == "online":
+        schools = schools.filter(pk__in=online_school_ids)
+    elif screen_state == "offline":
+        schools = schools.filter(screens_count__gt=0).exclude(pk__in=online_school_ids)
+    elif screen_state == "none":
+        schools = schools.filter(screens_count=0)
+
+    if SubModel is not None:
+        try:
+            sub_qs = SubModel.objects.select_related("plan").order_by("-starts_at", "-id")
+            schools = schools.prefetch_related(
+                Prefetch("subscriptions", queryset=sub_qs, to_attr="admin_subscriptions")
+            )
+        except Exception:
+            pass
 
     paginator = Paginator(schools, 25)
     page_obj = paginator.get_page(request.GET.get("page") or 1)
@@ -2579,6 +2756,18 @@ def system_schools_list(request):
         setattr(s, "active_screens_now", int(active_counts.get(s.id, 0) or 0))
         settings_obj = getattr(s, "schedule_settings", None)
         setattr(s, "refresh_interval_sec", getattr(settings_obj, "refresh_interval_sec", None))
+        current_subscription = None
+        subscriptions = getattr(s, "admin_subscriptions", [])
+        for candidate in subscriptions:
+            end_value = getattr(candidate, "ends_at", None)
+            if getattr(candidate, "status", "") == "active" and (not end_value or end_value >= today):
+                current_subscription = candidate
+                break
+        if current_subscription is None and subscriptions:
+            current_subscription = subscriptions[0]
+        setattr(s, "current_subscription", current_subscription)
+        setattr(s, "current_plan", getattr(current_subscription, "plan", None))
+        setattr(s, "subscription_end", getattr(current_subscription, "ends_at", None))
 
     return render(
         request,
@@ -2587,6 +2776,14 @@ def system_schools_list(request):
             "schools": page_obj.object_list,
             "page_obj": page_obj,
             "q": q,
+            "state": state,
+            "screen_state": screen_state,
+            "plan_id": plan_id,
+            "plans": SubscriptionPlan.objects.filter(is_active=True).order_by("sort_order", "price"),
+            "total_schools_count": total_schools_count,
+            "active_schools_count": active_schools_count,
+            "inactive_schools_count": inactive_schools_count,
+            "filtered_schools_count": paginator.count,
             "active_window_seconds": active_window_seconds,
         },
     )
@@ -2642,8 +2839,20 @@ def system_school_delete(request, pk: int):
 @system_staff_required
 def system_users_list(request):
     q = (request.GET.get("q") or "").strip()
+    state = (request.GET.get("state") or "").strip()
+    role = (request.GET.get("role") or "manager").strip()
+    school_id = (request.GET.get("school") or "").strip()
 
     qs = UserModel.objects.all().order_by("-id")
+
+    managers_base = UserModel.objects.filter(is_staff=False, is_superuser=False)
+    managers_count = managers_base.count()
+    inactive_managers_count = managers_base.filter(is_active=False).count()
+    unassigned_managers_count = (
+        managers_base.filter(Q(profile__isnull=True) | Q(profile__schools__isnull=True))
+        .distinct()
+        .count()
+    )
 
     try:
         qs = qs.select_related("profile", "profile__active_school").prefetch_related("profile__schools")
@@ -2669,10 +2878,42 @@ def system_users_list(request):
 
         qs = qs.filter(filters).distinct()
 
+    if role == "manager":
+        qs = qs.filter(is_staff=False, is_superuser=False)
+    elif role == "system":
+        qs = qs.filter(Q(is_staff=True) | Q(is_superuser=True) | Q(groups__name="Support")).distinct()
+    elif role == "unassigned":
+        qs = qs.filter(is_staff=False, is_superuser=False).filter(
+            Q(profile__isnull=True) | Q(profile__schools__isnull=True)
+        ).distinct()
+
+    if state == "active":
+        qs = qs.filter(is_active=True)
+    elif state == "inactive":
+        qs = qs.filter(is_active=False)
+
+    if school_id and school_id.isdigit():
+        qs = qs.filter(profile__schools__id=int(school_id)).distinct()
+
     paginator = Paginator(qs, 25)
     page_obj = paginator.get_page(request.GET.get("page") or 1)
 
-    return render(request, "admin/users_list.html", {"page_obj": page_obj, "q": q})
+    return render(
+        request,
+        "admin/users_list.html",
+        {
+            "page_obj": page_obj,
+            "q": q,
+            "state": state,
+            "role": role,
+            "school_id": school_id,
+            "schools_options": SchoolModel().objects.order_by("name"),
+            "managers_count": managers_count,
+            "inactive_managers_count": inactive_managers_count,
+            "unassigned_managers_count": unassigned_managers_count,
+            "filtered_users_count": paginator.count,
+        },
+    )
 
 
 @system_staff_required
@@ -2756,7 +2997,16 @@ def system_user_create(request):
             return redirect("dashboard:system_users_list")
         messages.error(request, "الرجاء تصحيح الأخطاء.")
     else:
-        form = SystemUserCreateForm()
+        initial = {}
+        requested_school_id = (request.GET.get("school") or "").strip()
+        if requested_school_id.isdigit():
+            requested_school = SchoolModel().objects.filter(pk=int(requested_school_id)).first()
+            if requested_school is not None:
+                initial = {
+                    "schools": [requested_school.pk],
+                    "active_school": requested_school.pk,
+                }
+        form = SystemUserCreateForm(initial=initial)
 
     # موظف الدعم لا يُسمح له بترقية المستخدمين إلى staff/superuser
     if not getattr(request.user, "is_superuser", False):
@@ -2838,16 +3088,22 @@ def system_subscriptions_list(request):
     SubModel = _get_subscription_model_robust()
 
     q = (request.GET.get("q") or "").strip()
-    status = (request.GET.get("status") or "").strip()  # active | inactive | ""
+    status = (request.GET.get("status") or "").strip()
+    plan_id = (request.GET.get("plan") or "").strip()
 
     today = timezone.localdate()
+    expiring_until = today + timedelta(days=30)
 
     rows = []
     page_obj = None
 
     active_count = 0
     inactive_count = 0
+    expiring_count = 0
+    expired_count = 0
+    pending_count = 0
     total_count = 0
+    active_revenue = 0
 
     if SubModel is None:
         return render(
@@ -2860,7 +3116,12 @@ def system_subscriptions_list(request):
                 "status": status,
                 "active_count": 0,
                 "inactive_count": 0,
+                "expiring_count": 0,
+                "expired_count": 0,
+                "pending_count": 0,
                 "total_count": 0,
+                "active_revenue": 0,
+                "plans": SubscriptionPlan.objects.order_by("sort_order", "price"),
             },
         )
 
@@ -2899,6 +3160,9 @@ def system_subscriptions_list(request):
         if has_plan:
             filters |= Q(plan__name__icontains=q)
         qs = qs.filter(filters).distinct()
+
+    if plan_id and plan_id.isdigit() and has_plan:
+        qs = qs.filter(plan_id=int(plan_id))
 
     # ---------- توحيد منطق "نشط" بين النظامين ----------
     # New subscriptions عادة: starts_at/ends_at + status
@@ -2945,6 +3209,21 @@ def system_subscriptions_list(request):
             v = getattr(sub, "end_date", None)
         return v
 
+    def _state_obj(sub) -> str:
+        raw_status = str(getattr(sub, "status", "") or "").lower()
+        if raw_status == "pending":
+            return "pending"
+        if raw_status == "cancelled":
+            return "cancelled"
+        end_value = _ends_at(sub)
+        if end_value and end_value < today:
+            return "expired"
+        if _is_active_obj(sub):
+            if end_value and today <= end_value <= expiring_until:
+                return "expiring"
+            return "active"
+        return "inactive"
+
     # ترتيب
     # new: -starts_at, -id | legacy: -start_date, -id
     qs = _admin_order_by_existing(SubModel, qs, "-starts_at", "-start_date", "-id")
@@ -2956,13 +3235,34 @@ def system_subscriptions_list(request):
         all_subscriptions = []
 
     total_count = len(all_subscriptions)
-    active_count = sum(1 for sub in all_subscriptions if _is_active_obj(sub))
+    state_counts = {
+        "active": 0,
+        "expiring": 0,
+        "expired": 0,
+        "pending": 0,
+        "cancelled": 0,
+        "inactive": 0,
+    }
+    for sub in all_subscriptions:
+        state_counts[_state_obj(sub)] = state_counts.get(_state_obj(sub), 0) + 1
+    active_count = state_counts["active"] + state_counts["expiring"]
+    expiring_count = state_counts["expiring"]
+    expired_count = state_counts["expired"]
+    pending_count = state_counts["pending"]
     inactive_count = total_count - active_count
+    try:
+        active_revenue = sum(
+            (getattr(getattr(sub, "plan", None), "price", 0) or 0)
+            for sub in all_subscriptions
+            if _state_obj(sub) in {"active", "expiring"}
+        )
+    except Exception:
+        active_revenue = 0
 
     if status == "active":
-        display_subscriptions = [sub for sub in all_subscriptions if _is_active_obj(sub)]
-    elif status == "inactive":
-        display_subscriptions = [sub for sub in all_subscriptions if not _is_active_obj(sub)]
+        display_subscriptions = [sub for sub in all_subscriptions if _state_obj(sub) in {"active", "expiring"}]
+    elif status in {"expiring", "expired", "pending", "cancelled", "inactive"}:
+        display_subscriptions = [sub for sub in all_subscriptions if _state_obj(sub) == status]
     else:
         display_subscriptions = all_subscriptions
 
@@ -2973,19 +3273,27 @@ def system_subscriptions_list(request):
     filtered_rows = []
     for sub in page_obj.object_list:
         is_active = _is_active_obj(sub)
+        state_key = _state_obj(sub)
 
         school_obj = getattr(sub, "school", None)
         plan_obj = getattr(sub, "plan", None)
+        end_value = _ends_at(sub)
+        days_left = (end_value - today).days if end_value else None
 
         filtered_rows.append(
             {
                 "id": sub.pk,
+                "school_id": getattr(school_obj, "pk", None) if school_obj else None,
                 "school_name": getattr(school_obj, "name", "") if school_obj else "—",
                 "school_email": getattr(school_obj, "email", "") if school_obj else "",
                 "plan_name": getattr(plan_obj, "name", "") if plan_obj else "—",
+                "plan_price": getattr(plan_obj, "price", 0) if plan_obj else 0,
                 "starts_at": _starts_at(sub),
-                "ends_at": _ends_at(sub),
+                "ends_at": end_value,
+                "days_left": days_left,
+                "days_overdue": abs(days_left) if days_left is not None and days_left < 0 else 0,
                 "is_active": is_active,
+                "state_key": state_key,
             }
         )
 
@@ -2997,9 +3305,15 @@ def system_subscriptions_list(request):
             "page_obj": page_obj,
             "q": q,
             "status": status,
+            "plan_id": plan_id,
+            "plans": SubscriptionPlan.objects.order_by("sort_order", "price"),
             "active_count": active_count,
             "inactive_count": inactive_count,
+            "expiring_count": expiring_count,
+            "expired_count": expired_count,
+            "pending_count": pending_count,
             "total_count": total_count,
+            "active_revenue": active_revenue,
         },
     )
 
@@ -4056,8 +4370,36 @@ def subscription_invoice_view(request, pk: int):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def system_plans_list(request):
-    plans = SubscriptionPlan.objects.all()
-    return render(request, "admin/plans_list.html", {"plans": plans})
+    q = (request.GET.get("q") or "").strip()
+    state = (request.GET.get("state") or "").strip()
+    today = timezone.localdate()
+
+    plans = SubscriptionPlan.objects.annotate(
+        subscriptions_total=Count("subscriptions", distinct=True),
+        active_subscriptions=Count(
+            "subscriptions",
+            filter=Q(subscriptions__status="active")
+            & (Q(subscriptions__ends_at__isnull=True) | Q(subscriptions__ends_at__gte=today)),
+            distinct=True,
+        ),
+    )
+    if q:
+        plans = plans.filter(Q(name__icontains=q) | Q(code__icontains=q))
+    if state == "active":
+        plans = plans.filter(is_active=True)
+    elif state == "inactive":
+        plans = plans.filter(is_active=False)
+
+    all_plans = SubscriptionPlan.objects.all()
+    context = {
+        "plans": plans,
+        "q": q,
+        "state": state,
+        "plans_count": all_plans.count(),
+        "active_plans_count": all_plans.filter(is_active=True).count(),
+        "paid_plans_count": all_plans.filter(price__gt=0).count(),
+    }
+    return render(request, "admin/plans_list.html", context)
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
@@ -4066,11 +4408,15 @@ def system_plan_create(request):
         form = SubscriptionPlanForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, "تم إنشاء الخطة بنجاح")
+            messages.success(request, f"تمت إضافة باقة «{form.instance.name}» بنجاح.")
             return redirect("dashboard:system_plans_list")
     else:
         form = SubscriptionPlanForm()
-    return render(request, "admin/plan_form.html", {"form": form, "title": "إضافة خطة جديدة"})
+    return render(
+        request,
+        "admin/plan_form.html",
+        {"form": form, "title": "إضافة باقة جديدة", "submit_label": "إضافة الباقة"},
+    )
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
@@ -4080,21 +4426,74 @@ def system_plan_edit(request, pk):
         form = SubscriptionPlanForm(request.POST, instance=plan)
         if form.is_valid():
             form.save()
-            messages.success(request, "تم تحديث الخطة بنجاح")
+            messages.success(request, f"تم تحديث باقة «{plan.name}» بنجاح.")
             return redirect("dashboard:system_plans_list")
     else:
         form = SubscriptionPlanForm(instance=plan)
-    return render(request, "admin/plan_form.html", {"form": form, "title": "تعديل الخطة"})
+    return render(
+        request,
+        "admin/plan_form.html",
+        {"form": form, "title": f"تعديل باقة «{plan.name}»", "plan": plan, "submit_label": "حفظ التعديلات"},
+    )
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def system_plan_toggle(request, pk):
+    plan = get_object_or_404(SubscriptionPlan, pk=pk)
+    plan.is_active = not plan.is_active
+    plan.save(update_fields=["is_active"])
+    if plan.is_active:
+        messages.success(request, f"تم تفعيل باقة «{plan.name}» وأصبحت متاحة للاشتراك.")
+    else:
+        messages.warning(request, f"تم إيقاف باقة «{plan.name}» ولن تظهر للاشتراكات الجديدة.")
+    return redirect("dashboard:system_plans_list")
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def system_plan_delete(request, pk):
     plan = get_object_or_404(SubscriptionPlan, pk=pk)
+    linked_counts = {
+        "subscriptions": plan.subscriptions.count(),
+        "requests": plan.subscription_requests.count(),
+        "payments": plan.payment_operations.count(),
+        "invoices": plan.subscription_invoices.count(),
+    }
+    protected_count = sum(linked_counts.values())
+
     if request.method == "POST":
-        plan.delete()
-        messages.success(request, "تم حذف الخطة بنجاح")
+        if protected_count:
+            if plan.is_active:
+                plan.is_active = False
+                plan.save(update_fields=["is_active"])
+            messages.warning(
+                request,
+                f"تعذر حذف باقة «{plan.name}» لارتباطها بسجلات مالية أو اشتراكات؛ تم إيقافها بدلاً من حذفها.",
+            )
+            return redirect("dashboard:system_plans_list")
+        try:
+            plan_name = plan.name
+            plan.delete()
+        except ProtectedError:
+            plan.is_active = False
+            plan.save(update_fields=["is_active"])
+            messages.warning(
+                request,
+                f"تعذر حذف باقة «{plan.name}» لوجود سجلات مرتبطة؛ تم إيقافها بدلاً من ذلك.",
+            )
+        else:
+            messages.success(request, f"تم حذف باقة «{plan_name}» نهائياً.")
         return redirect("dashboard:system_plans_list")
-    return render(request, "admin/plan_confirm_delete.html", {"plan": plan})
+    return render(
+        request,
+        "admin/plan_confirm_delete.html",
+        {
+            "plan": plan,
+            "linked_counts": linked_counts,
+            "protected_count": protected_count,
+        },
+    )
 
 # ==================
 # Reports

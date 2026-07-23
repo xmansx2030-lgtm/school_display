@@ -31,6 +31,8 @@ def _build_admin_nav_links(
     base_items = [
         {
             "key": "home",
+            "group": "overview",
+            "group_title": "نظرة عامة",
             "title": "الرئيسية",
             "description": "نظرة عامة على النظام والإحصائيات",
             "url_name": "dashboard:system_admin_dashboard",
@@ -44,6 +46,8 @@ def _build_admin_nav_links(
         },
         {
             "key": "schools",
+            "group": "customers",
+            "group_title": "المدارس والحسابات",
             "title": "إدارة المدارس",
             "description": "إضافة وتعديل وإدارة المدارس",
             "url_name": "dashboard:system_schools_list",
@@ -57,8 +61,10 @@ def _build_admin_nav_links(
         },
         {
             "key": "users",
-            "title": "إدارة المستخدمين",
-            "description": "إدارة الحسابات والصلاحيات",
+            "group": "customers",
+            "group_title": "المدارس والحسابات",
+            "title": "مدراء المدارس",
+            "description": "إدارة حسابات مدراء المدارس وربطهم",
             "url_name": "dashboard:system_users_list",
             "icon": "fa-user-circle",
             "emoji": "👤",
@@ -70,6 +76,8 @@ def _build_admin_nav_links(
         },
         {
             "key": "employees",
+            "group": "customers",
+            "group_title": "المدارس والحسابات",
             "title": "إدارة الموظفين",
             "description": "إدارة موظفي النظام وصلاحياتهم",
             "url_name": "dashboard:system_employees_list",
@@ -83,6 +91,8 @@ def _build_admin_nav_links(
         },
         {
             "key": "subscriptions",
+            "group": "billing",
+            "group_title": "الاشتراكات والفوترة",
             "title": "إدارة الاشتراكات",
             "description": "متابعة الاشتراكات والخطط النشطة",
             "url_name": "dashboard:system_subscriptions_list",
@@ -96,6 +106,8 @@ def _build_admin_nav_links(
         },
         {
             "key": "subscription_requests",
+            "group": "billing",
+            "group_title": "الاشتراكات والفوترة",
             "title": "طلبات التجديد/الاشتراك",
             "description": "استعراض الطلبات واعتمادها أو رفضها",
             "url_name": "dashboard:system_subscription_requests_list",
@@ -108,7 +120,39 @@ def _build_admin_nav_links(
             "badge_count": int(open_subscription_requests_count or 0),
         },
         {
+            "key": "plans",
+            "group": "billing",
+            "group_title": "الاشتراكات والفوترة",
+            "title": "إدارة الباقات والأسعار",
+            "description": "إدارة الأسعار وحدود المدارس والشاشات",
+            "url_name": "dashboard:system_plans_list",
+            "icon": "fa-tags",
+            "emoji": "🏷️",
+            "tone": "indigo",
+            "exact": (),
+            "startswith": ("system_plan",),
+            "visible": not is_support_staff,
+            "badge_count": 0,
+        },
+        {
+            "key": "screen_addons",
+            "group": "billing",
+            "group_title": "الاشتراكات والفوترة",
+            "title": "الشاشات الإضافية",
+            "description": "إدارة زيادات الشاشات وتسعيرها",
+            "url_name": "dashboard:system_screen_addons_list",
+            "icon": "fa-display",
+            "emoji": "🖥️",
+            "tone": "sky",
+            "exact": (),
+            "startswith": ("system_screen_addon",),
+            "visible": True,
+            "badge_count": 0,
+        },
+        {
             "key": "reports",
+            "group": "operations",
+            "group_title": "المتابعة والتشغيل",
             "title": "التقارير والإحصائيات",
             "description": "تقارير الأداء والإيرادات والنمو",
             "url_name": "dashboard:system_reports",
@@ -122,6 +166,8 @@ def _build_admin_nav_links(
         },
         {
             "key": "support",
+            "group": "operations",
+            "group_title": "المتابعة والتشغيل",
             "title": "تذاكر الدعم",
             "description": "متابعة طلبات الدعم الفني",
             "url_name": "dashboard:system_support_tickets",
@@ -142,6 +188,8 @@ def _build_admin_nav_links(
 
         resolved = {
             "key": item["key"],
+            "group": item.get("group", "other"),
+            "group_title": item.get("group_title", "أخرى"),
             "title": item["title"],
             "description": item["description"],
             "icon": item["icon"],
@@ -180,15 +228,18 @@ def admin_support_ticket_badges(request):
     except Exception:
         is_support = False
 
-    is_system_staff = bool(getattr(user, "is_superuser", False) or is_support)
+    is_superuser = bool(getattr(user, "is_superuser", False))
+    is_system_staff = bool(is_superuser or is_support)
     if not is_system_staff:
         return {}
 
     open_support_tickets_count = SupportTicket.objects.filter(status="open").count()
     counts = {
         "is_system_staff": True,
-        "is_support_staff": bool(is_support),
-        "is_superuser": bool(getattr(user, "is_superuser", False)),
+        # قد يكون مدير النظام مضافًا أيضاً إلى مجموعة الدعم. في هذه الحالة
+        # يجب ألا تختفي منه أدوات المالك مثل المدارس والباقات.
+        "is_support_staff": bool(is_support and not is_superuser),
+        "is_superuser": is_superuser,
         "admin_new_support_tickets_count": open_support_tickets_count,
     }
 
@@ -207,7 +258,7 @@ def admin_support_ticket_badges(request):
     current_url_name = getattr(getattr(request, "resolver_match", None), "url_name", "") or ""
     counts["admin_nav_links"] = _build_admin_nav_links(
         current_url_name=current_url_name,
-        is_support_staff=bool(is_support),
+        is_support_staff=bool(is_support and not is_superuser),
         open_subscription_requests_count=int(open_subscription_requests_count or 0),
         open_support_tickets_count=int(open_support_tickets_count or 0),
     )

@@ -1,58 +1,166 @@
 {% extends "admin/admin_base.html" %}
 
-{% block title %}إدارة الخطط{% endblock %}
-{% block page_title %}إدارة خطط الاشتراك{% endblock %}
-{% block page_description %}إدارة خطط الاشتراك والأسعار والميزات{% endblock %}
+{% block title %}إدارة الباقات والأسعار{% endblock %}
+{% block page_icon %}tags{% endblock %}
+{% block page_title %}إدارة الباقات والأسعار{% endblock %}
+{% block page_description %}إضافة الباقات وتعديل أسعارها وحدودها أو إيقافها وحذف غير المستخدمة منها.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">الباقات والأسعار</span>
+{% endblock %}
+{% block page_actions %}
+  <a href="{% url 'dashboard:system_plan_create' %}" class="admin-btn admin-btn-primary">
+    <i class="fas fa-plus"></i> إضافة باقة
+  </a>
+{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-  <div class="flex justify-between items-center">
-    <h2 class="text-2xl font-bold text-slate-800">قائمة الخطط</h2>
-    <a href="{% url 'dashboard:system_plan_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-      <i class="fas fa-plus ml-2"></i> إضافة خطة
-    </a>
-  </div>
+<div class="space-y-5">
+  <section class="admin-panel p-4 md:p-5">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex items-start gap-3">
+        <span class="w-11 h-11 shrink-0 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+          <i class="fas fa-sliders"></i>
+        </span>
+        <div>
+          <h2 class="font-black text-slate-900">لوحة التحكم بالباقات</h2>
+          <p class="mt-1 text-xs leading-6 text-slate-500">
+            أضف باقة جديدة، عدّل أي باقة، فعّلها أو أوقفها، واحذف الباقات التي لم تُستخدم.
+          </p>
+        </div>
+      </div>
+      <a href="{% url 'dashboard:system_plan_create' %}" class="admin-btn admin-btn-primary shrink-0">
+        <i class="fas fa-plus"></i> إضافة باقة جديدة
+      </a>
+    </div>
+  </section>
 
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-    <table class="w-full text-right">
-      <thead class="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
-        <tr>
-          <th class="p-4">الاسم</th>
-          <th class="p-4">الرمز</th>
-          <th class="p-4">السعر</th>
-          <th class="p-4">الحالة</th>
-          <th class="p-4">الإجراءات</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">
-        {% for plan in plans %}
-        <tr class="hover:bg-slate-50 transition">
-          <td class="p-4 font-medium text-slate-800">{{ plan.name }}</td>
-          <td class="p-4 text-slate-600">{{ plan.code }}</td>
-          <td class="p-4 text-slate-600">{{ plan.price }} ر.س</td>
-          <td class="p-4">
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="admin-metric-card" style="--metric-color:#4f46e5">
+      <span class="admin-metric-icon"><i class="fas fa-tags"></i></span>
+      <p class="admin-metric-value">{{ plans_count }}</p>
+      <p class="admin-metric-label">إجمالي الباقات</p>
+    </div>
+    <a href="?state=active" class="admin-metric-card" style="--metric-color:#059669">
+      <span class="admin-metric-icon"><i class="fas fa-circle-check"></i></span>
+      <p class="admin-metric-value">{{ active_plans_count }}</p>
+      <p class="admin-metric-label">متاحة للاشتراك</p>
+    </a>
+    <div class="admin-metric-card" style="--metric-color:#d97706">
+      <span class="admin-metric-icon"><i class="fas fa-sack-dollar"></i></span>
+      <p class="admin-metric-value">{{ paid_plans_count }}</p>
+      <p class="admin-metric-label">باقات مدفوعة</p>
+    </div>
+    <a href="{% url 'dashboard:system_subscriptions_list' %}" class="admin-metric-card" style="--metric-color:#2563eb">
+      <span class="admin-metric-icon"><i class="fas fa-credit-card"></i></span>
+      <p class="admin-metric-value"><i class="fas fa-arrow-left text-xl"></i></p>
+      <p class="admin-metric-label">عرض اشتراكات المدارس</p>
+    </a>
+  </section>
+
+  <form method="get" class="admin-filter-bar admin-no-print">
+    <div class="admin-filter-field is-search">
+      <label for="planSearch">بحث</label>
+      <input id="planSearch" type="search" name="q" value="{{ q }}" placeholder="اسم الباقة أو الرمز...">
+    </div>
+    <div class="admin-filter-field">
+      <label for="planState">الإتاحة</label>
+      <select id="planState" name="state">
+        <option value="">كل الباقات</option>
+        <option value="active" {% if state == "active" %}selected{% endif %}>متاحة</option>
+        <option value="inactive" {% if state == "inactive" %}selected{% endif %}>مخفية</option>
+      </select>
+    </div>
+    <button type="submit" class="admin-btn admin-btn-primary"><i class="fas fa-filter"></i> تطبيق</button>
+    {% if q or state %}
+      <a href="{% url 'dashboard:system_plans_list' %}" class="admin-btn admin-btn-secondary"><i class="fas fa-xmark"></i> مسح</a>
+    {% endif %}
+  </form>
+
+  <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    {% for plan in plans %}
+      <article class="admin-panel overflow-hidden">
+        <div class="p-5">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <span class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fas fa-tag"></i></span>
+              <div>
+                <h2 class="text-base font-black text-slate-900">{{ plan.name }}</h2>
+                <p class="mt-1 text-[10px] font-bold text-slate-400">{{ plan.code }}</p>
+              </div>
+            </div>
             {% if plan.is_active %}
-            <span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-medium">نشط</span>
+              <span class="admin-status admin-status-success">متاحة</span>
             {% else %}
-            <span class="bg-slate-100 text-slate-700 px-2 py-1 rounded-full text-xs font-medium">غير نشط</span>
+              <span class="admin-status admin-status-muted">موقوفة</span>
             {% endif %}
-          </td>
-          <td class="p-4 flex gap-2">
-            <a href="{% url 'dashboard:system_plan_edit' plan.pk %}" class="text-blue-600 hover:text-blue-800">
-              <i class="fas fa-edit"></i>
+          </div>
+
+          <div class="mt-4 flex flex-wrap gap-2 admin-no-print">
+            <a href="{% url 'dashboard:system_plan_edit' plan.pk %}" class="admin-btn admin-btn-primary">
+              <i class="fas fa-pen"></i> تعديل
             </a>
-            <a href="{% url 'dashboard:system_plan_delete' plan.pk %}" class="text-red-600 hover:text-red-800">
-              <i class="fas fa-trash"></i>
+            <form method="post" action="{% url 'dashboard:system_plan_toggle' plan.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="admin-btn admin-btn-secondary">
+                <i class="fas {% if plan.is_active %}fa-pause{% else %}fa-play{% endif %}"></i>
+                {% if plan.is_active %}إيقاف{% else %}تفعيل{% endif %}
+              </button>
+            </form>
+            <a href="{% url 'dashboard:system_plan_delete' plan.pk %}" class="admin-btn admin-btn-secondary text-rose-700">
+              <i class="fas fa-trash-can"></i> حذف
             </a>
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="5" class="p-8 text-center text-slate-500">لا توجد خطط مضافة حالياً.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+          </div>
+
+          <div class="mt-5 flex items-end gap-2">
+            <strong class="text-3xl font-black text-slate-900">{{ plan.price }}</strong>
+            <span class="mb-1 text-xs font-bold text-slate-500">ر.س</span>
+          </div>
+          <p class="mt-1 text-[11px] text-slate-400">
+            {% if plan.duration_days %}لمدة {{ plan.duration_days }} يوماً{% else %}مدة مفتوحة{% endif %}
+          </p>
+
+          <div class="mt-5 grid grid-cols-3 gap-2">
+            <div class="rounded-xl bg-slate-50 p-3 text-center">
+              <strong class="block text-sm text-slate-900">{{ plan.max_schools|default:"∞" }}</strong>
+              <span class="text-[10px] text-slate-500">مدارس</span>
+            </div>
+            <div class="rounded-xl bg-slate-50 p-3 text-center">
+              <strong class="block text-sm text-slate-900">{{ plan.max_users|default:"∞" }}</strong>
+              <span class="text-[10px] text-slate-500">مستخدمون</span>
+            </div>
+            <div class="rounded-xl bg-slate-50 p-3 text-center">
+              <strong class="block text-sm text-slate-900">{{ plan.max_screens|default:"∞" }}</strong>
+              <span class="text-[10px] text-slate-500">شاشات</span>
+            </div>
+          </div>
+
+          <div class="mt-4 rounded-xl border border-slate-100 p-3">
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-slate-500">اشتراكات سارية</span>
+              <strong class="text-emerald-700">{{ plan.active_subscriptions }}</strong>
+            </div>
+            <div class="mt-2 flex items-center justify-between text-xs">
+              <span class="text-slate-500">إجمالي الاستخدام</span>
+              <strong class="text-slate-800">{{ plan.subscriptions_total }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 border-t border-slate-100 bg-slate-50/70 p-4 admin-no-print">
+          <a href="{% url 'dashboard:system_subscriptions_list' %}?plan={{ plan.pk }}" class="admin-btn admin-btn-secondary" title="عرض الاشتراكات">
+            <i class="fas fa-users"></i> عرض الاشتراكات المرتبطة
+          </a>
+        </div>
+      </article>
+    {% empty %}
+      <div class="admin-panel md:col-span-2 xl:col-span-3">
+        <div class="admin-empty">
+          <i class="fas fa-tags mb-3 text-3xl text-slate-300"></i>
+          <h3 class="font-black text-slate-700">لا توجد باقات مطابقة</h3>
+          <p class="mt-1 text-xs">أنشئ الباقة الأولى أو غيّر الفلاتر.</p>
+        </div>
+      </div>
+    {% endfor %}
+  </section>
 </div>
 {% endblock %}

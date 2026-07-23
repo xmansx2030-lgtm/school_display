@@ -1,29 +1,53 @@
 {% extends "admin/admin_base.html" %}
 
-{% block title %}حذف الخطة{% endblock %}
-{% block page_title %}تأكيد حذف الخطة{% endblock %}
-{% block page_description %}هل أنت متأكد من رغبتك في حذف هذه الخطة؟{% endblock %}
+{% block title %}{% if protected_count %}إيقاف الباقة{% else %}حذف الباقة{% endif %}{% endblock %}
+{% block page_icon %}trash-can{% endblock %}
+{% block page_title %}{% if protected_count %}إيقاف باقة «{{ plan.name }}»{% else %}حذف باقة «{{ plan.name }}»{% endif %}{% endblock %}
+{% block page_description %}مراجعة تأثير الإجراء قبل تنفيذه.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:system_plans_list' %}" class="hover:text-blue-600">إدارة الباقات</a>
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <span class="text-slate-500">{% if protected_count %}إيقاف{% else %}حذف{% endif %}</span>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-md mx-auto">
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 text-center">
-    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-      <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+<div class="max-w-2xl mx-auto">
+  <section class="admin-panel overflow-hidden">
+    <div class="p-6 md:p-8 text-center">
+      <div class="w-16 h-16 {% if protected_count %}bg-amber-100 text-amber-700{% else %}bg-rose-100 text-rose-700{% endif %} rounded-2xl flex items-center justify-center mx-auto">
+        <i class="fas {% if protected_count %}fa-box-archive{% else %}fa-trash-can{% endif %} text-2xl"></i>
+      </div>
+
+      {% if protected_count %}
+        <h2 class="mt-5 text-xl font-black text-slate-900">هذه الباقة مستخدمة ولا يمكن حذف سجلها المالي</h2>
+        <p class="mt-2 text-sm leading-7 text-slate-600">
+          حفاظاً على الاشتراكات والفواتير السابقة، سيتم <strong>إيقاف الباقة</strong> بدلاً من حذفها.
+          ستظل البيانات التاريخية سليمة ولن تكون الباقة متاحة لاشتراكات جديدة.
+        </p>
+
+        <div class="mt-5 grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
+          <div class="rounded-xl bg-slate-50 p-3"><strong class="block text-lg">{{ linked_counts.subscriptions }}</strong><span class="text-[10px] text-slate-500">اشتراك</span></div>
+          <div class="rounded-xl bg-slate-50 p-3"><strong class="block text-lg">{{ linked_counts.requests }}</strong><span class="text-[10px] text-slate-500">طلب</span></div>
+          <div class="rounded-xl bg-slate-50 p-3"><strong class="block text-lg">{{ linked_counts.payments }}</strong><span class="text-[10px] text-slate-500">عملية دفع</span></div>
+          <div class="rounded-xl bg-slate-50 p-3"><strong class="block text-lg">{{ linked_counts.invoices }}</strong><span class="text-[10px] text-slate-500">فاتورة</span></div>
+        </div>
+      {% else %}
+        <h2 class="mt-5 text-xl font-black text-slate-900">هل تريد حذف الباقة نهائياً؟</h2>
+        <p class="mt-2 text-sm leading-7 text-slate-600">
+          لا توجد اشتراكات أو سجلات مالية مرتبطة بهذه الباقة. الحذف نهائي ولا يمكن التراجع عنه.
+        </p>
+      {% endif %}
     </div>
-    <h3 class="text-lg font-bold text-slate-800 mb-2">حذف الخطة "{{ plan.name }}"</h3>
-    <p class="text-slate-600 mb-6">
-      هذا الإجراء لا يمكن التراجع عنه. هل أنت متأكد؟
-    </p>
-    
-    <form method="post" class="flex justify-center gap-3">
+
+    <form method="post" class="flex flex-col-reverse sm:flex-row justify-center gap-3 border-t border-slate-100 bg-slate-50 p-5">
       {% csrf_token %}
-      <a href="{% url 'dashboard:system_plans_list' %}" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition">
-        إلغاء
-      </a>
-      <button type="submit" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition">
-        نعم، احذف
+      <a href="{% url 'dashboard:system_plans_list' %}" class="admin-btn admin-btn-secondary">إلغاء والعودة</a>
+      <button type="submit" class="admin-btn {% if protected_count %}admin-btn-warning{% else %}admin-btn-danger{% endif %}">
+        <i class="fas {% if protected_count %}fa-box-archive{% else %}fa-trash-can{% endif %}"></i>
+        {% if protected_count %}إيقاف الباقة بأمان{% else %}نعم، احذف الباقة{% endif %}
       </button>
     </form>
-  </div>
+  </section>
 </div>
 {% endblock %}

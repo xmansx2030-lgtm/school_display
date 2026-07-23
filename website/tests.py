@@ -95,8 +95,77 @@ class TrialSignupTests(TestCase):
 
         self.assertContains(response, 'role="dialog"')
         self.assertContains(response, 'aria-modal="true"')
-        self.assertContains(response, 'aria-label="مدة الاشتراك"')
+        self.assertContains(response, 'class="pricing-sync-note"')
         self.assertContains(response, 'pattern="05[0-9]{8}"')
+
+    def test_landing_page_has_conversion_and_performance_contracts(self):
+        response = self.client.get(reverse("website:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'rel="canonical" href="https://school-display.com/"')
+        self.assertContains(response, 'class="skip-link"')
+        self.assertContains(response, 'id="heroTrialCta"')
+        self.assertContains(response, 'id="videoLaunch"')
+        self.assertContains(response, "بلا بطاقة بنكية")
+        self.assertContains(response, "كل المزايا مشمولة")
+        self.assertNotContains(response, "<iframe")
+
+    def test_landing_pricing_uses_only_active_dashboard_plans(self):
+        active_plan = SubscriptionPlan.objects.create(
+            code="landing-annual",
+            name="الباقة السنوية المتزامنة",
+            price=9876,
+            duration_days=365,
+            max_schools=2,
+            max_users=12,
+            max_screens=4,
+            sort_order=3,
+            is_active=True,
+        )
+        SubscriptionPlan.objects.create(
+            code="landing-hidden",
+            name="باقة مخفية من الهبوط",
+            price=4321,
+            duration_days=180,
+            max_schools=1,
+            max_users=5,
+            max_screens=1,
+            is_active=False,
+        )
+
+        response = self.client.get(reverse("website:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, active_plan.name)
+        self.assertContains(response, "9876")
+        self.assertContains(response, "365 يوماً")
+        self.assertContains(response, "الشاشات:")
+        self.assertContains(response, "data-plan-code=\"landing-annual\"")
+        self.assertNotContains(response, "باقة مخفية من الهبوط")
+
+    def test_landing_pricing_reflects_dashboard_price_update_on_next_request(self):
+        plan = SubscriptionPlan.objects.create(
+            code="landing-live-price",
+            name="باقة السعر اللحظي",
+            price=8765,
+            duration_days=90,
+            max_schools=1,
+            max_users=6,
+            max_screens=2,
+            is_active=True,
+        )
+        first_response = self.client.get(reverse("website:home"))
+        self.assertContains(first_response, "8765")
+
+        plan.price = 7654
+        plan.duration_days = 120
+        plan.save(update_fields=["price", "duration_days"])
+
+        second_response = self.client.get(reverse("website:home"))
+        self.assertContains(second_response, "7654")
+        self.assertContains(second_response, "120 يوماً")
+        self.assertNotContains(second_response, "8765")
+        self.assertIn("no-cache", second_response.headers.get("Cache-Control", ""))
 
     def test_trial_signup_rejects_duplicate_mobile(self):
         first = self.client.post(reverse("website:trial_signup"), data=self._payload())
