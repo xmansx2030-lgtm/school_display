@@ -245,7 +245,8 @@ def create_trial_signup(data: dict) -> TrialSignupResult:
         profile.schools.add(school)
         profile.active_school = school
         profile.mobile = cleaned["mobile"]
-        profile.save(update_fields=["active_school", "mobile"])
+        profile.needs_onboarding = True
+        profile.save(update_fields=["active_school", "mobile", "needs_onboarding"])
 
         theme = "emerald" if cleaned["school_type"] == "boys" else "rose"
         SchoolSettings.objects.create(

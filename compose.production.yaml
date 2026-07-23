@@ -1,0 +1,189 @@
+name: school-display
+
+x-django: &django
+  build:
+    context: .
+  restart: unless-stopped
+  env_file:
+    - ${ENV_FILE:-.env.production}
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis-cache:
+      condition: service_healthy
+    redis-channels:
+      condition: service_healthy
+  networks:
+    - backend
+  ulimits:
+    nofile:
+      soft: 65535
+      hard: 65535
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    env_file:
+      - ${ENV_FILE:-.env.production}
+    depends_on:
+      web:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - static-data:/srv/static:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - frontend
+      - backend
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+
+  web:
+    <<: *django
+    command: >-
+      sh -c "python manage.py migrate --noinput &&
+      python manage.py collectstatic --noinput &&
+      gunicorn config.asgi:application
+      -k uvicorn.workers.UvicornWorker
+      --bind 0.0.0.0:8000
+      --workers=$${WEB_CONCURRENCY:-2}
+      --timeout=120
+      --keep-alive=5
+      --max-requests=5000
+      --max-requests-jitter=500
+      --access-logfile=-
+      --error-logfile=-"
+    volumes:
+      - static-data:/app/staticfiles
+    networks:
+      - frontend
+      - backend
+
+  snapshot-worker:
+    <<: *django
+    depends_on:
+      web:
+        condition: service_healthy
+    command: python manage.py display_snapshot_worker --poll-timeout=5
+    healthcheck:
+      disable: true
+
+  wake-scheduler:
+    <<: *django
+    depends_on:
+      web:
+        condition: service_healthy
+    command: >-
+      python manage.py display_wake_scheduler
+      --interval=60
+      --lead-minutes=30
+      --window-seconds=90
+    healthcheck:
+      disable: true
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    env_file:
+      - ${ENV_FILE:-.env.production}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+
+  redis-cache:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    env_file:
+      - ${ENV_FILE:-.env.production}
+    command: >-
+      sh -c 'exec redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --requirepass "$${REDIS_CACHE_PASSWORD}"'
+    volumes:
+      - redis-cache-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_CACHE_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+
+  redis-channels:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    env_file:
+      - ${ENV_FILE:-.env.production}
+    command: >-
+      sh -c 'exec redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy noeviction
+      --requirepass "$${REDIS_CHANNELS_PASSWORD}"'
+    volumes:
+      - redis-channels-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_CHANNELS_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+
+  offsite-backup:
+    image: restic/restic:0.18.1
+    profiles: ["operations"]
+    restart: "no"
+    env_file:
+      - ${ENV_FILE:-.env.production}
+    environment:
+      RESTIC_CACHE_DIR: /cache
+    entrypoint: ["/bin/sh", "/scripts/offsite-backup.sh"]
+    volumes:
+      - ./backups:/data:ro
+      - ./deploy/offsite-backup.sh:/scripts/offsite-backup.sh:ro
+      - restic-cache:/cache
+
+networks:
+  frontend:
+  backend:
+    internal: true
+
+volumes:
+  postgres-data:
+  redis-cache-data:
+  redis-channels-data:
+  static-data:
+  caddy-data:
+  caddy-config:
+  restic-cache:

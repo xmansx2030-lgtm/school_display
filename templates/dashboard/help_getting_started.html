@@ -1,138 +1,413 @@
 {% extends "dashboard/_base.html" %}
+{% load static %}
 
-{% block title %}دليل البدء{% endblock %}
-{% block page_title %}دليل البدء السريع{% endblock %}
-{% block page_description %}مسار واضح لتجهيز شاشة المدرسة: أنشئ الشاشة، أدخل بيانات المدرسة، اضبط الحصص، ثم خصص شكل العرض.{% endblock %}
+{% block title %}دليل استخدام المنصة{% endblock %}
+{% block page_title %}دليل استخدام المنصة{% endblock %}
+{% block page_description %}مسار تفاعلي يرافقك من الإعداد الأول وحتى إدارة شاشة المدرسة يوميًا.{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/help-guide.css' %}?v=2026-07-23-a">
+{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto space-y-6">
-    <section class="dashboard-onboarding-shell dashboard-guide-hero p-5 md:p-7 lg:p-8">
-        <div class="relative z-10 dashboard-guide-hero-grid">
-            <div class="dashboard-guide-hero-copy">
-                <div class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[11px] font-extrabold text-slate-600 shadow-sm border border-slate-200">
-                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                    ابدأ من هنا
-                </div>
-                <h2 class="mt-4 text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 leading-tight">
-                    جهّز منصة العرض المدرسي بخطوات قصيرة وواضحة
-                </h2>
-                <p class="mt-3 max-w-3xl text-sm md:text-base text-slate-600 leading-8">
-                    اتبع هذا المسار بالترتيب حتى تظهر شاشة المدرسة بشكل صحيح: شاشة عرض مفعلة، بيانات فصول ومواد ومعلمين، جدول حصص مضبوط، ثم هوية بصرية تناسب المدرسة.
-                </p>
+<main class="guide" data-guide-root data-progress="{{ setup_summary.progress_percent }}">
+  <div class="guide-reading-progress" aria-hidden="true"><span data-guide-reading-progress></span></div>
 
-                <div class="dashboard-guide-hero-actions mt-5">
-                    {% if setup_summary.progress_percent >= 100 %}
-                        <a href="{% url 'dashboard:index' %}" class="dashboard-guide-primary-action">
-                            <span>العودة للرئيسية</span>
-                            <svg class="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                        </a>
-                    {% else %}
-                        <a href="{{ setup_summary.next_step_url }}" class="dashboard-guide-primary-action">
-                            <span>{{ setup_summary.next_step_cta_label }}</span>
-                            <svg class="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                        </a>
-                    {% endif %}
-                    <a href="#guide-steps" class="dashboard-guide-secondary-action">استعراض الخطوات</a>
-                </div>
-            </div>
+  <section class="guide-hero" id="guide-overview" aria-labelledby="guide-title">
+    <div class="guide-hero__glow guide-hero__glow--one" aria-hidden="true"></div>
+    <div class="guide-hero__glow guide-hero__glow--two" aria-hidden="true"></div>
 
-            <aside class="dashboard-onboarding-panel dashboard-guide-progress-card">
-                <div class="flex items-center justify-between gap-3 text-xs text-white/70">
-                    <span>جاهزية الأساسيات</span>
-                    <span>{{ setup_summary.completed_required }}/{{ setup_summary.total_required }}</span>
-                </div>
-                <div class="dashboard-onboarding-progress mt-3 h-2.5 bg-white/15">
-                    <span style="width: {{ setup_summary.progress_percent }}%;"></span>
-                </div>
-                <div class="mt-5 flex items-end justify-between gap-4">
-                    <div>
-                        <p class="text-4xl font-black text-white leading-none">{{ setup_summary.progress_percent }}%</p>
-                        <p class="mt-2 text-sm font-bold text-white/90">مكتمل من خطوات التشغيل الأساسية</p>
-                    </div>
-                    <div class="dashboard-guide-progress-ring" aria-hidden="true">
-                        <span>{{ setup_summary.completed_required }}</span>
-                    </div>
-                </div>
-                <div class="dashboard-guide-next mt-5">
-                    <span>الخطوة التالية</span>
-                    <strong>{{ setup_summary.next_step_title }}</strong>
-                </div>
-            </aside>
-        </div>
-    </section>
+    <div class="guide-hero__copy">
+      <span class="guide-eyebrow"><i class="fa-solid fa-compass" aria-hidden="true"></i> مركز التعلّم</span>
+      <h1 id="guide-title">من أول تسجيل دخول<br><span>إلى شاشة مدرسية متكاملة</span></h1>
+      <p>
+        هذا دليلك العملي لإعداد {{ school.name|default:"مدرستك" }} وتشغيلها. ابدأ بالمسار الأساسي،
+        ثم ارجع إلى مكتبة الشروحات كلما أردت استخدام إحدى وظائف المنصة.
+      </p>
 
-    <section class="dashboard-guide-map" aria-label="ملخص خطوات البدء">
-        {% for step in setup_steps %}
-            <a href="#step-{{ step.key }}" class="dashboard-guide-map-item{% if step.is_complete %} is-complete{% endif %}">
-                <span class="dashboard-onboarding-step-no">{{ forloop.counter|stringformat:"02d" }}</span>
-                <div>
-                    <strong>{{ step.title }}</strong>
-                    <small>{{ step.metric_label }}: {{ step.metric_value }}</small>
-                </div>
-                <span class="dashboard-status-pill dashboard-status-pill--{{ step.status_tone }}">{{ step.status_label }}</span>
-            </a>
-        {% endfor %}
-    </section>
+      <div class="guide-hero__actions">
+        {% if setup_summary.progress_percent >= 100 %}
+          <a href="{{ setup_summary.launch_screen_url }}" class="guide-btn guide-btn--gold" target="_blank" rel="noopener">
+            <i class="fa-solid fa-display" aria-hidden="true"></i>
+            افتح شاشة مدرستك الآن
+          </a>
+        {% else %}
+          <a href="{{ setup_summary.next_step_url }}" class="guide-btn guide-btn--gold">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+            {{ setup_summary.next_step_cta_label }}
+          </a>
+        {% endif %}
+        <a href="#setup-path" class="guide-btn guide-btn--glass">
+          عرض مسار التجهيز
+          <i class="fa-solid fa-arrow-down" aria-hidden="true"></i>
+        </a>
+      </div>
 
-    <div id="guide-steps" class="grid grid-cols-1 gap-5">
-        {% for step in setup_steps %}
-            <section id="step-{{ step.key }}" class="dashboard-guide-section dashboard-guide-step p-5 md:p-6">
-                <div class="dashboard-guide-grid">
-                    <div class="dashboard-guide-content">
-                        <div class="flex flex-wrap items-center gap-3">
-                            <span class="dashboard-onboarding-step-no">{{ forloop.counter|stringformat:"02d" }}</span>
-                            <span class="text-[11px] font-extrabold text-slate-400">{{ step.eyebrow }}</span>
-                            <span class="dashboard-status-pill dashboard-status-pill--{{ step.status_tone }}">{{ step.status_label }}</span>
-                        </div>
-
-                        <h3 class="mt-4 text-xl md:text-2xl font-black text-slate-900">{{ step.title }}</h3>
-                        <p class="mt-2 text-sm text-slate-600 leading-8">{{ step.description }}</p>
-
-                        <div class="dashboard-guide-metric mt-4">
-                            <span>{{ step.metric_label }}</span>
-                            <strong>{{ step.metric_value }}</strong>
-                        </div>
-
-                        <div class="dashboard-guide-note mt-5">
-                            <span>ما الذي ستنجزه؟</span>
-                            <p>
-                                {% if step.key == "screens" %}
-                                    يصبح لديك رابط شاشة جاهز للفتح على التلفاز أو الجهاز المخصص للعرض.
-                                {% elif step.key == "school-data" %}
-                                    تتوفر الفصول والمواد والمعلمون كخيارات جاهزة داخل الجداول اليومية.
-                                {% elif step.key == "schedule" %}
-                                    تعرف الشاشة أوقات الحصص والفسح والانتقال بينها تلقائيا طوال اليوم الدراسي.
-                                {% else %}
-                                    يظهر العرض بهوية المدرسة مع الكرت المميز المناسب لأسلوب إدارتها اليومي.
-                                {% endif %}
-                            </p>
-                        </div>
-
-                        <div class="mt-5">
-                            <h4 class="text-sm font-black text-slate-900">طريقة التنفيذ</h4>
-                            <ul class="dashboard-help-list mt-3 space-y-3 text-sm text-slate-600 leading-7">
-                                {% for tip in step.tips %}
-                                    <li>{{ tip }}</li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-
-                        <div class="mt-6 flex flex-wrap items-center gap-3">
-                            <a href="{{ step.cta_url }}" class="dashboard-guide-primary-action dashboard-guide-primary-action--compact">
-                                <span>{{ step.cta_label }}</span>
-                                <svg class="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                            </a>
-                            <a href="{% url 'dashboard:index' %}" class="dashboard-guide-secondary-action">الرئيسية</a>
-                        </div>
-                    </div>
-
-                    <figure class="dashboard-help-figure dashboard-guide-figure p-3">
-                        <img src="{{ step.image_url }}" alt="{{ step.title }}" class="rounded-2xl">
-                        <figcaption>{{ step.title }}</figcaption>
-                    </figure>
-                </div>
-            </section>
-        {% endfor %}
+      <div class="guide-hero__facts" aria-label="ملخص الدليل">
+        <span><i class="fa-solid fa-route" aria-hidden="true"></i> مسار واضح خطوة بخطوة</span>
+        <span><i class="fa-solid fa-bolt" aria-hidden="true"></i> روابط مباشرة لكل وظيفة</span>
+        <span><i class="fa-solid fa-rotate" aria-hidden="true"></i> تقدّم يُحدّث تلقائيًا</span>
+      </div>
     </div>
-</div>
+
+    <aside class="guide-progress-card" aria-label="نسبة جاهزية المدرسة">
+      <div class="guide-progress-card__top">
+        <span>جاهزية التشغيل</span>
+        <span class="guide-live"><i aria-hidden="true"></i> مباشر</span>
+      </div>
+
+      <div class="guide-progress-card__body">
+        <div class="guide-progress-dial" data-guide-progress-dial>
+          <div>
+            <strong>{{ setup_summary.progress_percent }}%</strong>
+            <span>مكتمل</span>
+          </div>
+        </div>
+        <div class="guide-progress-card__numbers">
+          <strong>{{ setup_summary.completed_required }} من {{ setup_summary.total_required }}</strong>
+          <span>خطوات أساسية جاهزة</span>
+        </div>
+      </div>
+
+      <div class="guide-next-step">
+        <span>خطوتك التالية</span>
+        <strong>{{ setup_summary.next_step_title }}</strong>
+        {% if setup_summary.progress_percent < 100 %}
+          <a href="{{ setup_summary.next_step_url }}">ابدأ الآن <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
+        {% else %}
+          <a href="#platform-guide">استكشف بقية الوظائف <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></a>
+        {% endif %}
+      </div>
+    </aside>
+  </section>
+
+  <nav class="guide-nav" aria-label="أقسام دليل الاستخدام">
+    <div class="guide-nav__links">
+      <a href="#guide-overview" data-guide-nav="guide-overview" class="is-active"><i class="fa-solid fa-house" aria-hidden="true"></i> البداية</a>
+      <a href="#setup-path" data-guide-nav="setup-path"><i class="fa-solid fa-list-check" aria-hidden="true"></i> مسار التجهيز</a>
+      <a href="#platform-guide" data-guide-nav="platform-guide"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> وظائف المنصة</a>
+      <a href="#guide-faq" data-guide-nav="guide-faq"><i class="fa-regular fa-circle-question" aria-hidden="true"></i> أسئلة سريعة</a>
+    </div>
+    <a href="{% url 'dashboard:customer_support_ticket_create' %}" class="guide-nav__support">
+      <i class="fa-regular fa-life-ring" aria-hidden="true"></i> تحتاج مساعدة؟
+    </a>
+  </nav>
+
+  <section class="guide-section" id="setup-path" aria-labelledby="setup-path-title">
+    <header class="guide-section__head">
+      <div>
+        <span class="guide-section__kicker">ابدأ من هنا</span>
+        <h2 id="setup-path-title">مسار تجهيز شاشة المدرسة</h2>
+        <p>ينعكس إنجازك الحقيقي داخل النظام على هذه الخطوات تلقائيًا؛ لا تحتاج إلى تحديدها يدويًا.</p>
+      </div>
+      <div class="guide-section__actions">
+        <button type="button" data-guide-expand="setup" aria-label="فتح كل خطوات التجهيز">
+          <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i> فتح الكل
+        </button>
+        <button type="button" data-guide-collapse="setup" aria-label="طي كل خطوات التجهيز">
+          <i class="fa-solid fa-down-left-and-up-right-to-center" aria-hidden="true"></i> طي الكل
+        </button>
+      </div>
+    </header>
+
+    <ol class="guide-stepper" aria-label="ملخص مسار التجهيز">
+      {% for step in setup_steps %}
+        <li class="{% if step.is_complete %}is-complete{% elif step.required %}is-current{% endif %}">
+          <a href="#step-{{ step.key }}">
+            <span class="guide-stepper__number">
+              {% if step.is_complete %}<i class="fa-solid fa-check" aria-hidden="true"></i>{% else %}{{ forloop.counter|stringformat:"02d" }}{% endif %}
+            </span>
+            <span><strong>{{ step.title }}</strong><small>{{ step.status_label }}</small></span>
+          </a>
+        </li>
+      {% endfor %}
+    </ol>
+
+    <div class="guide-setup-list" data-guide-group="setup">
+      {% for step in setup_steps %}
+        <details id="step-{{ step.key }}" class="guide-setup-card{% if step.is_complete %} is-complete{% endif %}" data-guide-disclosure data-complete="{{ step.is_complete|yesno:'true,false' }}">
+          <summary>
+            <span class="guide-setup-card__number">
+              {% if step.is_complete %}<i class="fa-solid fa-check" aria-hidden="true"></i>{% else %}{{ forloop.counter|stringformat:"02d" }}{% endif %}
+            </span>
+            <span class="guide-setup-card__summary">
+              <span class="guide-setup-card__meta">{{ step.eyebrow }} · {{ step.metric_label }}: {{ step.metric_value }}</span>
+              <strong>{{ step.title }}</strong>
+              <small>{{ step.description }}</small>
+            </span>
+            <span class="guide-status guide-status--{{ step.status_tone }}">{{ step.status_label }}</span>
+            <span class="guide-chevron" aria-hidden="true"><i class="fa-solid fa-chevron-down"></i></span>
+          </summary>
+
+          <div class="guide-setup-card__content">
+            <figure class="guide-setup-card__media">
+              <img src="{{ step.image_url }}" alt="توضيح: {{ step.title }}" loading="lazy">
+            </figure>
+            <div class="guide-setup-card__instructions">
+              <div class="guide-outcome">
+                <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+                <div>
+                  <span>النتيجة بعد هذه الخطوة</span>
+                  <p>
+                    {% if step.key == "screens" %}
+                      تحصل على رابط تشغيل آمن تفتحه على التلفاز أو الجهاز المخصص للعرض.
+                    {% elif step.key == "school-data" %}
+                      تصبح الفصول والمواد والمعلمون خيارات جاهزة عند بناء الجدول اليومي.
+                    {% elif step.key == "schedule" %}
+                      تنتقل الشاشة بين الحصص والفسح تلقائيًا حسب توقيت اليوم الدراسي.
+                    {% else %}
+                      تظهر الشاشة بهوية المدرسة وبالكرت المميز المناسب لطريقة عملك.
+                    {% endif %}
+                  </p>
+                </div>
+              </div>
+
+              <h3>طريقة التنفيذ</h3>
+              <ol class="guide-instruction-list">
+                {% for tip in step.tips %}
+                  <li><span>{{ forloop.counter }}</span><p>{{ tip }}</p></li>
+                {% endfor %}
+              </ol>
+
+              <div class="guide-card-actions">
+                <a href="{{ step.cta_url }}" class="guide-btn guide-btn--primary">
+                  {{ step.cta_label }} <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                </a>
+                {% if step.is_complete %}
+                  <span class="guide-complete-note"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> تم رصد اكتمال هذه الخطوة</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </details>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="guide-section" id="platform-guide" aria-labelledby="platform-guide-title">
+    <header class="guide-section__head guide-section__head--library">
+      <div>
+        <span class="guide-section__kicker">مرجعك اليومي</span>
+        <h2 id="platform-guide-title">تعرّف على وظائف المنصة</h2>
+        <p>ابحث عن المهمة التي تريد تنفيذها، أو اختر القسم لعرض الشروحات المرتبطة به.</p>
+      </div>
+      <label class="guide-search" for="guide-search-input">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input id="guide-search-input" type="search" placeholder="ابحث: تنبيه، جدول، شاشة…" autocomplete="off" data-guide-search>
+        <kbd>/</kbd>
+      </label>
+    </header>
+
+    <div class="guide-filters" role="group" aria-label="تصفية وظائف المنصة">
+      <button type="button" class="is-active" data-guide-filter="all" aria-pressed="true">الكل</button>
+      <button type="button" data-guide-filter="schedule" aria-pressed="false">الجداول</button>
+      <button type="button" data-guide-filter="content" aria-pressed="false">المحتوى</button>
+      <button type="button" data-guide-filter="display" aria-pressed="false">العرض والتشغيل</button>
+      <button type="button" data-guide-filter="account" aria-pressed="false">الحساب والدعم</button>
+      <span data-guide-result-count aria-live="polite">7 شروحات</span>
+    </div>
+
+    <div class="guide-library" data-guide-library>
+      <article class="guide-feature-card" data-guide-card data-category="schedule" data-search="توقيت الحصص الأيام الجدول اليومي الأسبوعي المادة المعلم الفصول">
+        <div class="guide-feature-card__icon guide-feature-card__icon--blue"><i class="fa-regular fa-calendar-days" aria-hidden="true"></i></div>
+        <div class="guide-feature-card__body">
+          <span class="guide-feature-card__category">الجداول</span>
+          <h3>إعداد اليوم الدراسي والجدول</h3>
+          <p>اضبط أيام الدراسة وأوقات الحصص، ثم وزّع المادة والمعلم على كل حصة.</p>
+          <details data-guide-disclosure>
+            <summary>اعرض خطوات الاستخدام <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+            <ol>
+              <li>ابدأ من <strong>توقيت الحصص والأيام</strong> لتفعيل الأيام وتحديد البداية والنهاية.</li>
+              <li>افتح <strong>الجدول اليومي</strong> لإسناد الفصل والمادة والمعلم لكل حصة.</li>
+              <li>راجع النتيجة من <strong>الجدول الأسبوعي</strong> قبل تشغيل الشاشة.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="guide-feature-card__links">
+          <a href="{% url 'dashboard:days_list' %}">توقيت الحصص <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
+          <a href="{% url 'dashboard:timetable_day' %}">الجدول اليومي</a>
+          <a href="{% url 'dashboard:timetable_week' %}">الأسبوعي</a>
+        </div>
+      </article>
+
+      <article class="guide-feature-card" data-guide-card data-category="content" data-search="تنبيهات اعلان اعلانات أخبار عاجل شريط">
+        <div class="guide-feature-card__icon guide-feature-card__icon--amber"><i class="fa-regular fa-bell" aria-hidden="true"></i></div>
+        <div class="guide-feature-card__body">
+          <span class="guide-feature-card__category">المحتوى</span>
+          <h3>نشر التنبيهات والإعلانات</h3>
+          <p>انشر رسالة تظهر مباشرة على الشاشة وحدد مدة عرضها وترتيبها.</p>
+          <details data-guide-disclosure>
+            <summary>اعرض خطوات الاستخدام <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+            <ol>
+              <li>أنشئ تنبيهًا جديدًا واكتب عنوانًا واضحًا ونصًا مختصرًا.</li>
+              <li>حدّد تاريخ بداية ونهاية مناسبين حتى يختفي الإعلان تلقائيًا.</li>
+              <li>راجع ظهوره على شاشة العرض، ثم عدّله أو احذفه عند الحاجة.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="guide-feature-card__links">
+          <a href="{% url 'dashboard:ann_create' %}">إضافة تنبيه <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
+          <a href="{% url 'dashboard:ann_list' %}">إدارة التنبيهات</a>
+        </div>
+      </article>
+
+      <article class="guide-feature-card" data-guide-card data-category="content" data-search="تميز المتفوقين طالب معلم لوحة الشرف إنجاز">
+        <div class="guide-feature-card__icon guide-feature-card__icon--gold"><i class="fa-regular fa-star" aria-hidden="true"></i></div>
+        <div class="guide-feature-card__body">
+          <span class="guide-feature-card__category">المحتوى</span>
+          <h3>إبراز التميز والإنجازات</h3>
+          <p>اعرض الطلاب أو المعلمين المتميزين في بطاقة أنيقة داخل شاشة المدرسة.</p>
+          <details data-guide-disclosure>
+            <summary>اعرض خطوات الاستخدام <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+            <ol>
+              <li>أضف الاسم ووصف الإنجاز، واستخدم صورة واضحة إن كانت متاحة.</li>
+              <li>حدّد فترة الظهور لتظل لوحة التميز متجددة.</li>
+              <li>من الإعدادات اختر <strong>لوحة التميز</strong> لتكون الكرت المميز.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="guide-feature-card__links">
+          <a href="{% url 'dashboard:exc_create' %}">إضافة متميز <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
+          <a href="{% url 'dashboard:exc_list' %}">قسم التميز</a>
+        </div>
+      </article>
+
+      <article class="guide-feature-card" data-guide-card data-category="schedule" data-search="إشراف مناوبة انتظار احتياط معلم الغياب حصص الانتظار">
+        <div class="guide-feature-card__icon guide-feature-card__icon--emerald"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></div>
+        <div class="guide-feature-card__body">
+          <span class="guide-feature-card__category">التشغيل اليومي</span>
+          <h3>الإشراف والمناوبة وحصص الانتظار</h3>
+          <p>نظّم تكليفات اليوم واعرضها للهيئة التعليمية بطريقة واضحة ومباشرة.</p>
+          <details data-guide-disclosure>
+            <summary>اعرض خطوات الاستخدام <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+            <ol>
+              <li>سجّل أسماء المشرفين والمناوبين وحدد اليوم أو الموقع.</li>
+              <li>أضف حصص الانتظار عند غياب معلم وحدد البديل والحصة.</li>
+              <li>اجعل لوحة الإشراف هي الكرت المميز من إعدادات المدرسة عند الحاجة.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="guide-feature-card__links">
+          <a href="{% url 'dashboard:duty_list' %}">الإشراف والمناوبة <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
+          <a href="{% url 'dashboard:standby_list' %}">حصص الانتظار</a>
+        </div>
+      </article>
+
+      <article class="guide-feature-card" data-guide-card data-category="display" data-search="شاشة شاشات رابط تلفاز تفعيل تحديث إعادة تحميل فك ارتباط جهاز">
+        <div class="guide-feature-card__icon guide-feature-card__icon--violet"><i class="fa-solid fa-display" aria-hidden="true"></i></div>
+        <div class="guide-feature-card__body">
+          <span class="guide-feature-card__category">العرض والتشغيل</span>
+          <h3>ربط شاشة العرض وإدارتها</h3>
+          <p>أنشئ رابط الشاشة، افتحه على التلفاز، ثم راقب الاتصال وحدّث العرض عن بُعد.</p>
+          <details data-guide-disclosure>
+            <summary>اعرض خطوات الاستخدام <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+            <ol>
+              <li>أنشئ شاشة باسم واضح مثل «الشاشة الرئيسية» وانسخ رابطها المختصر.</li>
+              <li>افتح الرابط على التلفاز أو المتصفح المخصص واترك الصفحة في وضع ملء الشاشة.</li>
+              <li>استخدم التحديث أو إعادة التحميل عن بُعد، وفك الارتباط قبل نقلها إلى جهاز آخر.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="guide-feature-card__links">
+          <a href="{% url 'dashboard:screen_list' %}">إدارة الشاشات <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
+          {% if setup_summary.progress_percent >= 100 %}<a href="{{ setup_summary.launch_screen_url }}" target="_blank" rel="noopener">فتح الشاشة</a>{% endif %}
+        </div>
+      </article>
+
+      <article class="guide-feature-card" data-guide-card data-category="display" data-search="إعدادات المدرسة شعار لون ثيم مظهر هوية كرت مميز بيانات">
+        <div class="guide-feature-card__icon guide-feature-card__icon--rose"><i class="fa-solid fa-sliders" aria-hidden="true"></i></div>
+        <div class="guide-feature-card__body">
+          <span class="guide-feature-card__category">العرض والتشغيل</span>
+          <h3>تخصيص هوية شاشة المدرسة</h3>
+          <p>غيّر الشعار والألوان والكرت المميز لتظهر الشاشة بهوية مدرستك.</p>
+          <details data-guide-disclosure>
+            <summary>اعرض خطوات الاستخدام <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+            <ol>
+              <li>ارفع شعارًا واضحًا بخلفية شفافة أو بيضاء قدر الإمكان.</li>
+              <li>اختر لونًا متباينًا يسهل قراءة النصوص معه من مسافة بعيدة.</li>
+              <li>حدّد الكرت المميز واحفظ، ثم راجع النتيجة على شاشة العرض.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="guide-feature-card__links">
+          <a href="{% url 'dashboard:settings' %}">إعدادات المدرسة <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
+          <a href="{% url 'dashboard:school_data' %}">بيانات المدرسة</a>
+        </div>
+      </article>
+
+      <article class="guide-feature-card" data-guide-card data-category="account" data-search="اشتراك فاتورة تجديد دعم مساعدة تذكرة حساب خطة شاشة إضافية">
+        <div class="guide-feature-card__icon guide-feature-card__icon--slate"><i class="fa-regular fa-credit-card" aria-hidden="true"></i></div>
+        <div class="guide-feature-card__body">
+          <span class="guide-feature-card__category">الحساب والدعم</span>
+          <h3>الاشتراك والفواتير وطلب الدعم</h3>
+          <p>تابع صلاحية اشتراكك وفواتيرك، أو افتح تذكرة ليصلك الدعم من داخل المنصة.</p>
+          <details data-guide-disclosure>
+            <summary>اعرض خطوات الاستخدام <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+            <ol>
+              <li>راجع تاريخ الانتهاء وحالة الخطة من صفحة <strong>اشتراكي</strong>.</li>
+              <li>استخدم طلب التجديد أو الشاشة الإضافية عند الحاجة.</li>
+              <li>عند وجود مشكلة، أرسل تذكرة بعنوان واضح وأرفق تفاصيل الخطوات التي نفذتها.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="guide-feature-card__links">
+          <a href="{% url 'dashboard:my_subscription' %}">إدارة اشتراكي <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
+          <a href="{% url 'dashboard:customer_support_ticket_create' %}">طلب دعم</a>
+        </div>
+      </article>
+    </div>
+
+    <div class="guide-empty" data-guide-empty hidden>
+      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      <h3>لم نجد شرحًا مطابقًا</h3>
+      <p>جرّب كلمة أقصر مثل «جدول» أو «تنبيه»، أو اختر «الكل».</p>
+      <button type="button" data-guide-reset>مسح البحث</button>
+    </div>
+  </section>
+
+  <section class="guide-section" id="guide-faq" aria-labelledby="guide-faq-title">
+    <header class="guide-section__head">
+      <div>
+        <span class="guide-section__kicker">إجابات مختصرة</span>
+        <h2 id="guide-faq-title">أسئلة تتكرر عند البداية</h2>
+        <p>إجابات مباشرة على أهم الأسئلة أثناء تجهيز وتشغيل الشاشة.</p>
+      </div>
+    </header>
+
+    <div class="guide-faq-list">
+      <details data-guide-disclosure>
+        <summary><span><i class="fa-solid fa-tv" aria-hidden="true"></i> كيف أفتح العرض على التلفاز؟</span><i class="fa-solid fa-plus" aria-hidden="true"></i></summary>
+        <p>من صفحة شاشات العرض أنشئ شاشة وانسخ رابطها المختصر. افتح الرابط في متصفح التلفاز أو جهاز العرض، ثم فعّل وضع ملء الشاشة واترك الصفحة مفتوحة.</p>
+      </details>
+      <details data-guide-disclosure>
+        <summary><span><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> هل تظهر التعديلات مباشرة؟</span><i class="fa-solid fa-plus" aria-hidden="true"></i></summary>
+        <p>نعم، أغلب تعديلات المحتوى والجدول تنعكس تلقائيًا. ويمكنك من صفحة الشاشات إرسال أمر تحديث أو إعادة تحميل إذا أردت تطبيق التغيير فورًا.</p>
+      </details>
+      <details data-guide-disclosure>
+        <summary><span><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> لماذا لا تظهر الحصة الحالية؟</span><i class="fa-solid fa-plus" aria-hidden="true"></i></summary>
+        <p>تحقق من تفعيل اليوم الدراسي، وصحة وقت بداية ونهاية الحصة، ثم تأكد من إسناد الفصل والمادة والمعلم داخل الجدول اليومي.</p>
+      </details>
+      <details data-guide-disclosure>
+        <summary><span><i class="fa-solid fa-link" aria-hidden="true"></i> ماذا أفعل عند نقل الشاشة إلى جهاز آخر؟</span><i class="fa-solid fa-plus" aria-hidden="true"></i></summary>
+        <p>افتح صفحة شاشات العرض، واستخدم «فك ارتباط الجهاز» للشاشة المطلوبة، ثم افتح رابطها على الجهاز الجديد لإتمام الربط من جديد.</p>
+      </details>
+    </div>
+  </section>
+
+  <section class="guide-help-card" aria-label="طلب المساعدة">
+    <div class="guide-help-card__icon"><i class="fa-regular fa-comments" aria-hidden="true"></i></div>
+    <div>
+      <span>لم تجد ما تبحث عنه؟</span>
+      <h2>فريق الدعم جاهز لمساعدتك</h2>
+      <p>أرسل تفاصيل المشكلة من داخل المنصة، وسنتمكن من متابعة الطلب معك بشكل منظم.</p>
+    </div>
+    <a href="{% url 'dashboard:customer_support_ticket_create' %}" class="guide-btn guide-btn--primary">
+      فتح تذكرة دعم <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+    </a>
+  </section>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+  <script defer src="{% static 'js/help-guide.js' %}?v=2026-07-23-a"></script>
 {% endblock %}

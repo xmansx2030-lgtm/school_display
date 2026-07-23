@@ -48,12 +48,28 @@ class Command(BaseCommand):
         self.stdout.write(
             f"wake_scheduler_started interval={interval}s lead={lead_minutes}m window=±{window_seconds}s"
         )
+        worker_id = f"wake-scheduler:{int(time.time())}"
 
         while True:
             scanned = 0
             fired = 0
             try:
-                qs = SchoolSettings.objects.all().only("id", "school_id", "timezone_name")
+                from schedule.wake_broadcaster import touch_wake_scheduler_heartbeat
+
+                touch_wake_scheduler_heartbeat(worker_id=worker_id)
+                qs = (
+                    SchoolSettings.objects.filter(school__screens__is_active=True)
+                    .exclude(school__screens__bound_device_id__isnull=True)
+                    .exclude(school__screens__bound_device_id="")
+                    .only(
+                        "id",
+                        "school_id",
+                        "timezone_name",
+                        "schedule_revision",
+                        "test_mode_weekday_override",
+                    )
+                    .distinct()
+                )
                 for s in qs.iterator():
                     scanned += 1
                     try:

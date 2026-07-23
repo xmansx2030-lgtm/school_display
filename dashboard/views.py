@@ -16,14 +16,10 @@ from django.apps import apps
 from django.conf import settings as dj_settings
 from django.contrib import messages
 from django.contrib.auth import (
-    authenticate,
     login,
-    logout,
-    update_session_auth_hash,
     get_user_model,
 )
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import PermissionDenied, FieldError
 from django.core.cache import cache
 from django.core.paginator import Paginator
@@ -32,7 +28,6 @@ from django.db.models import Max, Q, Sum, Count
 from django.db.models.functions import TruncMonth
 from django.db.utils import OperationalError, ProgrammingError
 from django.http import HttpResponse, JsonResponse
-from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, NoReverseMatch, get_resolver
 from django.templatetags.static import static as build_static_url
@@ -40,11 +35,34 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
-from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 from django.views.decorators.http import require_POST
 
-# ✅ عدّل هذه الاستيرادات حسب أسماء تطبيقاتك الفعلية
-from .decorators import manager_required
+# Centralized access and permission policy. Aliases preserve the names used by
+# legacy code while the implementation lives outside this view module.
+from .access import (
+    get_active_school_or_redirect,
+    get_or_create_user_profile as _get_or_create_profile,
+    safe_next_url as _safe_next_url,
+)
+from .auth_views import change_password, login_view, logout_view
+from .decorators import manager_required, superuser_required, system_staff_required
+from .support_views import (
+    customer_support_ticket_create,
+    customer_support_ticket_detail,
+    customer_support_tickets,
+    system_support_ticket_create,
+    system_support_ticket_detail,
+    system_support_tickets,
+)
+from .views_screens import (
+    request_screen_addon,
+    screen_create,
+    screen_delete,
+    screen_list,
+    screen_refresh_now,
+    screen_reload_now,
+    screen_unbind_device,
+)
 from .forms import (
     SchoolSettingsForm,
     DayScheduleForm,
@@ -60,14 +78,13 @@ from .forms import (
     PeriodFormSet,
     BreakFormSet,
     SubscriptionPlanForm,
-    SupportTicketForm,
-    CustomerSupportTicketForm,
-    TicketCommentForm,
     SubscriptionScreenAddonForm,
     SubscriptionRenewalRequestForm,
     SubscriptionNewRequestForm,
 )
-from core.models import SubscriptionPlan, SupportTicket, TicketComment
+from core.models import SubscriptionPlan
+from core.display_presence import display_is_live, latest_display_presence, live_display_count
+from core.two_factor import get_enabled_config
 
 logger = logging.getLogger(__name__)
 
@@ -83,32 +100,6 @@ if TYPE_CHECKING:
     pass
 
 UserModel = get_user_model()
-
-_ARABIC_DIGITS_TRANS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
-
-
-def _normalize_login_mobile(value: str) -> str:
-    raw = (value or "").translate(_ARABIC_DIGITS_TRANS)
-    digits = re.sub(r"\D+", "", raw)
-    if digits.startswith("00966"):
-        digits = "0" + digits[5:]
-    elif digits.startswith("966"):
-        digits = "0" + digits[3:]
-    return digits
-
-
-def _resolve_login_identifier(identifier: str) -> str:
-    """Allow users to sign in with username or the mobile saved on their profile."""
-    identifier = (identifier or "").strip()
-    mobile = _normalize_login_mobile(identifier)
-    if re.fullmatch(r"05\d{8}", mobile or ""):
-        try:
-            profile = UserModel.objects.select_related("profile").filter(profile__mobile=mobile).first()
-        except Exception:
-            profile = None
-        if profile is not None:
-            return getattr(profile, "username", identifier)
-    return identifier
 
 WEEKDAY_MAP = {
     1: "الاثنين",
@@ -511,39 +502,6 @@ def _build_day_autofill_seed(day) -> dict[str, Any]:
     return seed
 
 
-def _get_or_create_profile(user):
-    Profile = UserProfileModel()
-    profile, _created = Profile.objects.get_or_create(user=user)
-
-    if getattr(user, "is_superuser", False):
-        School = SchoolModel()
-        all_school_ids = list(School.objects.order_by("id").values_list("id", flat=True))
-        current_school_ids = set(profile.schools.values_list("id", flat=True))
-
-        missing_school_ids = [school_id for school_id in all_school_ids if school_id not in current_school_ids]
-        if missing_school_ids:
-            profile.schools.add(*School.objects.filter(id__in=missing_school_ids))
-
-        if all_school_ids and profile.active_school_id not in all_school_ids:
-            profile.active_school_id = all_school_ids[0]
-            profile.save(update_fields=["active_school"])
-        elif not all_school_ids and profile.active_school_id is not None:
-            profile.active_school = None
-            profile.save(update_fields=["active_school"])
-
-    return profile
-
-
-def _safe_next_url(request, default_name: str = "dashboard:index") -> str:
-    nxt = (request.GET.get("next") or request.POST.get("next") or "").strip()
-    if not nxt:
-        return reverse(default_name)
-    allowed_hosts = {request.get_host()}
-    if url_has_allowed_host_and_scheme(nxt, allowed_hosts=allowed_hosts, require_https=request.is_secure()):
-        return nxt
-    return reverse(default_name)
-
-
 def _classes_qs_from_settings(settings_obj):
     """
     بعض المشاريع تسمي علاقة الفصول: settings.school_classes
@@ -613,7 +571,14 @@ def _build_dashboard_onboarding_context(request, school, settings_obj=None):
 
     settings_obj = settings_obj or SchoolSettings.objects.filter(school=school).first()
 
-    screens_count = DisplayScreen.objects.filter(school=school).count()
+    screens_qs = DisplayScreen.objects.filter(school=school)
+    screens_count = screens_qs.count()
+    launch_screen = screens_qs.filter(is_active=True).order_by("id").first()
+    launch_screen_url = (
+        reverse("website:short_display", args=[launch_screen.short_code])
+        if launch_screen is not None and getattr(launch_screen, "short_code", "")
+        else reverse("dashboard:screen_list")
+    )
     classes_count = _classes_qs_from_settings(settings_obj).count() if settings_obj else 0
     subjects_count = Subject.objects.filter(school=school).count()
     teachers_count = Teacher.objects.filter(school=school).count()
@@ -736,112 +701,17 @@ def _build_dashboard_onboarding_context(request, school, settings_obj=None):
             "total_required": total_required,
             "progress_percent": progress_percent,
             "next_step_title": next_step["title"] if next_step else "تم تجهيز الأساسيات",
-            "next_step_url": next_step["cta_url"] if next_step else reverse("dashboard:index"),
-            "next_step_cta_label": next_step["cta_label"] if next_step else "العودة للرئيسية",
+            "next_step_url": next_step["cta_url"] if next_step else launch_screen_url,
+            "next_step_cta_label": next_step["cta_label"] if next_step else "افتح شاشة مدرستك الآن",
+            "launch_screen_url": launch_screen_url,
             "guide_url": reverse("dashboard:help_getting_started"),
         },
     }
 
 
-def get_active_school_or_redirect(request):
-    """
-    يرجّع (school, response)
-    - school: مدرسة نشطة (School) أو None
-    - response: HttpResponseRedirect أو None
-
-    مهم: لا تُرجع إلى صفحة login هنا إطلاقًا حتى لا يحدث Redirect loop.
-    """
-    profile = _get_or_create_profile(request.user)
-
-    try:
-        schools_ids = list(profile.schools.values_list("id", flat=True))
-    except Exception:
-        schools_ids = []
-
-    logger.debug(
-        "active_school check: user=%s active_school_id=%s schools=%s",
-        getattr(request.user, "pk", None),
-        getattr(profile, "active_school_id", None),
-        schools_ids,
-    )
-
-    if getattr(profile, "active_school_id", None):
-        return profile.active_school, None
-
-    schools_mgr = getattr(profile, "schools", None)
-    if schools_mgr is not None:
-        qs = profile.schools.order_by("id")
-        if qs.exists():
-            first_school = qs.first()
-            profile.active_school = first_school
-            profile.save(update_fields=["active_school"])
-            messages.info(request, f"تم تعيين المدرسة النشطة تلقائيًا: {first_school.name}")
-            return first_school, None
-
-    # System staff (SaaS): superuser أو موظف دعم
-    try:
-        is_support = request.user.groups.filter(name="Support").exists()
-    except Exception:
-        is_support = False
-
-    if getattr(request.user, "is_superuser", False) or is_support:
-        messages.info(request, "لا توجد مدرسة مرتبطة بحسابك — تم تحويلك للوحة إدارة النظام.")
-        return None, redirect("dashboard:system_admin_dashboard")
-
-    messages.error(request, "حسابك غير مرتبط بأي مدرسة. يرجى التواصل مع الإدارة.")
-    return None, redirect("dashboard:select_school")
-
-
 # ======================
 # مصادقة ولوحة المدير
 # ======================
-
-@never_cache
-@ensure_csrf_cookie
-@csrf_protect
-def login_view(request):
-    next_url = _safe_next_url(request, default_name="dashboard:index")
-
-    if request.user.is_authenticated:
-        try:
-            is_support = request.user.groups.filter(name="Support").exists()
-        except Exception:
-            is_support = False
-
-        if getattr(request.user, "is_superuser", False) or is_support:
-            return redirect("dashboard:system_admin_dashboard")
-        _school, resp = get_active_school_or_redirect(request)
-        return resp or redirect("dashboard:index")
-
-    if request.method == "POST":
-        u = (request.POST.get("username") or "").strip()
-        p = request.POST.get("password") or ""
-        next_url = _safe_next_url(request, default_name="dashboard:index")
-        auth_username = _resolve_login_identifier(u)
-        user = authenticate(request, username=auth_username, password=p)
-        if user:
-            login(request, user)
-            try:
-                is_support = user.groups.filter(name="Support").exists()
-            except Exception:
-                is_support = False
-
-            if getattr(user, "is_superuser", False) or is_support:
-                return redirect(_safe_next_url(request, default_name="dashboard:system_admin_dashboard"))
-            _school, resp = get_active_school_or_redirect(request)
-            return resp or redirect(_safe_next_url(request, default_name="dashboard:index"))
-
-        logger.warning(
-            "login_failed username=%s next=%s path=%s",
-            u[:80],
-            next_url,
-            getattr(request, "path", ""),
-        )
-        messages.error(request, "بيانات الدخول غير صحيحة.")
-
-    get_token(request)
-    return render(request, "dashboard/login.html", {"next": next_url})
-
 
 def demo_login(request):
     if not getattr(dj_settings, "DEBUG", False):
@@ -886,27 +756,6 @@ def demo_login(request):
     return redirect("dashboard:index")
 
 
-def logout_view(request):
-    logout(request)
-    return redirect("dashboard:login")
-
-
-@manager_required
-def change_password(request):
-    next_url = _safe_next_url(request, default_name="dashboard:index")
-    if request.method == "POST":
-        form = PasswordChangeForm(request.user, request.POST)
-        if form.is_valid():
-            user = form.save()
-            update_session_auth_hash(request, user)
-            messages.success(request, "تم تغيير كلمة المرور بنجاح!")
-            return redirect(next_url)
-        messages.error(request, "الرجاء تصحيح الأخطاء أدناه.")
-    else:
-        form = PasswordChangeForm(request.user)
-    return render(request, "dashboard/change_password.html", {"form": form, "next": next_url})
-
-
 @manager_required
 def index(request):
     Announcement = AnnouncementModel()
@@ -923,16 +772,74 @@ def index(request):
 
     today = timezone.localdate()
     now = timezone.now()
-    live_since = now - timedelta(minutes=65)
-    screens_qs = DisplayScreen.objects.filter(school=school)
-    live_screens_count = screens_qs.filter(last_seen__gte=live_since).count()
-    active_screens_count = screens_qs.filter(is_active=True).count()
+    screens_qs = DisplayScreen.objects.filter(school=school).order_by("id")
+    screens = list(screens_qs)
+    live_screens_count = live_display_count(screens, now=now)
+    active_screens_count = sum(1 for screen in screens if bool(getattr(screen, "is_active", False)))
+
+    primary_screen = next(
+        (screen for screen in screens if bool(getattr(screen, "is_active", False))),
+        screens[0] if screens else None,
+    )
+    primary_screen_is_live = bool(primary_screen and display_is_live(primary_screen, now=now))
+    primary_screen_is_bound = bool(
+        primary_screen and (getattr(primary_screen, "bound_device_id", "") or "").strip()
+    )
+    primary_screen_last_seen = latest_display_presence(primary_screen) if primary_screen else None
+
+    if primary_screen is None:
+        screen_hub = {
+            "exists": False,
+            "status": "لا توجد شاشة بعد",
+            "tone": "new",
+            "detail": "أنشئ شاشة واحدة لتحصل على رابط تشغيل جاهز للتلفاز أو الشاشة الذكية.",
+            "primary_label": "أنشئ أول شاشة",
+            "primary_url": reverse("dashboard:screen_list"),
+            "short_code": "",
+        }
+    else:
+        primary_screen_url = (
+            reverse("website:short_display", args=[primary_screen.short_code])
+            if getattr(primary_screen, "short_code", "")
+            else reverse("dashboard:screen_list")
+        )
+        if not bool(getattr(primary_screen, "is_active", False)):
+            status = "الشاشة موقوفة"
+            tone = "paused"
+            detail = "فعّل الشاشة من صفحة إدارة الشاشات حتى تستقبل الجدول والمحتوى من جديد."
+        elif primary_screen_is_live:
+            status = "متصلة الآن"
+            tone = "live"
+            detail = "الشاشة تعمل وتستقبل تحديثات الجدول والتنبيهات تلقائيًا."
+        elif primary_screen_is_bound and primary_screen_last_seen:
+            status = "غير متصلة حاليًا"
+            tone = "offline"
+            detail = "الشاشة مرتبطة بجهاز، لكن لم يصل منها اتصال حديث. تحقق من تشغيل التلفاز والإنترنت."
+        elif primary_screen_is_bound:
+            status = "بانتظار الاتصال"
+            tone = "waiting"
+            detail = "الجهاز مرتبط، وسيظهر متصلًا فور فتح صفحة العرض عليه."
+        else:
+            status = "بانتظار أول تشغيل"
+            tone = "waiting"
+            detail = "افتح رابط الشاشة على التلفاز مرة واحدة لإكمال الربط وبدء العرض."
+
+        screen_hub = {
+            "exists": True,
+            "name": primary_screen.name,
+            "status": status,
+            "tone": tone,
+            "detail": detail,
+            "primary_label": "فتح شاشة المدرسة",
+            "primary_url": primary_screen_url,
+            "short_code": getattr(primary_screen, "short_code", "") or "",
+        }
 
     stats = {
         "ann_count": Announcement.objects.filter(school=school).count(),
         "exc_count": Excellence.objects.filter(school=school).count(),
         "standby_today": StandbyAssignment.objects.filter(school=school, date=today).count(),
-        "screens_count": screens_qs.count(),
+        "screens_count": len(screens),
         "active_screens_count": active_screens_count,
         "live_screens_count": live_screens_count,
     }
@@ -978,6 +885,7 @@ def index(request):
             "current_period": current_period,
             "next_period": next_period,
             "schedule_revision": schedule_revision,
+            "screen_hub": screen_hub,
             **onboarding_context,
         },
     )
@@ -993,6 +901,14 @@ def help_getting_started(request):
 
     settings_obj = SchoolSettings.objects.filter(school=school).first()
     onboarding_context = _build_dashboard_onboarding_context(request, school, settings_obj=settings_obj)
+
+    try:
+        profile = request.user.profile
+        if profile.needs_onboarding:
+            profile.needs_onboarding = False
+            profile.save(update_fields=["needs_onboarding"])
+    except Exception:
+        pass
 
     return render(
         request,
@@ -1098,6 +1014,7 @@ def school_settings(request):
             "form": form,
             "display_preview_url": preview_url,
             "school": school,
+            "two_factor_enabled": get_enabled_config(request.user) is not None,
         },
     )
 
@@ -1837,102 +1754,6 @@ def duty_teacher_search(request):
 
 
 # ======================
-# شاشات العرض
-# ======================
-
-def _get_school_active_subscriptions_qs(school):
-    from . import views_screens
-
-    return views_screens.get_school_active_subscriptions_qs(school)
-
-
-def _get_school_active_subscription(school):
-    from . import views_screens
-
-    return views_screens.get_school_active_subscription(school)
-
-
-def _get_school_max_screens_limit(school) -> int | None:
-    from . import views_screens
-
-    return views_screens.get_school_max_screens_limit(school)
-
-
-def _get_school_effective_plan_label(school) -> str | None:
-    from . import views_screens
-
-    return views_screens.get_school_effective_plan_label(school)
-
-@manager_required
-def screen_list(request):
-    from . import views_screens
-
-    return views_screens.screen_list(
-        request,
-        get_active_school_or_redirect=get_active_school_or_redirect,
-        model_has_field=_model_has_field,
-    )
-
-
-@manager_required
-def screen_create(request):
-    from . import views_screens
-
-    return views_screens.screen_create(
-        request,
-        get_active_school_or_redirect=get_active_school_or_redirect,
-    )
-
-
-@manager_required
-@require_POST
-def screen_refresh_now(request, pk: int):
-    from . import views_screens
-
-    return views_screens.screen_refresh_now(
-        request,
-        pk=pk,
-        get_active_school_or_redirect=get_active_school_or_redirect,
-    )
-
-
-@manager_required
-@require_POST
-def screen_reload_now(request, pk: int):
-    from . import views_screens
-
-    return views_screens.screen_reload_now(
-        request,
-        pk=pk,
-        get_active_school_or_redirect=get_active_school_or_redirect,
-    )
-
-
-@manager_required
-@require_POST
-def screen_delete(request, pk: int):
-    from . import views_screens
-
-    return views_screens.screen_delete(
-        request,
-        pk=pk,
-        get_active_school_or_redirect=get_active_school_or_redirect,
-    )
-
-
-@manager_required
-@require_POST
-def screen_unbind_device(request, pk: int):
-    from . import views_screens
-
-    return views_screens.screen_unbind_device(
-        request,
-        pk=pk,
-        get_active_school_or_redirect=get_active_school_or_redirect,
-    )
-
-
-# ======================
 # أدوات إضافية على الأيام
 # ======================
 
@@ -2589,23 +2410,6 @@ def timetable_export_csv(request):
 # =========================
 #  لوحة إدارة النظام (SaaS)
 # =========================
-
-def superuser_required(view_func):
-    return user_passes_test(lambda u: u.is_superuser, login_url="dashboard:login")(view_func)
-
-
-def system_staff_required(view_func):
-    """سماح لمدير النظام أو موظف الدعم (Group: Support)."""
-    def _ok(u):
-        if getattr(u, "is_superuser", False):
-            return True
-        try:
-            return u.is_authenticated and u.groups.filter(name="Support").exists()
-        except Exception:
-            return False
-
-    return user_passes_test(_ok, login_url="dashboard:login")(view_func)
-
 
 def _admin_school_form_class():
     School = SchoolModel()
@@ -3504,7 +3308,7 @@ def system_subscription_requests_list(request):
         paginator = Paginator(qs, 25)
         page_obj = paginator.get_page(request.GET.get("page") or 1)
     except (ProgrammingError, OperationalError):
-        # غالباً: لم يتم تشغيل migrate في البيئة (Render) بعد نشر الكود.
+        # غالباً: لم يتم تشغيل migrate في بيئة الإنتاج بعد نشر الكود.
         messages.error(request, "قاعدة البيانات غير محدثة (جدول طلبات الاشتراك غير موجود). نفّذ migrate ثم أعد المحاولة.")
         open_count = 0
         approved_count = 0
@@ -3671,6 +3475,33 @@ def my_subscription(request):
     current_status_code = "none"
     current_status_label = "لا يوجد اشتراك"
     current_status_badge_class = "bg-rose-50 text-rose-700"
+
+    DisplayScreen = DisplayScreenModel()
+    screens = list(DisplayScreen.objects.filter(school=school))
+    screens_total_count = len(screens)
+    active_screens = [screen for screen in screens if bool(getattr(screen, "is_active", False))]
+    screens_active_count = len(active_screens)
+    screens_live_count = live_display_count(active_screens)
+    screens_never_connected_count = sum(1 for screen in active_screens if latest_display_presence(screen) is None)
+
+    if screens_total_count == 0:
+        screen_status_label = "لا توجد شاشات مسجلة"
+        screen_status_class = "text-slate-600"
+    elif screens_active_count == 0:
+        screen_status_label = "جميع الشاشات معطلة"
+        screen_status_class = "text-rose-600"
+    elif screens_live_count == screens_active_count:
+        screen_status_label = f"كل الشاشات متصلة الآن ({screens_live_count}/{screens_active_count})"
+        screen_status_class = "text-emerald-700"
+    elif screens_live_count > 0:
+        screen_status_label = f"{screens_live_count} من {screens_active_count} شاشة متصلة الآن"
+        screen_status_class = "text-amber-700"
+    elif screens_never_connected_count == screens_active_count:
+        screen_status_label = f"بانتظار أول اتصال ({screens_active_count} شاشة)"
+        screen_status_class = "text-amber-700"
+    else:
+        screen_status_label = f"لا توجد شاشة متصلة حاليًا (0/{screens_active_count})"
+        screen_status_class = "text-rose-600"
 
     def _field_exists(model_cls, field_name: str) -> bool:
         try:
@@ -4133,6 +3964,11 @@ def my_subscription(request):
             "active_request_tab": active_request_tab,
             "renewal_plan_details": _plan_details(renewal_plan_obj),
             "plans_map": plans_map,
+            "screens_total_count": screens_total_count,
+            "screens_active_count": screens_active_count,
+            "screens_live_count": screens_live_count,
+            "screen_status_label": screen_status_label,
+            "screen_status_class": screen_status_class,
         },
     )
 
@@ -4148,16 +3984,12 @@ def subscription_invoice_view(request, pk: int):
     if response:
         return response
 
-    invoice = get_object_or_404(
-        SubscriptionInvoice.objects.select_related("school", "subscription", "plan"),
-        pk=pk,
-    )
-
-    # السماح للمشرفين (Superuser) بالوصول لأي فاتورة
+    invoice_qs = SubscriptionInvoice.objects.select_related("school", "subscription", "plan")
     if not request.user.is_superuser:
-        if getattr(invoice, "school_id", None) != getattr(school, "id", None):
-            messages.error(request, "لا تملك صلاحية الوصول لهذه الفاتورة.")
-            return redirect("dashboard:my_subscription")
+        # Tenant isolation belongs in the query itself so another school's
+        # invoice is indistinguishable from a non-existent invoice.
+        invoice_qs = invoice_qs.filter(school=school)
+    invoice = get_object_or_404(invoice_qs, pk=pk)
 
     try:
         from django.template.loader import render_to_string
@@ -4414,131 +4246,6 @@ def system_reports(request):
         "schools_distribution_total": schools_distribution_total,
     }
     return render(request, "admin/reports.html", context)
-
-# ==================
-# Support Tickets (Admin)
-# ==================
-
-@login_required
-@system_staff_required
-def system_support_tickets(request):
-    tickets = SupportTicket.objects.all().order_by("-created_at")
-    return render(request, "admin/support_tickets.html", {"tickets": tickets})
-
-@login_required
-@system_staff_required
-def system_support_ticket_detail(request, pk):
-    ticket = get_object_or_404(SupportTicket, pk=pk)
-    
-    if request.method == "POST":
-        # Handle status change
-        if "status" in request.POST:
-            VALID_STATUSES = {s[0] for s in SupportTicket.STATUS_CHOICES}
-            new_status = request.POST["status"]
-            if new_status not in VALID_STATUSES:
-                messages.error(request, "حالة غير صالحة.")
-                return redirect("dashboard:system_support_ticket_detail", pk=pk)
-            ticket.status = new_status
-            ticket.save()
-            messages.success(request, "تم تحديث حالة التذكرة.")
-            return redirect("dashboard:system_support_ticket_detail", pk=pk)
-            
-        # Handle comment
-        comment_form = TicketCommentForm(request.POST)
-        if comment_form.is_valid():
-            comment = comment_form.save(commit=False)
-            comment.ticket = ticket
-            comment.user = request.user
-            comment.save()
-            messages.success(request, "تم إضافة الرد بنجاح.")
-            return redirect("dashboard:system_support_ticket_detail", pk=pk)
-    else:
-        comment_form = TicketCommentForm()
-
-    return render(request, "admin/support_ticket_detail.html", {
-        "ticket": ticket,
-        "comment_form": comment_form
-    })
-
-@login_required
-@system_staff_required
-def system_support_ticket_create(request):
-    if request.method == "POST":
-        form = SupportTicketForm(request.POST)
-        if form.is_valid():
-            ticket = form.save(commit=False)
-            ticket.user = request.user
-            ticket.save()
-            messages.success(request, "تم فتح التذكرة بنجاح")
-            return redirect("dashboard:system_support_tickets")
-    else:
-        form = SupportTicketForm()
-    return render(request, "admin/support_ticket_form.html", {"form": form})
-
-
-# ==================
-# Customer Support
-# ==================
-
-@login_required
-def customer_support_tickets(request):
-    tickets = SupportTicket.objects.filter(user=request.user).order_by("-created_at")
-    return render(request, "dashboard/support_tickets.html", {"tickets": tickets})
-
-@login_required
-def customer_support_ticket_detail(request, pk):
-    ticket = get_object_or_404(SupportTicket, pk=pk, user=request.user)
-    
-    if request.method == "POST":
-        comment_form = TicketCommentForm(request.POST)
-        if comment_form.is_valid():
-            comment = comment_form.save(commit=False)
-            comment.ticket = ticket
-            comment.user = request.user
-            comment.save()
-            messages.success(request, "تم إضافة الرد بنجاح.")
-            return redirect("dashboard:customer_support_ticket_detail", pk=pk)
-    else:
-        comment_form = TicketCommentForm()
-
-    return render(request, "dashboard/support_ticket_detail.html", {
-        "ticket": ticket,
-        "comment_form": comment_form
-    })
-
-@login_required
-def customer_support_ticket_create(request):
-    if request.method == "POST":
-        form = CustomerSupportTicketForm(request.POST, user=request.user)
-        if form.is_valid():
-            ticket = form.save(commit=False)
-            ticket.user = request.user
-            if hasattr(request.user, 'profile') and request.user.profile.active_school:
-                ticket.school = request.user.profile.active_school
-            ticket.save()
-            messages.success(request, "تم فتح التذكرة بنجاح")
-            return redirect("dashboard:customer_support_tickets")
-    else:
-        initial = {}
-        subj = (request.GET.get("subject") or "").strip()
-        msg = (request.GET.get("message") or "").strip()
-        if subj:
-            initial["subject"] = subj
-        if msg:
-            initial["message"] = msg
-        form = CustomerSupportTicketForm(user=request.user, initial=initial)
-    return render(request, "dashboard/support_ticket_form.html", {"form": form})
-
-
-@manager_required
-def request_screen_addon(request):
-    from . import views_screens
-
-    return views_screens.request_screen_addon(
-        request,
-        get_active_school_or_redirect=get_active_school_or_redirect,
-    )
-
 
 def _get_screen_addon_model():
     try:

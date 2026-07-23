@@ -1,50 +1,16 @@
 from __future__ import annotations
 
 from functools import wraps
-from typing import Callable, Any
+from typing import Any, Callable
 
-from django.apps import apps
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect
-from django.urls import reverse
 
+from core.tenant_access import authorized_active_school
 
-def _get_profile_model():
-    return apps.get_model("core", "UserProfile")
-
-
-def _get_or_create_profile(user):
-    Profile = _get_profile_model()
-    profile, _ = Profile.objects.get_or_create(user=user)
-    return profile
-
-
-def _has_school_access(user) -> bool:
-    """
-    صلاحية إدارة لوحة المدرسة:
-    - superuser دائمًا مسموح
-    - وإلا: لازم يكون المستخدم مرتبط بمدرسة (schools) أو لديه active_school
-    """
-    if getattr(user, "is_superuser", False):
-        return True
-
-    profile = _get_or_create_profile(user)
-
-    # لو عنده مدرسة نشطة
-    if getattr(profile, "active_school_id", None):
-        return True
-
-    # لو عنده مدارس مرتبطة
-    schools_mgr = getattr(profile, "schools", None)
-    if schools_mgr is not None:
-        try:
-            return profile.schools.exists()
-        except Exception:
-            return False
-
-    return False
+from .access import get_or_create_user_profile, is_support_user, is_system_staff_user
 
 
 def manager_required(view_func: Callable[..., Any]):
@@ -60,14 +26,18 @@ def manager_required(view_func: Callable[..., Any]):
     def _wrapped(request, *args, **kwargs):
         user = request.user
 
-        # superuser
         if getattr(user, "is_superuser", False):
             return view_func(request, *args, **kwargs)
 
-        profile = _get_or_create_profile(user)
+        # Support accounts are system-level identities and must never cross
+        # into school-manager endpoints, even if a stale profile is attached.
+        if is_support_user(user):
+            raise PermissionDenied("حساب الدعم غير مخول لإدارة بيانات المدارس.")
 
-        # عنده active_school
-        if getattr(profile, "active_school_id", None):
+        profile = get_or_create_user_profile(user)
+
+        # عنده active_school ومصرح بها
+        if authorized_active_school(profile, user=user) is not None:
             return view_func(request, *args, **kwargs)
 
         # عنده مدارس لكن ما اختار active_school
@@ -94,4 +64,17 @@ def superuser_required(view_func: Callable[..., Any]):
         if getattr(request.user, "is_superuser", False):
             return view_func(request, *args, **kwargs)
         raise PermissionDenied("هذه الصفحة مخصصة لمدير النظام فقط.")
+    return _wrapped
+
+
+def system_staff_required(view_func: Callable[..., Any]):
+    """Allow only superusers and members of the Support group."""
+
+    @login_required(login_url="dashboard:login")
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        if is_system_staff_user(request.user):
+            return view_func(request, *args, **kwargs)
+        raise PermissionDenied("هذه الصفحة مخصصة لفريق إدارة النظام فقط.")
+
     return _wrapped

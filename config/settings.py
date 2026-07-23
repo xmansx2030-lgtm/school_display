@@ -91,7 +91,6 @@ if not DEBUG and (not SECRET_KEY or SECRET_KEY == "dev-insecure-key-change-me"):
 # =========================
 APP_REVISION = (
     os.getenv("APP_REVISION")
-    or os.getenv("RENDER_GIT_COMMIT")
     or os.getenv("GIT_COMMIT")
     or os.getenv("SOURCE_VERSION")
     or ""
@@ -122,6 +121,30 @@ DISPLAY_WS_ENABLED = env_bool("DISPLAY_WS_ENABLED", "True")
 
 # Allow multiple devices per screen token (HTTP + WS must respect this)
 DISPLAY_ALLOW_MULTI_DEVICE = env_bool("DISPLAY_ALLOW_MULTI_DEVICE", "False")
+
+# A healthy WebSocket remains the primary update path. This sparse HTTP check
+# is only a safety net for missed cross-process events.
+DISPLAY_WS_LIVE_STATUS_CHECK_SEC = env_int_clamped(
+    "DISPLAY_WS_LIVE_STATUS_CHECK_SEC",
+    45,
+    15,
+    300,
+)
+
+# Display presence shown in the manager dashboard. WebSocket/HTTP heartbeats
+# refresh shared cache continuously while DB writes are throttled.
+DASHBOARD_SCREEN_LIVE_THRESHOLD_SEC = env_int_clamped(
+    "DASHBOARD_SCREEN_LIVE_THRESHOLD_SEC",
+    120,
+    60,
+    86400,
+)
+DISPLAY_LAST_SEEN_DB_INTERVAL_SEC = env_int_clamped(
+    "DISPLAY_LAST_SEEN_DB_INTERVAL_SEC",
+    60,
+    30,
+    900,
+)
 
 
 # =========================
@@ -302,7 +325,6 @@ _default_allowed_hosts = [
     "school-display.com",
     "www.school-display.com",
     ".school-display.com",
-    ".onrender.com",
     "localhost",
     "127.0.0.1",
 ]
@@ -401,6 +423,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
 
     # Project middleware
+    "dashboard.middleware.TwoFactorRequiredMiddleware",
     "core.middleware.ActiveSchoolMiddleware",
     "dashboard.middleware.SubscriptionRequiredMiddleware",
     "dashboard.middleware.SupportDashboardOnlyMiddleware",
@@ -409,6 +432,13 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "core.middleware.SecurityHeadersMiddleware",
 ]
+
+# CSP starts in report-only mode while legacy inline handlers are migrated.
+# Do not enforce it in production until the CSP report stream is clean.
+CONTENT_SECURITY_POLICY_ENABLED = env_bool("CONTENT_SECURITY_POLICY_ENABLED", "True")
+CONTENT_SECURITY_POLICY_REPORT_ONLY = env_bool("CONTENT_SECURITY_POLICY_REPORT_ONLY", "True")
+CONTENT_SECURITY_POLICY_REPORT_URI = os.getenv("CONTENT_SECURITY_POLICY_REPORT_URI", "/csp-report/").strip()
+CSP_REPORT_LOG_LIMIT_PER_MINUTE = env_int_clamped("CSP_REPORT_LOG_LIMIT_PER_MINUTE", 5, 1, 60)
 
 
 # =========================
@@ -571,6 +601,18 @@ else:
 WS_MAX_CONNECTIONS_PER_INSTANCE = env_int("WS_MAX_CONNECTIONS", "2000")
 WS_PING_INTERVAL_SECONDS = env_int("WS_PING_INTERVAL", "20")
 WS_METRICS_LOG_INTERVAL = env_int("WS_METRICS_LOG_INTERVAL", "300")  # 5 minutes
+
+# Login brute-force protection (shared cache in production).
+LOGIN_RATE_LIMIT_WINDOW_SECONDS = env_int_clamped("LOGIN_RATE_LIMIT_WINDOW_SECONDS", 900, 60, 86400)
+LOGIN_RATE_LIMIT_ACCOUNT_ATTEMPTS = env_int_clamped("LOGIN_RATE_LIMIT_ACCOUNT_ATTEMPTS", 8, 1, 100)
+LOGIN_RATE_LIMIT_IP_ATTEMPTS = env_int_clamped("LOGIN_RATE_LIMIT_IP_ATTEMPTS", 30, 1, 1000)
+
+# Mandatory TOTP for system administrators and Support group members.
+TWO_FACTOR_REQUIRED_FOR_PRIVILEGED = env_bool("TWO_FACTOR_REQUIRED_FOR_PRIVILEGED", "True")
+TWO_FACTOR_ISSUER = os.getenv("TWO_FACTOR_ISSUER", "School Display").strip() or "School Display"
+TWO_FACTOR_ENCRYPTION_KEY = os.getenv("TWO_FACTOR_ENCRYPTION_KEY", "").strip()
+TWO_FACTOR_CHALLENGE_TTL_SECONDS = env_int_clamped("TWO_FACTOR_CHALLENGE_TTL_SECONDS", 300, 60, 1800)
+TWO_FACTOR_MAX_ATTEMPTS = env_int_clamped("TWO_FACTOR_MAX_ATTEMPTS", 8, 3, 20)
 
 # Snapshot materialization / async build
 DISPLAY_SNAPSHOT_ASYNC_BUILD = env_bool("DISPLAY_SNAPSHOT_ASYNC_BUILD", "True")

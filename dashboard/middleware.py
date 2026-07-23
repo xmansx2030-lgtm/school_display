@@ -8,6 +8,38 @@ from django.utils import timezone
 from django.conf import settings
 
 from subscriptions.utils import school_has_active_subscription
+from core.two_factor import get_enabled_config, two_factor_required_for
+
+
+class TwoFactorRequiredMiddleware:
+    """Force privileged authenticated users to enroll before using the system."""
+
+    EXEMPT_PREFIXES = (
+        "/static/",
+        "/media/",
+        "/api/display/",
+        "/dashboard/2fa/",
+        "/dashboard/login/",
+        "/dashboard/logout/",
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        path = str(getattr(request, "path", "") or "")
+        if any(path.startswith(prefix) for prefix in self.EXEMPT_PREFIXES):
+            return self.get_response(request)
+
+        user = getattr(request, "user", None)
+        if (
+            user
+            and getattr(user, "is_authenticated", False)
+            and two_factor_required_for(user)
+            and get_enabled_config(user) is None
+        ):
+            return redirect("dashboard:two_factor_setup")
+        return self.get_response(request)
 
 
 class SubscriptionRequiredMiddleware:
@@ -113,6 +145,8 @@ class SupportDashboardOnlyMiddleware:
         "dashboard:logout",
         "dashboard:change_password",
         "dashboard:switch_school",
+        "dashboard:two_factor_setup",
+        "dashboard:two_factor_verify",
     }
 
     FORBIDDEN_VIEW_NAMES = {
@@ -148,6 +182,22 @@ class SupportDashboardOnlyMiddleware:
             is_support = False
 
         if not is_support:
+            # A school manager may reach an internal admin URL from an old
+            # bookmark or browser history. Send them back to their own panel
+            # with a useful explanation instead of exposing Django's raw 403.
+            if path.startswith(self.ADMIN_PANEL_PREFIX):
+                try:
+                    profile = user.profile
+                    is_school_manager = profile.schools.exists()
+                except Exception:
+                    is_school_manager = False
+
+                if is_school_manager:
+                    messages.warning(
+                        request,
+                        "هذه الصفحة مخصصة لفريق إدارة النظام. تمت إعادتك إلى لوحة مدرستك.",
+                    )
+                    return redirect("dashboard:index")
             return self.get_response(request)
 
         # Resolve view name once.

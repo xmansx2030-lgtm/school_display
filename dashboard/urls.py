@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import auth_views, support_views, two_factor_views, views, views_screens
  
 app_name = "dashboard"
 
@@ -8,11 +8,13 @@ urlpatterns = [
     # ==================
     # Auth / Account
     # ==================
-    path("login/", views.login_view, name="login"),
+    path("login/", auth_views.login_view, name="login"),
     path("demo-login/", views.demo_login, name="demo_login"),
-    path("logout/", views.logout_view, name="logout"),
-        path("subscription/invoices/<int:pk>/", views.subscription_invoice_view, name="subscription_invoice_view"),
-    path("password/", views.change_password, name="change_password"),
+    path("logout/", auth_views.logout_view, name="logout"),
+    path("2fa/verify/", two_factor_views.two_factor_verify, name="two_factor_verify"),
+    path("2fa/setup/", two_factor_views.two_factor_setup, name="two_factor_setup"),
+    path("subscription/invoices/<int:pk>/", views.subscription_invoice_view, name="subscription_invoice_view"),
+    path("password/", auth_views.change_password, name="change_password"),
     path("switch-school/", views.switch_school, name="switch_school"),
     path("switch-school/<int:school_id>/", views.switch_school, name="switch_school"),
     path("", views.index, name="index"),
@@ -88,13 +90,13 @@ urlpatterns = [
     # ==================
     # Screens
     # ==================
-    path("screens/", views.screen_list, name="screen_list"),
-    path("screens/new/", views.screen_create, name="screen_create"),
-    path("screens/<int:pk>/refresh/", views.screen_refresh_now, name="screen_refresh_now"),
-    path("screens/<int:pk>/reload/", views.screen_reload_now, name="screen_reload_now"),
-    path("screens/<int:pk>/unbind/", views.screen_unbind_device, name="screen_unbind_device"),
-    path("screens/<int:pk>/delete/", views.screen_delete, name="screen_delete"),
-    path("screens/request-addon/", views.request_screen_addon, name="request_screen_addon"),
+    path("screens/", views_screens.screen_list, name="screen_list"),
+    path("screens/new/", views_screens.screen_create, name="screen_create"),
+    path("screens/<int:pk>/refresh/", views_screens.screen_refresh_now, name="screen_refresh_now"),
+    path("screens/<int:pk>/reload/", views_screens.screen_reload_now, name="screen_reload_now"),
+    path("screens/<int:pk>/unbind/", views_screens.screen_unbind_device, name="screen_unbind_device"),
+    path("screens/<int:pk>/delete/", views_screens.screen_delete, name="screen_delete"),
+    path("screens/request-addon/", views_screens.request_screen_addon, name="request_screen_addon"),
 
     # ==================
     # School Data (Classes / Subjects / Teachers)
@@ -160,14 +162,14 @@ urlpatterns = [
     path("admin-panel/reports/", views.system_reports, name="system_reports"),
 
     # Support
-    path("admin-panel/support/", views.system_support_tickets, name="system_support_tickets"),
-    path("admin-panel/support/<int:pk>/", views.system_support_ticket_detail, name="system_support_ticket_detail"),
-    path("admin-panel/support/add/", views.system_support_ticket_create, name="system_support_ticket_create"),
+    path("admin-panel/support/", support_views.system_support_tickets, name="system_support_tickets"),
+    path("admin-panel/support/<int:pk>/", support_views.system_support_ticket_detail, name="system_support_ticket_detail"),
+    path("admin-panel/support/add/", support_views.system_support_ticket_create, name="system_support_ticket_create"),
 
     # Customer Support
-    path("support/", views.customer_support_tickets, name="customer_support_tickets"),
-    path("support/new/", views.customer_support_ticket_create, name="customer_support_ticket_create"),
-    path("support/<int:pk>/", views.customer_support_ticket_detail, name="customer_support_ticket_detail"),
+    path("support/", support_views.customer_support_tickets, name="customer_support_tickets"),
+    path("support/new/", support_views.customer_support_ticket_create, name="customer_support_ticket_create"),
+    path("support/<int:pk>/", support_views.customer_support_ticket_detail, name="customer_support_ticket_detail"),
 
     # My subscription
     path("my-subscription/", views.my_subscription, name="my_subscription"),

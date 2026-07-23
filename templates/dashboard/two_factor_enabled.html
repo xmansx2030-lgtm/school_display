@@ -1,0 +1,9 @@
+{% extends "dashboard/two_factor_base.html" %}
+{% block title %}المصادقة مفعلة{% endblock %}
+{% block heading %}حسابك محمي{% endblock %}
+{% block content %}
+  <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-sm leading-8 text-emerald-100">
+    المصادقة الثنائية مفعلة لهذا الحساب. ستُطلب منك عند كل تسجيل دخول جديد.
+  </div>
+  <a href="{% url 'dashboard:index' %}" class="mt-6 block w-full rounded-xl bg-indigo-600 px-5 py-3 text-center font-bold hover:bg-indigo-500">العودة للوحة التحكم</a>
+{% endblock %}

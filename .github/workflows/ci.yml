@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEBUG: "True"
+      SECRET_KEY: ci-only-secret-key
+      DJANGO_SETTINGS_MODULE: config.settings
+      TWO_FACTOR_ENCRYPTION_KEY: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: Dependency vulnerability audit
+        run: python -m pip_audit -r requirements.txt
+
+      - name: Static correctness checks
+        run: ruff check .
+
+      - name: Django deployment and migration checks
+        env:
+          DEBUG: "False"
+          SECRET_KEY: ci-only-long-production-check-secret
+          ALLOWED_HOSTS: school-display.com
+          CSRF_TRUSTED_ORIGINS: https://school-display.com
+          DATABASE_URL: sqlite:///db.sqlite3
+          REDIS_CACHE_URL: redis://localhost:6379/0
+          CACHE_REDIS_URL: redis://localhost:6379/0
+          REDIS_CHANNELS_URL: redis://localhost:6379/1
+          CHANNELS_REDIS_URL: redis://localhost:6379/1
+        run: |
+          python manage.py check --deploy
+          python manage.py makemigrations --check --dry-run
+
+      - name: Test with coverage
+        env:
+          DEBUG: "True"
+        run: |
+          coverage run manage.py test
+          coverage report
+
+      - name: Validate JavaScript syntax
+        run: node --check static/js/display.js
+
+      - name: Build production image
+        run: docker build --tag school-display:ci .

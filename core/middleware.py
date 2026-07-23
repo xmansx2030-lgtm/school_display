@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.core.cache import cache
 
 from core.static_assets import build_static_response
+from core.tenant_access import authorized_active_school
 
 
 logger = logging.getLogger(__name__)
@@ -460,16 +461,6 @@ class DisplayTokenMiddleware:
                             status=403,
                         )
 
-        # تحديث last_seen_at إن كان موجودًا
-        now = timezone.now()
-        try:
-            DisplayScreen._meta.get_field("last_seen_at")
-            last_seen = getattr(screen, "last_seen_at", None)
-            if (last_seen is None) or ((now - last_seen).total_seconds() > 30):
-                DisplayScreen.objects.filter(pk=screen.pk).update(last_seen_at=now)
-        except Exception:
-            pass
-
         response = self.get_response(request)
         if (not is_display_client_path) and new_device_id and hasattr(response, "set_cookie"):
             try:
@@ -526,7 +517,7 @@ class ActiveSchoolMiddleware:
         except Exception:
             return self.get_response(request)
 
-        request.school = getattr(profile, "active_school", None)
+        request.school = authorized_active_school(profile, user=user)
         return self.get_response(request)
 
 
@@ -541,4 +532,37 @@ class SecurityHeadersMiddleware:
         response = self.get_response(request)
         response["X-Content-Type-Options"] = "nosniff"
         response["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=(), payment=(), usb=(), "
+            "accelerometer=(), gyroscope=(), magnetometer=()"
+        )
+
+        if getattr(dj_settings, "CONTENT_SECURITY_POLICY_ENABLED", True):
+            report_uri = str(
+                getattr(dj_settings, "CONTENT_SECURITY_POLICY_REPORT_URI", "/csp-report/") or ""
+            ).strip()
+            directives = [
+                "default-src 'self'",
+                "base-uri 'self'",
+                "object-src 'none'",
+                "frame-ancestors 'self'",
+                "form-action 'self'",
+                "script-src 'self'",
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com",
+                "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com",
+                "img-src 'self' data: blob: https:",
+                "media-src 'self' data: blob: https:",
+                "connect-src 'self' ws: wss: https:",
+                "frame-src 'self' https://www.youtube-nocookie.com",
+                "worker-src 'self' blob:",
+                "manifest-src 'self'",
+            ]
+            if report_uri:
+                directives.append(f"report-uri {report_uri}")
+            header_name = (
+                "Content-Security-Policy-Report-Only"
+                if getattr(dj_settings, "CONTENT_SECURITY_POLICY_REPORT_ONLY", True)
+                else "Content-Security-Policy"
+            )
+            response[header_name] = "; ".join(directives)
         return response

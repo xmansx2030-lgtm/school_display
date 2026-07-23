@@ -38,6 +38,7 @@ from display.ws_cluster_metrics import register_connect as ws_cluster_register_c
 from display.ws_cluster_metrics import register_disconnect as ws_cluster_register_disconnect
 from display.ws_groups import school_group_name, token_group_name
 from display.ws_metrics import ws_metrics
+from core.display_presence import touch_display_presence
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,19 @@ class DisplayConsumer(AsyncWebsocketConsumer):
             return
         self._server_ping_task = asyncio.create_task(self._server_ping_loop())
 
+    async def _touch_presence(self) -> None:
+        if not self.screen or not getattr(self.screen, "pk", None):
+            return
+        try:
+            from channels.db import database_sync_to_async
+
+            await database_sync_to_async(touch_display_presence)(
+                int(self.screen.pk),
+                token=self.token_value,
+            )
+        except Exception:
+            pass
+
     async def _stop_server_ping_task(self) -> None:
         task = self._server_ping_task
         self._server_ping_task = None
@@ -137,6 +151,7 @@ class DisplayConsumer(AsyncWebsocketConsumer):
             await asyncio.sleep(interval)
             try:
                 await self.send(text_data=json.dumps({"type": "heartbeat"}))
+                await self._touch_presence()
                 _ws_metric_incr("server_ping_sent")
             except asyncio.CancelledError:
                 raise
@@ -243,6 +258,7 @@ class DisplayConsumer(AsyncWebsocketConsumer):
         
         # Accept connection
         await self.accept()
+        await self._touch_presence()
         
         # Track successful connection
         connect_event = None
@@ -334,12 +350,14 @@ class DisplayConsumer(AsyncWebsocketConsumer):
             msg_type = data.get("type")
             
             if msg_type == "ping":
+                await self._touch_presence()
                 try:
                     ws_cluster_heartbeat(channel_name=self.channel_name)
                 except Exception:
                     pass
                 await self.send(text_data=json.dumps({"type": "pong"}))
             elif msg_type == "pong":
+                await self._touch_presence()
                 # Accept client pong as heartbeat as well.
                 try:
                     ws_cluster_heartbeat(channel_name=self.channel_name)

@@ -1,0 +1,36 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>{% block title %}المصادقة الثنائية{% endblock %} — لوحة العرض الذكية</title>
+  <link rel="icon" type="image/png" sizes="1024x1024" href="/favicon.png?v=20260723-logo1">
+  <link rel="apple-touch-icon" href="/favicon.png?v=20260723-logo1">
+  <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-04-15b">
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <main class="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-4 py-10">
+    <section class="w-full rounded-3xl border border-slate-700 bg-slate-900 p-6 shadow-2xl md:p-9">
+      <div class="mb-7 flex items-center gap-4">
+        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 text-2xl">🔐</div>
+        <div>
+          <p class="text-xs font-bold tracking-widest text-indigo-300">SYSTEM SECURITY</p>
+          <h1 class="mt-1 text-2xl font-black">{% block heading %}المصادقة الثنائية{% endblock %}</h1>
+        </div>
+      </div>
+
+      {% if messages %}
+        <div class="mb-5 space-y-2">
+          {% for message in messages %}
+            <div class="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,204 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>لا تملك صلاحية الوصول | لوحة العرض الذكية</title>
+  <link rel="icon" type="image/png" href="{% url 'favicon_png' %}?v=20260723-logo1">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #173042;
+      --muted: #687888;
+      --teal: #145a6a;
+      --teal-dark: #103e4c;
+      --gold: #b48b57;
+      --line: rgba(97, 83, 64, 0.14);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 1.25rem;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 14% 12%, rgba(180, 139, 87, 0.13), transparent 28rem),
+        radial-gradient(circle at 88% 86%, rgba(20, 90, 106, 0.11), transparent 30rem),
+        #f6f7f7;
+      font-family: "Tajawal", "Segoe UI", Tahoma, Arial, sans-serif;
+    }
+
+    .permission-shell {
+      width: min(100%, 660px);
+    }
+
+    .permission-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.7rem;
+      margin-bottom: 1rem;
+    }
+
+    .permission-brand img {
+      width: 2.65rem;
+      height: 2.65rem;
+      border-radius: 0.9rem;
+      object-fit: contain;
+      box-shadow: 0 8px 22px rgba(16, 62, 76, 0.12);
+    }
+
+    .permission-brand strong,
+    .permission-brand small { display: block; }
+    .permission-brand strong { font-size: 0.9rem; font-weight: 900; }
+    .permission-brand small { margin-top: 0.12rem; color: var(--muted); font-size: 0.68rem; font-weight: 700; }
+
+    .permission-card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 26px 70px rgba(23, 48, 66, 0.13);
+    }
+
+    .permission-accent {
+      height: 0.32rem;
+      background: linear-gradient(90deg, var(--teal-dark), var(--teal), var(--gold));
+    }
+
+    .permission-content {
+      padding: clamp(1.5rem, 5vw, 2.7rem);
+      text-align: center;
+    }
+
+    .permission-icon {
+      width: 5.25rem;
+      height: 5.25rem;
+      margin: 0 auto 1.25rem;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(20, 90, 106, 0.12);
+      border-radius: 1.65rem;
+      color: var(--teal);
+      background: linear-gradient(145deg, #f8ffff, #edf4f4);
+      box-shadow: inset 0 1px 0 #fff;
+    }
+
+    .permission-icon svg { width: 2.4rem; height: 2.4rem; }
+
+    .permission-code {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border-radius: 999px;
+      padding: 0.38rem 0.72rem;
+      color: #8a642f;
+      background: rgba(180, 139, 87, 0.11);
+      font-size: 0.68rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+    }
+
+    h1 {
+      margin: 0.8rem 0 0;
+      font-size: clamp(1.45rem, 5vw, 2rem);
+      font-weight: 950;
+      line-height: 1.45;
+    }
+
+    .permission-copy {
+      max-width: 31rem;
+      margin: 0.7rem auto 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 650;
+      line-height: 1.9;
+    }
+
+    .permission-note {
+      margin-top: 1.15rem;
+      border: 1px solid rgba(20, 90, 106, 0.1);
+      border-radius: 14px;
+      padding: 0.8rem 0.9rem;
+      color: #496170;
+      background: rgba(20, 90, 106, 0.04);
+      font-size: 0.75rem;
+      font-weight: 750;
+      line-height: 1.75;
+    }
+
+    .permission-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.65rem;
+      margin-top: 1.3rem;
+    }
+
+    .permission-actions a {
+      display: inline-flex;
+      min-height: 2.9rem;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      border-radius: 12px;
+      padding: 0.7rem 1rem;
+      text-decoration: none;
+      font-size: 0.78rem;
+      font-weight: 900;
+      transition: transform 0.18s ease, background 0.18s ease;
+    }
+
+    .permission-primary { color: #fff; background: var(--teal-dark); }
+    .permission-secondary { border: 1px solid var(--line); color: var(--ink); background: #fff; }
+    .permission-actions a:hover { transform: translateY(-1px); }
+    .permission-primary:hover { background: var(--teal); }
+    .permission-actions a:focus-visible { outline: 3px solid rgba(14, 165, 233, 0.35); outline-offset: 3px; }
+
+    @media (max-width: 520px) {
+      body { padding: 0.85rem; }
+      .permission-card { border-radius: 20px; }
+      .permission-icon { width: 4.4rem; height: 4.4rem; border-radius: 1.35rem; }
+      .permission-actions { flex-direction: column; }
+      .permission-actions a { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="permission-shell">
+    <div class="permission-brand" aria-label="لوحة العرض الذكية">
+      <img src="{% static 'img/school-display-logo-mark-white-preview (1).png' %}" alt="">
+      <span><strong>لوحة العرض الذكية</strong><small>إدارة شاشات المدرسة بوضوح</small></span>
+    </div>
+
+    <section class="permission-card" aria-labelledby="permission-title">
+      <div class="permission-accent" aria-hidden="true"></div>
+      <div class="permission-content">
+        <div class="permission-icon" aria-hidden="true">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 10v3m0 4h.01M7.5 9V7a4.5 4.5 0 019 0v2m-10 0h11a2 2 0 012 2v7a2 2 0 01-2 2h-11a2 2 0 01-2-2v-7a2 2 0 012-2z"/>
+          </svg>
+        </div>
+        <span class="permission-code">403 · وصول محمي</span>
+        <h1 id="permission-title">هذه الصفحة ليست ضمن صلاحيات حسابك</h1>
+        <p class="permission-copy">
+          لم يحدث خلل في حسابك أو بيانات مدرستك. الصفحة المطلوبة مخصصة لمستوى إداري مختلف.
+        </p>
+        <div class="permission-note">
+          إذا وصلت إلى هنا من رابط قديم أو محفوظ في المتصفح، استخدم الزر أدناه للعودة إلى المساحة الصحيحة.
+        </div>
+        <div class="permission-actions">
+          <a href="{{ return_url }}" class="permission-primary">{{ return_label }} <span aria-hidden="true">←</span></a>
+          <a href="{% url 'website:home' %}" class="permission-secondary">الصفحة الرئيسية</a>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -7,15 +7,15 @@
 
 {% block content %}
 <div class="max-w-5xl mx-auto pb-8 md:pb-12 dashboard-settings">
-    <div class="settings-tabs mb-5 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-1.5">
-        <button type="button" class="settings-tab-btn is-active" data-settings-tab="appearance">المظهر</button>
-        <button type="button" class="settings-tab-btn" data-settings-tab="copy">نصوص الشاشة</button>
-        <button type="button" class="settings-tab-btn" data-settings-tab="runtime">التحديث</button>
-        <button type="button" class="settings-tab-btn" data-settings-tab="security">الأمان</button>
+    <div class="settings-tabs mb-5 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-1.5" role="tablist" aria-label="أقسام إعدادات المدرسة">
+        <button type="button" id="settings-tab-appearance" class="settings-tab-btn is-active" data-settings-tab="appearance" role="tab" aria-selected="true" aria-controls="settings-panel-appearance">المظهر</button>
+        <button type="button" id="settings-tab-copy" class="settings-tab-btn" data-settings-tab="copy" role="tab" aria-selected="false" aria-controls="settings-panel-copy">نصوص الشاشة</button>
+        <button type="button" id="settings-tab-runtime" class="settings-tab-btn" data-settings-tab="runtime" role="tab" aria-selected="false" aria-controls="settings-panel-runtime">التحديث</button>
+        <button type="button" id="settings-tab-security" class="settings-tab-btn" data-settings-tab="security" role="tab" aria-selected="false" aria-controls="settings-panel-security">الأمان</button>
     </div>
 
     <!-- Security Card -->
-    <div class="dashboard-section-card dashboard-spotlight bg-white rounded-xl border border-slate-200 p-4 md:p-6 mb-5 md:mb-6 hidden" data-settings-tab-panel="security">
+    <div id="settings-panel-security" class="dashboard-section-card dashboard-spotlight bg-white rounded-xl border border-slate-200 p-4 md:p-6 mb-5 md:mb-6 hidden" data-settings-tab-panel="security" role="tabpanel" aria-labelledby="settings-tab-security" tabindex="0">
         <div class="flex flex-col md:flex-row items-center justify-between gap-4">
             <div class="flex items-start gap-4">
                 <div class="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
@@ -23,14 +23,22 @@
                 </div>
                 <div>
                     <h2 class="text-base font-bold text-slate-800">الأمان والحماية</h2>
-                    <p class="text-sm text-slate-500">حدّث كلمة المرور دوريًا لضمان الحماية.</p>
+                    <p class="text-sm text-slate-500">احمِ الحساب بكلمة مرور قوية وتحقق ثنائي من تطبيق المصادقة.</p>
+                    <p class="mt-2 text-xs font-bold {% if two_factor_enabled %}text-emerald-700{% else %}text-amber-700{% endif %}">
+                        المصادقة الثنائية: {% if two_factor_enabled %}مفعلة{% else %}غير مفعلة{% endif %}
+                    </p>
                 </div>
             </div>
-            <a href="{% url 'dashboard:change_password' %}?next={% url 'dashboard:settings' %}"
-               class="w-full md:w-auto justify-center px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs md:text-sm rounded-lg transition flex items-center gap-2">
-                <span>تغيير كلمة المرور</span>
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
-            </a>
+            <div class="flex w-full md:w-auto flex-col sm:flex-row gap-2">
+                <a href="{% url 'dashboard:two_factor_setup' %}"
+                   class="w-full md:w-auto justify-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs md:text-sm rounded-lg transition flex items-center gap-2">
+                    <span>{% if two_factor_enabled %}عرض المصادقة الثنائية{% else %}تفعيل المصادقة الثنائية{% endif %}</span>
+                </a>
+                <a href="{% url 'dashboard:change_password' %}?next={% url 'dashboard:settings' %}"
+                   class="w-full md:w-auto justify-center px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs md:text-sm rounded-lg transition flex items-center gap-2">
+                    <span>تغيير كلمة المرور</span>
+                </a>
+            </div>
         </div>
     </div>
 
@@ -61,10 +69,10 @@
             {% endif %}
 
             <div class="space-y-6">
-                <section data-settings-tab-panel="appearance" class="settings-tab-panel">
+                <section id="settings-panel-appearance" data-settings-tab-panel="appearance" class="settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-appearance" tabindex="0">
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
                         <div class="group relative">
-                            <label class="text-sm font-bold text-slate-600 mb-2 flex items-center justify-between">
+                            <label for="{{ form.logo.id_for_label }}" class="text-sm font-bold text-slate-600 mb-2 flex items-center justify-between">
                                 <span>اسم المدرسة</span>
                             </label>
                             <div class="dashboard-control-surface flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3.5 text-sm">
@@ -84,7 +92,7 @@
 
                         <!-- Featured Card Selector -->
                         <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group">
-                            <label class="text-sm font-bold text-slate-700 mb-4 flex items-center justify-between">
+                            <label for="{{ form.featured_panel.id_for_label }}" class="text-sm font-bold text-slate-700 mb-4 flex items-center justify-between">
                                 <span>الكرت المميز في شاشة العرض</span>
                             </label>
                             
@@ -174,12 +182,12 @@
                      </div>
                 </section>
 
-                <section data-settings-tab-panel="copy" class="settings-tab-panel hidden">
+                <section id="settings-panel-copy" data-settings-tab-panel="copy" class="settings-tab-panel hidden" role="tabpanel" aria-labelledby="settings-tab-copy" tabindex="0">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         {% for field in form %}
                             {% if field.name == 'display_before_title' or field.name == 'display_before_badge' or field.name == 'display_after_title' or field.name == 'display_after_badge' or field.name == 'display_after_holiday_title' or field.name == 'display_after_holiday_badge' or field.name == 'display_holiday_title' or field.name == 'display_holiday_badge' %}
                                 <div class="group relative">
-                                    <label class="text-sm font-bold text-slate-600 mb-2 flex items-center justify-between">
+                                    <label for="{{ field.id_for_label }}" class="text-sm font-bold text-slate-600 mb-2 flex items-center justify-between">
                                         <span>{{ field.label }}</span>
                                     </label>
                                     {{ field }}
@@ -191,11 +199,11 @@
                     </div>
                 </section>
 
-                <section data-settings-tab-panel="runtime" class="settings-tab-panel hidden">
+                <section id="settings-panel-runtime" data-settings-tab-panel="runtime" class="settings-tab-panel hidden" role="tabpanel" aria-labelledby="settings-tab-runtime" tabindex="0">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                         <!-- Standby Speed -->
                         <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group">
-                             <label class="block text-sm font-bold text-slate-700 mb-3">{{ form.standby_scroll_speed.label }}</label>
+                             <label for="{{ form.standby_scroll_speed.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-3">{{ form.standby_scroll_speed.label }}</label>
                              <div class="relative">
                                 {{ form.standby_scroll_speed }}
                                 <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold bg-slate-100/50 px-2 rounded">1x</span>
@@ -206,7 +214,7 @@
 
                         <!-- Periods Speed -->
                                 <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group">
-                             <label class="block text-sm font-bold text-slate-700 mb-3">{{ form.periods_scroll_speed.label }}</label>
+                             <label for="{{ form.periods_scroll_speed.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-3">{{ form.periods_scroll_speed.label }}</label>
                              <div class="relative">
                                 {{ form.periods_scroll_speed }}
                                 <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold bg-slate-100/50 px-2 rounded">1x</span>
@@ -217,7 +225,7 @@
 
                         {% if form.test_mode_weekday_override %}
                         <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group sm:col-span-2">
-                            <label class="block text-sm font-bold text-slate-700 mb-3">{{ form.test_mode_weekday_override.label }}</label>
+                            <label for="{{ form.test_mode_weekday_override.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-3">{{ form.test_mode_weekday_override.label }}</label>
                             {{ form.test_mode_weekday_override }}
                             {% if form.test_mode_weekday_override.help_text %}<p class="mt-3 text-xs text-slate-400 font-medium leading-relaxed">{{ form.test_mode_weekday_override.help_text|safe }}</p>{% endif %}
                             {% if form.test_mode_weekday_override.errors %}<div class="mt-2 text-sm text-rose-600 font-bold bg-rose-50 px-3 py-1 rounded-lg inline-block">{% for error in form.test_mode_weekday_override.errors %}{{ error }}{% endfor %}</div>{% endif %}
@@ -283,7 +291,9 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.setAttribute('aria-selected', active ? 'true' : 'false');
         });
         tabPanels.forEach(panel => {
-            panel.classList.toggle('hidden', panel.dataset.settingsTabPanel !== selected);
+            const active = panel.dataset.settingsTabPanel === selected;
+            panel.classList.toggle('hidden', !active);
+            panel.setAttribute('aria-hidden', active ? 'false' : 'true');
         });
         if (formShell) {
             formShell.classList.toggle('hidden', selected === 'security');
@@ -355,6 +365,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('#displayThemePalette button').forEach(btn => {
             const listIndicator = btn.querySelector('[data-selected]');
             if(btn.dataset.theme === themeName) {
+                btn.setAttribute('aria-pressed', 'true');
                 // Show selection ring
                 if(listIndicator) listIndicator.setAttribute('data-selected', 'true');
                 
@@ -366,6 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Active Styling
                 btn.style.transform = "scale(1.1)";
             } else {
+                btn.setAttribute('aria-pressed', 'false');
                 if(listIndicator) listIndicator.setAttribute('data-selected', 'false');
                 btn.style.transform = "scale(1)";
             }

@@ -8,13 +8,16 @@
   <meta name="color-scheme" content="dark">
   <title>{% if school_name %}{{ school_name }} — {% endif %}لوحة العرض الذكية</title>
 
+  <link rel="icon" type="image/png" sizes="1024x1024" href="/favicon.png?v=20260723-logo1">
+  <link rel="apple-touch-icon" href="/favicon.png?v=20260723-logo1">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <!-- ✅ تحسين: 4 أوزان فقط بدلاً من 7 (توفير ~100KB + طلبات HTTP أقل) -->
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700;800&display=swap" rel="stylesheet"></noscript>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700;800&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-04-15b">
+  <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-04-15b">
+  <link rel="stylesheet" href="{% static 'css/display-controls.css' %}?v=2026-07-23-b4">
     <link rel="stylesheet" href="{% static 'css/app.css' %}?v=2026-02-08-standby-chip-contrast-v2">
 
   <style>
@@ -1646,6 +1649,7 @@
   data-media-prefix="{% if MEDIA_URL %}{{ MEDIA_URL }}{% else %}/media/{% endif %}"
   data-bell-sound-url="{% static 'sounds/bell.mp3' %}"
     data-refresh="{% if refresh_interval_sec %}{{ refresh_interval_sec }}{% else %}30{% endif %}"
+  data-ws-live-status-check="{% if ws_live_status_check_sec %}{{ ws_live_status_check_sec }}{% else %}45{% endif %}"
   data-standby="{% if standby_scroll_speed %}{{ standby_scroll_speed }}{% else %}0.8{% endif %}"
   data-periods-speed="{% if periods_scroll_speed %}{{ periods_scroll_speed }}{% else %}0.5{% endif %}"
     style="{% if display_accent_color %}--accent-main: {{ display_accent_color }};{% endif %}"
@@ -1676,28 +1680,7 @@
 
         <!-- Sound Enable Button (for TVs / no-interaction displays) -->
         <button id="bellEnableBtn" title="تفعيل صوت الجرس" aria-label="تفعيل صوت الجرس"
-            onclick="if(window._unlockBellFromBtn)window._unlockBellFromBtn()"
-            style="
-                position: fixed;
-                bottom: 12px;
-                left: 56px;
-                z-index: 9999;
-                width: 36px;
-                height: 36px;
-                border: none;
-                border-radius: 8px;
-                background: rgba(255,255,255,0.08);
-                color: rgba(255,255,255,0.5);
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: opacity 0.3s, background 0.3s, transform 0.3s;
-                opacity: 0.6;
-                backdrop-filter: blur(4px);
-                -webkit-backdrop-filter: blur(4px);
-                animation: bellPulse 2s ease-in-out infinite;
-            "
+            class="display-control display-control--sound"
         >
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M11 5L6 9H2v6h4l5 4V5z"/>
@@ -1707,44 +1690,16 @@
                 <path d="M15.54 8.46a5 5 0 0 1 0 7.07" id="bellWave2"/>
             </svg>
         </button>
-        <style>
-            @keyframes bellPulse {
-                0%, 100% { opacity: 0.5; transform: scale(1); }
-                50% { opacity: 0.9; transform: scale(1.08); }
-            }
-        </style>
 
         <!-- Fullscreen Toggle Button -->
-        <button id="fullscreenBtn" onclick="toggleFullscreen()" title="ملء الشاشة" aria-label="تبديل وضع ملء الشاشة"
-            style="
-                position: fixed;
-                bottom: 12px;
-                left: 12px;
-                z-index: 9999;
-                width: 36px;
-                height: 36px;
-                border: none;
-                border-radius: 8px;
-                background: rgba(255,255,255,0.08);
-                color: rgba(255,255,255,0.4);
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: opacity 0.3s, background 0.3s;
-                opacity: 0.3;
-                backdrop-filter: blur(4px);
-                -webkit-backdrop-filter: blur(4px);
-            "
-            onmouseenter="this.style.opacity='1';this.style.background='rgba(255,255,255,0.15)'"
-            onmouseleave="this.style.opacity='0.3';this.style.background='rgba(255,255,255,0.08)'"
-        >
+        <button id="fullscreenBtn" type="button" title="ملء الشاشة" aria-label="تبديل وضع ملء الشاشة"
+            class="display-control display-control--fullscreen">
             <!-- Expand icon (shown when NOT fullscreen) -->
             <svg id="fsIconExpand" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
             </svg>
             <!-- Collapse icon (shown when IN fullscreen) -->
-            <svg id="fsIconCollapse" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+            <svg id="fsIconCollapse" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="u-hidden">
                 <path d="M4 14h6v6m10-10h-6V4M4 10h6V4m10 10h-6v6"/>
             </svg>
         </button>
@@ -2021,56 +1976,7 @@
     </div>
   </noscript>
 
-    {# ── Compatibility guard ───────────────────────────────────────────────── #}
-    {# display.js requires async/await (Chrome 55+, Tizen 3.0+, WebOS 4+).    #}
-    {# Very old TV browsers that can't parse async function will silently skip  #}
-    {# the main script; this guard detects that and shows a legible warning.   #}
-    <script>
-    (function () {
-      try {
-        // async function is syntax in Chrome 55+. In older browsers the new
-        // Function() constructor throws SyntaxError on this string.
-        new Function("return (async function(){})()");
-      } catch (e) {
-        // Browser cannot parse async/await — show a plain-text fallback.
-        var el = document.createElement("div");
-        el.id = "old-browser-banner";
-        el.style.cssText =
-          "position:fixed;inset:0;z-index:99999;background:#0f172a;color:#f8fafc;" +
-          "display:flex;flex-direction:column;align-items:center;justify-content:center;" +
-          "font-family:sans-serif;text-align:center;padding:2rem;direction:rtl;";
-        el.innerHTML =
-          "<p style='font-size:1.5rem;font-weight:700;margin:0 0 1rem'>المتصفح قديم جداً</p>" +
-          "<p style='font-size:1rem;opacity:.8;max-width:480px'>" +
-          "هذا الجهاز لا يدعم واجهة العرض الذكية.<br>" +
-          "يُوصى بتحديث متصفح الجهاز أو استخدام Chromium 80+ أو Chrome 80+." +
-          "</p>";
-        document.body.appendChild(el);
-      }
-    }());
-    </script>
-
-    <script src="{% static 'js/display.js' %}?v=2026-06-02-ws-status-safeguard-v3"></script>
-
-    <script>
-    /* Fullscreen Toggle */
-    function toggleFullscreen() {
-        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-            var el = document.documentElement;
-            if (el.requestFullscreen) el.requestFullscreen();
-            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-        } else {
-            if (document.exitFullscreen) document.exitFullscreen();
-            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-        }
-    }
-    function updateFsIcon() {
-        var isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-        document.getElementById('fsIconExpand').style.display = isFs ? 'none' : 'block';
-        document.getElementById('fsIconCollapse').style.display = isFs ? 'block' : 'none';
-    }
-    document.addEventListener('fullscreenchange', updateFsIcon);
-    document.addEventListener('webkitfullscreenchange', updateFsIcon);
-    </script>
+    <script defer src="{% static 'js/display-controls.js' %}?v=2026-07-23-b4"></script>
+    <script defer src="{% static 'js/display.js' %}?v=2026-07-23-security-scale-b1"></script>
 </body>
 </html>

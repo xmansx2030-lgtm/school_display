@@ -10,6 +10,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 from django.apps import apps
+from core.display_presence import touch_display_presence
 
 import logging
 
@@ -411,15 +412,8 @@ def display_snapshot(request: HttpRequest, token: str) -> HttpResponse:
                 status=403,
             )
 
-    # ✅ تحديث last_seen_at إذا موجود
     now = timezone.now()
-    try:
-        DisplayScreen._meta.get_field("last_seen_at")
-        last_seen = getattr(screen, "last_seen_at", None)
-        if not last_seen or (now - last_seen).total_seconds() > 30:
-            DisplayScreen.objects.filter(pk=screen.pk).update(last_seen_at=now)
-    except Exception:
-        pass
+    touch_display_presence(screen.pk, token=token, seen_at=now)
 
     school = screen.school
     request.school = school  # optional: يبقي التوافق مع أي كود يعتمد request.school

@@ -1,0 +1,29 @@
+{
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+school-display.com, www.school-display.com {
+	encode zstd gzip
+
+	handle_path /static/* {
+		root * /srv/static
+		file_server
+		header Cache-Control "public, max-age=31536000, immutable"
+	}
+
+	reverse_proxy web:8000
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

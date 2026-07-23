@@ -6,6 +6,7 @@ import hashlib
 import logging
 import os
 import re
+import secrets
 import socket
 import time
 from datetime import date, datetime
@@ -22,6 +23,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods
 
 from core.models import School, DisplayScreen
+from core.display_presence import touch_display_presence
 from schedule.models import SchoolSettings, ClassLesson, Period
 from schedule.time_engine import build_day_snapshot
 from schedule.cache_utils import (
@@ -142,11 +144,10 @@ def _log_cache_env(logger: logging.Logger) -> None:
         location = str(default_cache.get("LOCATION", "") or "")
         safe_location = location.split("@")[-1] if location else ""
         logger.info(
-            "cache_env backend=%s location=%s host=%s render_instance=%s",
+            "cache_env backend=%s location=%s host=%s",
             backend,
             safe_location,
             socket.gethostname(),
-            os.getenv("RENDER_INSTANCE_ID", ""),
         )
     except Exception:
         try:
@@ -686,14 +687,13 @@ def _log_steady_get(key: str, *, hit: bool, school_id: int | None, rev: int | No
         pass
     try:
         logger.info(
-            "steady_get key=%s hit=%s school_id=%s rev=%s backend=%s host=%s instance=%s",
+            "steady_get key=%s hit=%s school_id=%s rev=%s backend=%s host=%s",
             key,
             "1" if hit else "0",
             school_id,
             rev,
             _cache_backend_name(),
             socket.gethostname(),
-            os.getenv("RENDER_INSTANCE_ID", ""),
         )
     except Exception:
         pass
@@ -718,7 +718,7 @@ def _log_steady_set(
         pass
     try:
         logger.info(
-            "steady_set key=%s ttl=%s school_id=%s rev=%s success=%s error=%s backend=%s host=%s instance=%s",
+            "steady_set key=%s ttl=%s school_id=%s rev=%s success=%s error=%s backend=%s host=%s",
             key,
             int(ttl),
             school_id,
@@ -727,7 +727,6 @@ def _log_steady_set(
             (error or "")[:80],
             _cache_backend_name(),
             socket.gethostname(),
-            os.getenv("RENDER_INSTANCE_ID", ""),
         )
     except Exception:
         pass
@@ -906,7 +905,7 @@ def metrics(request):
 
     if required_key:
         provided = (request.headers.get("X-Display-Metrics-Key") or "").strip()
-        if provided != required_key:
+        if not secrets.compare_digest(provided, required_key):
             return JsonResponse({"detail": "forbidden"}, status=403)
 
     keys = [
@@ -1193,6 +1192,18 @@ def ws_metrics(request):
         "health": "ok|warning|critical"
     }
     """
+    is_debug = bool(getattr(dj_settings, "DEBUG", False))
+    if not is_debug:
+        required_key = (
+            os.getenv("DISPLAY_WS_METRICS_KEY", "").strip()
+            or os.getenv("DISPLAY_METRICS_KEY", "").strip()
+        )
+        if not required_key:
+            return JsonResponse({"detail": "not_found"}, status=404)
+        provided = (request.headers.get("X-Display-Metrics-Key") or "").strip()
+        if not secrets.compare_digest(provided, required_key):
+            return JsonResponse({"detail": "forbidden"}, status=403)
+
     try:
         from display.ws_metrics import ws_metrics as metrics_tracker
         from display.ws_cluster_metrics import snapshot as ws_cluster_snapshot
@@ -2091,6 +2102,7 @@ def status(request, token: str | None = None):
             )
 
             bound_screen = bind_device_atomic(token=token_value, device_id=device_key)
+            touch_display_presence(bound_screen.pk, token=token_value)
             school_id = int(getattr(bound_screen, "school_id", 0) or 0) or None
             if school_id:
                 try:
@@ -3740,6 +3752,7 @@ def snapshot(request, token: str | None = None):
                 )
 
                 screen = bind_device_atomic(token=token_value, device_id=device_key)
+                touch_display_presence(screen.pk, token=token_value)
             except ScreenNotFoundError:
                 resp = JsonResponse(
                     {

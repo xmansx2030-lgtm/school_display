@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 from datetime import datetime, time as dt_time, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -736,3 +737,39 @@ class SnapshotWorkerCommandTests(SimpleTestCase):
         materialize.assert_not_called()
         complete_job.assert_called_once_with(job)
         self.assertIn("event=job_locked_or_skipped", command.stdout.getvalue())
+
+
+@override_settings(DEBUG=False)
+class WebSocketMetricsAccessTests(SimpleTestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_ws_metrics_is_hidden_in_production_without_a_key(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("DISPLAY_WS_METRICS_KEY", None)
+            os.environ.pop("DISPLAY_METRICS_KEY", None)
+            response = av.ws_metrics(self.factory.get("/api/display/ws-metrics/"))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_ws_metrics_rejects_an_invalid_key(self):
+        with patch.dict(os.environ, {"DISPLAY_WS_METRICS_KEY": "correct-key"}, clear=False):
+            response = av.ws_metrics(
+                self.factory.get(
+                    "/api/display/ws-metrics/",
+                    HTTP_X_DISPLAY_METRICS_KEY="wrong-key",
+                )
+            )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_ws_metrics_accepts_the_configured_key(self):
+        with patch.dict(os.environ, {"DISPLAY_WS_METRICS_KEY": "correct-key"}, clear=False):
+            response = av.ws_metrics(
+                self.factory.get(
+                    "/api/display/ws-metrics/",
+                    HTTP_X_DISPLAY_METRICS_KEY="correct-key",
+                )
+            )
+
+        self.assertEqual(response.status_code, 200)

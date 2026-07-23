@@ -53,6 +53,7 @@ class TrialSignupTests(TestCase):
         self.assertEqual(profile.active_school, school)
         self.assertTrue(profile.schools.filter(pk=school.pk).exists())
         self.assertEqual(profile.mobile, "0501234567")
+        self.assertTrue(profile.needs_onboarding)
         self.assertEqual(subscription.school, school)
         self.assertEqual(subscription.status, "active")
         self.assertEqual(subscription.plan.code, "free-trial")
@@ -62,6 +63,7 @@ class TrialSignupTests(TestCase):
         self.assertEqual(response.json()["username"], get_user_model().objects.get().username)
         self.assertEqual(response.json()["mobile"], "0501234567")
         self.assertIn("login_url", response.json())
+        self.assertEqual(response.json()["redirect_url"], reverse("dashboard:help_getting_started"))
 
     def test_trial_user_can_login_with_mobile_after_auto_signup(self):
         signup = self.client.post(reverse("website:trial_signup"), data=self._payload())
@@ -74,7 +76,27 @@ class TrialSignupTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard:help_getting_started"))
         self.assertTrue(get_user(self.client).is_authenticated)
+
+    def test_opening_getting_started_completes_first_login_redirect(self):
+        self.client.post(reverse("website:trial_signup"), data=self._payload())
+        profile = UserProfile.objects.get()
+        self.assertTrue(profile.needs_onboarding)
+
+        response = self.client.get(reverse("dashboard:help_getting_started"))
+
+        self.assertEqual(response.status_code, 200)
+        profile.refresh_from_db()
+        self.assertFalse(profile.needs_onboarding)
+
+    def test_signup_dialog_exposes_accessible_modal_and_mobile_contract(self):
+        response = self.client.get(reverse("website:home"))
+
+        self.assertContains(response, 'role="dialog"')
+        self.assertContains(response, 'aria-modal="true"')
+        self.assertContains(response, 'aria-label="مدة الاشتراك"')
+        self.assertContains(response, 'pattern="05[0-9]{8}"')
 
     def test_trial_signup_rejects_duplicate_mobile(self):
         first = self.client.post(reverse("website:trial_signup"), data=self._payload())
@@ -90,3 +112,16 @@ class TrialSignupTests(TestCase):
         self.assertIn("mobile", second.json()["errors"])
         self.assertEqual(School.objects.count(), 1)
         self.assertEqual(SubscriptionPlan.objects.filter(code="free-trial").count(), 1)
+
+
+@override_settings(DISPLAY_WS_LIVE_STATUS_CHECK_SEC=60)
+class DisplayRuntimeConfigTests(TestCase):
+    def test_display_page_receives_the_configured_ws_safety_interval(self):
+        school = School.objects.create(name="مدرسة العرض", slug="display-school")
+        SchoolSettings.objects.create(name=school.name, school=school)
+        screen = DisplayScreen.objects.create(name="الشاشة الرئيسية", school=school)
+
+        response = self.client.get(reverse("website:short_display", args=[screen.short_code]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-ws-live-status-check="60"')

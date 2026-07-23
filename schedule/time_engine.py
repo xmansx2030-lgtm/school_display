@@ -71,14 +71,17 @@ def _get_manager(obj, *names):
     return None
 
 
-def _build_active_days_index(settings) -> dict[int, list]:
+def _build_active_days_index(settings, *, weekdays: set[int] | None = None) -> dict[int, list]:
     day_qs = getattr(settings, "day_schedules", None)
     if day_qs is None or not hasattr(day_qs, "filter"):
         return {}
 
     try:
+        day_qs = day_qs.filter(is_active=True)
+        if weekdays:
+            day_qs = day_qs.filter(weekday__in=sorted({int(day) for day in weekdays}))
         day_qs = (
-            day_qs.filter(is_active=True)
+            day_qs
             .only("id", "settings_id", "weekday", "is_active", "periods_count")
             .prefetch_related(
                 Prefetch(
