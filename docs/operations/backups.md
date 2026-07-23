@@ -30,6 +30,11 @@ docker compose -f compose.production.yaml --profile operations run --rm offsite-
 
 Then install `deploy/school-display-offsite-backup.cron.example` as a cron definition.
 
+Install `deploy/school-display.logrotate` under `/etc/logrotate.d/school-display`
+so cron output cannot grow without a limit. Incremental Restic backup runs daily;
+the more expensive prune and repository check run only on
+`RESTIC_MAINTENANCE_WEEKDAY` (Sunday by default).
+
 ## Monthly restore drill
 
 1. Restore the latest snapshot into an empty temporary directory with Restic.

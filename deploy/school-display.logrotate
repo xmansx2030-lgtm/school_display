@@ -1,0 +1,9 @@
+/var/log/school-display-backup.log /var/log/school-display-offsite-backup.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

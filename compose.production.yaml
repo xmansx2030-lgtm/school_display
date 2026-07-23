@@ -1,9 +1,16 @@
 name: school-display
 
+x-logging: &default-logging
+  driver: local
+  options:
+    max-size: ${DOCKER_LOG_MAX_SIZE:-20m}
+    max-file: ${DOCKER_LOG_MAX_FILES:-5}
+
 x-django: &django
   build:
     context: .
   restart: unless-stopped
+  logging: *default-logging
   env_file:
     - ${ENV_FILE:-.env.production}
   depends_on:
@@ -24,6 +31,8 @@ services:
   caddy:
     image: caddy:2.10-alpine
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${CADDY_MEMORY_LIMIT:-192m}
     env_file:
       - ${ENV_FILE:-.env.production}
     depends_on:
@@ -48,6 +57,7 @@ services:
 
   web:
     <<: *django
+    mem_limit: ${WEB_MEMORY_LIMIT:-1024m}
     command: >-
       sh -c "python manage.py migrate --noinput &&
       python manage.py collectstatic --noinput &&
@@ -59,7 +69,6 @@ services:
       --keep-alive=5
       --max-requests=5000
       --max-requests-jitter=500
-      --access-logfile=-
       --error-logfile=-"
     volumes:
       - static-data:/app/staticfiles
@@ -69,15 +78,21 @@ services:
 
   snapshot-worker:
     <<: *django
+    mem_limit: ${SNAPSHOT_WORKER_MEMORY_LIMIT:-512m}
     depends_on:
       web:
         condition: service_healthy
     command: python manage.py display_snapshot_worker --poll-timeout=5
     healthcheck:
-      disable: true
+      test: ["CMD", "python", "manage.py", "display_runtime_health", "snapshot-worker"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
 
   wake-scheduler:
     <<: *django
+    mem_limit: ${WAKE_SCHEDULER_MEMORY_LIMIT:-256m}
     depends_on:
       web:
         condition: service_healthy
@@ -87,11 +102,17 @@ services:
       --lead-minutes=30
       --window-seconds=90
     healthcheck:
-      disable: true
+      test: ["CMD", "python", "manage.py", "display_runtime_health", "wake-scheduler"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
 
   postgres:
     image: postgres:18-alpine
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${POSTGRES_MEMORY_LIMIT:-1024m}
     env_file:
       - ${ENV_FILE:-.env.production}
     volumes:
@@ -111,13 +132,15 @@ services:
   redis-cache:
     image: redis:7.4-alpine
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${REDIS_CACHE_MEMORY_LIMIT:-640m}
     env_file:
       - ${ENV_FILE:-.env.production}
     command: >-
       sh -c 'exec redis-server
       --appendonly yes
       --appendfsync everysec
-      --maxmemory 512mb
+      --maxmemory "$${REDIS_CACHE_MAXMEMORY:-512mb}"
       --maxmemory-policy allkeys-lru
       --requirepass "$${REDIS_CACHE_PASSWORD}"'
     volumes:
@@ -137,13 +160,15 @@ services:
   redis-channels:
     image: redis:7.4-alpine
     restart: unless-stopped
+    logging: *default-logging
+    mem_limit: ${REDIS_CHANNELS_MEMORY_LIMIT:-384m}
     env_file:
       - ${ENV_FILE:-.env.production}
     command: >-
       sh -c 'exec redis-server
       --appendonly yes
       --appendfsync everysec
-      --maxmemory 256mb
+      --maxmemory "$${REDIS_CHANNELS_MAXMEMORY:-256mb}"
       --maxmemory-policy noeviction
       --requirepass "$${REDIS_CHANNELS_PASSWORD}"'
     volumes:
@@ -164,6 +189,9 @@ services:
     image: restic/restic:0.18.1
     profiles: ["operations"]
     restart: "no"
+    logging: *default-logging
+    mem_limit: ${BACKUP_MEMORY_LIMIT:-384m}
+    cpus: ${BACKUP_CPU_LIMIT:-0.50}
     env_file:
       - ${ENV_FILE:-.env.production}
     environment:

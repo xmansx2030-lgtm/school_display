@@ -7,6 +7,11 @@
 school-display.com, www.school-display.com {
 	encode zstd gzip
 
+	# High-frequency display checks are measured inside the application. Keeping
+	# them out of access logs prevents an always-on screen fleet from filling disk.
+	@low_value_access_logs path /api/display/status* /api/display/snapshot* /api/display/live* /api/display/today* /api/display/ping/ /static/*
+	log_skip @low_value_access_logs
+
 	handle_path /static/* {
 		root * /srv/static
 		file_server

@@ -27,13 +27,23 @@ restic backup "$backup_dir" \
   --tag school-display-postgres \
   --host "${RESTIC_HOST:-school-display-production}"
 
-restic forget \
-  --tag school-display-postgres \
-  --keep-daily "${RESTIC_KEEP_DAILY:-14}" \
-  --keep-weekly "${RESTIC_KEEP_WEEKLY:-8}" \
-  --keep-monthly "${RESTIC_KEEP_MONTHLY:-12}" \
-  --prune
+maintenance_weekday="${RESTIC_MAINTENANCE_WEEKDAY:-7}"
+current_weekday="$(date -u +%u)"
 
-# Metadata and repository structure validation. A periodic `--read-data` check
-# can be scheduled separately because it downloads the complete repository.
-restic check
+if [ "$current_weekday" = "$maintenance_weekday" ]; then
+  # Prune and repository validation are substantially more expensive than the
+  # incremental backup, so run them once a week instead of every night.
+  restic forget \
+    --tag school-display-postgres \
+    --keep-daily "${RESTIC_KEEP_DAILY:-14}" \
+    --keep-weekly "${RESTIC_KEEP_WEEKLY:-8}" \
+    --keep-monthly "${RESTIC_KEEP_MONTHLY:-12}" \
+    --prune
+  restic check
+else
+  restic forget \
+    --tag school-display-postgres \
+    --keep-daily "${RESTIC_KEEP_DAILY:-14}" \
+    --keep-weekly "${RESTIC_KEEP_WEEKLY:-8}" \
+    --keep-monthly "${RESTIC_KEEP_MONTHLY:-12}"
+fi
