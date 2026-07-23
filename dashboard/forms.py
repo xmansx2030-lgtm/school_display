@@ -1372,6 +1372,7 @@ class SubscriptionPlanForm(forms.ModelForm):
         }
 
 from core.models import SupportTicket, TicketComment
+from core.tenant_access import authorized_active_school
 
 class TicketCommentForm(forms.ModelForm):
     class Meta:
@@ -1422,8 +1423,9 @@ class CustomerSupportTicketForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if user:
             profile = getattr(user, 'profile', None)
-            if profile and profile.active_school:
-                self.fields['school_name'].initial = profile.active_school.name
+            school = authorized_active_school(profile, user=user, clear_invalid=False) if profile else None
+            if school:
+                self.fields['school_name'].initial = school.name
             
             self.fields['admin_name'].initial = user.get_full_name() or user.username
             

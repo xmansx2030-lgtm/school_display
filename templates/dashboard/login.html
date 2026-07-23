@@ -8,12 +8,13 @@
   <meta name="theme-color" content="#4f46e5">
   <title>تسجيل الدخول — لوحة العرض الذكية</title>
 
-  <link rel="icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="1024x1024" href="/favicon.png?v=20260723-logo1">
+  <link rel="apple-touch-icon" href="/favicon.png?v=20260723-logo1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;600;700;800;900&family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-04-15b">
+  <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-07-23-login1">
   <link rel="stylesheet" href="{% static 'css/dashboard-luxury.css' %}?v=2026-04-17a">
 
   <style>
@@ -24,7 +25,9 @@
     body {
       font-family: 'Alexandria', 'Cairo', system-ui, sans-serif;
       min-height: 100vh;
+      min-height: 100dvh;
       background: #f1f5f9;
+      overflow-x: hidden;
     }
     @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
     .fade-up { animation: fadeUp .5s cubic-bezier(.16,1,.3,1) both; }
@@ -44,6 +47,102 @@
       box-shadow: 0 0 0 3px rgba(79,70,229,.1);
     }
     .input-field::placeholder { color: #94a3b8; }
+
+    .login-header {
+      flex: 0 0 auto;
+      padding: clamp(18px, 3vh, 30px) max(18px, env(safe-area-inset-right)) 12px max(18px, env(safe-area-inset-left));
+    }
+    .login-main {
+      flex: 1 1 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+    }
+    .dashboard-login-shell {
+      width: min(640px, 100%);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+    .dashboard-login-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+      padding: clamp(28px, 3vw, 40px);
+      border-radius: 32px;
+    }
+    .dashboard-login-card .input-field {
+      min-height: 50px;
+    }
+    .login-submit {
+      min-height: 52px;
+    }
+    .login-footer {
+      grid-column: 1 / -1;
+      margin-top: 0;
+      padding-top: 2px;
+    }
+
+    /* Tablet: a centered, comfortably sized form without decorative panels. */
+    @media (min-width: 768px) and (max-width: 1179px) {
+      .login-main { padding-top: 22px; }
+      .dashboard-login-shell {
+        width: min(680px, 100%);
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .dashboard-login-card { padding: 32px 38px; border-radius: 28px; }
+    }
+
+    /* Mobile: prioritize the form, touch targets and safe-area spacing. */
+    @media (max-width: 767px) {
+      .login-header { padding-top: max(14px, env(safe-area-inset-top)); padding-bottom: 8px; }
+      .login-header .brand-mark { width: 36px; height: 36px; border-radius: 11px; }
+      .login-header .brand-title { font-size: 15px; }
+      .login-main {
+        align-items: flex-start;
+        padding: 12px max(12px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+      }
+      .dashboard-login-shell {
+        width: 100%;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+      }
+      .dashboard-login-card {
+        padding: 22px 18px;
+        border-radius: 24px;
+      }
+      .login-card-header { margin-bottom: 22px; }
+      .login-card-header .login-card-icon {
+        width: 52px;
+        height: 52px;
+        margin-bottom: 12px;
+        border-radius: 17px;
+      }
+      .login-card-header h1 { font-size: 22px; }
+      .login-card-header p { font-size: 12px; line-height: 1.8; }
+      .dashboard-login-card .input-field {
+        min-height: 52px;
+        padding-inline: 14px;
+        font-size: 16px;
+      }
+      .login-submit { min-height: 54px; }
+      .login-support-note { padding: 11px 13px; line-height: 1.9; }
+      .login-footer { font-size: 10px; padding-bottom: 4px; }
+    }
+
+    @media (max-height: 720px) and (min-width: 1180px) {
+      .login-header { padding-top: 14px; padding-bottom: 6px; }
+      .login-main { align-items: flex-start; padding-top: 8px; }
+      .dashboard-login-card { padding-top: 26px; padding-bottom: 26px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .fade-up, .fade-up-d1, .fade-up-d2 { animation: none !important; }
+      * { scroll-behavior: auto !important; }
+    }
   </style>
 </head>
 
@@ -54,52 +153,22 @@
     <div class="absolute bottom-0 left-0 w-[400px] h-[400px] bg-violet-500/[.06] rounded-full blur-3xl translate-y-1/3 -translate-x-1/4"></div>
   </div>
 
-  <header class="py-8">
+  <header class="login-header">
     <div class="container mx-auto px-4 flex justify-center">
       <a href="/" class="flex items-center gap-3 group">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform">
+        <div class="brand-mark w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform">
           <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
         </div>
-        <span class="text-lg font-black text-slate-800 tracking-tight">لوحة العرض الذكية</span>
+        <span class="brand-title text-lg font-black text-slate-800 tracking-tight">لوحة العرض الذكية</span>
       </a>
     </div>
   </header>
 
-  <main class="flex-1 flex items-center justify-center px-4 pb-12">
-    <div class="dashboard-login-shell w-full grid gap-6 lg:grid-cols-[1.1fr_.9fr] items-stretch">
-      <section class="dashboard-login-brand hidden lg:flex flex-col justify-between rounded-[34px] p-8 shadow-2xl shadow-slate-900/20 fade-up">
-        <div>
-          <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-[11px] font-bold tracking-[0.2em] text-emerald-100 uppercase">
-            <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
-            Smart School Control
-          </div>
-          <h1 class="mt-6 max-w-md text-4xl font-black leading-[1.45] text-white">
-            واجهة مدرسية أكثر أناقة وهدوءًا لإدارة العرض اليومي بكل سلاسة.
-          </h1>
-          <p class="mt-4 max-w-xl text-sm leading-8 text-slate-200/80">
-            من الجداول اليومية إلى شاشات التلفاز والتنبيهات والتميز، تم تصميم المنصة لتبقى واضحة وسريعة ومريحة بصريًا أثناء العمل اليومي داخل المدرسة.
-          </p>
-        </div>
-
-        <div class="grid grid-cols-3 gap-3">
-          <div class="dashboard-login-stat rounded-3xl p-4">
-            <div class="text-[11px] text-slate-200/70">تشغيل ناعم</div>
-            <div class="mt-2 text-2xl font-black text-white">24/7</div>
-          </div>
-          <div class="dashboard-login-stat rounded-3xl p-4">
-            <div class="text-[11px] text-slate-200/70">لوحة مرنة</div>
-            <div class="mt-2 text-2xl font-black text-white">RTL</div>
-          </div>
-          <div class="dashboard-login-stat rounded-3xl p-4">
-            <div class="text-[11px] text-slate-200/70">مظهر فخم</div>
-            <div class="mt-2 text-2xl font-black text-white">UX+</div>
-          </div>
-        </div>
-      </section>
-
-      <div class="dashboard-login-card rounded-[32px] border p-7 lg:p-8 fade-up">
-        <div class="mb-7 text-center lg:text-right">
-          <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[22px] bg-gradient-to-br from-teal-700 via-cyan-700 to-amber-500 text-white shadow-xl shadow-teal-900/15 lg:mx-0">
+  <main class="login-main">
+    <div class="dashboard-login-shell">
+      <div class="dashboard-login-card border fade-up">
+        <div class="login-card-header mb-7 text-center">
+          <div class="login-card-icon mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[22px] bg-gradient-to-br from-teal-700 via-cyan-700 to-amber-500 text-white shadow-xl shadow-teal-900/15">
             <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
           </div>
           <h1 class="text-2xl font-black text-slate-800 mb-1">تسجيل الدخول</h1>
@@ -109,7 +178,7 @@
         {% if messages %}
           <div class="mb-5 space-y-2">
             {% for message in messages %}
-              <div class="rounded-xl px-4 py-2.5 bg-rose-50 border border-rose-100 text-rose-600 text-sm flex items-center gap-2">
+              <div class="rounded-xl px-4 py-2.5 bg-rose-50 border border-rose-100 text-rose-600 text-sm flex items-center gap-2" role="alert">
                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 {{ message }}
               </div>
@@ -124,24 +193,24 @@
           </div>
         {% endif %}
 
-        <form method="post" autocomplete="on" class="space-y-4 fade-up fade-up-d1">
+        <form method="post" autocomplete="on" class="login-form space-y-4 fade-up fade-up-d1">
           {% csrf_token %}
           {% if next %}
             <input type="hidden" name="next" value="{{ next }}">
           {% endif %}
 
           <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1.5 mr-1">اسم المستخدم أو رقم الجوال</label>
-            <input class="input-field" type="text" name="username" autocomplete="username" placeholder="مثال: trial_501234567 أو 05XXXXXXXX" inputmode="text" required>
+            <label for="loginUsername" class="block text-xs font-bold text-slate-600 mb-1.5 mr-1">اسم المستخدم أو رقم الجوال</label>
+            <input id="loginUsername" class="input-field" type="text" name="username" autocomplete="username" placeholder="مثال: trial_501234567 أو 05XXXXXXXX" inputmode="text" required autofocus>
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-slate-600 mb-1.5 mr-1">كلمة المرور</label>
-            <input class="input-field" type="password" name="password" autocomplete="current-password" placeholder="••••••••" required>
+            <label for="loginPassword" class="block text-xs font-bold text-slate-600 mb-1.5 mr-1">كلمة المرور</label>
+            <input id="loginPassword" class="input-field" type="password" name="password" autocomplete="current-password" placeholder="••••••••" required>
           </div>
 
           <div class="pt-1">
-            <button type="submit" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2">
+            <button type="submit" class="login-submit w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
               دخول المنصة
             </button>
@@ -149,18 +218,18 @@
         </form>
 
         <div class="mt-6 grid gap-4 border-t border-slate-100 pt-5 fade-up fade-up-d2">
-          <div class="rounded-2xl border border-slate-100 bg-white/70 px-4 py-3 text-xs leading-7 text-slate-500">
+          <div class="login-support-note rounded-2xl border border-slate-100 bg-white/70 px-4 py-3 text-xs leading-7 text-slate-500">
             لحسابات التجربة المجانية يمكنك الدخول برقم الجوال الذي سجلت به وكلمة المرور التي اخترتها.
           </div>
 
-          <a href="/" class="text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors inline-flex items-center justify-center gap-1 lg:justify-start">
+          <a href="/" class="text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors inline-flex items-center justify-center gap-1">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
             العودة للرئيسية
           </a>
         </div>
       </div>
 
-      <footer class="mt-6 text-center text-slate-400 text-[11px] font-medium lg:col-span-2">
+      <footer class="login-footer text-center text-slate-400 text-[11px] font-medium">
         &copy; {% now "Y" %} لوحة العرض الذكية للمدارس
       </footer>
     </div>

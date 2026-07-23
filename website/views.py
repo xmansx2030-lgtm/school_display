@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.contrib.auth import login
+from django.conf import settings as django_settings
 from django.core.cache import cache
 from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
@@ -158,6 +159,9 @@ def _build_display_context(request, key: str | None) -> dict | None:
         "display_accent_color": display_accent_color,
         "logo_url": logo_url,
         "refresh_interval_sec": getattr(settings_obj, "refresh_interval_sec", 30),
+        "ws_live_status_check_sec": int(
+            getattr(django_settings, "DISPLAY_WS_LIVE_STATUS_CHECK_SEC", 60) or 60
+        ),
         "standby_scroll_speed": getattr(settings_obj, "standby_scroll_speed", 0.8),
         "periods_scroll_speed": getattr(settings_obj, "periods_scroll_speed", 0.5),
         "now_hour": timezone.localtime().hour,
@@ -232,7 +236,7 @@ def trial_signup(request):
         {
             "ok": True,
             "message": "تم تجهيز تجربة المدرسة بنجاح.",
-            "redirect_url": reverse("dashboard:index"),
+            "redirect_url": reverse("dashboard:help_getting_started"),
             "login_url": reverse("dashboard:login"),
             "username": result.user.username,
             "mobile": getattr(getattr(result.user, "profile", None), "mobile", "") or mobile,

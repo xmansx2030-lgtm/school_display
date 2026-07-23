@@ -93,6 +93,11 @@ class UserProfile(models.Model):
         blank=True,
         null=True,
     )
+    needs_onboarding = models.BooleanField(
+        "يحتاج إلى دليل البدء",
+        default=False,
+        help_text="يوجّه المستخدم الجديد إلى دليل البدء مرة واحدة بعد أول دخول.",
+    )
 
     class Meta:
         verbose_name = "ملف المستخدم"
@@ -100,6 +105,31 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.active_school.name if self.active_school else 'No Active School'}"
+
+
+class UserTwoFactorAuth(models.Model):
+    """Encrypted TOTP configuration for privileged system accounts."""
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="two_factor_auth",
+        verbose_name="المستخدم",
+    )
+    encrypted_secret = models.TextField("سر المصادقة المشفر", blank=True)
+    is_enabled = models.BooleanField("مفعلة", default=False)
+    recovery_code_hashes = models.JSONField("رموز الاسترداد المشفرة", default=list, blank=True)
+    last_used_counter = models.BigIntegerField("آخر عداد مستخدم", null=True, blank=True)
+    confirmed_at = models.DateTimeField("تاريخ التفعيل", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "مصادقة ثنائية"
+        verbose_name_plural = "المصادقة الثنائية"
+
+    def __str__(self) -> str:
+        return f"2FA: {self.user} ({'enabled' if self.is_enabled else 'pending'})"
 
 
 class DisplayScreen(models.Model):

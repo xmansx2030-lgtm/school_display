@@ -1,0 +1,20 @@
+{% extends "dashboard/two_factor_base.html" %}
+{% block title %}التحقق الأمني{% endblock %}
+{% block heading %}أكمل تسجيل الدخول{% endblock %}
+{% block content %}
+  <p class="mb-6 text-sm leading-7 text-slate-300">
+    أدخل الرمز المكون من 6 أرقام من تطبيق المصادقة، أو استخدم أحد رموز الاسترداد المحفوظة.
+  </p>
+  <form method="post" class="space-y-5" autocomplete="off">
+    {% csrf_token %}
+    <div>
+      <label for="token" class="mb-2 block text-sm font-bold">رمز التحقق أو الاسترداد</label>
+      <input id="token" name="token" required autofocus inputmode="text" autocomplete="one-time-code"
+             class="w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-4 text-center font-mono text-xl tracking-[.25em] outline-none focus:border-indigo-400"
+             placeholder="000000">
+      <p class="mt-2 text-xs text-slate-400">المحاولات المتبقية: {{ remaining_attempts }}</p>
+    </div>
+    <button class="w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold hover:bg-indigo-500" type="submit">تحقق ودخول</button>
+  </form>
+  <a href="{% url 'dashboard:login' %}" class="mt-5 inline-block text-sm text-slate-400 hover:text-white">العودة لتسجيل الدخول</a>
+{% endblock %}

@@ -1,0 +1,1 @@
+17 3 * * * root /opt/school-display/deploy/backup-postgres.sh >> /var/log/school-display-backup.log 2>&1

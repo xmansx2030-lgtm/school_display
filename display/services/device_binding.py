@@ -82,6 +82,23 @@ def _screen_from_cached_map(cached_map: object, *, device_id: str) -> DisplayScr
         return None
 
 
+def _mark_screen_present(screen: DisplayScreen, *, token: str) -> DisplayScreen:
+    """Record presence for every successful binding lookup.
+
+    ``bind_device_atomic`` is shared by the snapshot, status, and websocket
+    paths. Keeping the touch here prevents a working display from becoming
+    invisible when one caller forgets to record its heartbeat.
+    """
+    try:
+        from core.display_presence import touch_display_presence
+
+        touch_display_presence(int(screen.pk), token=token)
+    except Exception:
+        # Presence is operational telemetry and must never interrupt playback.
+        pass
+    return screen
+
+
 def bind_device_atomic(
     token: str, 
     device_id: str, 
@@ -123,7 +140,7 @@ def bind_device_atomic(
                 device_id=device_id,
             )
             if cached_screen is not None:
-                return cached_screen
+                return _mark_screen_present(cached_screen, token=token)
         except Exception:
             pass
     
@@ -145,7 +162,7 @@ def bind_device_atomic(
             bound_device_id=getattr(screen, "bound_device_id", None),
         )
         logger.info(f"Multi-device enabled for screen {screen.id}, skipping binding")
-        return screen
+        return _mark_screen_present(screen, token=token)
     
     # Check if already bound to THIS device
     if screen.bound_device_id == device_id:
@@ -156,7 +173,7 @@ def bind_device_atomic(
             bound_device_id=device_id,
         )
         logger.debug(f"Screen {screen.id} already bound to device {device_id[:8]}...")
-        return screen
+        return _mark_screen_present(screen, token=token)
     
     # Check if bound to DIFFERENT device
     if screen.bound_device_id and screen.bound_device_id != device_id:
@@ -191,7 +208,7 @@ def bind_device_atomic(
                 bound_device_id=device_id,
             )
             logger.info(f"Screen {screen.id} bound to device {device_id[:8]}... (race won)")
-            return screen
+            return _mark_screen_present(screen, token=token)
         else:
             # Another device won the race
             logger.warning(
@@ -212,7 +229,7 @@ def bind_device_atomic(
         bound_device_id=device_id,
     )
     logger.info(f"Screen {screen.id} newly bound to device {device_id[:8]}...")
-    return screen
+    return _mark_screen_present(screen, token=token)
 
 
 def unbind_device(screen_id: int) -> bool:

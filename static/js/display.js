@@ -539,7 +539,7 @@
   const cfg = {
     REFRESH_EVERY: 30, // conservative default for large fleets; can be overridden from server
     WS_FALLBACK_POLL_EVERY: 180, // when WS is healthy, keep only a sparse safety poll
-    WS_LIVE_STATUS_CHECK_SEC: 10, // safety net when in-memory WS/cache misses cross-process updates
+    WS_LIVE_STATUS_CHECK_SEC: 60, // sparse safety net when WS/cache misses cross-process updates
     STANDBY_SPEED: 0.8,
     PERIODS_SPEED: 0.5,
     MEDIA_PREFIX: "/media/",
@@ -656,6 +656,7 @@
     wsRetryCount: 0,
     pendingRev: null,
     forceFetchSnapshot: false,
+    invalidateGeneration: 0,
     wsEnabled: false,
     wsMaxRetries: 10,
     wsEverConnected: false,
@@ -1709,7 +1710,7 @@
   }
 
   function _wsLiveStatusIntervalMs() {
-    var sec = Number(cfg.WS_LIVE_STATUS_CHECK_SEC) || 10;
+    var sec = Number(cfg.WS_LIVE_STATUS_CHECK_SEC) || 45;
     sec = Math.max(5, Math.min(60, sec));
     try {
       var jf = Math.abs(Number(rt.refreshJitterFrac) || 0);
@@ -5646,6 +5647,9 @@
       return;
     }
 
+    const invalidateGenAtStart = Number(rt.invalidateGeneration) || 0;
+    let consumingForcedRefresh = false;
+    let renderedSuccessfully = false;
     isFetching = true;
     let snap = null;
 
@@ -5664,6 +5668,7 @@
           snap = await safeFetchSnapshot({ bypassEtag: true });
         } else if (rt.forceFetchSnapshot) {
           // WS invalidate (or manual force-refresh) should fetch snapshot even if revision didn't bump.
+          consumingForcedRefresh = true;
           rt.forceFetchSnapshot = false;
           rt.status304Streak = 0;
           rt.statusEverySec = basePollEverySec();
@@ -5799,7 +5804,8 @@
         const base = Math.max(2, basePollEverySec());
         wait = Math.min(120, Math.max(15, base * 2));
       }
-      scheduleNext(wait);
+      if (consumingForcedRefresh) rt.forceFetchSnapshot = true;
+      scheduleNext(wait, consumingForcedRefresh ? "ws_invalidate" : null);
       if (isDebug()) {
         ensureDebugOverlay();
         setDebugText("snapshot 429 rate-limited | backoff=" + String(wait) + "s | " + new Date().toLocaleTimeString());
@@ -5827,7 +5833,8 @@
       } else {
           backoff = Math.min(60, basePollEverySec() + failStreak * 5);
       }
-      scheduleNext(backoff);
+      if (consumingForcedRefresh) rt.forceFetchSnapshot = true;
+      scheduleNext(backoff, consumingForcedRefresh ? "ws_invalidate" : null);
       return;
     }
 
@@ -5935,12 +5942,29 @@
             (pS.running ? 1 : 0)
         );
       }
+      renderedSuccessfully = true;
     } catch (e) {
       renderAlert("حدث خطأ أثناء العرض", "افتح ?debug=1 لمزيد من التفاصيل.");
       ensureDebugOverlay();
       if (isDebug()) setDebugText("render error: " + (e && e.message ? e.message : String(e)));
     } finally {
         isFetching = false;
+    }
+
+    // A WS invalidation can arrive while a snapshot request is in flight.
+    // Preserve and immediately consume that newer event instead of returning
+    // to ws-live heartbeat mode and waiting for the sparse safety check.
+    const invalidateGenAfterFetch = Number(rt.invalidateGeneration) || 0;
+    if (renderedSuccessfully && consumingForcedRefresh && invalidateGenAfterFetch === invalidateGenAtStart) {
+      rt.pendingRev = null;
+    }
+    if (rt.forceFetchSnapshot && invalidateGenAfterFetch > invalidateGenAtStart) {
+      _log("ws_invalidate_replayed_after_fetch", {
+        startedAtGeneration: invalidateGenAtStart,
+        currentGeneration: invalidateGenAfterFetch,
+      });
+      scheduleNext(0.1, "ws_invalidate");
+      return;
     }
 
     // Mode transition: after first successful render, leave "init"
@@ -6560,6 +6584,7 @@
             _log("ws_revision_received", { revision: newRev, mode: rt.mode });
             _log("ws_snapshot_refresh", { revision: newRev, eventType: msg.type, reason: safeText(msg.reason || "") });
             
+            rt.invalidateGeneration = (Number(rt.invalidateGeneration) || 0) + 1;
             rt.pendingRev = newRev;
             rt.forceFetchSnapshot = true;
 
@@ -7003,6 +7028,11 @@
 
     cfg.REFRESH_EVERY = clamp(parseFloat(body.dataset.refresh || "30") || 30, 5, 120);
     cfg.WS_FALLBACK_POLL_EVERY = clamp(parseFloat(body.dataset.wsFallbackPoll || "180") || 180, 30, 600);
+    cfg.WS_LIVE_STATUS_CHECK_SEC = clamp(
+      parseFloat(body.dataset.wsLiveStatusCheck || "45") || 45,
+      15,
+      300
+    );
     cfg.STANDBY_SPEED = normSpeed(body.dataset.standby || "0.8", 0.8);
     cfg.PERIODS_SPEED = normSpeed(body.dataset.periodsSpeed || "0.5", 0.5);
 

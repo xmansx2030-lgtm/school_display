@@ -35,7 +35,7 @@
       <strong>{{ screens_count|default:"0" }} <small>/ {% if screen_limit is None %}∞{% else %}{{ screen_limit }}{% endif %}</small></strong>
     </div>
     <div class="screen-summary-item">
-      <span>شوهدت مؤخراً</span>
+      <span>متصلة الآن</span>
       <strong>{{ screens_live_count|default:"0" }}</strong>
     </div>
     <div class="screen-summary-item">
@@ -55,7 +55,7 @@
     </summary>
     <div class="screen-help-content">
       <p>افتح الرابط الكامل الظاهر في عمود <strong>رابط الشاشة</strong> على متصفح التلفاز. صيغة الرابط تكون مثل <code dir="ltr">https://school-display.com/s/CODE/</code>.</p>
-      <p>تظهر الشاشة كـ <strong>شوهدت مؤخراً</strong> إذا وصل منها تواصل خلال آخر {{ screen_live_threshold_minutes }} دقيقة. عند نقلها إلى جهاز آخر، استخدم <strong>فك ارتباط الجهاز</strong> أولاً.</p>
+      <p>تظهر الشاشة كـ <strong>متصلة الآن</strong> إذا وصل منها نبض تشغيل خلال آخر {{ screen_live_threshold_minutes }} دقيقة. عند نقلها إلى جهاز آخر، استخدم <strong>فك ارتباط الجهاز</strong> أولاً.</p>
     </div>
   </details>
 
@@ -104,7 +104,7 @@
 
             <div class="screen-card-meta">
               <div>
-                <span>آخر تواصل</span>
+                <span>آخر نشاط مسجل</span>
                 <strong title="{{ screen.dashboard_last_seen_full }}">{{ screen.dashboard_last_seen_display }}</strong>
               </div>
               <div>

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from typing import Callable
 from urllib.parse import quote
 
 from django.apps import apps
@@ -15,8 +14,12 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 
 from display.ws_groups import token_group_name
+from core.display_presence import display_live_threshold_seconds, latest_display_presence
+from .access import get_active_school_or_redirect
+from .decorators import manager_required
 from .forms import DisplayScreenForm
 
 logger = logging.getLogger(__name__)
@@ -24,6 +27,14 @@ logger = logging.getLogger(__name__)
 
 def _display_screen_model():
     return apps.get_model("core", "DisplayScreen")
+
+
+def _model_has_field(model, field_name: str) -> bool:
+    try:
+        model._meta.get_field(field_name)
+        return True
+    except Exception:
+        return False
 
 
 def _screen_command_ttl_seconds() -> int:
@@ -183,12 +194,8 @@ def get_school_effective_plan_label(school) -> str | None:
     return getattr(plan, "name", None) if plan else None
 
 
-def screen_list(
-    request,
-    *,
-    get_active_school_or_redirect: Callable,
-    model_has_field: Callable,
-):
+@manager_required
+def screen_list(request):
     display_screen = _display_screen_model()
     school, response = get_active_school_or_redirect(request)
     if response:
@@ -203,7 +210,7 @@ def screen_list(
 
     auto_disabled_count = 0
     try:
-        if model_has_field(display_screen, "auto_disabled_by_limit"):
+        if _model_has_field(display_screen, "auto_disabled_by_limit"):
             auto_disabled_count = display_screen.objects.filter(
                 school=school,
                 auto_disabled_by_limit=True,
@@ -217,26 +224,32 @@ def screen_list(
     plan_name = get_school_effective_plan_label(school)
 
     now = timezone.now()
-    live_threshold_seconds = int(getattr(settings, "DASHBOARD_SCREEN_LIVE_THRESHOLD_SEC", 65 * 60) or (65 * 60))
-    live_threshold_seconds = max(120, min(24 * 60 * 60, live_threshold_seconds))
+    live_threshold_seconds = display_live_threshold_seconds()
     live_threshold_minutes = max(1, int(round(live_threshold_seconds / 60)))
     live_count = 0
     linked_count = 0
     screen_rows = []
     for screen in qs:
-        last_seen = getattr(screen, "last_seen_at", None) or getattr(screen, "last_seen", None)
+        last_seen = latest_display_presence(screen)
+        bound_at = getattr(screen, "bound_at", None)
+        last_activity = last_seen or bound_at
         bound_device = bool((getattr(screen, "bound_device_id", "") or "").strip())
         is_enabled = bool(getattr(screen, "is_active", False))
         is_live = False
         last_seen_seconds = None
         last_seen_display = "لم تتصل بعد"
         last_seen_full = ""
-        if last_seen:
+        if last_activity:
             try:
-                delta = now - last_seen
+                delta = now - last_activity
                 last_seen_seconds = max(0, int(delta.total_seconds()))
-                is_live = bool(is_enabled and bound_device and last_seen_seconds <= live_threshold_seconds)
-                local_seen = timezone.localtime(last_seen)
+                is_live = bool(
+                    last_seen
+                    and is_enabled
+                    and bound_device
+                    and last_seen_seconds <= live_threshold_seconds
+                )
+                local_seen = timezone.localtime(last_activity)
                 last_seen_full = local_seen.strftime("%Y-%m-%d %H:%M")
                 if last_seen_seconds < 60:
                     last_seen_display = "قبل أقل من دقيقة"
@@ -260,12 +273,16 @@ def screen_list(
             status_hint = "الشاشة غير مفعلة من لوحة التحكم"
         elif is_live:
             status_key = "live"
-            status_label = "شوهدت مؤخراً"
-            status_hint = "وصل تواصل حديث من التلفاز"
+            status_label = "متصلة الآن"
+            status_hint = "الشاشة تعمل وتستقبل التحديثات"
+        elif bound_device and last_seen:
+            status_key = "linked"
+            status_label = "غير متصلة الآن"
+            status_hint = "الجهاز مرتبط، لكن لم يصل نبض حديث"
         elif bound_device:
             status_key = "linked"
-            status_label = "مرتبطة بلا اتصال"
-            status_hint = "الجهاز مرتبط لكن لا يوجد اتصال حديث"
+            status_label = "مرتبطة وجاهزة"
+            status_hint = "تم ربط الجهاز؛ سيظهر الاتصال عند أول نبض"
         else:
             status_key = "waiting"
             status_label = "بانتظار الربط"
@@ -321,11 +338,8 @@ def screen_list(
     )
 
 
-def screen_create(
-    request,
-    *,
-    get_active_school_or_redirect: Callable,
-):
+@manager_required
+def screen_create(request):
     display_screen = _display_screen_model()
     school, response = get_active_school_or_redirect(request)
     if response:
@@ -361,12 +375,9 @@ def screen_create(
     return render(request, "dashboard/screen_form.html", {"form": form, "title": "إضافة شاشة"})
 
 
-def screen_refresh_now(
-    request,
-    *,
-    pk: int,
-    get_active_school_or_redirect: Callable,
-):
+@manager_required
+@require_POST
+def screen_refresh_now(request, pk: int):
     """Force a single screen to fetch new data."""
     display_screen = _display_screen_model()
     school, response = get_active_school_or_redirect(request)
@@ -453,12 +464,9 @@ def screen_refresh_now(
     return redirect("dashboard:screen_list")
 
 
-def screen_reload_now(
-    request,
-    *,
-    pk: int,
-    get_active_school_or_redirect: Callable,
-):
+@manager_required
+@require_POST
+def screen_reload_now(request, pk: int):
     """Force a single screen to reload the page (equivalent to pressing F5)."""
     display_screen = _display_screen_model()
     school, response = get_active_school_or_redirect(request)
@@ -540,12 +548,9 @@ def screen_reload_now(
     return redirect("dashboard:screen_list")
 
 
-def screen_delete(
-    request,
-    *,
-    pk: int,
-    get_active_school_or_redirect: Callable,
-):
+@manager_required
+@require_POST
+def screen_delete(request, pk: int):
     display_screen = _display_screen_model()
     school, response = get_active_school_or_redirect(request)
     if response:
@@ -556,12 +561,9 @@ def screen_delete(
     return redirect("dashboard:screen_list")
 
 
-def screen_unbind_device(
-    request,
-    *,
-    pk: int,
-    get_active_school_or_redirect: Callable,
-):
+@manager_required
+@require_POST
+def screen_unbind_device(request, pk: int):
     display_screen = _display_screen_model()
     school, response = get_active_school_or_redirect(request)
     if response:
@@ -590,11 +592,8 @@ def screen_unbind_device(
     return redirect("dashboard:screen_list")
 
 
-def request_screen_addon(
-    request,
-    *,
-    get_active_school_or_redirect: Callable,
-):
+@manager_required
+def request_screen_addon(request):
     """زر/صفحة طلب زيادة شاشات: يفتح تذكرة دعم مُعبأة تلقائيًا."""
     display_screen = _display_screen_model()
 

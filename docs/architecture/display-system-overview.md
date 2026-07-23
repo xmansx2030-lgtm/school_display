@@ -1,15 +1,15 @@
 # Display System Architecture Overview
 
-آخر تحديث: 2026-04-23
+آخر تحديث: 2026-07-23
 
-هذه الوثيقة تصف الوضع الحالي كما هو في الكود فقط. لم يتم التحقق من متغيرات بيئة Render الفعلية من لوحة Render، لذلك أي ملاحظة عن الإنتاج هنا مبنية على `render.yaml` والملفات المحلية، وليست تأكيدًا لحالة الخدمة المنشورة.
+هذه الوثيقة تصف الوضع الحالي في الكود وبنية الإنتاج المعتمدة على خادم Hetzner. مصدر حقيقة النشر داخل المستودع هو `compose.production.yaml` و`deploy/Caddyfile`، أما القيم السرية والحالة الفعلية للحاويات فتظل على الخادم ولا يمكن تأكيدها من الكود المحلي وحده.
 
 ## نطاق الدفعة
 
 - توثيق مسار شاشة العرض الحالي بدون refactor.
 - تحديد مصدر الحقيقة لتدفق الشاشة، snapshot، WebSocket، revision، cache، queue، وwake/sleep.
 - حصر legacy أو الازدواجيات الظاهرة من الكود.
-- مراجعة `render.yaml` مقارنة بالبنية المحلية.
+- مراجعة `compose.production.yaml` مقارنة بالبنية المحلية.
 
 ## ملخص تنفيذي
 
@@ -264,31 +264,20 @@ Client side:
   - `/api/display/live/`
   وكلاهما يوجهان إلى `schedule.api_views.snapshot` للتوافق الخلفي.
 
-## مراجعة render.yaml
+## بنية الإنتاج على Hetzner
 
-الوضع الموثق في `render.yaml`:
+الوضع الموثق في `compose.production.yaml`:
 
-- Redis service للكاش: `school-display-redis` مع `allkeys-lru`.
-- Redis service للقنوات: `school-display-channels-redis` مع `noeviction`.
-- Web service واحد باسم `school-display`.
-- build:
-  - `pip install --upgrade pip`
-  - `pip install -r requirements.txt`
-  - `python manage.py collectstatic --noinput`
-- start:
-  - `python manage.py migrate --noinput`
-  - إنشاء superuser اختياري عبر env vars
-  - تشغيل `display_snapshot_worker` داخل web process إذا `DISPLAY_START_EMBEDDED_SNAPSHOT_WORKER=True`
-  - تشغيل `display_wake_scheduler` داخل web process إذا `DISPLAY_START_EMBEDDED_WAKE_SCHEDULER=True`
-  - تشغيل Gunicorn ASGI عبر `uvicorn.workers.UvicornWorker`
+- `caddy`: إنهاء TLS وتوجيه HTTP وWebSocket إلى خدمة `web`.
+- `web`: Django ASGI عبر Gunicorn و`UvicornWorker`، ويشغّل migrations و`collectstatic` عند الإقلاع.
+- `snapshot-worker`: خدمة مستقلة لمعالجة بناء snapshots غير المتزامن.
+- `wake-scheduler`: خدمة مستقلة لإيقاظ الشاشات قبل بداية العرض.
+- `postgres`: قاعدة البيانات الدائمة.
+- `redis-cache`: كاش مستقل بسياسة `allkeys-lru`.
+- `redis-channels`: Channels وWebSocket queue بسياسة `noeviction`.
+- `offsite-backup`: خدمة اختيارية لنسخ Restic المشفرة خارج الخادم.
 
-الفروقات/المخاطر التشغيلية المرصودة:
-
-- لا توجد خدمة worker مستقلة في `render.yaml`; العاملان يعملان embedded داخل web process. هذا يعمل لكنه يزيد مسؤوليات web process.
-- `render.yaml` يحتوي safeguard يخفض `WORKERS=1` إذا لم توجد Redis cache URL، لكن `config.settings` يرفع `ValueError` إذا لم توجد Redis cache/channels URL. على Render الحالي، env vars معرفة من خدمات Redis في yaml، لذلك لا يظهر التعارض عمليًا إذا طُبّق yaml كما هو. لا يمكن تأكيد بيئة Render الفعلية من الكود المحلي.
-- `DISPLAY_SNAPSHOT_INLINE_FALLBACK` في `render.yaml=False` بينما default في `config.settings=True`. هذا يعني أن الإنتاج حسب yaml يفضل async worker/building payload أكثر من بيئة محلية بدون env. يجب الانتباه عند الاختبار المحلي.
-- `DISPLAY_REQUIRE_REDIS_SPLIT=True` في `render.yaml`، بينما default في settings هو False. يلزم مراجعة `core.redis_topology` في دفعة التشغيل إذا أردنا فرض أو فحص هذا الشرط.
-- WebSockets تعتمد على تشغيل ASGI (`config.asgi`) وRedis channels؛ `render.yaml` يستخدم Gunicorn + UvicornWorker وهذا مناسب للمسار الحالي.
+الخدمات الخلفية متصلة بشبكة Docker داخلية، بينما `caddy` وحده ينشر المنافذ `80` و`443`. ملف `.env.production` موجود على الخادم فقط ويُنشأ من `.env.production.example` دون حفظ الأسرار في Git.
 
 ## أوامر تشغيل وفحص مفيدة
 
@@ -300,11 +289,11 @@ python manage.py display_snapshot_worker --once
 python manage.py display_wake_scheduler --once
 ```
 
-على Render، الأوامر الفعلية موثقة في `render.yaml`، وأي فصل للعاملين إلى services مستقلة يجب أن يكون ضمن دفعة تشغيلية منفصلة مع خطة تراجع.
+على خادم Hetzner، أوامر الإنتاج الفعلية موثقة في `compose.production.yaml`، والعاملان يعملان بالفعل كخدمتين مستقلتين عن `web`.
 
 ## نقاط تحتاج انتباه في الدفعات التالية
 
 - توحيد قرار cache حول `snapshot:v9` وrevision؛ الاسم الحالي لا يتضمن revision رغم أن عدة دوال تمرر rev.
-- توضيح topology تشغيل worker/scheduler: embedded الآن، وفصلهما يحتاج دفعة مستقلة.
+- مراقبة استهلاك `web` و`snapshot-worker` و`wake-scheduler` كل خدمة على حدة وضبط الموارد عند زيادة عدد المدارس.
 - حصر legacy APIs القديمة قبل حذف أي شيء، خصوصًا `dashboard.api_display` وaliases `today/live`.
 - مراجعة ازدواج device binding بين middleware وsnapshot/status/WS دون كسر الحماية الحالية.

@@ -1,0 +1,2 @@
+# Install only after RESTIC_REPOSITORY and credentials are configured and a manual run succeeds.
+47 3 * * * root cd /opt/school-display && docker compose -f compose.production.yaml --profile operations run --rm offsite-backup >> /var/log/school-display-offsite-backup.log 2>&1

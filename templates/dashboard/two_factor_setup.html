@@ -1,0 +1,24 @@
+{% extends "dashboard/two_factor_base.html" %}
+{% block title %}إعداد المصادقة الثنائية{% endblock %}
+{% block heading %}تأمين حساب الإدارة{% endblock %}
+{% block content %}
+  <div class="grid gap-7 md:grid-cols-[220px_1fr] md:items-center">
+    <div class="rounded-2xl bg-white p-3">
+      <img src="{{ qr_code_data_uri }}" width="196" height="196" alt="رمز QR لإعداد تطبيق المصادقة" class="h-auto w-full">
+    </div>
+    <div class="space-y-4 text-sm leading-7 text-slate-300">
+      <p>1. افتح Google Authenticator أو Microsoft Authenticator.</p>
+      <p>2. امسح رمز QR، أو أدخل المفتاح التالي يدويًا:</p>
+      <code class="block select-all break-all rounded-xl bg-slate-950 px-4 py-3 text-left font-mono text-indigo-200" dir="ltr">{{ manual_secret }}</code>
+      <p>3. أدخل أول رمز يظهر في التطبيق لتأكيد الإعداد.</p>
+    </div>
+  </div>
+  <form method="post" class="mt-7 space-y-4" autocomplete="off">
+    {% csrf_token %}
+    <label for="token" class="block text-sm font-bold">رمز التطبيق</label>
+    <input id="token" name="token" required autofocus inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"
+           class="w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-4 text-center font-mono text-2xl tracking-[.35em] outline-none focus:border-indigo-400"
+           placeholder="000000">
+    <button class="w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold hover:bg-indigo-500" type="submit">تفعيل المصادقة الثنائية</button>
+  </form>
+{% endblock %}

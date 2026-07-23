@@ -10,6 +10,9 @@
 
     <meta name="theme-color" content="#07111f">
 
+    <link rel="icon" type="image/png" sizes="1024x1024" href="/favicon.png?v=20260723-logo1">
+    <link rel="apple-touch-icon" href="/favicon.png?v=20260723-logo1">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Changa:wght@500;700;800&family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
@@ -2664,9 +2667,9 @@
                         لا توجد مزايا مخفية أو نسخة أقل جودة في الباقات الأقل. المدرسة تحصل على كامل المنصة، ثم تحدد فقط حجم التوسع الذي تحتاجه.
                     </div>
 
-                    <div class="plan-switch">
-                        <button onclick="switchPlan('6')" id="btn6">6 أشهر</button>
-                        <button onclick="switchPlan('12')" id="btn12" style="background: var(--ink-950); color: white;">سنة كاملة</button>
+                    <div class="plan-switch" role="group" aria-label="مدة الاشتراك">
+                        <button type="button" onclick="switchPlan('6')" id="btn6" aria-pressed="false">6 أشهر</button>
+                        <button type="button" onclick="switchPlan('12')" id="btn12" aria-pressed="true" style="background: var(--ink-950); color: white;">سنة كاملة</button>
                     </div>
                 </div>
 
@@ -2823,9 +2826,9 @@
         </section>
     </main>
 
-    <div class="modal-overlay" id="orderModal">
-        <div class="modal-card">
-            <button class="modal-close" onclick="closeOrderModal()" aria-label="إغلاق النموذج"><i class="fa-solid fa-xmark"></i></button>
+    <div class="modal-overlay" id="orderModal" aria-hidden="true" inert>
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalSubtitle" tabindex="-1">
+            <button type="button" class="modal-close" onclick="closeOrderModal()" aria-label="إغلاق النموذج"><i class="fa-solid fa-xmark"></i></button>
 
             <div class="modal-header">
                 <h2 id="modalTitle">طلب تجربة أو اشتراك</h2>
@@ -2839,9 +2842,9 @@
                 <input type="hidden" id="p_price" name="price_label">
                 <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute; left:-10000px; width:1px; height:1px; opacity:0;">
 
-                <div class="form-alert" id="formAlert" role="status"></div>
+                <div class="form-alert" id="formAlert" role="status" aria-live="polite" aria-atomic="true"></div>
 
-                <div class="trial-result" id="trialResult" aria-live="polite">
+                <div class="trial-result" id="trialResult" role="status" aria-live="polite" aria-atomic="true" tabindex="-1" hidden>
                     <h3>تم إنشاء تجربة المدرسة بنجاح</h3>
                     <p>تم تسجيل دخولك تلقائيا. عند العودة لاحقا يمكنك الدخول برقم الجوال أو باسم المستخدم التالي مع كلمة المرور التي اخترتها.</p>
                     <div class="trial-login-grid">
@@ -2862,12 +2865,12 @@
 
                 <div class="form-group">
                     <label class="form-label" for="schoolName">اسم المدرسة</label>
-                    <input type="text" id="schoolName" name="school_name" class="form-input" placeholder="مثال: ثانوية الملك عبدالله" required autocomplete="organization">
-                    <div class="field-error" data-error-for="school_name"></div>
+                    <input type="text" id="schoolName" name="school_name" class="form-input" placeholder="مثال: ثانوية الملك عبدالله" required autocomplete="organization" aria-describedby="error-school-name">
+                    <div class="field-error" id="error-school-name" data-error-for="school_name" aria-live="polite"></div>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">نوع المدرسة</label>
+                <div class="form-group" role="group" aria-labelledby="schoolTypeLabel" aria-describedby="error-school-type">
+                    <div class="form-label" id="schoolTypeLabel">نوع المدرسة</div>
                     <div class="radio-group">
                         <label class="radio-label">
                             <input type="radio" name="school_type" value="boys" checked>
@@ -2878,38 +2881,38 @@
                             <div class="radio-tile"><i class="fa-solid fa-user-graduate" style="color:#d14d86"></i> بنات</div>
                         </label>
                     </div>
-                    <div class="field-error" data-error-for="school_type"></div>
+                    <div class="field-error" id="error-school-type" data-error-for="school_type" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="city">المدينة</label>
-                    <input type="text" id="city" name="city" class="form-input" placeholder="الرياض، جدة..." required autocomplete="address-level2">
-                    <div class="field-error" data-error-for="city"></div>
+                    <input type="text" id="city" name="city" class="form-input" placeholder="الرياض، جدة..." required autocomplete="address-level2" aria-describedby="error-city">
+                    <div class="field-error" id="error-city" data-error-for="city" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="contactName">اسم المسؤول</label>
-                    <input type="text" id="contactName" name="contact_name" class="form-input" placeholder="الاسم الثلاثي" required autocomplete="name">
-                    <div class="field-error" data-error-for="contact_name"></div>
+                    <input type="text" id="contactName" name="contact_name" class="form-input" placeholder="الاسم الثلاثي" required autocomplete="name" aria-describedby="error-contact-name">
+                    <div class="field-error" id="error-contact-name" data-error-for="contact_name" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="mobile">الجوال / واتساب</label>
-                    <input type="tel" id="mobile" name="mobile" class="form-input" placeholder="05XXXXXXXXX" required inputmode="numeric" autocomplete="tel">
-                    <div class="field-error" data-error-for="mobile"></div>
+                    <input type="tel" id="mobile" name="mobile" class="form-input" placeholder="05XXXXXXXX" required inputmode="numeric" autocomplete="tel" maxlength="10" pattern="05[0-9]{8}" aria-describedby="error-mobile">
+                    <div class="field-error" id="error-mobile" data-error-for="mobile" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group trial-only">
                     <label class="form-label" for="password">كلمة المرور</label>
-                    <input type="password" id="password" name="password" class="form-input" placeholder="8 أحرف على الأقل" autocomplete="new-password">
-                    <div class="form-hint">ستدخل بها إلى لوحة التحكم مباشرة بعد إنشاء التجربة.</div>
-                    <div class="field-error" data-error-for="password"></div>
+                    <input type="password" id="password" name="password" class="form-input" placeholder="8 أحرف على الأقل" autocomplete="new-password" aria-describedby="passwordHint error-password">
+                    <div class="form-hint" id="passwordHint">ستدخل بها إلى لوحة التحكم مباشرة بعد إنشاء التجربة.</div>
+                    <div class="field-error" id="error-password" data-error-for="password" aria-live="polite"></div>
                 </div>
 
                 <div class="form-group trial-only">
                     <label class="form-label" for="passwordConfirm">تأكيد كلمة المرور</label>
-                    <input type="password" id="passwordConfirm" name="password_confirm" class="form-input" placeholder="أعد كتابة كلمة المرور" autocomplete="new-password">
-                    <div class="field-error" data-error-for="password_confirm"></div>
+                    <input type="password" id="passwordConfirm" name="password_confirm" class="form-input" placeholder="أعد كتابة كلمة المرور" autocomplete="new-password" aria-describedby="error-password-confirm">
+                    <div class="field-error" id="error-password-confirm" data-error-for="password_confirm" aria-live="polite"></div>
                 </div>
 
                 <button type="submit" id="submitOrderBtn" class="btn btn-block" style="border-radius:18px; margin-top: 8px; background: linear-gradient(135deg, var(--mint-400), var(--mint-500));">
@@ -2973,6 +2976,7 @@
     <script>
         let currentPeriod = '12';
         let activeOrderIsTrial = false;
+        let lastModalTrigger = null;
 
         const header = document.getElementById('header');
         const modal = document.getElementById('orderModal');
@@ -3034,6 +3038,8 @@
             const vals = document.querySelectorAll('.price-val');
 
             if (period === '12') {
+                btn12.setAttribute('aria-pressed', 'true');
+                btn6.setAttribute('aria-pressed', 'false');
                 btn12.style.background = 'var(--ink-950)';
                 btn12.style.color = 'white';
                 btn6.style.background = 'transparent';
@@ -3044,6 +3050,8 @@
                     element.nextElementSibling.innerText = 'ريال سعودي / سنوياً';
                 });
             } else {
+                btn6.setAttribute('aria-pressed', 'true');
+                btn12.setAttribute('aria-pressed', 'false');
                 btn6.style.background = 'var(--ink-950)';
                 btn6.style.color = 'white';
                 btn12.style.background = 'transparent';
@@ -3063,6 +3071,7 @@
         }
 
         function openOrderModal(plan, period, price) {
+            lastModalTrigger = document.activeElement;
             clearFormFeedback();
             activeOrderIsTrial = plan.includes('تجربة');
             document.getElementById('p_plan').value = plan;
@@ -3091,12 +3100,20 @@
             }
 
             modal.classList.add('active');
+            modal.removeAttribute('inert');
+            modal.setAttribute('aria-hidden', 'false');
             document.body.style.overflow = 'hidden';
+            window.setTimeout(() => document.getElementById('schoolName').focus(), 0);
         }
 
         function closeOrderModal() {
             modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+            modal.setAttribute('inert', '');
             document.body.style.overflow = '';
+            if (lastModalTrigger && typeof lastModalTrigger.focus === 'function') {
+                lastModalTrigger.focus();
+            }
         }
 
         modal.addEventListener('click', (event) => {
@@ -3108,6 +3125,20 @@
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && modal.classList.contains('active')) {
                 closeOrderModal();
+            }
+            if (event.key === 'Tab' && modal.classList.contains('active')) {
+                const focusable = Array.from(modal.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+                    .filter((element) => !element.hidden && element.offsetParent !== null);
+                if (!focusable.length) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
             }
         });
 
@@ -3122,14 +3153,20 @@
         function clearFormFeedback() {
             formAlert.className = 'form-alert';
             formAlert.textContent = '';
-            if (trialResult) trialResult.classList.remove('active');
+            if (trialResult) {
+                trialResult.classList.remove('active');
+                trialResult.hidden = true;
+            }
             if (orderForm) orderForm.classList.remove('trial-complete');
+            orderForm.querySelectorAll('.form-group').forEach((group) => { group.hidden = false; });
+            submitOrderBtn.hidden = false;
             if (copyTrialUsername) copyTrialUsername.textContent = 'نسخ';
             document.querySelectorAll('[data-error-for]').forEach((errorEl) => {
                 errorEl.textContent = '';
                 const group = errorEl.closest('.form-group');
                 if (group) group.classList.remove('has-error');
             });
+            orderForm.querySelectorAll('[aria-invalid="true"]').forEach((field) => field.removeAttribute('aria-invalid'));
         }
 
         function showTrialSuccess(payload) {
@@ -3138,9 +3175,15 @@
             if (trialLoginUsername) trialLoginUsername.textContent = username || '—';
             if (trialLoginMobile) trialLoginMobile.textContent = mobile || '—';
             if (trialDashboardLink) trialDashboardLink.href = payload.redirect_url || '{{ dashboard_url|default:"/dashboard/" }}';
-            if (trialResult) trialResult.classList.add('active');
+            if (trialResult) {
+                trialResult.hidden = false;
+                trialResult.classList.add('active');
+            }
             orderForm.classList.add('trial-complete');
+            orderForm.querySelectorAll('.form-group').forEach((group) => { group.hidden = true; });
+            submitOrderBtn.hidden = true;
             showFormAlert('success', 'تم تجهيز الحساب. احتفظ ببيانات الدخول الظاهرة هنا.');
+            if (trialResult) trialResult.focus();
         }
 
         if (copyTrialUsername) {
@@ -3158,6 +3201,7 @@
 
         function showFormAlert(type, message) {
             formAlert.className = `form-alert active ${type}`;
+            formAlert.setAttribute('role', type === 'error' ? 'alert' : 'status');
             formAlert.textContent = message;
         }
 
@@ -3170,12 +3214,16 @@
                 errorEl.textContent = message;
                 const group = errorEl.closest('.form-group');
                 if (group) group.classList.add('has-error');
+                const fieldEl = orderForm.elements.namedItem(field);
+                if (fieldEl && typeof fieldEl.setAttribute === 'function') fieldEl.setAttribute('aria-invalid', 'true');
             });
             if (general) {
                 showFormAlert('error', general);
             } else {
                 showFormAlert('error', 'راجع الحقول المحددة ثم أعد المحاولة.');
             }
+            const firstInvalid = orderForm.querySelector('[aria-invalid="true"]');
+            if (firstInvalid) firstInvalid.focus();
         }
 
         function setSubmitting(isSubmitting) {

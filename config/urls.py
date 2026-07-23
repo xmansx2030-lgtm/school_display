@@ -7,6 +7,10 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 
 from core.static_assets import build_static_response
+from core.csp import csp_report
+
+
+handler403 = "core.error_views.permission_denied"
 
 
 def ws_display_http_fallback(request):
@@ -25,9 +29,9 @@ def ws_display_http_fallback(request):
 
 
 def favicon(request):
-    """Serve favicon without redirect and without streaming (ASGI-friendly)."""
+    """Serve the platform PNG logo without redirect or streaming."""
     response = build_static_response(
-        "favicon.ico",
+        "img/school-display-logo-mark-white-preview (1).png",
         method=request.method,
         cache_control="public, max-age=31536000, immutable",
         is_versioned=True,
@@ -110,10 +114,12 @@ def sitemap_xml(request):
 
 
 urlpatterns = [
+    path("csp-report/", csp_report, name="csp_report"),
     path("cpanel-123/", admin.site.urls),
 
     # favicon (serve directly; avoids /static/* and avoids streaming under ASGI)
     path("favicon.ico", favicon, name="favicon"),
+    path("favicon.png", favicon, name="favicon_png"),
 
     # robots.txt (serve directly to avoid startup/runtime failures in test/dev)
     path("robots.txt", robots_txt, name="robots_txt"),

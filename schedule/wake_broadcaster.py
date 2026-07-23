@@ -10,6 +10,7 @@ Used by the `display_wake_scheduler` management command.
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Optional
 from zoneinfo import ZoneInfo
@@ -28,6 +29,10 @@ from schedule.time_engine import (
 )
 
 logger = logging.getLogger(__name__)
+
+WAKE_SCHEDULER_HEARTBEAT_KEY = "display:wake_scheduler:heartbeat"
+WAKE_SCHEDULER_HEARTBEAT_TTL_SECONDS = 180
+_NO_ACTIVE_START = "none"
 
 
 def _resolve_tz(school_settings) -> ZoneInfo:
@@ -59,7 +64,10 @@ def compute_active_start_for_today(school_settings) -> Optional[datetime]:
     if day_qs is None or not hasattr(day_qs, "filter"):
         return None
 
-    active_days_index = _build_active_days_index(school_settings)
+    active_days_index = _build_active_days_index(
+        school_settings,
+        weekdays={int(weekday), int(weekday_legacy)},
+    )
     days, _ = _load_active_days_for_weekday(
         day_qs, weekday, weekday_legacy, active_days_index=active_days_index,
     )
@@ -72,6 +80,77 @@ def compute_active_start_for_today(school_settings) -> Optional[datetime]:
 
     _, _, active_start, _ = _active_window_bounds(timeline)
     return active_start
+
+
+def _active_start_cache_key(school_settings, *, day_iso: str) -> str:
+    school_id = int(getattr(school_settings, "school_id", 0) or 0)
+    revision = int(getattr(school_settings, "schedule_revision", 0) or 0)
+    override = int(getattr(school_settings, "test_mode_weekday_override", 0) or 0)
+    return f"display:wake:active_start:{school_id}:{day_iso}:r{revision}:o{override}"
+
+
+def cached_active_start_for_today(school_settings) -> Optional[datetime]:
+    """Cache today's wake calculation by schedule revision.
+
+    The scheduler runs every minute, while a school's first-period boundary
+    normally changes only when its schedule revision changes. This removes the
+    repeated timetable queries without allowing stale schedules after edits.
+    """
+    tz = _resolve_tz(school_settings)
+    now = timezone.localtime(timezone.now(), tz)
+    key = _active_start_cache_key(school_settings, day_iso=now.date().isoformat())
+
+    try:
+        cached = cache.get(key)
+        if cached == _NO_ACTIVE_START:
+            return None
+        if cached is not None:
+            return datetime.fromtimestamp(float(cached), tz=tz)
+    except Exception:
+        pass
+
+    active_start = compute_active_start_for_today(school_settings)
+    next_day = datetime.combine(now.date() + timedelta(days=1), datetime.min.time())
+    next_day = timezone.make_aware(next_day, tz) if timezone.is_naive(next_day) else next_day
+    ttl = max(300, min(30 * 60 * 60, int((next_day - now).total_seconds()) + 2 * 60 * 60))
+    try:
+        cache.set(
+            key,
+            active_start.timestamp() if active_start is not None else _NO_ACTIVE_START,
+            timeout=ttl,
+        )
+    except Exception:
+        pass
+    return active_start
+
+
+def touch_wake_scheduler_heartbeat(*, worker_id: str) -> None:
+    try:
+        cache.set(
+            WAKE_SCHEDULER_HEARTBEAT_KEY,
+            {"ts": time.time(), "worker_id": str(worker_id or "wake-scheduler")},
+            timeout=WAKE_SCHEDULER_HEARTBEAT_TTL_SECONDS,
+        )
+    except Exception:
+        pass
+
+
+def wake_scheduler_status() -> dict[str, object]:
+    try:
+        payload = cache.get(WAKE_SCHEDULER_HEARTBEAT_KEY)
+    except Exception:
+        payload = None
+    if not isinstance(payload, dict):
+        return {"alive": False, "age_sec": None, "worker_id": None}
+    try:
+        age_sec = max(0.0, time.time() - float(payload.get("ts") or 0.0))
+    except (TypeError, ValueError):
+        age_sec = None
+    return {
+        "alive": bool(age_sec is not None and age_sec <= WAKE_SCHEDULER_HEARTBEAT_TTL_SECONDS),
+        "age_sec": round(age_sec, 3) if age_sec is not None else None,
+        "worker_id": str(payload.get("worker_id") or "") or None,
+    }
 
 
 def broadcast_reload_to_school(school_id: int, *, reason: str = "wake_pre_active") -> bool:
@@ -131,7 +210,7 @@ def maybe_fire_pre_active_wake(
     if school_id <= 0:
         return None
 
-    active_start = compute_active_start_for_today(school_settings)
+    active_start = cached_active_start_for_today(school_settings)
     if active_start is None:
         return None
 

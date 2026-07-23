@@ -65,6 +65,7 @@ db.sqlite3
 .env.*
 !.env.example
 !.env.sample
+!.env.production.example
 config/firebase-key.json
 # مفاتيح وأسرار شائعة الأسماء
 *.pem

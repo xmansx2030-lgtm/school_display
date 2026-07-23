@@ -10,11 +10,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
-# نحاول استخدام دكوريتر الصلاحيات الخاص بك؛ وإلا نستبدله بـ login_required
-try:
-    from dashboard.permissions import manager_required  # عدّل المسار لو مختلف
-except Exception:  # pragma: no cover
-    from django.contrib.auth.decorators import login_required as manager_required
+from dashboard.decorators import manager_required
 
 from .forms import AnnouncementForm, ExcellenceForm
 from .models import Announcement, Excellence

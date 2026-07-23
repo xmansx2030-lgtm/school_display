@@ -13,7 +13,7 @@ import time
 from django.core.management.base import BaseCommand
 
 from schedule.models import SchoolSettings
-from schedule.wake_broadcaster import maybe_fire_pre_active_wake
+from schedule.wake_broadcaster import maybe_fire_pre_active_wake, touch_wake_scheduler_heartbeat
 
 logger = logging.getLogger(__name__)
 
@@ -48,14 +48,30 @@ class Command(BaseCommand):
         self.stdout.write(
             f"wake_scheduler_started interval={interval}s lead={lead_minutes}m window=±{window_seconds}s"
         )
+        worker_id = f"wake-scheduler:{int(time.time())}"
 
         while True:
             scanned = 0
             fired = 0
             try:
-                qs = SchoolSettings.objects.all().only("id", "school_id", "timezone_name")
+                touch_wake_scheduler_heartbeat(worker_id=worker_id)
+                qs = (
+                    SchoolSettings.objects.filter(school__screens__is_active=True)
+                    .exclude(school__screens__bound_device_id__isnull=True)
+                    .exclude(school__screens__bound_device_id="")
+                    .only(
+                        "id",
+                        "school_id",
+                        "timezone_name",
+                        "schedule_revision",
+                        "test_mode_weekday_override",
+                    )
+                    .distinct()
+                )
                 for s in qs.iterator():
                     scanned += 1
+                    if scanned % 100 == 0:
+                        touch_wake_scheduler_heartbeat(worker_id=worker_id)
                     try:
                         slot = maybe_fire_pre_active_wake(
                             s,
@@ -74,6 +90,8 @@ class Command(BaseCommand):
                         )
             except Exception as exc:
                 logger.exception("wake_scheduler_scan_error: %s", exc)
+
+            touch_wake_scheduler_heartbeat(worker_id=worker_id)
 
             if scanned == 0 or fired:
                 self.stdout.write(

@@ -6,8 +6,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}لوحة التحكم{% endblock %}</title>
 
+  <link rel="icon" type="image/png" sizes="1024x1024" href="/favicon.png?v=20260723-logo1">
+  <link rel="apple-touch-icon" href="/favicon.png?v=20260723-logo1">
+
   <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-04-15b">
-  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;600;700;800;900&family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
@@ -19,7 +21,6 @@
       --brand-2: #b48b57;
       --surface: #f7f2e9;
     }
-    [x-cloak] { display: none !important; }
     html, body { height: 100%; font-family: 'Cairo', sans-serif; }
 
     /* ── Scrollbar ── */
@@ -213,7 +214,7 @@
   {% block extra_css %}{% endblock %}
 </head>
 
-<body class="dashboard-shell min-h-full bg-[#f1f5f9] text-slate-900" x-data="{ sidebarOpen: false }">
+<body class="dashboard-shell min-h-full bg-[#f1f5f9] text-slate-900">
 
 <div class="dashboard-ambient" aria-hidden="true">
   <div class="dashboard-orb dashboard-orb--a"></div>
@@ -227,9 +228,9 @@
 
     <!-- Right: Logo + Brand -->
     <div class="dashboard-topbar-brand flex items-center gap-3">
-      <button id="dashboardSidebarToggleBtn" type="button" @click="sidebarOpen = !sidebarOpen" class="lg:hidden p-2 -mr-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition">
-        <svg x-show="!sidebarOpen" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-        <svg x-show="sidebarOpen" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      <button id="dashboardSidebarToggleBtn" type="button" aria-controls="dashboardSidebar" aria-expanded="false" aria-label="فتح قائمة التنقل" class="lg:hidden p-2 -mr-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition">
+        <svg id="dashboardSidebarOpenIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg id="dashboardSidebarCloseIcon" class="hidden w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
 
       {% if request.user.is_authenticated and request.user.profile.active_school and request.user.profile.active_school.logo %}
@@ -322,10 +323,10 @@
 
 {# ═══ Toast Messages ═══ #}
 {% if messages %}
-  <div id="toastStack" class="dashboard-toast-stack space-y-3">
+  <div id="toastStack" class="dashboard-toast-stack space-y-3" aria-live="polite" aria-relevant="additions text">
     {% for m in messages %}
       <div class="toast-in pointer-events-auto rounded-2xl shadow-xl border overflow-hidden glass"
-           data-toast data-tags="{{ m.tags }}">
+           data-toast data-tags="{{ m.tags }}" {% if m.tags == 'error' %}role="alert"{% else %}role="status"{% endif %} aria-atomic="true">
         <div class="flex items-start gap-3 p-4 border-r-4
           {% if m.tags == 'success' %} border-emerald-500 bg-emerald-50/50
           {% elif m.tags == 'error' %} border-rose-500 bg-rose-50/50
@@ -348,37 +349,17 @@
             </div>
             <div class="mt-0.5 text-sm text-slate-600 leading-relaxed">{{ m }}</div>
           </div>
-          <button type="button" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white/80 transition" data-toast-close>
+          <button type="button" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white/80 transition" data-toast-close aria-label="إغلاق الرسالة">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
       </div>
     {% endfor %}
   </div>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const stack = document.getElementById('toastStack');
-      if (!stack) return;
-      function dismiss(el) {
-        if (!el || el.__d) return; el.__d = true;
-        el.classList.replace('toast-in','toast-out');
-        setTimeout(() => el.remove(), 220);
-      }
-      stack.addEventListener('click', e => {
-        const btn = e.target.closest('[data-toast-close]');
-        if (btn) dismiss(btn.closest('[data-toast]'));
-      });
-      stack.querySelectorAll('[data-toast]').forEach(t => {
-        const tags = (t.getAttribute('data-tags')||'').toLowerCase();
-        if (!tags.includes('error') && !tags.includes('danger'))
-          setTimeout(() => dismiss(t), 5000);
-      });
-    });
-  </script>
 {% endif %}
 
 <!-- ═══ Mobile Sidebar Overlay ═══ -->
-<div id="dashboardMobileOverlay" class="mobile-overlay lg:hidden" :class="sidebarOpen && 'show'" @click="sidebarOpen = false"></div>
+<div id="dashboardMobileOverlay" class="mobile-overlay lg:hidden" aria-hidden="true"></div>
 
 <!-- ═══ LAYOUT SHELL ═══ -->
 <div class="dashboard-layout-shell min-h-screen flex">
@@ -386,8 +367,7 @@
   <!-- ═══ SIDEBAR ═══ -->
   <aside id="dashboardSidebar" style="top: var(--header-h);" class="dashboard-sidebar fixed right-0 bottom-0 w-[var(--sidebar-w)] bg-white border-l border-slate-200/80 z-50 overflow-y-auto
                 transition-transform duration-300 ease-[cubic-bezier(.4,0,.2,1)]
-                lg:translate-x-0"
-         :class="sidebarOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full lg:translate-x-0'">
+                translate-x-full lg:translate-x-0">
 
     <div class="p-4 space-y-1">
 
@@ -559,142 +539,6 @@
 </div>
 
 {% block extra_js %}{% endblock %}
-<script>
-  // Fallback for environments where AlpineJS is unavailable.
-  document.addEventListener('DOMContentLoaded', function () {
-    if (window.Alpine) return;
-
-    const sidebar = document.getElementById('dashboardSidebar');
-    const overlay = document.getElementById('dashboardMobileOverlay');
-    const sidebarToggleBtn = document.getElementById('dashboardSidebarToggleBtn');
-
-    const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
-
-    function setSidebarOpen(open) {
-      if (!sidebar || !overlay) return;
-
-      if (isDesktop()) {
-        sidebar.classList.remove('translate-x-full');
-        sidebar.classList.add('translate-x-0');
-        overlay.classList.remove('show');
-        return;
-      }
-
-      if (open) {
-        sidebar.classList.remove('translate-x-full');
-        sidebar.classList.add('translate-x-0');
-        overlay.classList.add('show');
-      } else {
-        sidebar.classList.remove('translate-x-0');
-        sidebar.classList.add('translate-x-full');
-        overlay.classList.remove('show');
-      }
-    }
-
-    if (sidebarToggleBtn) {
-      sidebarToggleBtn.addEventListener('click', function () {
-        const open = sidebar ? !sidebar.classList.contains('translate-x-0') : false;
-        setSidebarOpen(open);
-      });
-    }
-
-    if (overlay) {
-      overlay.addEventListener('click', function () {
-        setSidebarOpen(false);
-      });
-    }
-
-    setSidebarOpen(false);
-
-    window.addEventListener('resize', function () {
-      setSidebarOpen(false);
-    });
-  });
-
-  document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.dashboard-main table').forEach(function (table) {
-      if (table.closest('.dashboard-table-scroll')) return;
-
-      const parent = table.parentElement;
-      if (!parent) return;
-
-      const wrapper = document.createElement('div');
-      wrapper.className = 'dashboard-table-scroll';
-      parent.insertBefore(wrapper, table);
-      wrapper.appendChild(table);
-    });
-  });
-
-  document.addEventListener('DOMContentLoaded', function () {
-    const schoolSwitcherForm = document.getElementById('schoolSwitcherForm');
-    const schoolSwitcherSelect = document.getElementById('schoolSwitcherSelect');
-    if (!schoolSwitcherForm || !schoolSwitcherSelect) return;
-
-    const initialValue = schoolSwitcherSelect.value;
-    schoolSwitcherSelect.addEventListener('change', function () {
-      if (schoolSwitcherSelect.value && schoolSwitcherSelect.value !== initialValue) {
-        schoolSwitcherForm.submit();
-      }
-    });
-  });
-
-  window.showDashboardToast = function (title, message, type) {
-    let stack = document.getElementById('dashboardRuntimeToastStack');
-    if (!stack) {
-      stack = document.createElement('div');
-      stack.id = 'dashboardRuntimeToastStack';
-      stack.className = 'dashboard-toast-stack space-y-3';
-      document.body.appendChild(stack);
-    }
-
-    const tone = type === 'error'
-      ? {
-          border: 'border-rose-500 bg-rose-50/70',
-          iconWrap: 'bg-rose-100',
-          iconColor: 'text-rose-600',
-          icon: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
-        }
-      : {
-          border: 'border-emerald-500 bg-emerald-50/70',
-          iconWrap: 'bg-emerald-100',
-          iconColor: 'text-emerald-600',
-          icon: 'M5 13l4 4L19 7'
-        };
-
-    const toast = document.createElement('div');
-    toast.className = 'toast-in pointer-events-auto rounded-2xl shadow-xl border overflow-hidden glass';
-    toast.innerHTML = `
-      <div class="flex items-start gap-3 p-4 border-r-4 ${tone.border}">
-        <div class="mt-0.5 flex-shrink-0">
-          <div class="h-8 w-8 rounded-xl ${tone.iconWrap} flex items-center justify-center">
-            <svg class="w-4 h-4 ${tone.iconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="${tone.icon}"></path>
-            </svg>
-          </div>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="text-[13px] font-bold text-slate-800" data-toast-title></div>
-          <div class="mt-0.5 text-sm text-slate-600 leading-relaxed" data-toast-message></div>
-        </div>
-        <button type="button" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white/80 transition" aria-label="إغلاق التنبيه">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-        </button>
-      </div>`;
-
-    toast.querySelector('[data-toast-title]').textContent = title || (type === 'error' ? 'تنبيه' : 'تم بنجاح');
-    toast.querySelector('[data-toast-message]').textContent = message || '';
-
-    function dismiss() {
-      if (toast.__dismissed) return;
-      toast.__dismissed = true;
-      toast.classList.replace('toast-in', 'toast-out');
-      setTimeout(() => toast.remove(), 220);
-    }
-
-    toast.querySelector('button').addEventListener('click', dismiss);
-    stack.appendChild(toast);
-    if (type !== 'error') setTimeout(dismiss, 3500);
-  };
-</script>
+<script defer src="{% static 'js/dashboard-shell.js' %}?v=2026-07-23-b4"></script>
 </body>
 </html>

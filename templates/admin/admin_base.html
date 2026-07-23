@@ -6,13 +6,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}لوحة إدارة النظام{% endblock %}</title>
 
+  <link rel="icon" type="image/png" sizes="1024x1024" href="/favicon.png?v=20260723-logo1">
+  <link rel="apple-touch-icon" href="/favicon.png?v=20260723-logo1">
+
   <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-04-15b">
-  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <style>
-    [x-cloak] { display: none !important; }
     body {
       font-family: "Cairo", sans-serif;
       background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
@@ -73,29 +74,22 @@
   </style>
 </head>
 
-<body class="min-h-screen flex" x-data="{ sidebarOpen: false }">
+<body class="min-h-screen flex">
 
   {% if not hide_admin_sidebar %}
   <!-- Overlay for mobile sidebar -->
-  <div id="adminSidebarOverlay" x-show="sidebarOpen"
-       x-transition:enter="transition ease-out duration-300"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-200"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       @click="sidebarOpen = false"
-       class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
-       x-cloak></div>
+  <div id="adminSidebarOverlay"
+       class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
+       aria-hidden="true"></div>
 
   <!-- الشريط الجانبي -->
-  <aside id="adminSidebar" :class="sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'"
-         class="fixed lg:static inset-y-0 right-0 w-80 bg-gradient-to-b from-white to-slate-50 shadow-xl border-l border-slate-200/50 flex flex-col z-50 transition-transform duration-300 ease-in-out">
+  <aside id="adminSidebar"
+         class="translate-x-full lg:translate-x-0 fixed lg:static inset-y-0 right-0 w-80 bg-gradient-to-b from-white to-slate-50 shadow-xl border-l border-slate-200/50 flex flex-col z-50 transition-transform duration-300 ease-in-out">
     
     <!-- رأس الشريط الجانبي -->
     <div class="p-6 border-b border-slate-200 relative">
       <!-- Close button for mobile -->
-      <button id="adminSidebarCloseBtn" type="button" @click="sidebarOpen = false" class="lg:hidden absolute left-4 top-6 text-slate-400 hover:text-slate-600">
+      <button id="adminSidebarCloseBtn" type="button" aria-label="إغلاق قائمة الإدارة" class="lg:hidden absolute left-4 top-6 text-slate-400 hover:text-slate-600">
         <i class="fas fa-times text-xl"></i>
       </button>
       <div class="flex items-center gap-3">
@@ -186,7 +180,7 @@
         <div class="flex items-center gap-3 md:gap-4">
           <!-- Mobile Menu Toggle -->
           {% if not hide_admin_sidebar %}
-          <button id="adminSidebarOpenBtn" type="button" @click="sidebarOpen = true" class="lg:hidden p-1.5 rounded-xl bg-white shadow-sm border border-slate-200 text-slate-600">
+          <button id="adminSidebarOpenBtn" type="button" aria-controls="adminSidebar" aria-expanded="false" aria-label="فتح قائمة الإدارة" class="lg:hidden p-1.5 rounded-xl bg-white shadow-sm border border-slate-200 text-slate-600">
             <i class="fas fa-bars text-lg"></i>
           </button>
           {% endif %}
@@ -215,12 +209,12 @@
             لوحة المدرسة
           </a>
           {% endif %}
-          <button onclick="window.print()" 
+          <button id="adminPrintBtn" type="button"
                   class="flex-1 md:flex-none px-3 py-2 md:px-4 md:py-2 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium transition-colors shadow-sm hover:shadow">
             <i class="fas fa-print ml-1 md:ml-2"></i>
             طباعة
           </button>
-          <button onclick="location.reload()" 
+          <button id="adminReloadBtn" type="button"
                   class="flex-1 md:flex-none px-3 py-2 md:px-4 md:py-2 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-blue-700 hover:bg-blue-100 text-sm font-medium transition-colors shadow-sm hover:shadow">
             <i class="fas fa-sync-alt ml-1 md:ml-2"></i>
             تحديث
@@ -275,105 +269,7 @@
     </div>
   </main>
 
-  <!-- JavaScript للوقت والتاريخ -->
-  <script>
-    function updateDateTime() {
-      const now = new Date();
-      
-      // الوقت
-      const timeOptions = { 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit',
-        hour12: true 
-      };
-      document.getElementById('current-time').textContent = now.toLocaleTimeString('ar-SA', timeOptions);
-      
-      // التاريخ
-      const dateOptions = { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      };
-      document.getElementById('current-date').textContent = now.toLocaleDateString('ar-SA', dateOptions);
-    }
-    
-    // تحديث الوقت كل ثانية
-    updateDateTime();
-    setInterval(updateDateTime, 1000);
-    
-    // تأثير عند تحميل الصفحة
-    document.addEventListener('DOMContentLoaded', function() {
-      document.querySelector('.animate-fade-in').style.animation = 'fadeIn 0.5s ease-out';
-    });
-    
-    // إضافة class active للروابط الفرعية
-    document.querySelectorAll('.sidebar-link').forEach(link => {
-      link.addEventListener('click', function() {
-        document.querySelectorAll('.sidebar-link').forEach(l => {
-          l.classList.remove('sidebar-link-active');
-        });
-        this.classList.add('sidebar-link-active');
-      });
-    });
-
-    // Fallback in case AlpineJS fails to load (for restricted/offline environments).
-    document.addEventListener('DOMContentLoaded', function() {
-      if (window.Alpine) return;
-
-      const sidebar = document.getElementById('adminSidebar');
-      const overlay = document.getElementById('adminSidebarOverlay');
-      const openBtn = document.getElementById('adminSidebarOpenBtn');
-      const closeBtn = document.getElementById('adminSidebarCloseBtn');
-
-      if (!sidebar || !overlay) return;
-
-      const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
-
-      function setSidebarOpen(open) {
-        if (isDesktop()) {
-          sidebar.classList.remove('translate-x-full');
-          sidebar.classList.add('translate-x-0');
-          overlay.style.display = 'none';
-          return;
-        }
-
-        if (open) {
-          sidebar.classList.remove('translate-x-full');
-          sidebar.classList.add('translate-x-0');
-          overlay.style.display = 'block';
-        } else {
-          sidebar.classList.remove('translate-x-0');
-          sidebar.classList.add('translate-x-full');
-          overlay.style.display = 'none';
-        }
-      }
-
-      overlay.removeAttribute('x-cloak');
-      setSidebarOpen(false);
-
-      if (openBtn) {
-        openBtn.addEventListener('click', function() {
-          setSidebarOpen(true);
-        });
-      }
-
-      if (closeBtn) {
-        closeBtn.addEventListener('click', function() {
-          setSidebarOpen(false);
-        });
-      }
-
-      overlay.addEventListener('click', function() {
-        setSidebarOpen(false);
-      });
-
-      window.addEventListener('resize', function() {
-        setSidebarOpen(false);
-      });
-    });
-  </script>
+  <script defer src="{% static 'js/admin-shell.js' %}?v=2026-07-23-b4"></script>
   
 </body>
 </html>
