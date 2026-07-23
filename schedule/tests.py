@@ -7,6 +7,9 @@ from datetime import datetime, time as dt_time, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.core.cache import cache
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
@@ -31,6 +34,11 @@ from schedule.models import (
 )
 from standby.models import StandbyAssignment
 from schedule.time_engine import build_day_snapshot
+from schedule.wake_broadcaster import (
+    cached_active_start_for_today,
+    touch_wake_scheduler_heartbeat,
+    wake_scheduler_status,
+)
 
 
 class FakeRedis:
@@ -737,6 +745,73 @@ class SnapshotWorkerCommandTests(SimpleTestCase):
         materialize.assert_not_called()
         complete_job.assert_called_once_with(job)
         self.assertIn("event=job_locked_or_skipped", command.stdout.getvalue())
+
+
+class DisplayRuntimeHealthTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_wake_scheduler_heartbeat_is_reported_alive(self):
+        touch_wake_scheduler_heartbeat(worker_id="wake-test")
+
+        status = wake_scheduler_status()
+
+        self.assertTrue(status["alive"])
+        self.assertEqual(status["worker_id"], "wake-test")
+
+    def test_runtime_health_command_fails_for_stale_worker(self):
+        with patch(
+            "schedule.snapshot_materializer.snapshot_worker_status",
+            return_value={"alive": False, "age_sec": 999, "worker_id": "stale"},
+        ):
+            with self.assertRaises(CommandError):
+                call_command("display_runtime_health", "snapshot-worker", stdout=io.StringIO())
+
+    def test_active_start_is_cached_by_schedule_revision(self):
+        settings_obj = SimpleNamespace(
+            school_id=7,
+            schedule_revision=11,
+            test_mode_weekday_override=None,
+            timezone_name="Asia/Riyadh",
+        )
+        active_start = timezone.now() + timedelta(hours=2)
+
+        with patch(
+            "schedule.wake_broadcaster.compute_active_start_for_today",
+            return_value=active_start,
+        ) as compute:
+            first = cached_active_start_for_today(settings_obj)
+            second = cached_active_start_for_today(settings_obj)
+
+        self.assertEqual(first, second)
+        compute.assert_called_once_with(settings_obj)
+
+
+class WakeSchedulerCommandTests(TestCase):
+    def test_scheduler_scans_only_schools_with_active_bound_screens(self):
+        active_school = School.objects.create(name="مدرسة مرتبطة", slug="wake-bound")
+        inactive_school = School.objects.create(name="مدرسة غير مرتبطة", slug="wake-unbound")
+        active_settings = SchoolSettings.objects.create(name=active_school.name, school=active_school)
+        SchoolSettings.objects.create(name=inactive_school.name, school=inactive_school)
+        DisplayScreen.objects.create(
+            name="شاشة مرتبطة",
+            school=active_school,
+            is_active=True,
+            bound_device_id="wake-device",
+        )
+        DisplayScreen.objects.create(name="شاشة غير مرتبطة", school=inactive_school, is_active=True)
+
+        with patch(
+            "schedule.management.commands.display_wake_scheduler.maybe_fire_pre_active_wake",
+            return_value=None,
+        ) as maybe_fire:
+            call_command("display_wake_scheduler", "--once", stdout=io.StringIO())
+
+        self.assertEqual(maybe_fire.call_count, 1)
+        self.assertEqual(maybe_fire.call_args.args[0].pk, active_settings.pk)
 
 
 @override_settings(DEBUG=False)

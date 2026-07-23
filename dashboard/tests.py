@@ -14,7 +14,8 @@ from django.utils import timezone
 import pyotp
 
 from core.models import DisplayScreen, School, SubscriptionPlan, SupportTicket, UserProfile
-from core.display_presence import touch_display_presence
+from core.display_presence import latest_display_presence, touch_display_presence
+from display.services.device_binding import bind_device_atomic
 from core.error_views import permission_denied
 from core.tenant_access import authorized_active_school
 from core.two_factor import (
@@ -304,9 +305,39 @@ class CustomerExperienceRegressionTests(TestCase):
         response = self.client.get(reverse("dashboard:screen_list"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "شوهدت مؤخراً")
+        self.assertContains(response, "متصلة الآن")
         self.assertContains(response, "قبل أقل من دقيقة")
         self.assertNotContains(response, "لم تتصل بعد")
+
+    def test_bound_screen_without_legacy_presence_is_not_called_offline(self):
+        DisplayScreen.objects.create(
+            name="الشاشة الرئيسية",
+            school=self.school,
+            is_active=True,
+            bound_device_id="tv-device-1",
+            bound_at=timezone.now(),
+        )
+
+        response = self.client.get(reverse("dashboard:screen_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "مرتبطة وجاهزة")
+        self.assertContains(response, "قبل أقل من دقيقة")
+        self.assertNotContains(response, "مرتبطة بلا اتصال")
+        self.assertNotContains(response, "لم تتصل بعد")
+
+    def test_successful_display_binding_lookup_records_presence(self):
+        screen = DisplayScreen.objects.create(
+            name="الشاشة الرئيسية",
+            school=self.school,
+            is_active=True,
+            bound_device_id="tv-device-1",
+        )
+
+        bound_screen = bind_device_atomic(token=screen.token, device_id="tv-device-1")
+
+        self.assertEqual(bound_screen.pk, screen.pk)
+        self.assertIsNotNone(latest_display_presence(screen))
 
     def test_completed_guide_opens_the_school_display(self):
         screen = DisplayScreen.objects.create(name="الشاشة الرئيسية", school=self.school, is_active=True)

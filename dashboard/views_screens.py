@@ -231,18 +231,25 @@ def screen_list(request):
     screen_rows = []
     for screen in qs:
         last_seen = latest_display_presence(screen)
+        bound_at = getattr(screen, "bound_at", None)
+        last_activity = last_seen or bound_at
         bound_device = bool((getattr(screen, "bound_device_id", "") or "").strip())
         is_enabled = bool(getattr(screen, "is_active", False))
         is_live = False
         last_seen_seconds = None
         last_seen_display = "لم تتصل بعد"
         last_seen_full = ""
-        if last_seen:
+        if last_activity:
             try:
-                delta = now - last_seen
+                delta = now - last_activity
                 last_seen_seconds = max(0, int(delta.total_seconds()))
-                is_live = bool(is_enabled and bound_device and last_seen_seconds <= live_threshold_seconds)
-                local_seen = timezone.localtime(last_seen)
+                is_live = bool(
+                    last_seen
+                    and is_enabled
+                    and bound_device
+                    and last_seen_seconds <= live_threshold_seconds
+                )
+                local_seen = timezone.localtime(last_activity)
                 last_seen_full = local_seen.strftime("%Y-%m-%d %H:%M")
                 if last_seen_seconds < 60:
                     last_seen_display = "قبل أقل من دقيقة"
@@ -266,12 +273,16 @@ def screen_list(request):
             status_hint = "الشاشة غير مفعلة من لوحة التحكم"
         elif is_live:
             status_key = "live"
-            status_label = "شوهدت مؤخراً"
-            status_hint = "وصل تواصل حديث من التلفاز"
+            status_label = "متصلة الآن"
+            status_hint = "الشاشة تعمل وتستقبل التحديثات"
+        elif bound_device and last_seen:
+            status_key = "linked"
+            status_label = "غير متصلة الآن"
+            status_hint = "الجهاز مرتبط، لكن لم يصل نبض حديث"
         elif bound_device:
             status_key = "linked"
-            status_label = "مرتبطة بلا اتصال"
-            status_hint = "الجهاز مرتبط لكن لا يوجد اتصال حديث"
+            status_label = "مرتبطة وجاهزة"
+            status_hint = "تم ربط الجهاز؛ سيظهر الاتصال عند أول نبض"
         else:
             status_key = "waiting"
             status_label = "بانتظار الربط"

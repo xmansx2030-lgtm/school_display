@@ -31,13 +31,18 @@ class Command(BaseCommand):
         parser.add_argument("--poll-timeout", type=int, default=5, help="BLPOP timeout in seconds.")
         parser.add_argument("--idle-sleep", type=float, default=0.5, help="Sleep duration after empty polls.")
         parser.add_argument("--max-idle-sleep", type=float, default=2.0, help="Maximum progressive idle backoff.")
+        parser.add_argument(
+            "--idle-log-interval",
+            type=int,
+            default=300,
+            help="Minimum seconds between idle log messages (default 300).",
+        )
 
     def _emit(self, event: str, **fields):
         parts = [f"event={event}"]
         for key, value in fields.items():
             parts.append(f"{key}={value}")
         message = "snapshot_worker " + " ".join(parts)
-        logger.info(message)
         self.stdout.write(message)
 
     def handle(self, *args, **options):
@@ -45,8 +50,10 @@ class Command(BaseCommand):
         poll_timeout = max(0, int(options.get("poll_timeout") or 0))
         idle_sleep = max(0.1, float(options.get("idle_sleep") or 0.5))
         max_idle_sleep = max(idle_sleep, float(options.get("max_idle_sleep") or 2.0))
+        idle_log_interval = max(30, int(options.get("idle_log_interval") or 300))
         worker_id = f"snapshot-worker:{int(time.time())}"
         current_idle_sleep = idle_sleep
+        last_idle_log_at = 0.0
 
         if not snapshot_queue_available():
             self.stdout.write("snapshot_queue_available=False")
@@ -67,12 +74,15 @@ class Command(BaseCommand):
                 if once:
                     self._emit("worker_idle", worker_id=worker_id)
                     return
-                self._emit(
-                    "worker_idle_sleep",
-                    worker_id=worker_id,
-                    sleep_s=f"{current_idle_sleep:.3f}",
-                    poll_timeout=poll_timeout,
-                )
+                now_monotonic = time.monotonic()
+                if (now_monotonic - last_idle_log_at) >= idle_log_interval:
+                    self._emit(
+                        "worker_idle_sleep",
+                        worker_id=worker_id,
+                        sleep_s=f"{current_idle_sleep:.3f}",
+                        poll_timeout=poll_timeout,
+                    )
+                    last_idle_log_at = now_monotonic
                 time.sleep(current_idle_sleep)
                 current_idle_sleep = min(max_idle_sleep, max(idle_sleep, current_idle_sleep * 2.0))
                 continue

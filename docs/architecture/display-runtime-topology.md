@@ -64,10 +64,27 @@ docker compose -f compose.production.yaml logs --tail=200 wake-scheduler
 docker compose -f compose.production.yaml logs --tail=200 caddy
 ```
 
+كل الخدمات تستخدم Docker `local` logging driver مع تدوير افتراضي قدره
+`20 MB × 5` لكل حاوية. كما تُستبعد طلبات الشاشة الدورية والملفات الثابتة من
+سجل Caddy، ويُحتفظ بسجل أخطاء Gunicorn دون سجل وصول مكرر. يمكن تعديل الحدود
+عبر `DOCKER_LOG_MAX_SIZE` و`DOCKER_LOG_MAX_FILES`.
+
+يعرض Docker حالة العاملين المستقلين من خلال heartbeat مخزن في Redis:
+
+```bash
+docker compose -f compose.production.yaml ps snapshot-worker wake-scheduler
+docker compose -f compose.production.yaml exec web python manage.py display_runtime_health snapshot-worker
+docker compose -f compose.production.yaml exec web python manage.py display_runtime_health wake-scheduler
+```
+
 ## التوسع واستهلاك الموارد
 
 - زيادة `WEB_CONCURRENCY` ترفع قدرة معالجة HTTP/WebSocket، لكنها ترفع استهلاك الذاكرة واتصالات PostgreSQL وRedis.
+- على خادم 2 vCPU يبقى `WEB_CONCURRENCY=2` ما لم يثبت اختبار الضغط الحاجة إلى غير ذلك.
 - الخدمات المستقلة تمنع مهام snapshot والجدولة من مزاحمة عمليات الويب داخل العملية نفسها، لكنها تستهلك ذاكرة ثابتة إضافية.
+- `compose.production.yaml` يضع حدود ذاكرة مستقلة قابلة للتعديل لكل خدمة، حتى لا تستهلك خدمة واحدة ذاكرة الخادم كاملة.
+- يحتفظ `wake-scheduler` بحساب بداية اليوم في Redis حسب `schedule_revision`، ويفحص المدارس ذات الشاشات النشطة والمرتبطة فقط.
+- فحص HTTP الاحتياطي للشاشة يعمل كل 60 ثانية عند سلامة WebSocket؛ التحديثات الفعلية تبقى فورية عبر WebSocket.
 - صور ووسائط المدارس يجب أن تبقى في التخزين الخارجي المهيأ، لا في نظام ملفات الحاوية.
 - عند زيادة المدارس، راقب CPU والذاكرة ومساحة PostgreSQL وعدد اتصالات WebSocket ومعدل Redis قبل زيادة عدد العمال.
 - لا تضف نسخة ثانية من `wake-scheduler` إلا بعد توفير قفل موزع يمنع تنفيذ المهمة الدورية مرتين.

@@ -816,9 +816,9 @@ def index(request):
             tone = "offline"
             detail = "الشاشة مرتبطة بجهاز، لكن لم يصل منها اتصال حديث. تحقق من تشغيل التلفاز والإنترنت."
         elif primary_screen_is_bound:
-            status = "بانتظار الاتصال"
+            status = "مرتبطة وجاهزة"
             tone = "waiting"
-            detail = "الجهاز مرتبط، وسيظهر متصلًا فور فتح صفحة العرض عليه."
+            detail = "تم ربط الجهاز بنجاح، وسيظهر الاتصال اللحظي عند وصول أول نبض تشغيل."
         else:
             status = "بانتظار أول تشغيل"
             tone = "waiting"
@@ -3482,7 +3482,12 @@ def my_subscription(request):
     active_screens = [screen for screen in screens if bool(getattr(screen, "is_active", False))]
     screens_active_count = len(active_screens)
     screens_live_count = live_display_count(active_screens)
-    screens_never_connected_count = sum(1 for screen in active_screens if latest_display_presence(screen) is None)
+    screens_never_connected_count = sum(
+        1
+        for screen in active_screens
+        if latest_display_presence(screen) is None
+        and not (getattr(screen, "bound_device_id", "") or "").strip()
+    )
 
     if screens_total_count == 0:
         screen_status_label = "لا توجد شاشات مسجلة"
