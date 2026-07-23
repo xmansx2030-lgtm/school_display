@@ -114,10 +114,7 @@ services:
     depends_on:
       web:
         condition: service_healthy
-    command: >-
-      python manage.py telegram_alert_worker
-      --interval=$${TELEGRAM_ALERT_POLL_INTERVAL_SECONDS:-10}
-      --batch-size=$${TELEGRAM_ALERT_BATCH_SIZE:-20}
+    command: python manage.py telegram_alert_worker
     healthcheck:
       test: ["CMD", "python", "manage.py", "telegram_alert_health"]
       interval: 30s
