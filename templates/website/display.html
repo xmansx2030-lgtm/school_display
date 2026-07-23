@@ -1735,14 +1735,57 @@
 
         #alertContainer {
             min-height: 0;
+            max-height: 82px;
+            flex-direction: row !important;
+            align-items: stretch;
             border-radius: 18px !important;
             border-inline-start: 5px solid var(--accent-main, #6366f1) !important;
             animation: board-reveal var(--board-motion) both;
         }
 
+        #alertContainer > div:first-child {
+            flex: 0 0 clamp(220px, 24%, 340px);
+            min-width: 0;
+            padding: 0.75rem 1.15rem !important;
+            border-bottom: 0 !important;
+            border-inline-end: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        #alertContainer > div:last-child {
+            min-width: 0;
+            flex: 1 1 auto;
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1.2rem !important;
+        }
+
+        #alertTitle {
+            font-size: clamp(0.95rem, 1.15vw, 1.2rem) !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #alertDetails {
+            width: 100%;
+            font-size: clamp(0.95rem, 1.15vw, 1.18rem) !important;
+            line-height: 1.45 !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         #alertContainer[data-alert-level="danger"] {
+            max-height: 96px;
             border-inline-start-color: #fb7185 !important;
             background: linear-gradient(110deg, rgba(127, 29, 29, 0.5), rgba(15, 23, 42, 0.88)) !important;
+        }
+
+        #alertContainer[data-alert-level="danger"] #alertDetails {
+            white-space: normal;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
         }
 
         #alertContainer[data-alert-level="warning"] {
@@ -1892,30 +1935,93 @@
         .day-timeline-panel {
             position: relative;
             z-index: 2;
+            flex: 0 0 126px;
+            min-height: 126px;
+            max-height: 126px;
+            padding: 0.7rem 1rem !important;
+            overflow: hidden;
             background: linear-gradient(90deg, rgba(2, 6, 23, 0.5), rgba(15, 23, 42, 0.3)) !important;
             border-color: rgba(255, 255, 255, 0.08) !important;
             animation: board-reveal var(--board-motion) both;
         }
 
+        .day-timeline-panel > div:first-child {
+            margin-bottom: 0.4rem !important;
+        }
+
         #miniSchedule {
+            min-height: 66px;
+            padding-block: 0.2rem !important;
             scroll-snap-type: x proximity;
         }
 
         .mini-schedule-item {
-            min-width: 112px !important;
-            min-height: 78px;
-            padding: 0.65rem 0.9rem !important;
-            border-radius: 16px !important;
+            min-width: 104px !important;
+            min-height: 62px;
+            padding: 0.45rem 0.75rem !important;
+            border-radius: 14px !important;
             border-color: rgba(255, 255, 255, 0.12) !important;
             background: linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(15, 23, 42, 0.32)) !important;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
             scroll-snap-align: start;
         }
 
+        .mini-schedule-item__time {
+            font-size: 0.72rem !important;
+        }
+
+        .mini-schedule-item__label {
+            max-width: 120px;
+            font-size: 0.92rem !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .mini-schedule-item.is-active {
             border-color: var(--board-accent-border) !important;
             background: linear-gradient(145deg, var(--board-tint-1), rgba(15, 23, 42, 0.48)) !important;
             box-shadow: 0 0 22px var(--board-tint-1);
+        }
+
+        .list-viewport,
+        .standby-viewport {
+            position: absolute !important;
+            inset: 0 !important;
+            isolation: isolate;
+        }
+
+        .list-viewport::before,
+        .list-viewport::after,
+        .standby-viewport::before,
+        .standby-viewport::after {
+            content: "";
+            position: absolute;
+            z-index: 5;
+            inset-inline: 0;
+            height: 34px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 220ms ease;
+        }
+
+        .list-viewport::before,
+        .standby-viewport::before {
+            top: 0;
+            background: linear-gradient(to bottom, rgba(8, 15, 30, 0.96), transparent);
+        }
+
+        .list-viewport::after,
+        .standby-viewport::after {
+            bottom: 0;
+            background: linear-gradient(to top, rgba(8, 15, 30, 0.96), transparent);
+        }
+
+        .list-viewport[data-scrolling="1"]::before,
+        .list-viewport[data-scrolling="1"]::after,
+        .standby-viewport[data-scrolling="1"]::before,
+        .standby-viewport[data-scrolling="1"]::after {
+            opacity: 1;
         }
 
         .board-empty-state {
@@ -1950,6 +2056,19 @@
         body[data-layout-mode="wide"] #heroCard,
         body[data-layout-mode="ambient"] #heroCard {
             box-shadow: 0 22px 70px rgba(0, 0, 0, 0.42), 0 0 44px var(--board-tint-2) !important;
+        }
+
+        body[data-side-mode="standby-only"] #boardSideColumn,
+        body[data-side-mode="period-only"] #boardSideColumn {
+            justify-content: flex-start;
+        }
+
+        body[data-side-mode="standby-only"] #standbyCard,
+        body[data-side-mode="period-only"] #periodCard {
+            flex: 0 1 var(--side-single-height, 520px) !important;
+            height: var(--side-single-height, 520px);
+            min-height: 320px;
+            max-height: 100%;
         }
 
         body[data-layout-mode="ambient"] #heroCard > .relative.z-10 {
@@ -2081,8 +2200,11 @@
   data-display-state="loading"
   data-layout-mode="standard"
   data-side-empty="0"
+  data-side-mode="both"
   data-period-empty="0"
+  data-period-count="0"
   data-standby-empty="0"
+  data-standby-count="0"
   data-featured-empty="0"
   data-announcement-empty="0"
   data-timeline-empty="0"
@@ -2437,6 +2559,6 @@
   </noscript>
 
     <script defer src="{% static 'js/display-controls.js' %}?v=2026-07-23-b4"></script>
-    <script defer src="{% static 'js/display.js' %}?v=2026-07-23-adaptive-luxury-b1"></script>
+    <script defer src="{% static 'js/display.js' %}?v=2026-07-23-scroll-layout-b2"></script>
 </body>
 </html>

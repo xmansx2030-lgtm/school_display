@@ -2763,14 +2763,25 @@
     const periodEmpty = document.body.dataset.periodEmpty === "1";
     const standbyEmpty = document.body.dataset.standbyEmpty === "1";
     const featuredEmpty = document.body.dataset.featuredEmpty === "1";
+    const periodCount = Math.max(0, parseInt(document.body.dataset.periodCount || "0", 10) || 0);
+    const standbyCount = Math.max(0, parseInt(document.body.dataset.standbyCount || "0", 10) || 0);
     const stateType = safeText(document.body.dataset.displayState || "");
     const sideEmpty = periodEmpty && standbyEmpty;
     const quietState =
       stateType === "after" ||
       stateType === "holiday" ||
       stateType === "off";
+    const sideMode = sideEmpty
+      ? "empty"
+      : (periodEmpty ? "standby-only" : (standbyEmpty ? "period-only" : "both"));
+    const singleCount = periodEmpty ? standbyCount : periodCount;
+    const singleCardHeight = clamp(165 + Math.max(1, singleCount) * 132, 320, 780);
 
     setBoardData("sideEmpty", sideEmpty ? "1" : "0");
+    setBoardData("sideMode", sideMode);
+    try {
+      document.body.style.setProperty("--side-single-height", singleCardHeight + "px");
+    } catch (e) {}
     setBoardData(
       "layoutMode",
       sideEmpty ? (featuredEmpty || quietState ? "ambient" : "wide") : "standard"
@@ -3795,11 +3806,21 @@
     const maxFps = opts && opts.maxFps ? Number(opts.maxFps) : 0;
     const minFrameMs = maxFps > 0 ? 1000 / Math.max(1, maxFps) : 0;
 
+    function markScrollState(active) {
+      const value = active ? "1" : "0";
+      try { trackEl.dataset.scrolling = value; } catch (e) {}
+      try {
+        const vp = findViewportForTrack(trackEl);
+        if (vp) vp.dataset.scrolling = value;
+      } catch (e) {}
+    }
+
     function stop() {
       if (st.raf) cancelAnimationFrame(st.raf);
       st.raf = null;
       st.running = false;
       st.lastTs = 0;
+      markScrollState(false);
     }
 
     function trimClones(maxClones) {
@@ -3846,6 +3867,8 @@
         return;
       }
 
+      markScrollState(true);
+
       // ✅ نضيف نسخ كافية حتى لا يظهر فراغ أثناء التمرير (خصوصًا عند forceScroll)
       // نحتاج إجمالي ارتفاع >= viewH + contentH لكي يظل هناك محتوى يغطي الشاشة أثناء الحركة
       const needTotal = st.viewH + st.contentH + 8;
@@ -3869,6 +3892,7 @@
         st.running = false;
         st.raf = null;
         st.lastTs = 0;
+        markScrollState(false);
         return;
       }
 
@@ -3907,6 +3931,7 @@
       if (st.running) return;
       st.running = true;
       st.lastTs = 0;
+      markScrollState(true);
       if (st.raf) cancelAnimationFrame(st.raf);
       st.raf = requestAnimationFrame(loop);
     }
@@ -3937,7 +3962,13 @@
       render,
       recalc,
       stop,
-      getState: () => ({ y: st.y, running: st.running, contentH: st.contentH, viewH: st.viewH }),
+      getState: () => ({
+        y: st.y,
+        running: st.running,
+        contentH: st.contentH,
+        viewH: st.viewH,
+        overflowing: st.contentH > st.viewH + 4,
+      }),
     };
   }
 
@@ -4218,6 +4249,7 @@
     }
 
     if (dom.pcCount) setTextIfChanged(dom.pcCount, String(arr.length));
+    setBoardData("periodCount", String(arr.length));
     setBoardData("periodEmpty", arr.length ? "0" : "1");
     refreshAdaptiveLayout();
     if (!dom.periodClassesTrack || !periodsScroller) return;
@@ -4238,7 +4270,6 @@
       list.style.flexDirection = "column";
       list.style.gap = "10px";
       list.style.paddingBottom = "10px";
-      list.dataset.forceScroll = arr.length >= 4 ? "1" : "0";
       list.setAttribute("role", "list");
       list.setAttribute("aria-label", "الحصص الجارية");
 
@@ -4275,6 +4306,7 @@
     }
 
     if (dom.sbCount) setTextIfChanged(dom.sbCount, String(arr.length));
+    setBoardData("standbyCount", String(arr.length));
     setBoardData("standbyEmpty", arr.length ? "0" : "1");
     refreshAdaptiveLayout();
     if (!dom.standbyTrack || !standbyScroller) return;
@@ -4293,7 +4325,6 @@
       list.style.flexDirection = "column";
       list.style.gap = "10px";
       list.style.paddingBottom = "10px";
-      list.dataset.forceScroll = arr.length >= 4 ? "1" : "0";
       list.setAttribute("role", "list");
       list.setAttribute("aria-label", "حصص الانتظار");
 
