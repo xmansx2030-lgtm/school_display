@@ -115,6 +115,9 @@ services:
       web:
         condition: service_healthy
     command: python manage.py telegram_alert_worker
+    networks:
+      - frontend
+      - backend
     healthcheck:
       test: ["CMD", "python", "manage.py", "telegram_alert_health"]
       interval: 30s
