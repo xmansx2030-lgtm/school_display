@@ -13,6 +13,7 @@ urlpatterns = [
     path("logout/", auth_views.logout_view, name="logout"),
     path("2fa/verify/", two_factor_views.two_factor_verify, name="two_factor_verify"),
     path("2fa/setup/", two_factor_views.two_factor_setup, name="two_factor_setup"),
+    path("2fa/disable/", two_factor_views.two_factor_disable, name="two_factor_disable"),
     path("subscription/invoices/<int:pk>/", views.subscription_invoice_view, name="subscription_invoice_view"),
     path("password/", auth_views.change_password, name="change_password"),
     path("switch-school/", views.switch_school, name="switch_school"),

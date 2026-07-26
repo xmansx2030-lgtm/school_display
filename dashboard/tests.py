@@ -13,7 +13,7 @@ from django.urls import resolve, reverse
 from django.utils import timezone
 import pyotp
 
-from core.models import DisplayScreen, School, SubscriptionPlan, SupportTicket, UserProfile
+from core.models import DisplayScreen, School, SubscriptionPlan, SupportTicket, UserProfile, UserTwoFactorAuth
 from core.display_presence import latest_display_presence, touch_display_presence
 from display.services.device_binding import bind_device_atomic
 from core.error_views import permission_denied
@@ -209,6 +209,22 @@ class PrivilegedTwoFactorTests(TestCase):
         self.assertTrue(consume_second_factor(self.user, codes[0]))
         self.assertFalse(consume_second_factor(self.user, codes[0]))
 
+    def test_mandatory_privileged_two_factor_cannot_be_disabled(self):
+        config, codes = self._enable()
+        self.client.force_login(self.user)
+
+        setup_response = self.client.get(reverse("dashboard:two_factor_setup"))
+        response = self.client.post(
+            reverse("dashboard:two_factor_disable"),
+            {"password": "StrongPass123!", "token": codes[0]},
+        )
+
+        self.assertContains(setup_response, "المصادقة الثنائية إلزامية")
+        self.assertNotContains(setup_response, "إلغاء المصادقة الثنائية")
+        self.assertRedirects(response, reverse("dashboard:two_factor_setup"), fetch_redirect_response=False)
+        config.refresh_from_db()
+        self.assertTrue(config.is_enabled)
+
 
 @override_settings(
     CACHES=TEST_CACHES,
@@ -257,6 +273,38 @@ class SchoolManagerTwoFactorTests(TestCase):
         )
 
         self.assertRedirects(response, reverse("dashboard:two_factor_verify"), fetch_redirect_response=False)
+
+    def test_manager_can_disable_two_factor_with_password_and_current_token(self):
+        config = ensure_setup_config(self.user)
+        enable_two_factor(config)
+        token = pyotp.TOTP(decrypt_secret(config)).now()
+        self.client.force_login(self.user)
+
+        setup_response = self.client.get(reverse("dashboard:two_factor_setup"))
+        response = self.client.post(
+            reverse("dashboard:two_factor_disable"),
+            {"password": "StrongPass123!", "token": token},
+        )
+
+        self.assertContains(setup_response, "إلغاء المصادقة الثنائية")
+        self.assertRedirects(response, reverse("dashboard:login"), fetch_redirect_response=False)
+        self.assertFalse(UserTwoFactorAuth.objects.filter(user=self.user).exists())
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_manager_cannot_disable_two_factor_with_wrong_password(self):
+        config = ensure_setup_config(self.user)
+        enable_two_factor(config)
+        token = pyotp.TOTP(decrypt_secret(config)).now()
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("dashboard:two_factor_disable"),
+            {"password": "wrong", "token": token},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        config.refresh_from_db()
+        self.assertTrue(config.is_enabled)
 
 
 class CustomerExperienceRegressionTests(TestCase):

@@ -160,6 +160,12 @@
           <span>الرجوع للوحة المدرسة</span>
         </a>
       {% endif %}
+
+      <a href="{% url 'dashboard:two_factor_setup' %}"
+         class="sidebar-link text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 hover:shadow-sm">
+        <i class="fas fa-shield-halved text-lg w-6 text-center"></i>
+        <span>المصادقة الثنائية</span>
+      </a>
       
       <a href="{% url 'dashboard:logout' %}"
          class="sidebar-link text-slate-700 hover:bg-rose-50 hover:text-rose-600 hover:shadow-sm">

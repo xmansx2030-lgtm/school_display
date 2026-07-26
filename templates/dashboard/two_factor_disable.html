@@ -1,0 +1,25 @@
+{% extends "dashboard/two_factor_base.html" %}
+{% block title %}إلغاء المصادقة الثنائية{% endblock %}
+{% block heading %}تأكيد إلغاء الحماية{% endblock %}
+{% block content %}
+  <div class="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 text-sm leading-8 text-rose-100">
+    بعد الإلغاء سيصبح الدخول معتمدًا على كلمة المرور فقط. سيتم تسجيل خروجك، ويمكنك تفعيل المصادقة الثنائية مجددًا من إعدادات الأمان.
+  </div>
+
+  <form method="post" class="mt-7 space-y-4" autocomplete="off">
+    {% csrf_token %}
+    <div>
+      <label for="password" class="mb-2 block text-sm font-bold">كلمة المرور الحالية</label>
+      <input id="password" name="password" type="password" required autocomplete="current-password"
+             class="w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-3 outline-none focus:border-indigo-400">
+    </div>
+    <div>
+      <label for="token" class="mb-2 block text-sm font-bold">رمز تطبيق المصادقة أو رمز الاسترداد</label>
+      <input id="token" name="token" required inputmode="numeric" autocomplete="one-time-code" dir="ltr"
+             class="w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-3 text-center font-mono text-lg tracking-wider outline-none focus:border-indigo-400"
+             placeholder="000000">
+    </div>
+    <button class="w-full rounded-xl bg-rose-600 px-5 py-3 font-bold hover:bg-rose-500" type="submit">تأكيد الإلغاء وتسجيل الخروج</button>
+    <a href="{% url 'dashboard:two_factor_setup' %}" class="block w-full rounded-xl border border-slate-600 px-5 py-3 text-center font-bold hover:bg-slate-800">تراجع</a>
+  </form>
+{% endblock %}

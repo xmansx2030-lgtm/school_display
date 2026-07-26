@@ -146,6 +146,7 @@ class SupportDashboardOnlyMiddleware:
         "dashboard:change_password",
         "dashboard:switch_school",
         "dashboard:two_factor_setup",
+        "dashboard:two_factor_disable",
         "dashboard:two_factor_verify",
     }
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import get_user_model, login
+from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import redirect, render
@@ -22,6 +22,8 @@ from core.two_factor import (
     get_enabled_config,
     provisioning_uri,
     qr_code_data_uri,
+    reset_two_factor,
+    two_factor_required_for,
     verify_setup_token,
 )
 
@@ -89,7 +91,11 @@ def two_factor_verify(request):
 def two_factor_setup(request):
     existing = get_enabled_config(request.user)
     if existing is not None:
-        return render(request, "dashboard/two_factor_enabled.html")
+        return render(
+            request,
+            "dashboard/two_factor_enabled.html",
+            {"can_disable": not two_factor_required_for(request.user)},
+        )
 
     config = ensure_setup_config(request.user)
     if request.method == "POST":
@@ -111,3 +117,38 @@ def two_factor_setup(request):
         "dashboard/two_factor_setup.html",
         {"qr_code_data_uri": qr_code_data_uri(uri), "manual_secret": grouped_secret},
     )
+
+
+@login_required(login_url="dashboard:login")
+@never_cache
+@csrf_protect
+def two_factor_disable(request):
+    if get_enabled_config(request.user) is None:
+        messages.info(request, "المصادقة الثنائية غير مفعلة لهذا الحساب.")
+        return redirect("dashboard:two_factor_setup")
+
+    if two_factor_required_for(request.user):
+        messages.error(
+            request,
+            "لا يمكن إلغاء المصادقة الثنائية لأن سياسة النظام تفرضها على هذا الحساب.",
+        )
+        return redirect("dashboard:two_factor_setup")
+
+    if request.method == "POST":
+        password = request.POST.get("password") or ""
+        token = (request.POST.get("token") or "").strip()
+
+        if not request.user.check_password(password):
+            messages.error(request, "كلمة المرور الحالية غير صحيحة.")
+        elif not consume_second_factor(request.user, token):
+            messages.error(request, "رمز المصادقة أو رمز الاسترداد غير صحيح.")
+        else:
+            reset_two_factor(request.user)
+            logout(request)
+            messages.success(
+                request,
+                "تم إلغاء المصادقة الثنائية. يمكنك تفعيلها مجددًا من إعدادات الأمان.",
+            )
+            return redirect("dashboard:login")
+
+    return render(request, "dashboard/two_factor_disable.html")
