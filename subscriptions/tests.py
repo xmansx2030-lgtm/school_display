@@ -14,6 +14,7 @@ from subscriptions.models import (
     SubscriptionPaymentOperation,
     SubscriptionScreenAddon,
 )
+from dashboard.forms import SchoolSubscriptionForm
 from subscriptions.utils import school_effective_max_screens, school_has_active_subscription
 
 
@@ -42,6 +43,34 @@ class SubscriptionBusinessRulesTests(TestCase):
         self.subscription.save(update_fields=["starts_at", "ends_at"])
 
         self.assertTrue(school_has_active_subscription(self.school.pk, on_date=self.today))
+
+    def test_cancellation_reason_and_timestamp_are_persisted(self):
+        self.subscription.status = "cancelled"
+        self.subscription.closure_reason = "budget"
+        self.subscription.closure_notes = "لم تعتمد الميزانية"
+        self.subscription.save(update_fields=["status", "closure_reason", "closure_notes"])
+
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.closure_reason, "budget")
+        self.assertIsNotNone(self.subscription.closed_at)
+
+    def test_admin_form_requires_a_closure_reason_for_cancelled_subscription(self):
+        form = SchoolSubscriptionForm(
+            data={
+                "school": self.school.pk,
+                "plan": self.plan.pk,
+                "starts_at": self.subscription.starts_at,
+                "status": "cancelled",
+                "closure_reason": "",
+                "closure_notes": "",
+                "notes": "",
+                "payment_method": "",
+            },
+            instance=self.subscription,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("closure_reason", form.errors)
 
     def test_paid_screen_addons_extend_limit_but_pending_addons_do_not(self):
         SubscriptionScreenAddon.objects.create(

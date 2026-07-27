@@ -125,6 +125,23 @@ services:
       retries: 3
       start_period: 71s
 
+  screen-monitor:
+    <<: *django
+    mem_limit: ${SCREEN_MONITOR_MEMORY_LIMIT:-192m}
+    depends_on:
+      web:
+        condition: service_healthy
+    command: python manage.py screen_monitor_worker --interval=60
+    networks:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD", "python", "manage.py", "screen_monitor_worker", "--healthcheck"]
+      interval: 61s
+      timeout: 10s
+      retries: 3
+      start_period: 71s
+
   postgres:
     image: postgres:18-alpine
     restart: unless-stopped

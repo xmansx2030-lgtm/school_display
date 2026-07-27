@@ -137,6 +137,50 @@
     </a>
   </section>
 
+  <section class="admin-panel" aria-label="إحصائيات مسار البيع">
+    <div class="admin-panel-header">
+      <div>
+        <h2 class="text-base font-black text-slate-900">إحصائيات مسار البيع</h2>
+        <p class="mt-1 text-xs text-slate-500">من التجربة المجانية حتى الدفع والتجديد.</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 xl:grid-cols-5 gap-3 p-4">
+      <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
+        <p class="text-xs font-bold text-blue-700">التجارب المجانية</p>
+        <strong class="mt-2 block text-2xl font-black text-blue-950">{{ free_trials_count }}</strong>
+      </div>
+      <div class="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+        <p class="text-xs font-bold text-emerald-700">التحويل إلى مدفوع</p>
+        <strong class="mt-2 block text-2xl font-black text-emerald-950">{{ trial_conversion_rate }}%</strong>
+        <small class="text-[10px] text-emerald-700">{{ converted_trials_count }} مدرسة محولة</small>
+      </div>
+      <div class="rounded-xl border border-violet-100 bg-violet-50 p-4">
+        <p class="text-xs font-bold text-violet-700">الباقة الأكثر طلبًا</p>
+        <strong class="mt-2 block text-lg font-black text-violet-950">{{ most_requested_plan.plan__name|default:"لا توجد طلبات" }}</strong>
+        {% if most_requested_plan %}<small class="text-[10px] text-violet-700">{{ most_requested_plan.total }} طلب</small>{% endif %}
+      </div>
+      <div class="rounded-xl border border-cyan-100 bg-cyan-50 p-4">
+        <p class="text-xs font-bold text-cyan-700">متوسط الشاشات/مدرسة</p>
+        <strong class="mt-2 block text-2xl font-black text-cyan-950">{{ average_screens_per_school }}</strong>
+      </div>
+      <div class="rounded-xl border border-amber-100 bg-amber-50 p-4">
+        <p class="text-xs font-bold text-amber-700">لم تكمل الدفع</p>
+        <strong class="mt-2 block text-2xl font-black text-amber-950">{{ incomplete_payments_count }}</strong>
+        <small class="text-[10px] text-amber-700">طلبات واشتراكات وإضافات معلقة</small>
+      </div>
+    </div>
+    <div class="border-t border-slate-100 p-4">
+      <h3 class="mb-3 text-sm font-black text-slate-800">أسباب الإلغاء وعدم التجديد</h3>
+      <div class="flex flex-wrap gap-2">
+        {% for reason in cancellation_reasons %}
+          <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700">{{ reason.label }}: {{ reason.total }}</span>
+        {% empty %}
+          <span class="text-xs text-slate-400">لا توجد اشتراكات ملغاة أو منتهية مسجلة بعد.</span>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
   <section class="grid grid-cols-1 xl:grid-cols-3 gap-5">
     <div class="xl:col-span-2 admin-panel">
       <div class="admin-panel-header">
@@ -162,6 +206,10 @@
           <a href="{% url 'dashboard:system_plans_list' %}" class="admin-quick-link">
             <span class="admin-metric-icon" style="--metric-color:#4f46e5"><i class="fas fa-tags"></i></span>
             <span><strong class="block text-sm text-slate-800">إدارة الباقات</strong><small class="text-[11px] text-slate-500">الأسعار والحدود والمدد</small></span>
+          </a>
+          <a href="{% url 'dashboard:emergency_alert_create' %}" class="admin-quick-link">
+            <span class="admin-metric-icon" style="--metric-color:#dc2626"><i class="fas fa-triangle-exclamation"></i></span>
+            <span><strong class="block text-sm text-slate-800">تنبيه طارئ شامل</strong><small class="text-[11px] text-slate-500">مدرسة أو شاشة أو عدة مدارس</small></span>
           </a>
         {% endif %}
         <a href="{% url 'dashboard:system_subscription_requests_list' %}" class="admin-quick-link">

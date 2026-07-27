@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
-from core.models import School
+from core.models import DisplayScreen, School
 
 
 ANNOUNCEMENT_LEVELS = (
@@ -193,6 +193,89 @@ class Announcement(models.Model):
             "starts_at": self.starts_at.isoformat() if self.starts_at else None,
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "active": self.active_now,
+        }
+
+
+class EmergencyAlert(models.Model):
+    KIND_EVACUATION = "evacuation"
+    KIND_FIRE = "fire"
+    KIND_WEATHER = "weather"
+    KIND_SUSPENSION = "suspension"
+    KIND_URGENT = "urgent"
+    KIND_CHOICES = [
+        (KIND_EVACUATION, "إخلاء"),
+        (KIND_FIRE, "حريق"),
+        (KIND_WEATHER, "حالة جوية"),
+        (KIND_SUSPENSION, "تعليق دراسة"),
+        (KIND_URGENT, "رسالة عاجلة"),
+    ]
+
+    kind = models.CharField("نوع التنبيه", max_length=20, choices=KIND_CHOICES)
+    title = models.CharField("العنوان", max_length=120)
+    message = models.TextField("الرسالة", max_length=600)
+    schools = models.ManyToManyField(
+        School,
+        related_name="emergency_alerts",
+        verbose_name="المدارس",
+    )
+    screens = models.ManyToManyField(
+        DisplayScreen,
+        related_name="emergency_alerts",
+        verbose_name="شاشات محددة",
+        blank=True,
+        help_text="اتركها فارغة لإرسال التنبيه إلى جميع شاشات المدارس المحددة.",
+    )
+    is_active = models.BooleanField("نشط", default=True)
+    starts_at = models.DateTimeField("وقت البدء", default=timezone.now)
+    expires_at = models.DateTimeField("وقت الانتهاء", null=True, blank=True)
+    created_by = models.ForeignKey(
+        "auth.User",
+        on_delete=models.PROTECT,
+        related_name="emergency_alerts_created",
+        verbose_name="أرسله",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    cancelled_by = models.ForeignKey(
+        "auth.User",
+        on_delete=models.PROTECT,
+        related_name="emergency_alerts_cancelled",
+        verbose_name="ألغاه",
+        null=True,
+        blank=True,
+    )
+    cancelled_at = models.DateTimeField("وقت الإلغاء", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "تنبيه طارئ"
+        verbose_name_plural = "التنبيهات الطارئة"
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=("is_active", "starts_at"), name="emergency_active_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} — {self.title}"
+
+    @property
+    def active_now(self):
+        now = timezone.now()
+        return bool(
+            self.is_active
+            and self.starts_at <= now
+            and (self.expires_at is None or self.expires_at > now)
+            and self.cancelled_at is None
+        )
+
+    def as_display_dict(self):
+        return {
+            "id": self.pk,
+            "kind": self.kind,
+            "kind_label": self.get_kind_display(),
+            "title": self.title,
+            "message": self.message,
+            "starts_at": self.starts_at.isoformat(),
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "screen_ids": list(self.screens.values_list("id", flat=True)),
         }
 
 

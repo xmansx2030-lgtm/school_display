@@ -1,17 +1,21 @@
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from django.conf import settings
 from django.http import JsonResponse
 from django.core.cache import cache
+from django.core import mail
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 from django.urls import reverse
 
 from core.middleware import DisplayTokenMiddleware, SecurityHeadersMiddleware
 from core.display_presence import display_is_live, latest_display_presence, touch_display_presence
-from core.models import DisplayScreen, School
+from core.models import DisplayScreen, School, ScreenOutage, ScreenWeeklyUptimeReport, UserProfile
+from core.screen_monitoring import scan_screens, send_weekly_uptime_reports
+from schedule.models import SchoolSettings
+from django.contrib.auth import get_user_model
 
 
 class DisplayPresenceTests(TestCase):
@@ -46,6 +50,105 @@ class DisplayPresenceTests(TestCase):
 
         self.assertAlmostEqual(self.screen.last_seen.timestamp(), first_seen.timestamp(), delta=1)
         self.assertAlmostEqual(latest_display_presence(self.screen).timestamp(), later_seen.timestamp(), delta=1)
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    DEFAULT_FROM_EMAIL="alerts@example.com",
+    TELEGRAM_ALERTS_ENABLED=False,
+)
+class ScreenMonitoringTests(TestCase):
+    def setUp(self):
+        self.school = School.objects.create(name="مدرسة المراقبة", slug="monitoring-school")
+        self.settings = SchoolSettings.objects.create(
+            school=self.school,
+            name=self.school.name,
+            screen_offline_threshold_minutes=5,
+            screen_offline_alerts_enabled=True,
+            screen_offline_email_enabled=True,
+            weekly_uptime_report_enabled=True,
+        )
+        self.manager = get_user_model().objects.create_user(
+            username="monitor_manager",
+            email="manager@example.com",
+            password="StrongPass123!",
+        )
+        profile = UserProfile.objects.create(user=self.manager, active_school=self.school)
+        profile.schools.add(self.school)
+        self.screen = DisplayScreen.objects.create(
+            school=self.school,
+            name="شاشة المدخل",
+            is_active=True,
+            bound_device_id="monitor-device",
+            last_seen=timezone.now() - timedelta(minutes=20),
+        )
+
+    def test_offline_scan_alerts_once_then_resolves_after_reconnect(self):
+        now = timezone.now()
+        first = scan_screens(now=now)
+        second = scan_screens(now=now + timedelta(minutes=1))
+
+        self.assertEqual(first["opened"], 1)
+        self.assertEqual(first["alerted"], 1)
+        self.assertEqual(second["opened"], 0)
+        self.assertEqual(len(mail.outbox), 1)
+        outage = ScreenOutage.objects.get(screen=self.screen)
+        self.assertIsNotNone(outage.alert_sent_at)
+
+        self.screen.last_seen = now + timedelta(minutes=2)
+        self.screen.save(update_fields=("last_seen",))
+        result = scan_screens(now=now + timedelta(minutes=2))
+        self.assertEqual(result["resolved"], 1)
+        outage.refresh_from_db()
+        self.assertIsNotNone(outage.resolved_at)
+
+    def test_newly_bound_screen_waits_for_the_configured_threshold(self):
+        self.screen.last_seen = None
+        self.screen.bound_at = timezone.now()
+        self.screen.save(update_fields=("last_seen", "bound_at"))
+
+        early = scan_screens(now=self.screen.bound_at + timedelta(minutes=4))
+        late = scan_screens(now=self.screen.bound_at + timedelta(minutes=6))
+
+        self.assertEqual(early["opened"], 0)
+        self.assertEqual(early["alerted"], 0)
+        self.assertEqual(late["opened"], 1)
+        self.assertEqual(late["alerted"], 1)
+
+    def test_weekly_report_calculates_and_persists_per_screen_uptime(self):
+        week_start = timezone.localdate() - timedelta(days=14)
+        tz = timezone.get_current_timezone()
+        start = timezone.make_aware(datetime.combine(week_start, datetime.min.time()), tz)
+        ScreenOutage.objects.create(
+            screen=self.screen,
+            detected_at=start + timedelta(days=1),
+            resolved_at=start + timedelta(days=2),
+        )
+
+        result = send_weekly_uptime_reports(week_start=week_start)
+
+        self.assertEqual(result["schools_sent"], 1)
+        report = ScreenWeeklyUptimeReport.objects.get(screen=self.screen, week_start=week_start)
+        self.assertEqual(report.offline_seconds, 24 * 60 * 60)
+        self.assertAlmostEqual(float(report.uptime_percent), 85.71, places=2)
+        self.assertIsNotNone(report.sent_at)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_weekly_report_counts_offline_time_from_last_seen(self):
+        week_start = timezone.localdate() - timedelta(days=21)
+        tz = timezone.get_current_timezone()
+        start = timezone.make_aware(datetime.combine(week_start, datetime.min.time()), tz)
+        ScreenOutage.objects.create(
+            screen=self.screen,
+            last_seen_at=start + timedelta(hours=12),
+            detected_at=start + timedelta(hours=12, minutes=5),
+            resolved_at=start + timedelta(hours=13),
+        )
+
+        send_weekly_uptime_reports(week_start=week_start)
+
+        report = ScreenWeeklyUptimeReport.objects.get(screen=self.screen, week_start=week_start)
+        self.assertEqual(report.offline_seconds, 60 * 60)
 
 
 class DisplayTokenMiddlewareTests(SimpleTestCase):
@@ -83,6 +186,7 @@ class RootAssetTests(SimpleTestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response["Content-Type"], "application/javascript; charset=utf-8")
                 self.assertIn(b"self.addEventListener", response.content)
+                self.assertIn(b"school-display-runtime-v2", response.content)
 
 
 class SecurityHeadersTests(SimpleTestCase):

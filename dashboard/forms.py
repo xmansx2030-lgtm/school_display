@@ -12,6 +12,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.forms import BaseInlineFormSet, inlineformset_factory
+from django.utils import timezone
 
 from schedule.models import (
     SchoolSettings,
@@ -25,7 +26,7 @@ from schedule.models import (
     Teacher,
     Subject,
 )
-from notices.models import Announcement, Excellence
+from notices.models import Announcement, EmergencyAlert, Excellence
 from standby.models import StandbyAssignment
 from core.image_uploads import optimize_uploaded_image
 from core.models import DisplayScreen, School, UserProfile, SubscriptionPlan
@@ -112,6 +113,10 @@ class SchoolSettingsForm(forms.ModelForm):
             "display_holiday_badge",
             "display_accent_color",
             "test_mode_weekday_override",
+            "screen_offline_alerts_enabled",
+            "screen_offline_threshold_minutes",
+            "screen_offline_email_enabled",
+            "weekly_uptime_report_enabled",
         ]
         widgets = {
             "featured_panel": forms.Select(),
@@ -136,6 +141,7 @@ class SchoolSettingsForm(forms.ModelForm):
             "display_holiday_badge": forms.TextInput(attrs={"dir": "rtl", "maxlength": "40"}),
             
             "test_mode_weekday_override": forms.Select(),
+            "screen_offline_threshold_minutes": forms.NumberInput(attrs={"min": 5, "max": 60}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -546,6 +552,70 @@ class AnnouncementForm(forms.ModelForm):
         return cleaned
 
 
+class EmergencyAlertForm(forms.ModelForm):
+    scope = forms.ChoiceField(
+        label="نطاق الإرسال",
+        choices=[
+            ("all", "كل شاشات المدرسة/المدارس المحددة"),
+            ("screens", "شاشة محددة أو عدة شاشات"),
+        ],
+        initial="all",
+    )
+
+    class Meta:
+        model = EmergencyAlert
+        fields = [
+            "kind",
+            "title",
+            "message",
+            "schools",
+            "scope",
+            "screens",
+            "expires_at",
+        ]
+        widgets = {
+            "schools": forms.CheckboxSelectMultiple(),
+            "screens": forms.CheckboxSelectMultiple(),
+            "message": forms.Textarea(attrs={"rows": 5, "maxlength": 600}),
+            "expires_at": forms.DateTimeInput(
+                format="%Y-%m-%dT%H:%M",
+                attrs={"type": "datetime-local"},
+            ),
+        }
+
+    def __init__(self, *args, allowed_schools=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        allowed_schools = allowed_schools if allowed_schools is not None else School.objects.none()
+        self.fields["schools"].queryset = allowed_schools.order_by("name")
+        self.fields["screens"].queryset = DisplayScreen.objects.filter(
+            school__in=allowed_schools,
+            is_active=True,
+        ).select_related("school").order_by("school__name", "name")
+        self.fields["expires_at"].input_formats = ["%Y-%m-%dT%H:%M"]
+        if allowed_schools.count() == 1:
+            school = allowed_schools.first()
+            self.fields["schools"].initial = [school.pk]
+
+    def clean(self):
+        cleaned = super().clean()
+        schools = cleaned.get("schools")
+        screens = cleaned.get("screens")
+        scope = cleaned.get("scope")
+        if not schools:
+            self.add_error("schools", "اختر مدرسة واحدة على الأقل.")
+            return cleaned
+        if scope == "screens" and not screens:
+            self.add_error("screens", "اختر شاشة واحدة على الأقل.")
+        if screens and any(screen.school_id not in {school.pk for school in schools} for screen in screens):
+            self.add_error("screens", "إحدى الشاشات لا تتبع المدارس المحددة.")
+        if scope == "all":
+            cleaned["screens"] = DisplayScreen.objects.none()
+        expires_at = cleaned.get("expires_at")
+        if expires_at and expires_at <= timezone.now():
+            self.add_error("expires_at", "وقت الانتهاء يجب أن يكون في المستقبل.")
+        return cleaned
+
+
 class ExcellenceForm(forms.ModelForm):
     MAX_PHOTO_MB = 5
     MAX_SOURCE_PHOTO_MB = 20
@@ -838,19 +908,32 @@ class SchoolSubscriptionForm(forms.ModelForm):
 
     class Meta:
         model = SchoolSubscription
-        fields = ["school", "plan", "starts_at", "ends_at", "status", "notes"]
+        fields = [
+            "school",
+            "plan",
+            "starts_at",
+            "ends_at",
+            "status",
+            "closure_reason",
+            "closure_notes",
+            "notes",
+        ]
         labels = {
             "school": "المدرسة",
             "plan": "الخطة",
             "starts_at": "تاريخ بداية الاشتراك",
             "ends_at": "تاريخ نهاية الاشتراك",
             "status": "حالة الاشتراك",
+            "closure_reason": "سبب الإلغاء أو عدم التجديد",
+            "closure_notes": "تفاصيل السبب",
             "notes": "ملاحظات",
         }
         widgets = {
             "starts_at": forms.DateInput(attrs={"type": "date"}),
             "ends_at": forms.DateInput(attrs={"type": "date"}),
             "status": forms.Select(),
+            "closure_reason": forms.Select(),
+            "closure_notes": forms.Textarea(attrs={"rows": 3}),
         }
 
     payment_method = forms.ChoiceField(
@@ -908,8 +991,15 @@ class SchoolSubscriptionForm(forms.ModelForm):
         cleaned = super().clean()
         start = cleaned.get("starts_at")
         end = cleaned.get("ends_at")
+        status = cleaned.get("status")
+        closure_reason = cleaned.get("closure_reason")
         if start and end and end < start:
             raise ValidationError("تاريخ النهاية يجب أن يكون بعد تاريخ البداية.")
+        if status in {"cancelled", "expired"} and not closure_reason:
+            self.add_error(
+                "closure_reason",
+                "الرجاء تحديد سبب الإلغاء أو عدم التجديد لإكمال الإجراء.",
+            )
 
         # في إضافة اشتراك يدويًا: نطلب طريقة الدفع للخطط المدفوعة فقط.
         plan = cleaned.get("plan")

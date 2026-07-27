@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import time, timedelta
+from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -27,7 +28,10 @@ from core.two_factor import (
 from dashboard.access import get_active_school_or_redirect
 from dashboard.decorators import manager_required, superuser_required, system_staff_required
 from subscriptions.models import SchoolSubscription
-from schedule.models import DaySchedule, Period, SchoolClass, SchoolSettings, Subject, Teacher
+from schedule.models import ClassLesson, DaySchedule, Period, SchoolClass, SchoolSettings, Subject, Teacher
+from notices.models import EmergencyAlert
+from dashboard.excel_import import apply_import, build_template_bytes, parse_workbook
+from schedule.api_views import _merge_real_data_into_snapshot
 
 
 TEST_CACHES = {
@@ -636,6 +640,8 @@ class SystemAdminExperienceTests(TestCase):
         self.assertContains(response, "تحتاج إلى انتباهك")
         self.assertContains(response, "اشتراكات تنتهي قريباً")
         self.assertContains(response, "الباقات والأسعار")
+        self.assertContains(response, "إحصائيات مسار البيع")
+        self.assertContains(response, "متوسط الشاشات/مدرسة")
 
     def test_admin_lists_expose_school_manager_and_subscription_filters(self):
         admin_profile = UserProfile.objects.create(user=self.admin, active_school=self.school)
@@ -681,6 +687,7 @@ class SystemAdminExperienceTests(TestCase):
         self.assertContains(response, "حذف")
         self.assertContains(response, "2")
         self.assertContains(response, "7")
+
 
     def test_superuser_in_support_group_keeps_plan_management_navigation(self):
         self.admin.groups.add(Group.objects.get_or_create(name="Support")[0])
@@ -756,3 +763,116 @@ class SystemAdminExperienceTests(TestCase):
         self.plan.refresh_from_db()
         self.assertFalse(self.plan.is_active)
         self.assertTrue(SchoolSubscription.objects.filter(plan=self.plan).exists())
+
+
+@override_settings(CACHES=TEST_CACHES)
+class EmergencyAlertsAndExcelImportTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.school = School.objects.create(name="مدرسة الطوارئ", slug="emergency-school")
+        self.other_school = School.objects.create(name="مدرسة أخرى للطوارئ", slug="other-emergency-school")
+        self.settings = SchoolSettings.objects.create(name=self.school.name, school=self.school)
+        self.manager = get_user_model().objects.create_user(
+            username="emergency_manager",
+            password="StrongPass123!",
+        )
+        self.profile = UserProfile.objects.create(user=self.manager, active_school=self.school)
+        self.profile.schools.add(self.school)
+        plan = SubscriptionPlan.objects.create(
+            code="emergency-test-plan",
+            name="باقة اختبار الطوارئ",
+            price=100,
+            duration_days=30,
+            max_screens=5,
+        )
+        SchoolSubscription.objects.create(
+            school=self.school,
+            plan=plan,
+            starts_at=timezone.localdate(),
+            ends_at=timezone.localdate() + timedelta(days=30),
+            status="active",
+        )
+        self.screen = DisplayScreen.objects.create(name="الشاشة الرئيسية", school=self.school)
+        self.other_screen = DisplayScreen.objects.create(name="شاشة أخرى", school=self.school)
+        self.client.force_login(self.manager)
+
+    def test_manager_can_target_one_screen_and_cancel_with_audit_log(self):
+        response = self.client.post(
+            reverse("dashboard:emergency_alert_create"),
+            {
+                "kind": "fire",
+                "title": "تنبيه حريق",
+                "message": "تنفيذ الإخلاء فورًا",
+                "schools": [self.school.pk],
+                "scope": "screens",
+                "screens": [self.screen.pk],
+            },
+        )
+        self.assertRedirects(
+            response,
+            reverse("dashboard:emergency_alert_list"),
+            fetch_redirect_response=False,
+        )
+        alert = EmergencyAlert.objects.get()
+        self.assertEqual(alert.created_by, self.manager)
+        self.assertEqual(list(alert.screens.all()), [self.screen])
+
+        snap = {}
+        _merge_real_data_into_snapshot(RequestFactory().get("/api/display/snapshot/"), snap, self.settings)
+        self.assertEqual(snap["emergency_alerts"][0]["screen_ids"], [self.screen.pk])
+
+        cancel = self.client.post(
+            reverse("dashboard:emergency_alert_cancel", kwargs={"pk": alert.pk})
+        )
+        self.assertRedirects(
+            cancel,
+            reverse("dashboard:emergency_alert_list"),
+            fetch_redirect_response=False,
+        )
+        alert.refresh_from_db()
+        self.assertFalse(alert.is_active)
+        self.assertEqual(alert.cancelled_by, self.manager)
+        self.assertIsNotNone(alert.cancelled_at)
+
+    def test_manager_cannot_send_emergency_to_another_school(self):
+        response = self.client.post(
+            reverse("dashboard:emergency_alert_create"),
+            {
+                "kind": "urgent",
+                "title": "رسالة",
+                "message": "لا يجب إرسالها",
+                "schools": [self.other_school.pk],
+                "scope": "all",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(EmergencyAlert.objects.exists())
+        self.assertTrue(response.context["form"].errors["schools"])
+
+    def test_excel_template_preview_and_atomic_import_create_full_timetable(self):
+        parsed = parse_workbook(BytesIO(build_template_bytes()))
+        self.assertEqual(parsed["errors"], [])
+        self.assertEqual(len(parsed["rows"]), 1)
+        result = apply_import(school=self.school, parsed=parsed)
+        self.assertEqual(result["lessons"], 1)
+        self.assertTrue(Teacher.objects.filter(school=self.school, name="أحمد محمد").exists())
+        self.assertTrue(Subject.objects.filter(school=self.school, name="الرياضيات").exists())
+        self.assertTrue(SchoolClass.objects.filter(settings=self.settings, name="الأول أ").exists())
+        self.assertTrue(DaySchedule.objects.filter(settings=self.settings, weekday=7).exists())
+        self.assertTrue(
+            ClassLesson.objects.filter(settings=self.settings, weekday=7, period_index=1).exists()
+        )
+
+    def test_excel_import_rejects_invalid_rows_before_writing(self):
+        from openpyxl import load_workbook
+
+        wb = load_workbook(BytesIO(build_template_bytes()))
+        wb["الجدول"]["A2"] = "يوم غير صحيح"
+        broken = BytesIO()
+        wb.save(broken)
+        broken.seek(0)
+        parsed = parse_workbook(broken)
+        self.assertTrue(parsed["errors"])
+        with self.assertRaises(ValueError):
+            apply_import(school=self.school, parsed=parsed)
+        self.assertFalse(ClassLesson.objects.filter(settings=self.settings).exists())

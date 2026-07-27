@@ -2829,6 +2829,29 @@ def _merge_real_data_into_snapshot(request, snap: dict, settings_obj: SchoolSett
         return
 
     # -----------------------------
+    # Full-screen emergency alerts
+    # -----------------------------
+    try:
+        from notices.models import EmergencyAlert
+
+        now = timezone.now()
+        emergency_qs = (
+            EmergencyAlert.objects.filter(
+                schools=school,
+                is_active=True,
+                cancelled_at__isnull=True,
+                starts_at__lte=now,
+            )
+            .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+            .prefetch_related("screens")
+            .order_by("-created_at")[:10]
+        )
+        snap["emergency_alerts"] = [alert.as_display_dict() for alert in emergency_qs]
+    except Exception:
+        logger.exception("snapshot: failed to merge emergency alerts")
+        snap["emergency_alerts"] = []
+
+    # -----------------------------
     # Announcements
     # -----------------------------
     try:
@@ -3192,6 +3215,7 @@ def build_steady_snapshot(
         "excellence": [],
         "duty": {"items": []},
         "announcements": [],
+        "emergency_alerts": [],
     }
 
 
@@ -3256,6 +3280,7 @@ def _build_final_snapshot(
     snap.setdefault("excellence", [])
     snap.setdefault("duty", {"items": []})
     snap.setdefault("announcements", [])
+    snap.setdefault("emergency_alerts", [])
 
     # settings unify + theme mapping
     s = snap["settings"] or {}

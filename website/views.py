@@ -173,6 +173,7 @@ def _build_display_context(request, key: str | None) -> dict | None:
         "display_token": effective_token,
         "token": effective_token,
         "school_id": settings_obj.school_id if settings_obj.school_id else None,
+        "screen_id": screen.pk,
         "schedule_revision": schedule_revision,
         # مهم: هذا هو المسار الذي يستدعيه display.js
         "snapshot_url": f"/api/display/snapshot/{effective_token}/",
