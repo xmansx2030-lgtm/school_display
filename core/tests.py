@@ -188,6 +188,24 @@ class RootAssetTests(SimpleTestCase):
                 self.assertIn(b"self.addEventListener", response.content)
                 self.assertIn(b"school-display-runtime-v2", response.content)
 
+    def test_display_shell_contains_scheduled_occasion_theme_runtime(self):
+        display_template = (
+            Path(settings.BASE_DIR) / "templates" / "website" / "display.html"
+        ).read_text(encoding="utf-8")
+        display_script = (
+            Path(settings.BASE_DIR) / "static" / "js" / "display.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id="occasionThemeDecor"', display_template)
+        self.assertIn('data-occasion-theme="national_day"', display_template)
+        self.assertIn('data-occasion-theme="founding_day"', display_template)
+        self.assertIn('data-occasion-theme="teachers_day"', display_template)
+        self.assertIn('data-occasion-theme="back_to_school"', display_template)
+        self.assertIn('data-occasion-theme="graduation"', display_template)
+        self.assertIn('data-occasion-theme="weather"', display_template)
+        self.assertIn("function applyOccasionTheme", display_script)
+        self.assertIn('removeAttribute("data-occasion-theme")', display_script)
+
 
 class SecurityHeadersTests(SimpleTestCase):
     @override_settings(

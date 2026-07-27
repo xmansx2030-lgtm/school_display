@@ -29,7 +29,7 @@ from dashboard.access import get_active_school_or_redirect
 from dashboard.decorators import manager_required, superuser_required, system_staff_required
 from subscriptions.models import SchoolSubscription
 from schedule.models import ClassLesson, DaySchedule, Period, SchoolClass, SchoolSettings, Subject, Teacher
-from notices.models import EmergencyAlert
+from notices.models import Announcement, EmergencyAlert
 from dashboard.excel_import import apply_import, build_template_bytes, parse_workbook
 from schedule.api_views import _merge_real_data_into_snapshot
 
@@ -848,6 +848,55 @@ class EmergencyAlertsAndExcelImportTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(EmergencyAlert.objects.exists())
         self.assertTrue(response.context["form"].errors["schools"])
+
+    def test_occasion_template_prefills_theme_and_bounded_display_window(self):
+        response = self.client.get(
+            reverse("dashboard:ann_create"),
+            {"template": "national_day"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        form = response.context["form"]
+        self.assertEqual(form.initial["occasion_theme"], "national_day")
+        self.assertEqual(
+            form.initial["expires_at"] - form.initial["starts_at"],
+            timedelta(hours=24),
+        )
+        self.assertContains(response, "الثيم يغيّر ألوان وخلفية وزخارف شاشة العرض")
+
+    def test_occasion_theme_is_saved_and_exposed_to_display_snapshot(self):
+        starts_at = timezone.now().replace(second=0, microsecond=0)
+        response = self.client.post(
+            reverse("dashboard:ann_create"),
+            {
+                "title": "دام عزك يا وطن",
+                "body": "احتفاء باليوم الوطني",
+                "level": "success",
+                "occasion_theme": "national_day",
+                "starts_at": starts_at.strftime("%Y-%m-%dT%H:%M"),
+                "expires_at": (starts_at + timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M"),
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:ann_list"),
+            fetch_redirect_response=False,
+        )
+        announcement = Announcement.objects.get()
+        self.assertEqual(announcement.occasion_theme, "national_day")
+        snap = {}
+        _merge_real_data_into_snapshot(
+            RequestFactory().get("/api/display/snapshot/"),
+            snap,
+            self.settings,
+        )
+        self.assertEqual(snap["announcements"][0]["occasion_theme"], "national_day")
+        self.assertEqual(
+            snap["announcements"][0]["occasion_theme_label"],
+            "اليوم الوطني السعودي",
+        )
 
     def test_excel_template_preview_and_atomic_import_create_full_timetable(self):
         parsed = parse_workbook(BytesIO(build_template_bytes()))

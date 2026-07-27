@@ -54,6 +54,13 @@
           {{ form.body }}
           {% if form.body.errors %}<div class="ann-field-error">{{ form.body.errors }}</div>{% endif %}
         </div>
+
+        <div class="ann-field">
+          <label for="{{ form.occasion_theme.id_for_label }}">{{ form.occasion_theme.label }}</label>
+          {{ form.occasion_theme }}
+          <small class="ann-field-help">الثيم يغيّر ألوان وخلفية وزخارف شاشة العرض طوال فترة نشاط الإعلان، ثم تعود الشاشة تلقائيًا لتصميم المدرسة.</small>
+          {% if form.occasion_theme.errors %}<div class="ann-field-error">{{ form.occasion_theme.errors }}</div>{% endif %}
+        </div>
       </section>
 
       <section class="ann-form-card">
@@ -100,6 +107,7 @@
       </div>
       <div class="ann-preview-card" id="previewCard">
         <div class="ann-preview-level" id="previewLevel">معلومة</div>
+        <div class="ann-preview-theme" id="previewTheme">بدون ثيم مناسبة</div>
         <h3 id="previewTitle">-</h3>
         <p id="previewBody">سيظهر نص التنبيه هنا.</p>
       </div>
@@ -145,6 +153,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const title = document.getElementById('{{ form.title.id_for_label }}');
   const body = document.getElementById('{{ form.body.id_for_label }}');
   const level = document.getElementById('{{ form.level.id_for_label }}');
+  const occasionTheme = document.getElementById('{{ form.occasion_theme.id_for_label }}');
   const starts = document.getElementById('{{ form.starts_at.id_for_label }}');
   const expires = document.getElementById('{{ form.expires_at.id_for_label }}');
 
@@ -161,13 +170,18 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('previewLevel').textContent = selected ? selected.text : '-';
       document.getElementById('previewCard').dataset.level = level.value || 'info';
     }
+    if (occasionTheme) {
+      const selectedTheme = occasionTheme.options[occasionTheme.selectedIndex];
+      document.getElementById('previewTheme').textContent = selectedTheme ? selectedTheme.text : 'بدون ثيم مناسبة';
+      document.getElementById('previewCard').dataset.occasionTheme = occasionTheme.value || '';
+    }
 
     document.getElementById('previewStatus').textContent = checkbox && checkbox.checked ? 'مفعل' : 'غير مفعل';
     document.getElementById('previewStart').textContent = valueOrDash(starts?.value || '', '-');
     document.getElementById('previewEnd').textContent = valueOrDash(expires?.value || '', 'بدون نهاية');
   }
 
-  [title, body, level, starts, expires, checkbox].forEach(el => {
+  [title, body, level, occasionTheme, starts, expires, checkbox].forEach(el => {
     if (el) el.addEventListener('input', updatePreview);
     if (el) el.addEventListener('change', updatePreview);
   });
@@ -352,6 +366,7 @@ textarea.ann-input {
   font-size: 0.75rem;
   font-weight: 700;
 }
+.ann-field-help { color: #64748b; font-size: .7rem; font-weight: 650; line-height: 1.7; }
 
 .ann-preview-panel {
   position: sticky;
@@ -398,6 +413,22 @@ textarea.ann-input {
   font-size: 0.72rem;
   font-weight: 900;
 }
+.ann-preview-theme {
+  display: inline-flex;
+  margin-inline-start: .35rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  padding: .28rem .65rem;
+  font-size: .68rem;
+  font-weight: 900;
+}
+.ann-preview-card[data-occasion-theme="national_day"] { border-color: #86efac; background: linear-gradient(135deg, #ecfdf5, #fff); }
+.ann-preview-card[data-occasion-theme="founding_day"] { border-color: #d6b48b; background: linear-gradient(135deg, #fff7ed, #fff); }
+.ann-preview-card[data-occasion-theme="teachers_day"] { border-color: #93c5fd; background: linear-gradient(135deg, #eff6ff, #fff); }
+.ann-preview-card[data-occasion-theme="back_to_school"] { border-color: #67e8f9; background: linear-gradient(135deg, #ecfeff, #fff); }
+.ann-preview-card[data-occasion-theme="graduation"] { border-color: #c4b5fd; background: linear-gradient(135deg, #f5f3ff, #fff); }
+.ann-preview-card[data-occasion-theme="weather"] { border-color: #7dd3fc; background: linear-gradient(135deg, #f0f9ff, #fff); }
 
 .ann-preview-card[data-level="urgent"] .ann-preview-level {
   background: #fee2e2;

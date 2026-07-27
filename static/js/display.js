@@ -194,6 +194,12 @@
     dom.alertContainer = $("alertContainer");
     dom.alertTitle = $("alertTitle");
     dom.alertDetails = $("alertDetails");
+    dom.occasionThemeDecor = $("occasionThemeDecor");
+    dom.occasionThemeBadge = $("occasionThemeBadge");
+    dom.occasionThemeBadgeIcon = $("occasionThemeBadgeIcon");
+    dom.occasionThemeBadgeLabel = $("occasionThemeBadgeLabel");
+    dom.occasionThemeSymbolOne = $("occasionThemeSymbolOne");
+    dom.occasionThemeSymbolTwo = $("occasionThemeSymbolTwo");
 
     dom.badgeKind = $("badgeKind");
     dom.heroRange = $("heroRange");
@@ -3740,6 +3746,15 @@
   let annPtr = 0;
   let annList = [];
   const ANN_INT = 6500;
+  const OCCASION_THEME_META = {
+    national_day: { label: "اليوم الوطني السعودي", icon: "🇸🇦", symbols: ["✦", "◆"] },
+    founding_day: { label: "يوم التأسيس", icon: "🏛️", symbols: ["◇", "✦"] },
+    teachers_day: { label: "يوم المعلم", icon: "📚", symbols: ["📖", "✎"] },
+    back_to_school: { label: "العودة للدراسة", icon: "🎒", symbols: ["✏️", "📐"] },
+    graduation: { label: "حفل التخرج", icon: "🎓", symbols: ["🎓", "✦"] },
+    weather: { label: "حالة جوية", icon: "🌧️", symbols: ["☁️", "💧"] },
+  };
+  let occasionThemeSignature = "";
 
   function annSignature(arr) {
     const a = Array.isArray(arr) ? arr : [];
@@ -3749,9 +3764,46 @@
         const title = safeText(x.title || x.heading || "");
         const body = safeText(x.body || x.details || x.text || x.message || "");
         const id = safeText(x.id || x.pk || "");
-        return [id, title, body];
+        const occasionTheme = safeText(x.occasion_theme || "");
+        return [id, title, body, occasionTheme];
       })
     );
+  }
+
+  function applyOccasionTheme(items) {
+    const list = Array.isArray(items) ? items : [];
+    let selected = null;
+    for (let i = 0; i < list.length; i++) {
+      const themeKey = safeText((list[i] || {}).occasion_theme || "");
+      if (OCCASION_THEME_META[themeKey]) {
+        selected = list[i] || {};
+        break;
+      }
+    }
+    const key = selected ? safeText(selected.occasion_theme || "") : "";
+    const signature = key + "||" + safeText(selected && (selected.id || selected.pk || ""));
+    if (signature === occasionThemeSignature) return;
+    occasionThemeSignature = signature;
+
+    if (!key || !OCCASION_THEME_META[key]) {
+      document.body.removeAttribute("data-occasion-theme");
+      toggleHidden(dom.occasionThemeDecor, true);
+      toggleHidden(dom.occasionThemeBadge, true);
+      return;
+    }
+
+    const meta = OCCASION_THEME_META[key];
+    document.body.setAttribute("data-occasion-theme", key);
+    setTextIfChanged(dom.occasionThemeBadgeIcon, meta.icon);
+    setTextIfChanged(
+      dom.occasionThemeBadgeLabel,
+      safeText(selected.occasion_theme_label || meta.label)
+    );
+    setTextIfChanged(dom.occasionThemeSymbolOne, meta.symbols[0]);
+    setTextIfChanged(dom.occasionThemeSymbolTwo, meta.symbols[1]);
+    toggleHidden(dom.occasionThemeDecor, false);
+    toggleHidden(dom.occasionThemeBadge, false);
+    forceThemeRepaint();
   }
 
   function showAnnouncement(i) {
@@ -3771,6 +3823,7 @@
     last.annSig = sig;
 
     annList = Array.isArray(arr) ? arr.slice() : [];
+    applyOccasionTheme(annList);
     if (annTimer) {
       clearInterval(annTimer);
       annTimer = null;

@@ -525,7 +525,15 @@ BreakFormSet = inlineformset_factory(
 class AnnouncementForm(forms.ModelForm):
     class Meta:
         model = Announcement
-        fields = ["title", "body", "level", "starts_at", "expires_at", "is_active"]
+        fields = [
+            "title",
+            "body",
+            "level",
+            "occasion_theme",
+            "starts_at",
+            "expires_at",
+            "is_active",
+        ]
         widgets = {
             "starts_at": forms.DateTimeInput(
                 format="%Y-%m-%dT%H:%M",

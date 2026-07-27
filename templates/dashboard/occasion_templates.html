@@ -2,20 +2,98 @@
 
 {% block title %}قوالب المناسبات{% endblock %}
 {% block page_title %}قوالب المناسبات المحلية{% endblock %}
-{% block page_description %}قوالب سعودية ومدرسية جاهزة للتعديل والنشر{% endblock %}
+{% block page_description %}محتوى وثيم كامل يتفعّل تلقائيًا على شاشات المدرسة خلال وقت المناسبة{% endblock %}
 
 {% block content %}
 <div class="max-w-7xl mx-auto pb-12">
   <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
     {% for key, item in occasion_templates.items %}
-      <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="text-4xl">{{ item.icon }}</div>
-        <h2 class="mt-4 text-lg font-black text-slate-900">{{ item.name }}</h2>
-        <h3 class="mt-2 text-sm font-bold text-slate-700">{{ item.title }}</h3>
-        <p class="mt-2 min-h-16 text-sm leading-7 text-slate-500">{{ item.body }}</p>
-        <a href="{% url 'dashboard:ann_create' %}?template={{ key }}" class="mt-5 inline-flex rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white">استخدام القالب</a>
+      <article class="occasion-card" style="--occasion-primary:{{ item.primary }};--occasion-secondary:{{ item.secondary }}">
+        <div class="occasion-preview">
+          <span class="occasion-preview-orb">{{ item.icon }}</span>
+          <div>
+            <small>ثيم {{ item.theme_name }}</small>
+            <strong>{{ item.title }}</strong>
+          </div>
+        </div>
+        <div class="occasion-card-body">
+          <div class="occasion-theme-pill"><span></span> يغيّر مظهر الشاشة بالكامل</div>
+          <h2>{{ item.name }}</h2>
+          <p>{{ item.body }}</p>
+          <div class="occasion-features">
+            <span>ألوان مخصصة</span>
+            <span>خلفية وزخارف</span>
+            <span>عودة تلقائية</span>
+          </div>
+          <a href="{% url 'dashboard:ann_create' %}?template={{ key }}">استخدام القالب والثيم</a>
+        </div>
       </article>
     {% endfor %}
   </div>
 </div>
+
+<style>
+.occasion-card {
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.25rem;
+  background: #fff;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, .08);
+}
+.occasion-preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 9rem;
+  overflow: hidden;
+  padding: 1.25rem;
+  color: #fff;
+  background:
+    radial-gradient(circle at 12% 20%, color-mix(in srgb, var(--occasion-secondary) 55%, transparent), transparent 28%),
+    linear-gradient(135deg, var(--occasion-primary), color-mix(in srgb, var(--occasion-primary) 68%, #020617));
+}
+.occasion-preview::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: .18;
+  background-image: repeating-linear-gradient(45deg, transparent 0 18px, #fff 19px 20px);
+}
+.occasion-preview > * { position: relative; z-index: 1; }
+.occasion-preview-orb {
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255,255,255,.35);
+  border-radius: 1.35rem;
+  background: rgba(255,255,255,.14);
+  font-size: 2.3rem;
+  backdrop-filter: blur(8px);
+}
+.occasion-preview small,
+.occasion-preview strong { display: block; }
+.occasion-preview small { color: rgba(255,255,255,.72); font-size: .72rem; font-weight: 800; }
+.occasion-preview strong { margin-top: .35rem; font-size: 1.15rem; font-weight: 950; }
+.occasion-card-body { padding: 1.15rem; }
+.occasion-theme-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  border-radius: 999px;
+  background: #f0fdf4;
+  color: #047857;
+  padding: .35rem .65rem;
+  font-size: .68rem;
+  font-weight: 900;
+}
+.occasion-theme-pill span { width: .45rem; height: .45rem; border-radius: 50%; background: #10b981; }
+.occasion-card h2 { margin: .9rem 0 0; color: #0f172a; font-size: 1.05rem; font-weight: 950; }
+.occasion-card p { min-height: 4rem; margin: .4rem 0 0; color: #64748b; font-size: .78rem; font-weight: 600; line-height: 1.8; }
+.occasion-features { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .85rem; }
+.occasion-features span { border: 1px solid #e2e8f0; border-radius: 999px; background: #f8fafc; color: #475569; padding: .28rem .55rem; font-size: .65rem; font-weight: 800; }
+.occasion-card a { display: flex; justify-content: center; margin-top: 1rem; border-radius: .75rem; background: var(--occasion-primary); color: #fff; padding: .7rem 1rem; font-size: .78rem; font-weight: 950; }
+</style>
 {% endblock %}

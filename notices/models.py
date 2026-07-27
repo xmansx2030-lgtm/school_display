@@ -116,6 +116,16 @@ class AnnouncementQuerySet(models.QuerySet):
 
 
 class Announcement(models.Model):
+    OCCASION_THEME_CHOICES = [
+        ("", "بدون ثيم مناسبة"),
+        ("national_day", "اليوم الوطني السعودي"),
+        ("founding_day", "يوم التأسيس"),
+        ("teachers_day", "يوم المعلم"),
+        ("back_to_school", "العودة للدراسة"),
+        ("graduation", "حفل التخرج"),
+        ("weather", "حالة جوية"),
+    ]
+
     school = models.ForeignKey(
         School,
         on_delete=models.CASCADE,
@@ -131,6 +141,14 @@ class Announcement(models.Model):
         max_length=10,
         choices=ANNOUNCEMENT_LEVELS,
         default="info",
+    )
+    occasion_theme = models.CharField(
+        "ثيم المناسبة",
+        max_length=30,
+        choices=OCCASION_THEME_CHOICES,
+        blank=True,
+        default="",
+        help_text="يغيّر مظهر شاشة العرض طوال فترة نشاط هذا الإعلان.",
     )
     starts_at = models.DateTimeField("يظهر من", default=timezone.now)
     expires_at = models.DateTimeField("ينتهي في", blank=True, null=True)
@@ -190,6 +208,8 @@ class Announcement(models.Model):
             "body": self.body,
             "level": self.level,
             "level_label": self.get_level_display(),
+            "occasion_theme": self.occasion_theme,
+            "occasion_theme_label": self.get_occasion_theme_display() if self.occasion_theme else "",
             "starts_at": self.starts_at.isoformat() if self.starts_at else None,
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "active": self.active_now,
