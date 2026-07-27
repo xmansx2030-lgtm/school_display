@@ -186,7 +186,7 @@ class RootAssetTests(SimpleTestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response["Content-Type"], "application/javascript; charset=utf-8")
                 self.assertIn(b"self.addEventListener", response.content)
-                self.assertIn(b"school-display-runtime-v2", response.content)
+                self.assertIn(b"school-display-runtime-v3", response.content)
 
     def test_display_shell_contains_scheduled_occasion_theme_runtime(self):
         display_template = (
