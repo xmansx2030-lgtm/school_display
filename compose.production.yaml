@@ -219,6 +219,7 @@ services:
       - ./deploy/offsite-backup.sh:/scripts/offsite-backup.sh:ro
       - /root/.ssh/school-display-backup:/root/.ssh/id_ed25519:ro
       - /root/.ssh/school-display-backup-known_hosts:/root/.ssh/known_hosts:ro
+      - ./deploy/storage-box-ssh-config:/root/.ssh/config:ro
       - restic-cache:/cache
 
 networks:

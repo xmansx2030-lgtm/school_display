@@ -1,0 +1,6 @@
+Host *
+    IdentityFile /root/.ssh/id_ed25519
+    IdentitiesOnly yes
+    UserKnownHostsFile /root/.ssh/known_hosts
+    StrictHostKeyChecking yes
+    UpdateHostKeys no
