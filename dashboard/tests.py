@@ -638,6 +638,9 @@ class SystemAdminExperienceTests(TestCase):
         self.assertContains(response, "الباقات والأسعار")
 
     def test_admin_lists_expose_school_manager_and_subscription_filters(self):
+        admin_profile = UserProfile.objects.create(user=self.admin, active_school=self.school)
+        admin_profile.schools.add(self.school)
+
         schools_response = self.client.get(
             reverse("dashboard:system_schools_list"),
             {"plan": self.plan.pk},
@@ -653,9 +656,19 @@ class SystemAdminExperienceTests(TestCase):
 
         self.assertContains(schools_response, self.school.name)
         self.assertContains(schools_response, self.plan.name)
+        school_row = next(
+            school for school in schools_response.context["schools"] if school.pk == self.school.pk
+        )
+        self.assertEqual(school_row.managers_count, 1)
         self.assertContains(managers_response, self.manager.username)
         self.assertContains(subscriptions_response, "ينتهي قريباً")
         self.assertContains(subscriptions_response, self.school.name)
+
+        dashboard_response = self.client.get(reverse("dashboard:system_admin_dashboard"))
+        recent_school = next(
+            school for school in dashboard_response.context["recent_schools"] if school.pk == self.school.pk
+        )
+        self.assertEqual(recent_school.managers_total, 1)
 
     def test_plan_cards_show_limits_and_usage(self):
         response = self.client.get(reverse("dashboard:system_plans_list"))

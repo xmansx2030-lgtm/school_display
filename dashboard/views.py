@@ -2604,7 +2604,14 @@ def system_admin_dashboard(request):
 
     recent_schools = list(
         School.objects.annotate(
-            managers_total=Count("users", distinct=True),
+            managers_total=Count(
+                "users",
+                filter=Q(
+                    users__user__is_staff=False,
+                    users__user__is_superuser=False,
+                ),
+                distinct=True,
+            ),
             screens_total=Count("screens", distinct=True),
         ).order_by("-created_at", "-id")[:5]
     )
@@ -2686,7 +2693,14 @@ def system_schools_list(request):
     inactive_schools_count = total_schools_count - active_schools_count
 
     schools = School.objects.annotate(
-        managers_count=Count("users", distinct=True),
+        managers_count=Count(
+            "users",
+            filter=Q(
+                users__user__is_staff=False,
+                users__user__is_superuser=False,
+            ),
+            distinct=True,
+        ),
         screens_count=Count("screens", distinct=True),
     )
 
