@@ -85,10 +85,10 @@ services:
     command: python manage.py display_snapshot_worker --poll-timeout=5
     healthcheck:
       test: ["CMD", "python", "manage.py", "display_runtime_health", "snapshot-worker"]
-      interval: 30s
+      interval: 41s
       timeout: 10s
       retries: 3
-      start_period: 45s
+      start_period: 47s
 
   wake-scheduler:
     <<: *django
@@ -103,10 +103,10 @@ services:
       --window-seconds=90
     healthcheck:
       test: ["CMD", "python", "manage.py", "display_runtime_health", "wake-scheduler"]
-      interval: 30s
+      interval: 53s
       timeout: 10s
       retries: 3
-      start_period: 45s
+      start_period: 59s
 
   telegram-alert-worker:
     <<: *django
@@ -120,10 +120,10 @@ services:
       - backend
     healthcheck:
       test: ["CMD", "python", "manage.py", "telegram_alert_health"]
-      interval: 30s
+      interval: 61s
       timeout: 10s
       retries: 3
-      start_period: 45s
+      start_period: 71s
 
   postgres:
     image: postgres:18-alpine

@@ -21,6 +21,8 @@ docker compose -f compose.production.yaml exec -T postgres \
   > "$temporary"
 
 test -s "$temporary"
+docker compose -f compose.production.yaml exec -T postgres \
+  pg_restore --list < "$temporary" >/dev/null
 mv "$temporary" "$target"
 trap - EXIT
 

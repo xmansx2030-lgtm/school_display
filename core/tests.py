@@ -97,6 +97,7 @@ class SecurityHeadersTests(SimpleTestCase):
 
         policy = response["Content-Security-Policy-Report-Only"]
         self.assertIn("script-src 'self'", policy)
+        self.assertIn("https://static.cloudflareinsights.com", policy)
         self.assertNotIn("'unsafe-eval'", policy)
         self.assertIn("report-uri /csp-report/", policy)
         self.assertIn("camera=()", response["Permissions-Policy"])
