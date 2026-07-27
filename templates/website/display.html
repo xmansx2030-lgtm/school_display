@@ -94,12 +94,12 @@
       --mesh1: color-mix(in srgb, var(--occasion-accent) 32%, transparent) !important;
       --mesh2: color-mix(in srgb, var(--occasion-highlight) 22%, transparent) !important;
     }
-    body[data-occasion-theme="national_day"] { --occasion-deep:#001d16; --occasion-accent:#009b4d; --occasion-highlight:#e2c269; --occasion-soft:#d1fae5; }
-    body[data-occasion-theme="founding_day"] { --occasion-deep:#28170f; --occasion-accent:#9a623b; --occasion-highlight:#e0b783; --occasion-soft:#ffedd5; }
-    body[data-occasion-theme="teachers_day"] { --occasion-deep:#071b31; --occasion-accent:#2563a6; --occasion-highlight:#f2c14e; --occasion-soft:#dbeafe; }
-    body[data-occasion-theme="back_to_school"] { --occasion-deep:#06233c; --occasion-accent:#168aad; --occasion-highlight:#ffd166; --occasion-soft:#cffafe; }
-    body[data-occasion-theme="graduation"] { --occasion-deep:#1d1135; --occasion-accent:#7c3bbd; --occasion-highlight:#f4c95d; --occasion-soft:#ede9fe; }
-    body[data-occasion-theme="weather"] { --occasion-deep:#06283d; --occasion-accent:#0284c7; --occasion-highlight:#67e8f9; --occasion-soft:#e0f2fe; }
+    body[data-occasion-theme="national_day"] { --occasion-deep:#001d16; --occasion-accent:#009b4d; --occasion-highlight:#e2c269; --occasion-soft:#d1fae5; --occasion-glow:rgba(0,155,77,.34); }
+    body[data-occasion-theme="founding_day"] { --occasion-deep:#28170f; --occasion-accent:#9a623b; --occasion-highlight:#e0b783; --occasion-soft:#ffedd5; --occasion-glow:rgba(154,98,59,.34); }
+    body[data-occasion-theme="teachers_day"] { --occasion-deep:#071b31; --occasion-accent:#2563a6; --occasion-highlight:#f2c14e; --occasion-soft:#dbeafe; --occasion-glow:rgba(37,99,166,.34); }
+    body[data-occasion-theme="back_to_school"] { --occasion-deep:#05243c; --occasion-accent:#0e91b7; --occasion-highlight:#ffd166; --occasion-soft:#cffafe; --occasion-glow:rgba(14,145,183,.38); }
+    body[data-occasion-theme="graduation"] { --occasion-deep:#1d1135; --occasion-accent:#7c3bbd; --occasion-highlight:#f4c95d; --occasion-soft:#ede9fe; --occasion-glow:rgba(124,59,189,.38); }
+    body[data-occasion-theme="weather"] { --occasion-deep:#06283d; --occasion-accent:#0284c7; --occasion-highlight:#67e8f9; --occasion-soft:#e0f2fe; --occasion-glow:rgba(2,132,199,.38); }
 
     body[data-occasion-theme] #fitRoot {
       background:
@@ -115,6 +115,12 @@
     }
     body[data-occasion-theme] .glass-panel {
       border-color: color-mix(in srgb, var(--occasion-highlight) 24%, rgba(255,255,255,.12)) !important;
+    }
+    body[data-occasion-theme] #heroCard {
+      box-shadow:
+        0 28px 80px rgba(0,0,0,.34),
+        0 0 0 1px color-mix(in srgb, var(--occasion-highlight) 15%, transparent),
+        0 0 70px var(--occasion-glow);
     }
     #occasionThemeDecor {
       position: absolute;
@@ -187,6 +193,162 @@
     #occasionThemeBadgeCopy strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #occasionThemeBadgeCopy small { color: var(--occasion-soft); font-size: .63rem; font-weight: 800; }
     #occasionThemeBadgeCopy strong { margin-top: .08rem; font-size: .9rem; font-weight: 950; }
+
+    .occasion-hero {
+      position: absolute;
+      inset: 0;
+      z-index: 18;
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr);
+      align-items: center;
+      gap: 4rem;
+      padding: 5rem 6rem;
+      overflow: hidden;
+      isolation: isolate;
+      background:
+        radial-gradient(circle at 12% 14%, color-mix(in srgb, var(--occasion-highlight) 20%, transparent), transparent 32%),
+        radial-gradient(circle at 86% 82%, color-mix(in srgb, var(--occasion-accent) 44%, transparent), transparent 42%),
+        linear-gradient(135deg, color-mix(in srgb, var(--occasion-deep) 82%, #081426), color-mix(in srgb, var(--occasion-deep) 94%, #000));
+    }
+    .occasion-hero::before {
+      content: "";
+      position: absolute;
+      inset: 1.35rem;
+      z-index: -1;
+      border: 1px solid color-mix(in srgb, var(--occasion-highlight) 22%, transparent);
+      border-radius: 2rem;
+      pointer-events: none;
+    }
+    .occasion-hero::after {
+      content: "";
+      position: absolute;
+      width: 34rem;
+      height: 34rem;
+      right: -9rem;
+      bottom: -14rem;
+      z-index: -1;
+      border: 1px solid color-mix(in srgb, var(--occasion-highlight) 20%, transparent);
+      border-radius: 50%;
+      box-shadow: 0 0 0 5rem color-mix(in srgb, var(--occasion-accent) 5%, transparent);
+      pointer-events: none;
+    }
+    .occasion-hero__copy {
+      min-width: 0;
+      text-align: right;
+    }
+    .occasion-hero__eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: .8rem;
+      margin-bottom: 1.5rem;
+      padding: .7rem 1.2rem;
+      border: 1px solid color-mix(in srgb, var(--occasion-highlight) 42%, transparent);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--occasion-deep) 62%, transparent);
+      color: var(--occasion-soft);
+      font-size: 1rem;
+      font-weight: 900;
+      letter-spacing: .02em;
+    }
+    .occasion-hero__eyebrow-dot {
+      width: .65rem;
+      height: .65rem;
+      flex: none;
+      border-radius: 50%;
+      background: var(--occasion-highlight);
+      box-shadow: 0 0 18px color-mix(in srgb, var(--occasion-highlight) 80%, transparent);
+    }
+    #occasionHeroTitle {
+      max-width: 58rem;
+      color: #fff;
+      font-size: clamp(4.8rem, 6.2vw, 7.4rem);
+      font-weight: 950;
+      line-height: 1.08;
+      letter-spacing: -.035em;
+      text-wrap: balance;
+      text-shadow: 0 18px 46px rgba(0,0,0,.35);
+    }
+    #occasionHeroBody {
+      max-width: 54rem;
+      margin-top: 2rem;
+      color: color-mix(in srgb, var(--occasion-soft) 90%, #fff);
+      font-size: clamp(1.55rem, 2vw, 2.25rem);
+      font-weight: 700;
+      line-height: 1.7;
+      text-wrap: balance;
+    }
+    .occasion-hero__tagline {
+      margin-top: 2.3rem;
+      color: var(--occasion-highlight);
+      font-size: 1.05rem;
+      font-weight: 950;
+      letter-spacing: .04em;
+    }
+    .occasion-hero__mark {
+      position: relative;
+      display: grid;
+      width: min(100%, 22rem);
+      aspect-ratio: 1;
+      place-items: center;
+      justify-self: center;
+      border: 1px solid color-mix(in srgb, var(--occasion-highlight) 34%, transparent);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, color-mix(in srgb, var(--occasion-accent) 32%, transparent), transparent 68%),
+        color-mix(in srgb, var(--occasion-deep) 48%, transparent);
+      box-shadow:
+        inset 0 0 0 1.4rem color-mix(in srgb, var(--occasion-highlight) 3%, transparent),
+        0 30px 80px var(--occasion-glow);
+    }
+    .occasion-hero__mark::before,
+    .occasion-hero__mark::after {
+      content: "";
+      position: absolute;
+      inset: -1.2rem;
+      border: 1px dashed color-mix(in srgb, var(--occasion-highlight) 32%, transparent);
+      border-radius: 50%;
+    }
+    .occasion-hero__mark::after {
+      inset: 1.6rem;
+      border-style: solid;
+      opacity: .5;
+    }
+    #occasionHeroIcon {
+      position: relative;
+      z-index: 1;
+      font-size: clamp(7rem, 9vw, 11rem);
+      line-height: 1;
+      filter: drop-shadow(0 22px 30px rgba(0,0,0,.28));
+    }
+    body[data-occasion-theme="founding_day"] #occasionHeroIcon {
+      color: var(--occasion-highlight);
+      font-family: "IBM Plex Sans Arabic", "Arial", sans-serif;
+      font-size: clamp(5rem, 7vw, 8.5rem);
+      font-weight: 950;
+      letter-spacing: -.05em;
+    }
+    body[data-occasion-theme="founding_day"] .occasion-hero__mark { border-radius: 32% 68% 42% 58% / 58% 38% 62% 42%; }
+    body[data-occasion-theme="teachers_day"] .occasion-hero__mark { border-radius: 2.5rem; transform: rotate(2deg); }
+    body[data-occasion-theme="back_to_school"] .occasion-hero__mark { border-radius: 38% 62% 56% 44% / 48% 42% 58% 52%; }
+    body[data-occasion-theme="graduation"] .occasion-hero__mark { border-radius: 50% 50% 42% 58% / 58% 42% 58% 42%; }
+    body[data-occasion-theme="weather"] .occasion-hero__mark { border-radius: 48% 52% 60% 40% / 56% 38% 62% 44%; }
+    body[data-occasion-ambient="1"] #heroCard > .relative.z-10,
+    body[data-occasion-ambient="1"] #dayTimelinePanel {
+      visibility: hidden;
+      pointer-events: none;
+    }
+    body[data-occasion-ambient="1"] #heroCard .hero-card__ambient {
+      opacity: .15 !important;
+    }
+    @media (max-width: 1200px), (max-height: 720px) {
+      .occasion-hero {
+        gap: 2.5rem;
+        padding: 3rem 4rem;
+      }
+      .occasion-hero__mark { width: min(100%, 17rem); }
+      #occasionHeroTitle { font-size: clamp(3.5rem, 6vw, 5.5rem); }
+      #occasionHeroBody { margin-top: 1.25rem; font-size: clamp(1.25rem, 1.8vw, 1.8rem); }
+    }
     @keyframes occasionFloat {
       0%,100% { translate: 0 0; }
       50% { translate: 0 -18px; }
@@ -2490,6 +2652,21 @@
             <div class="hero-card__ambient absolute inset-0 opacity-50" style="background: linear-gradient(to bottom right, var(--mesh1), transparent, var(--mesh2));"></div>
             <div class="hero-card__orb hero-card__orb--one" aria-hidden="true"></div>
             <div class="hero-card__orb hero-card__orb--two" aria-hidden="true"></div>
+
+            <div id="occasionHero" class="occasion-hero u-hidden" role="status" aria-live="polite">
+                <div class="occasion-hero__copy">
+                    <div class="occasion-hero__eyebrow">
+                        <span class="occasion-hero__eyebrow-dot" aria-hidden="true"></span>
+                        <span id="occasionHeroLabel">ثيم المناسبة</span>
+                    </div>
+                    <h2 id="occasionHeroTitle"></h2>
+                    <p id="occasionHeroBody"></p>
+                    <div id="occasionHeroTagline" class="occasion-hero__tagline"></div>
+                </div>
+                <div class="occasion-hero__mark" aria-hidden="true">
+                    <span id="occasionHeroIcon"></span>
+                </div>
+            </div>
             
             <!-- SVG Gradients Definition -->
             <svg width="0" height="0" style="position: absolute;">
@@ -2709,7 +2886,7 @@
   </noscript>
 
     <script defer src="{% static 'js/display-controls.js' %}?v=2026-07-23-b4"></script>
-    <script defer src="{% static 'js/display.js' %}?v=2026-07-27-occasion-themes-b1"></script>
+    <script defer src="{% static 'js/display.js' %}?v=2026-07-27-occasion-themes-b3"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {

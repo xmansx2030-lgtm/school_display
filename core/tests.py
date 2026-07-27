@@ -186,7 +186,7 @@ class RootAssetTests(SimpleTestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response["Content-Type"], "application/javascript; charset=utf-8")
                 self.assertIn(b"self.addEventListener", response.content)
-                self.assertIn(b"school-display-runtime-v3", response.content)
+                self.assertIn(b"school-display-runtime-v5", response.content)
 
     def test_display_shell_contains_scheduled_occasion_theme_runtime(self):
         display_template = (
@@ -203,8 +203,15 @@ class RootAssetTests(SimpleTestCase):
         self.assertIn('data-occasion-theme="back_to_school"', display_template)
         self.assertIn('data-occasion-theme="graduation"', display_template)
         self.assertIn('data-occasion-theme="weather"', display_template)
+        self.assertIn('id="occasionHero"', display_template)
+        self.assertIn('id="occasionHeroTitle"', display_template)
+        self.assertIn("occasion-hero__mark", display_template)
         self.assertIn("function applyOccasionTheme", display_script)
+        self.assertIn("function refreshOccasionPresentation", display_script)
         self.assertIn('removeAttribute("data-occasion-theme")', display_script)
+        self.assertIn('setAttribute("data-occasion-ambient", "1")', display_script)
+        self.assertIn("const offsetX", display_script)
+        self.assertIn("const offsetY", display_script)
 
 
 class SecurityHeadersTests(SimpleTestCase):

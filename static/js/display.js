@@ -200,6 +200,12 @@
     dom.occasionThemeBadgeLabel = $("occasionThemeBadgeLabel");
     dom.occasionThemeSymbolOne = $("occasionThemeSymbolOne");
     dom.occasionThemeSymbolTwo = $("occasionThemeSymbolTwo");
+    dom.occasionHero = $("occasionHero");
+    dom.occasionHeroIcon = $("occasionHeroIcon");
+    dom.occasionHeroLabel = $("occasionHeroLabel");
+    dom.occasionHeroTitle = $("occasionHeroTitle");
+    dom.occasionHeroBody = $("occasionHeroBody");
+    dom.occasionHeroTagline = $("occasionHeroTagline");
 
     dom.badgeKind = $("badgeKind");
     dom.heroRange = $("heroRange");
@@ -398,6 +404,8 @@
       try {
         dom.fitRoot.style.transform = "scale(1)";
         dom.fitRoot.style.transformOrigin = "top left";
+        dom.fitRoot.style.left = "0px";
+        dom.fitRoot.style.top = "0px";
       } catch (e) {}
       return;
     }
@@ -502,10 +510,16 @@
     const maxScale = getFitMaxScale();
     scale = clamp(scale, 0.5, maxScale);
 
-    // ✅ FIX: Scale from top-left corner to fill screen completely (no centering)
-    // transform-origin: top left in CSS ensures content starts from corner
+    // Center the fixed 16:9 design canvas. In contain mode this distributes
+    // spare space evenly; in cover mode it crops both sides symmetrically.
+    const renderedWidth = designWidth * scale;
+    const renderedHeight = designHeight * scale;
+    const offsetX = (viewportWidth - renderedWidth) / 2;
+    const offsetY = (viewportHeight - renderedHeight) / 2;
     dom.fitRoot.style.transform = `scale(${scale.toFixed(4)})`;
     dom.fitRoot.style.transformOrigin = "top left";
+    dom.fitRoot.style.left = `${offsetX.toFixed(2)}px`;
+    dom.fitRoot.style.top = `${offsetY.toFixed(2)}px`;
 
     try {
       const body = document.body || document.documentElement;
@@ -2867,6 +2881,7 @@
     setTextIfChanged(dom.countdownLabel, copy.countdownLabel);
     setTextIfChanged(dom.countdownGlyph, copy.glyph);
     refreshAdaptiveLayout();
+    try { refreshOccasionPresentation(); } catch (e) {}
   }
 
   function makeBoardEmptyState(message) {
@@ -3747,14 +3762,48 @@
   let annList = [];
   const ANN_INT = 6500;
   const OCCASION_THEME_META = {
-    national_day: { label: "اليوم الوطني السعودي", icon: "🇸🇦", symbols: ["✦", "◆"] },
-    founding_day: { label: "يوم التأسيس", icon: "🏛️", symbols: ["◇", "✦"] },
-    teachers_day: { label: "يوم المعلم", icon: "📚", symbols: ["📖", "✎"] },
-    back_to_school: { label: "العودة للدراسة", icon: "🎒", symbols: ["✏️", "📐"] },
-    graduation: { label: "حفل التخرج", icon: "🎓", symbols: ["🎓", "✦"] },
-    weather: { label: "حالة جوية", icon: "🌧️", symbols: ["☁️", "💧"] },
+    national_day: { label: "اليوم الوطني السعودي", icon: "⚔", heroIcon: "⚔", symbols: ["⚔", "✦"], tagline: "هوية وطن • فخر وانتماء" },
+    founding_day: { label: "يوم التأسيس", icon: "◈", heroIcon: "١٧٢٧", symbols: ["◈", "١٧٢٧"], tagline: "جذور راسخة • إرث ممتد" },
+    teachers_day: { label: "يوم المعلم", icon: "📚", symbols: ["📖", "✎"], tagline: "شكر وعرفان • صُنّاع الأجيال" },
+    back_to_school: { label: "العودة للدراسة", icon: "🎒", symbols: ["✏️", "📐"], tagline: "بداية مشرقة • طموح جديد" },
+    graduation: { label: "حفل التخرج", icon: "🎓", symbols: ["🎓", "✦"], tagline: "حصاد الإنجاز • بداية المستقبل" },
+    weather: { label: "حالة جوية", icon: "🌧️", symbols: ["☁️", "💧"], tagline: "السلامة أولًا • متابعة التعليمات" },
   };
   let occasionThemeSignature = "";
+  let activeOccasionAnnouncement = null;
+
+  function refreshOccasionPresentation() {
+    const selected = activeOccasionAnnouncement;
+    const key = safeText(selected && selected.occasion_theme);
+    const meta = OCCASION_THEME_META[key];
+    const stateType = safeText(document.body && document.body.dataset.displayState).toLowerCase();
+    const ambientState =
+      stateType === "before" ||
+      stateType === "after" ||
+      stateType === "holiday" ||
+      stateType === "off";
+    const showHero = !!(selected && meta && ambientState);
+
+    if (!showHero) {
+      if (document.body) document.body.removeAttribute("data-occasion-ambient");
+      toggleHidden(dom.occasionHero, true);
+      return;
+    }
+
+    if (document.body) document.body.setAttribute("data-occasion-ambient", "1");
+    setTextIfChanged(dom.occasionHeroIcon, meta.heroIcon || meta.icon);
+    setTextIfChanged(
+      dom.occasionHeroLabel,
+      safeText(selected.occasion_theme_label || meta.label)
+    );
+    setTextIfChanged(dom.occasionHeroTitle, safeText(selected.title || meta.label));
+    setTextIfChanged(
+      dom.occasionHeroBody,
+      safeText(selected.body || selected.details || selected.text || "")
+    );
+    setTextIfChanged(dom.occasionHeroTagline, meta.tagline);
+    toggleHidden(dom.occasionHero, false);
+  }
 
   function annSignature(arr) {
     const a = Array.isArray(arr) ? arr : [];
@@ -3782,13 +3831,20 @@
     }
     const key = selected ? safeText(selected.occasion_theme || "") : "";
     const signature = key + "||" + safeText(selected && (selected.id || selected.pk || ""));
-    if (signature === occasionThemeSignature) return;
+    activeOccasionAnnouncement = selected;
+    if (signature === occasionThemeSignature) {
+      refreshOccasionPresentation();
+      return;
+    }
     occasionThemeSignature = signature;
 
     if (!key || !OCCASION_THEME_META[key]) {
+      activeOccasionAnnouncement = null;
       document.body.removeAttribute("data-occasion-theme");
+      document.body.removeAttribute("data-occasion-ambient");
       toggleHidden(dom.occasionThemeDecor, true);
       toggleHidden(dom.occasionThemeBadge, true);
+      toggleHidden(dom.occasionHero, true);
       return;
     }
 
@@ -3803,6 +3859,7 @@
     setTextIfChanged(dom.occasionThemeSymbolTwo, meta.symbols[1]);
     toggleHidden(dom.occasionThemeDecor, false);
     toggleHidden(dom.occasionThemeBadge, false);
+    refreshOccasionPresentation();
     forceThemeRepaint();
   }
 
@@ -3819,7 +3876,10 @@
 
   function renderAnnouncements(arr) {
     const sig = annSignature(arr);
-    if (sig && sig === last.annSig) return;
+    if (sig && sig === last.annSig) {
+      refreshOccasionPresentation();
+      return;
+    }
     last.annSig = sig;
 
     annList = Array.isArray(arr) ? arr.slice() : [];
