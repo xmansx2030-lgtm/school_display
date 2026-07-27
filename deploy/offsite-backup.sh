@@ -3,6 +3,12 @@ set -eu
 
 backup_dir=/data
 
+if [ -f /config/ssh_config ]; then
+  mkdir -p /root/.ssh
+  cp /config/ssh_config /root/.ssh/config
+  chmod 0600 /root/.ssh/config
+fi
+
 if [ -z "${RESTIC_REPOSITORY:-}" ] || [ "${RESTIC_REPOSITORY:-}" = "CHANGE_ME" ]; then
   echo "RESTIC_REPOSITORY is not configured; off-site backup was not started." >&2
   exit 2
