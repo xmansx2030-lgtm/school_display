@@ -4809,12 +4809,53 @@
 
   // ===== Main state render =====
 
+  function renderEmergencyAlerts(alerts) {
+    const overlay = document.getElementById("emergencyOverlay");
+    if (!overlay) return;
+    const screenId = parseInt(document.body.getAttribute("data-screen-id") || "0", 10);
+    const list = Array.isArray(alerts) ? alerts : [];
+    let selected = null;
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i] || {};
+      const targets = Array.isArray(item.screen_ids) ? item.screen_ids.map(Number) : [];
+      if (!targets.length || targets.indexOf(screenId) >= 0) {
+        selected = item;
+        break;
+      }
+    }
+    if (!selected) {
+      overlay.classList.add("u-hidden");
+      overlay.removeAttribute("data-kind");
+      return;
+    }
+    const symbols = {
+      evacuation: "🚪",
+      fire: "🔥",
+      weather: "🌧️",
+      suspension: "⛔",
+      urgent: "⚠️",
+    };
+    overlay.setAttribute("data-kind", safeText(selected.kind || "urgent"));
+    setTextIfChanged(document.getElementById("emergencySymbol"), symbols[selected.kind] || "⚠️");
+    setTextIfChanged(document.getElementById("emergencyTitle"), selected.title || "تنبيه طارئ");
+    setTextIfChanged(document.getElementById("emergencyMessage"), selected.message || "");
+    setTextIfChanged(document.getElementById("emergencyKind"), selected.kind_label || "رسالة عاجلة");
+    overlay.classList.remove("u-hidden");
+  }
+
+  function renderOfflineMode(isOfflineCached) {
+    const badge = document.getElementById("offlineModeBadge");
+    if (!badge) return;
+    badge.classList.toggle("u-hidden", !isOfflineCached);
+  }
 
 
   function renderState(payload) {
     if (!payload) return;
 
     lastPayloadForFiltering = payload;
+    renderEmergencyAlerts(payload.emergency_alerts || []);
+    renderOfflineMode(!!payload._offlineCached);
 
     // Legacy/back-compat: payload.now is only a fallback. Snapshot bodies are cached,
     // while X-Server-Time-MS is generated per response. Re-applying cached payload.now
@@ -5286,6 +5327,39 @@
     });
   }
 
+  function _offlineSnapshotKey() {
+    const token = getToken() || "display";
+    return "display:offline-snapshot:v2:" + token.slice(0, 20);
+  }
+
+  function persistOfflineSnapshot(payload) {
+    if (!payload || payload._offlineCached || payload._rateLimited || payload._notModified) return;
+    try {
+      localStorage.setItem(
+        _offlineSnapshotKey(),
+        JSON.stringify({savedAt: Date.now(), payload: payload})
+      );
+    } catch (e) {
+      try {
+        localStorage.removeItem(_offlineSnapshotKey());
+      } catch (_) {}
+    }
+  }
+
+  function loadOfflineSnapshot() {
+    try {
+      const raw = localStorage.getItem(_offlineSnapshotKey());
+      if (!raw) return null;
+      const stored = JSON.parse(raw);
+      if (!stored || !stored.payload) return null;
+      stored.payload._offlineCached = true;
+      stored.payload._offlineSavedAt = stored.savedAt || null;
+      return stored.payload;
+    } catch (e) {
+      return null;
+    }
+  }
+
   async function safeFetchSnapshot(opts) {
     opts = opts || {};
     if (isBlocked && !isTerminalBlockedMode()) return null;
@@ -5521,6 +5595,7 @@
         }));
         return null;
       }
+      persistOfflineSnapshot(payload);
       return payload;
     });
 
@@ -5537,7 +5612,12 @@
     })
       .catch((e) => {
         if (isTerminalBlockedMode()) return null;
-        renderAlert("تعذر جلب البيانات", "تأكد من token ومن مسار snapshot.");
+        const cachedPayload = loadOfflineSnapshot();
+        if (cachedPayload) {
+          if (isDebug()) setDebugText("offline snapshot | " + (e && e.message ? e.message : String(e)));
+          return cachedPayload;
+        }
+        renderAlert("تعذر جلب البيانات", "لا توجد نسخة محفوظة بعد. تحقق من اتصال الإنترنت.");
         ensureDebugOverlay();
         if (isDebug()) setDebugText("fetch error: " + (e && e.message ? e.message : String(e)));
         return null;

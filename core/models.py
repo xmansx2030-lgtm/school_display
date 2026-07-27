@@ -223,6 +223,65 @@ class DisplayScreen(models.Model):
         return f"{self.school.name} - {self.name}" if self.school else self.name
 
 
+class ScreenOutage(models.Model):
+    screen = models.ForeignKey(
+        DisplayScreen,
+        on_delete=models.CASCADE,
+        related_name="outages",
+        verbose_name="الشاشة",
+    )
+    detected_at = models.DateTimeField("وقت اكتشاف التعطل", default=timezone.now)
+    last_seen_at = models.DateTimeField("آخر ظهور قبل التعطل", null=True, blank=True)
+    alert_sent_at = models.DateTimeField("وقت إرسال التنبيه", null=True, blank=True)
+    resolved_at = models.DateTimeField("وقت عودة الاتصال", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "تعطل شاشة"
+        verbose_name_plural = "أعطال الشاشات"
+        ordering = ("-detected_at",)
+        indexes = [
+            models.Index(fields=("screen", "resolved_at"), name="screen_outage_open_idx"),
+            models.Index(fields=("detected_at",), name="screen_outage_detect_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.screen} — {self.detected_at:%Y-%m-%d %H:%M}"
+
+
+class ScreenWeeklyUptimeReport(models.Model):
+    screen = models.ForeignKey(
+        DisplayScreen,
+        on_delete=models.CASCADE,
+        related_name="weekly_uptime_reports",
+        verbose_name="الشاشة",
+    )
+    week_start = models.DateField("بداية الأسبوع")
+    week_end = models.DateField("نهاية الأسبوع")
+    uptime_percent = models.DecimalField(
+        "نسبة التشغيل",
+        max_digits=5,
+        decimal_places=2,
+        default=100,
+    )
+    offline_seconds = models.PositiveBigIntegerField("ثواني الانقطاع", default=0)
+    sent_at = models.DateTimeField("وقت إرسال التقرير", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "تقرير تشغيل أسبوعي"
+        verbose_name_plural = "تقارير التشغيل الأسبوعية"
+        ordering = ("-week_start", "screen__name")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("screen", "week_start"),
+                name="uq_screen_uptime_week",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.screen} — {self.week_start} — {self.uptime_percent}%"
+
+
 class SubscriptionPlan(models.Model):
     code = models.SlugField(
         "رمز الخطة",

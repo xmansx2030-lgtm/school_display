@@ -142,6 +142,24 @@ class SchoolSettings(models.Model):
         validators=[MinValueValidator(5)],
         help_text="عدد الثواني بين كل تحديث تلقائي للشاشة.",
     )
+    screen_offline_alerts_enabled = models.BooleanField(
+        "تنبيه عند تعطل شاشة",
+        default=True,
+    )
+    screen_offline_threshold_minutes = models.PositiveSmallIntegerField(
+        "مدة الانتظار قبل التنبيه (دقائق)",
+        default=10,
+        validators=[MinValueValidator(5), MaxValueValidator(60)],
+        help_text="يرسل النظام تنبيهًا إذا لم تتصل الشاشة خلال هذه المدة.",
+    )
+    screen_offline_email_enabled = models.BooleanField(
+        "إرسال تنبيه التعطل بالبريد",
+        default=True,
+    )
+    weekly_uptime_report_enabled = models.BooleanField(
+        "إرسال تقرير التشغيل الأسبوعي",
+        default=True,
+    )
     standby_scroll_speed = models.FloatField(
         "سرعة تمرير الانتظار",
         default=0.8,

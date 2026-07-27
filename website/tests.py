@@ -108,6 +108,11 @@ class TrialSignupTests(TestCase):
         self.assertContains(response, 'id="videoLaunch"')
         self.assertContains(response, "بلا بطاقة بنكية")
         self.assertContains(response, "كل المزايا مشمولة")
+        self.assertContains(response, "تنبيهات طوارئ تتصدر الشاشة فوراً")
+        self.assertContains(response, "استيراد الجدول من Excel")
+        self.assertContains(response, "آخر بيانات محفوظة")
+        self.assertContains(response, 'data-form-step="1"')
+        self.assertContains(response, 'data-form-step="2"')
         self.assertNotContains(response, "<iframe")
 
     def test_landing_pricing_uses_only_active_dashboard_plans(self):

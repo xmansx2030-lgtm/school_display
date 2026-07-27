@@ -51,6 +51,41 @@
       line-height: 1.5;
     }
 
+    #offlineModeBadge {
+      position: fixed;
+      left: 1rem;
+      bottom: 1rem;
+      z-index: 9997;
+      border: 1px solid rgba(251, 191, 36, .55);
+      border-radius: 999px;
+      background: rgba(120, 53, 15, .92);
+      color: #fef3c7;
+      padding: .55rem .9rem;
+      font-weight: 800;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+
+    #emergencyOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5vw;
+      text-align: center;
+      background: radial-gradient(circle at center, #dc2626 0%, #7f1d1d 58%, #220707 100%);
+      color: white;
+    }
+    #emergencyOverlay[data-kind="weather"] { background: radial-gradient(circle at center, #0369a1, #0c4a6e 60%, #082f49); }
+    #emergencyOverlay[data-kind="suspension"] { background: radial-gradient(circle at center, #6d28d9, #4c1d95 60%, #2e1065); }
+    #emergencyOverlay[data-kind="evacuation"] { background: radial-gradient(circle at center, #ea580c, #9a3412 60%, #431407); }
+    #emergencyOverlay.u-hidden, #offlineModeBadge.u-hidden { display: none !important; }
+    .emergency-symbol { font-size: clamp(5rem, 10vw, 12rem); line-height: 1; }
+    #emergencyTitle { margin-top: 2rem; font-size: clamp(3rem, 7vw, 8rem); font-weight: 900; line-height: 1.1; }
+    #emergencyMessage { margin-top: 1.5rem; max-width: 1500px; font-size: clamp(1.8rem, 3.5vw, 4.5rem); font-weight: 700; line-height: 1.5; white-space: pre-line; }
+    #emergencyKind { margin-top: 2rem; display: inline-block; border: 2px solid rgba(255,255,255,.45); border-radius: 999px; padding: .5rem 1.5rem; font-size: clamp(1.2rem, 2vw, 2.2rem); font-weight: 900; }
+
         /* Enhanced viewport sizing for TV displays */
         body.display-board {
             width: 100vw;
@@ -2197,6 +2232,7 @@
   data-api-token="{% if api_token %}{{ api_token }}{% endif %}"
   data-snapshot-url="{% if snapshot_url %}{{ snapshot_url }}{% endif %}"
   data-school-id="{% if school_id %}{{ school_id }}{% endif %}"
+  data-screen-id="{% if screen_id %}{{ screen_id }}{% endif %}"
   data-school-type="{% if school_type %}{{ school_type }}{% endif %}"
   data-media-prefix="{% if MEDIA_URL %}{{ MEDIA_URL }}{% else %}/media/{% endif %}"
   data-bell-sound-url="{% static 'sounds/bell.mp3' %}"
@@ -2533,6 +2569,16 @@
 
     </div>
 
+  <div id="offlineModeBadge" class="u-hidden" role="status">وضع عدم الاتصال — آخر بيانات محفوظة</div>
+  <div id="emergencyOverlay" class="u-hidden" role="alert" aria-live="assertive">
+    <div>
+      <div class="emergency-symbol" id="emergencySymbol">⚠️</div>
+      <h1 id="emergencyTitle">تنبيه طارئ</h1>
+      <p id="emergencyMessage"></p>
+      <span id="emergencyKind">رسالة عاجلة</span>
+    </div>
+  </div>
+
   <noscript>
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black text-white p-10 text-center text-xl">
       هذه الصفحة تحتاج JavaScript للعمل على شاشة العرض.
@@ -2541,5 +2587,12 @@
 
     <script defer src="{% static 'js/display-controls.js' %}?v=2026-07-23-b4"></script>
     <script defer src="{% static 'js/display.js' %}?v=2026-07-23-scroll-layout-b2"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("/sw.js", {scope: "/"}).catch(function () {});
+        });
+      }
+    </script>
 </body>
 </html>

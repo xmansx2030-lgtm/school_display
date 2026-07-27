@@ -271,6 +271,32 @@
                             {% if form.test_mode_weekday_override.errors %}<div class="mt-2 text-sm text-rose-600 font-bold bg-rose-50 px-3 py-1 rounded-lg inline-block">{% for error in form.test_mode_weekday_override.errors %}{{ error }}{% endfor %}</div>{% endif %}
                         </div>
                         {% endif %}
+
+                        <div class="dashboard-control-surface bg-blue-50/50 rounded-xl p-5 border border-blue-100 sm:col-span-2">
+                            <div class="mb-4">
+                                <h4 class="text-sm font-black text-slate-800">مراقبة اتصال الشاشات</h4>
+                                <p class="mt-1 text-xs text-slate-500">تنبيه تلقائي عند الانقطاع وتقرير أسبوعي لنسبة تشغيل كل شاشة.</p>
+                            </div>
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                                    {{ form.screen_offline_alerts_enabled }}
+                                    <span><strong class="block text-sm text-slate-800">{{ form.screen_offline_alerts_enabled.label }}</strong><small class="text-xs text-slate-500">يفتح سجل تعطل ويرسل التنبيه مرة واحدة حتى عودة الاتصال.</small></span>
+                                </label>
+                                <div>
+                                    <label for="{{ form.screen_offline_threshold_minutes.id_for_label }}" class="block mb-2 text-sm font-bold text-slate-700">{{ form.screen_offline_threshold_minutes.label }}</label>
+                                    {{ form.screen_offline_threshold_minutes }}
+                                    {% if form.screen_offline_threshold_minutes.errors %}<div class="settings-field-error">{{ form.screen_offline_threshold_minutes.errors }}</div>{% endif %}
+                                </div>
+                                <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                                    {{ form.screen_offline_email_enabled }}
+                                    <span><strong class="block text-sm text-slate-800">{{ form.screen_offline_email_enabled.label }}</strong><small class="text-xs text-slate-500">يرسل إلى عناوين البريد المسجلة لمدراء المدرسة.</small></span>
+                                </label>
+                                <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                                    {{ form.weekly_uptime_report_enabled }}
+                                    <span><strong class="block text-sm text-slate-800">{{ form.weekly_uptime_report_enabled.label }}</strong><small class="text-xs text-slate-500">نسبة التشغيل والانقطاع لكل شاشة خلال الأسبوع.</small></span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </section>
             </div>

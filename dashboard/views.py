@@ -69,6 +69,7 @@ from .forms import (
     DayScheduleForm,
     LessonForm,
     AnnouncementForm,
+    EmergencyAlertForm,
     ExcellenceForm,
     StandbyForm,
     DutyAssignmentForm,
@@ -96,6 +97,8 @@ from schedule.cache_utils import (
     invalidate_display_snapshot_cache_for_school_id,
 )
 from schedule.time_engine import build_day_snapshot
+from .excel_import import apply_import, build_template_bytes, parse_workbook
+from .occasion_templates import OCCASION_TEMPLATES
 
 if TYPE_CHECKING:
     pass
@@ -1025,6 +1028,10 @@ def school_settings(request):
             "standby_scroll_speed",
             "periods_scroll_speed",
             "test_mode_weekday_override",
+            "screen_offline_alerts_enabled",
+            "screen_offline_threshold_minutes",
+            "screen_offline_email_enabled",
+            "weekly_uptime_report_enabled",
         }
         if error_fields & copy_fields:
             initial_settings_tab = "copy"
@@ -1407,8 +1414,114 @@ def ann_create(request):
             return redirect("dashboard:ann_list")
         messages.error(request, "الرجاء تصحيح الأخطاء.")
     else:
-        form = AnnouncementForm()
+        initial = {}
+        template_key = (request.GET.get("template") or "").strip()
+        template = OCCASION_TEMPLATES.get(template_key)
+        if template:
+            initial = {
+                "title": template["title"],
+                "body": template["body"],
+                "level": template["level"],
+            }
+        form = AnnouncementForm(initial=initial)
     return render(request, "dashboard/ann_form.html", {"form": form, "title": "إنشاء تنبيه"})
+
+
+def _emergency_allowed_schools(request):
+    School = SchoolModel()
+    if getattr(request.user, "is_superuser", False):
+        return School.objects.filter(is_active=True)
+    profile = _get_or_create_profile(request.user)
+    return profile.schools.filter(is_active=True)
+
+
+@manager_required
+def emergency_alert_list(request):
+    from notices.models import EmergencyAlert
+
+    allowed_schools = _emergency_allowed_schools(request)
+    alerts = (
+        EmergencyAlert.objects.filter(schools__in=allowed_schools)
+        .select_related("created_by", "cancelled_by")
+        .prefetch_related("schools", "screens")
+        .distinct()
+        .order_by("-created_at")
+    )
+    return render(
+        request,
+        "dashboard/emergency_alert_list.html",
+        {
+            "alerts": alerts[:100],
+            "active_count": alerts.filter(is_active=True, cancelled_at__isnull=True).count(),
+        },
+    )
+
+
+@manager_required
+def emergency_alert_create(request):
+    allowed_schools = _emergency_allowed_schools(request)
+    initial = {}
+    active_school = getattr(getattr(request.user, "profile", None), "active_school", None)
+    if active_school and allowed_schools.filter(pk=active_school.pk).exists():
+        initial["schools"] = [active_school.pk]
+    if request.method == "POST":
+        form = EmergencyAlertForm(request.POST, allowed_schools=allowed_schools)
+        if form.is_valid():
+            alert = form.save(commit=False)
+            alert.created_by = request.user
+            alert.save()
+            form.save_m2m()
+            for school in alert.schools.all():
+                _invalidate_display_cache(school, force_bump=True)
+            messages.success(request, "تم إرسال التنبيه الطارئ وتسجيل المرسل.")
+            return redirect("dashboard:emergency_alert_list")
+        messages.error(request, "تعذر إرسال التنبيه. راجع الحقول الموضحة.")
+    else:
+        form = EmergencyAlertForm(initial=initial, allowed_schools=allowed_schools)
+    return render(
+        request,
+        "dashboard/emergency_alert_form.html",
+        {
+            "form": form,
+            "emergency_templates": {
+                "evacuation": {"title": "إخلاء فوري", "message": "يرجى إخلاء المبنى بهدوء والتوجه إلى نقاط التجمع المعتمدة."},
+                "fire": {"title": "تنبيه حريق", "message": "يرجى تنفيذ خطة الإخلاء فورًا وعدم استخدام المصاعد."},
+                "weather": {"title": "تنبيه حالة جوية", "message": "يرجى البقاء في الأماكن الآمنة واتباع تعليمات إدارة المدرسة."},
+                "suspension": {"title": "تعليق الدراسة", "message": "تم تعليق الدراسة. يرجى متابعة القنوات الرسمية للمدرسة."},
+                "urgent": {"title": "رسالة عاجلة", "message": "تنبيه عاجل من إدارة المدرسة."},
+            },
+        },
+    )
+
+
+@manager_required
+@require_POST
+def emergency_alert_cancel(request, pk: int):
+    from notices.models import EmergencyAlert
+
+    allowed_schools = _emergency_allowed_schools(request)
+    alert = get_object_or_404(
+        EmergencyAlert.objects.filter(schools__in=allowed_schools).distinct(),
+        pk=pk,
+    )
+    if alert.cancelled_at is None:
+        alert.is_active = False
+        alert.cancelled_by = request.user
+        alert.cancelled_at = timezone.now()
+        alert.save(update_fields=("is_active", "cancelled_by", "cancelled_at"))
+        for school in alert.schools.all():
+            _invalidate_display_cache(school, force_bump=True)
+        messages.success(request, "تم إلغاء التنبيه وتسجيل وقت الإلغاء.")
+    return redirect("dashboard:emergency_alert_list")
+
+
+@manager_required
+def occasion_templates(request):
+    return render(
+        request,
+        "dashboard/occasion_templates.html",
+        {"occasion_templates": OCCASION_TEMPLATES},
+    )
 
 
 @manager_required
@@ -2014,6 +2127,69 @@ def school_data(request):
 
 
 @manager_required
+def school_data_import_template(request):
+    response = HttpResponse(
+        build_template_bytes(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = 'attachment; filename="school-data-template.xlsx"'
+    return response
+
+
+@manager_required
+def school_data_import(request):
+    school, response = get_active_school_or_redirect(request)
+    if response:
+        return response
+    parsed = None
+    import_token = ""
+    if request.method == "POST" and request.POST.get("action") == "preview":
+        uploaded = request.FILES.get("excel_file")
+        if not uploaded:
+            messages.error(request, "اختر ملف Excel أولًا.")
+        elif getattr(uploaded, "size", 0) > 5 * 1024 * 1024:
+            messages.error(request, "حجم الملف يتجاوز 5 م.ب.")
+        else:
+            parsed = parse_workbook(uploaded)
+            import_token = get_random_string(40)
+            cache.set(
+                f"school-data-import:{request.user.pk}:{school.pk}:{import_token}",
+                parsed,
+                timeout=30 * 60,
+            )
+            if parsed["errors"]:
+                messages.warning(request, "اكتملت المعاينة مع أخطاء. صحح الملف ثم ارفعه مجددًا.")
+            else:
+                messages.success(request, "المعاينة سليمة. يمكنك تنفيذ الاستيراد الآن.")
+    elif request.method == "POST" and request.POST.get("action") == "import":
+        import_token = (request.POST.get("import_token") or "").strip()
+        key = f"school-data-import:{request.user.pk}:{school.pk}:{import_token}"
+        parsed = cache.get(key)
+        if not parsed:
+            messages.error(request, "انتهت صلاحية المعاينة. ارفع الملف مرة أخرى.")
+        elif parsed.get("errors"):
+            messages.error(request, "لا يمكن استيراد ملف يحتوي أخطاء.")
+        else:
+            result = apply_import(school=school, parsed=parsed)
+            cache.delete(key)
+            _invalidate_display_cache(school, force_bump=True)
+            messages.success(
+                request,
+                (
+                    f"تم الاستيراد: {result['lessons']} حصة، "
+                    f"{result['classes']} فصل، {result['subjects']} مادة، "
+                    f"{result['teachers']} معلم/ـة."
+                ),
+            )
+            return redirect("dashboard:school_data")
+    return render(
+        request,
+        "dashboard/school_data_import.html",
+        {"parsed": parsed, "import_token": import_token},
+    )
+
+
+@manager_required
 @require_POST
 def add_class(request):
     SchoolSettings = SchoolSettingsModel()
@@ -2587,6 +2763,48 @@ def system_admin_dashboard(request):
         active_school_ids = set(active_qs.values_list("school_id", flat=True))
     schools_without_subscription_count = max(school_count - len(active_school_ids), 0)
 
+    free_trials_count = 0
+    trial_conversion_rate = 0
+    converted_trials_count = 0
+    average_screens_per_school = round(total_screens_count / school_count, 2) if school_count else 0
+    incomplete_payments_count = 0
+    cancellation_reasons = []
+    most_requested_plan = None
+    if SubModel is not None:
+        try:
+            trial_qs = SubModel.objects.filter(plan__price=0)
+            free_trials_count = trial_qs.count()
+            trial_school_ids = set(trial_qs.values_list("school_id", flat=True))
+            paid_school_ids = set(
+                SubModel.objects.filter(plan__price__gt=0)
+                .values_list("school_id", flat=True)
+            )
+            converted_trials_count = len(trial_school_ids & paid_school_ids)
+            trial_conversion_rate = (
+                round(converted_trials_count * 100 / len(trial_school_ids), 1)
+                if trial_school_ids
+                else 0
+            )
+            incomplete_payments_count += SubModel.objects.filter(status="pending").count()
+            if _model_has_field(SubModel, "closure_reason"):
+                reason_labels = dict(getattr(SubModel, "CLOSURE_REASON_CHOICES", ()))
+                reason_rows = (
+                    SubModel.objects.filter(status__in=("cancelled", "expired"))
+                    .values("closure_reason")
+                    .annotate(total=Count("id"))
+                    .order_by("-total")
+                )
+                cancellation_reasons = [
+                    {
+                        "key": row["closure_reason"] or "unknown",
+                        "label": reason_labels.get(row["closure_reason"], "لم يُسجل السبب"),
+                        "total": row["total"],
+                    }
+                    for row in reason_rows
+                ]
+        except Exception:
+            logger.exception("Failed to calculate subscription funnel metrics")
+
     Req = _get_subscription_request_model()
     open_requests = 0
     recent_requests = []
@@ -2601,6 +2819,26 @@ def system_admin_dashboard(request):
         except Exception:
             open_requests = 0
             recent_requests = []
+        try:
+            most_requested_plan = (
+                Req.objects.filter(plan__isnull=False)
+                .values("plan__name")
+                .annotate(total=Count("id"))
+                .order_by("-total", "plan__name")
+                .first()
+            )
+            incomplete_payments_count += Req.objects.filter(
+                status__in=["submitted", "under_review"]
+            ).count()
+        except Exception:
+            pass
+
+    try:
+        from subscriptions.models import SubscriptionScreenAddon
+
+        incomplete_payments_count += SubscriptionScreenAddon.objects.filter(status="pending").count()
+    except Exception:
+        pass
 
     recent_schools = list(
         School.objects.annotate(
@@ -2670,6 +2908,13 @@ def system_admin_dashboard(request):
             "open_subscription_requests": open_requests,
             "recent_requests": recent_requests,
             "recent_schools": recent_schools,
+            "free_trials_count": free_trials_count,
+            "converted_trials_count": converted_trials_count,
+            "trial_conversion_rate": trial_conversion_rate,
+            "most_requested_plan": most_requested_plan,
+            "average_screens_per_school": average_screens_per_school,
+            "incomplete_payments_count": incomplete_payments_count,
+            "cancellation_reasons": cancellation_reasons,
             "global_query": global_query,
             "search_results": search_results,
         },

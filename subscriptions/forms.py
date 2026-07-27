@@ -7,10 +7,20 @@ from core.models import School, SubscriptionPlan
 class SchoolSubscriptionForm(forms.ModelForm):
     class Meta:
         model = SchoolSubscription
-        fields = ["school", "plan", "starts_at", "ends_at", "status", "notes"]
+        fields = [
+            "school",
+            "plan",
+            "starts_at",
+            "ends_at",
+            "status",
+            "closure_reason",
+            "closure_notes",
+            "notes",
+        ]
         widgets = {
             "starts_at": forms.DateInput(attrs={"type": "date", "class": "form-input"}),
             "ends_at": forms.DateInput(attrs={"type": "date", "class": "form-input"}),
+            "closure_notes": forms.Textarea(attrs={"rows": 3, "class": "form-textarea"}),
             "notes": forms.Textarea(attrs={"rows": 3, "class": "form-textarea"}),
         }
 
@@ -38,6 +48,11 @@ class SchoolSubscriptionForm(forms.ModelForm):
         if starts_at and ends_at and ends_at < starts_at:
             raise forms.ValidationError(
                 "تاريخ نهاية الاشتراك يجب أن يكون بعد تاريخ البداية."
+            )
+        if cleaned.get("status") in {"cancelled", "expired"} and not cleaned.get("closure_reason"):
+            self.add_error(
+                "closure_reason",
+                "الرجاء تحديد سبب الإلغاء أو عدم التجديد لإكمال الإجراء.",
             )
 
         return cleaned

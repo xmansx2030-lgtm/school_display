@@ -52,6 +52,10 @@ urlpatterns = [
     path("announcements/new/", views.ann_create, name="ann_create"),
     path("announcements/<int:pk>/edit/", views.ann_edit, name="ann_edit"),
     path("announcements/<int:pk>/delete/", views.ann_delete, name="ann_delete"),
+    path("emergency-alerts/", views.emergency_alert_list, name="emergency_alert_list"),
+    path("emergency-alerts/new/", views.emergency_alert_create, name="emergency_alert_create"),
+    path("emergency-alerts/<int:pk>/cancel/", views.emergency_alert_cancel, name="emergency_alert_cancel"),
+    path("occasion-templates/", views.occasion_templates, name="occasion_templates"),
 
     # ==================
     # Excellence
@@ -103,6 +107,8 @@ urlpatterns = [
     # School Data (Classes / Subjects / Teachers)
     # ==================
     path("school-data/", views.school_data, name="school_data"),
+    path("school-data/import/", views.school_data_import, name="school_data_import"),
+    path("school-data/import/template/", views.school_data_import_template, name="school_data_import_template"),
 
     path("school-data/classes/add/", views.add_class, name="add_class"),
     path("school-data/classes/<int:pk>/delete/", views.delete_class, name="delete_class"),

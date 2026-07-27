@@ -1,0 +1,50 @@
+{% extends "dashboard/_base.html" %}
+
+{% block title %}استيراد بيانات المدرسة{% endblock %}
+{% block page_title %}استيراد بيانات المدرسة من Excel{% endblock %}
+{% block page_description %}قالب جاهز، معاينة الأخطاء، ثم استيراد ذري وآمن{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto pb-12 space-y-5">
+  <section class="grid md:grid-cols-3 gap-4">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5"><strong class="text-blue-700">1. نزّل القالب</strong><p class="mt-2 text-sm text-slate-500">يحوي أوراق المعلمين والفصول والمواد والجدول.</p></div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5"><strong class="text-blue-700">2. ارفع وعاين</strong><p class="mt-2 text-sm text-slate-500">لن تُحفظ أي بيانات أثناء المعاينة.</p></div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5"><strong class="text-blue-700">3. نفّذ</strong><p class="mt-2 text-sm text-slate-500">يتم الاستيراد كاملًا أو التراجع كاملًا عند الخطأ.</p></div>
+  </section>
+  <section class="rounded-2xl border border-slate-200 bg-white p-5">
+    <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+      <a href="{% url 'dashboard:school_data_import_template' %}" class="rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 text-center text-sm font-black text-blue-700">تنزيل قالب Excel</a>
+      <form method="post" enctype="multipart/form-data" class="flex flex-col sm:flex-row gap-3">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="preview">
+        <input type="file" name="excel_file" accept=".xlsx" required class="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+        <button class="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white">معاينة الملف</button>
+      </form>
+    </div>
+  </section>
+  {% if parsed %}
+    <section class="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+      <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between border-b border-slate-100 p-5">
+        <div><h2 class="font-black text-slate-900">نتيجة المعاينة</h2><p class="text-sm text-slate-500">{{ parsed.rows|length }} صف، {{ parsed.errors|length }} خطأ</p></div>
+        {% if not parsed.errors %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="import">
+            <input type="hidden" name="import_token" value="{{ import_token }}">
+            <button class="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black text-white" onclick="return confirm('تنفيذ استيراد البيانات الآن؟')">تنفيذ الاستيراد</button>
+          </form>
+        {% endif %}
+      </div>
+      {% if parsed.errors %}
+        <div class="border-b border-red-100 bg-red-50 p-5"><ul class="list-disc pr-5 text-sm text-red-700 space-y-1">{% for error in parsed.errors %}<li>{{ error }}</li>{% endfor %}</ul></div>
+      {% endif %}
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[850px] text-sm">
+          <thead class="bg-slate-50 text-slate-600"><tr><th class="p-3 text-right">الصف</th><th class="p-3 text-right">اليوم</th><th class="p-3 text-right">الحصة</th><th class="p-3 text-right">الوقت</th><th class="p-3 text-right">الفصل</th><th class="p-3 text-right">المادة</th><th class="p-3 text-right">المعلم</th><th class="p-3 text-right">الحالة</th></tr></thead>
+          <tbody>{% for row in parsed.rows %}<tr class="border-t border-slate-100"><td class="p-3">{{ row.row }}</td><td class="p-3">{{ row.day_label }}</td><td class="p-3">{{ row.period_index }}</td><td class="p-3" dir="ltr">{{ row.starts_at }}–{{ row.ends_at }}</td><td class="p-3">{{ row.class_name }}</td><td class="p-3">{{ row.subject_name }}</td><td class="p-3">{{ row.teacher_name }}</td><td class="p-3">{% if row.errors %}<span class="text-red-600">خطأ</span>{% else %}<span class="text-emerald-600">سليم</span>{% endif %}</td></tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+</div>
+{% endblock %}

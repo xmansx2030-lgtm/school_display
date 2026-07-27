@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
     <title>لوحة العرض الذكية للمدارس | منصة تشغيل الشاشة المدرسية باحتراف</title>
-    <meta name="description" content="حوّل أي شاشة في مدرستك إلى لوحة عرض ذكية للجدول الحي، حصص الانتظار، الإعلانات، التكريم والمناوبات. جرّب المنصة كاملة مجاناً لمدة {{ landing_trial.duration_days }} يوماً.">
+    <meta name="description" content="حوّل تلفاز المدرسة إلى شاشة ذكية للجدول الحي، الانتظار، المناوبات، الإعلانات، التكريم وتنبيهات الطوارئ، مع مراقبة التشغيل واستمرار العرض عند انقطاع الاتصال. جرّب المنصة كاملة مجاناً لمدة {{ landing_trial.duration_days }} يوماً.">
     <meta name="robots" content="index,follow,max-image-preview:large">
     <link rel="canonical" href="https://school-display.com/">
 
@@ -14,12 +14,12 @@
     <meta property="og:locale" content="ar_SA">
     <meta property="og:site_name" content="لوحة العرض الذكية">
     <meta property="og:title" content="لوحة العرض الذكية للمدارس">
-    <meta property="og:description" content="جدول حي، انتظار، إعلانات، تكريم ومناوبات في شاشة مدرسية واحدة تتحدث تلقائياً.">
+    <meta property="og:description" content="شاشة مدرسية ذكية تتحدث تلقائياً، تستمر عند انقطاع الاتصال، وتمنح الإدارة مراقبة أوضح لكل شاشة.">
     <meta property="og:url" content="https://school-display.com/">
     <meta property="og:image" content="https://school-display.com/favicon.png?v=20260723-logo1">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="لوحة العرض الذكية للمدارس">
-    <meta name="twitter:description" content="شغّل شاشة مدرستك باحتراف وابدأ تجربة كاملة لمدة {{ landing_trial.duration_days }} يوماً.">
+    <meta name="twitter:description" content="الجدول والتنبيهات والمحتوى ومراقبة التشغيل في منصة شاشة مدرسية واحدة.">
 
     <meta name="theme-color" content="#07111f">
 
@@ -39,7 +39,7 @@
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web",
       "url": "https://school-display.com/",
-      "description": "منصة لإدارة شاشة المدرسة والجدول الحي وحصص الانتظار والإعلانات والتكريم والمناوبات.",
+      "description": "منصة لإدارة شاشة المدرسة والجدول الحي وحصص الانتظار والإعلانات والتكريم والمناوبات وتنبيهات الطوارئ ومراقبة التشغيل.",
       "offers": {
         "@type": "Offer",
         "price": "{{ landing_trial.price|floatformat:'-2' }}",
@@ -2503,6 +2503,565 @@
             .marquee-strip { display: none; }
         }
 
+        /* 2026 landing experience */
+        .section-soft {
+            position: relative;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at 10% 15%, rgba(24, 160, 125, .1), transparent 26%),
+                linear-gradient(180deg, #f8fbfa 0%, #ffffff 100%);
+        }
+
+        .section-soft::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background-image: radial-gradient(rgba(13, 139, 106, .13) 1px, transparent 1px);
+            background-size: 24px 24px;
+            mask-image: linear-gradient(90deg, #000, transparent 48%);
+            opacity: .55;
+        }
+
+        .latest-tag,
+        .feature-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            width: fit-content;
+            border: 1px solid rgba(24, 160, 125, .2);
+            border-radius: 999px;
+            padding: 6px 10px;
+            color: #087456;
+            background: rgba(236, 253, 245, .92);
+            font-size: .7rem;
+            font-weight: 900;
+        }
+
+        .latest-tag::before,
+        .feature-tag::before {
+            content: "";
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 0 5px rgba(16, 185, 129, .12);
+        }
+
+        .problem-solution {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .problem-card {
+            position: relative;
+            overflow: hidden;
+            min-height: 270px;
+            padding: 30px;
+            border: 1px solid rgba(15, 23, 42, .08);
+            border-radius: 28px;
+            background: rgba(255, 255, 255, .88);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .problem-card.solution {
+            border-color: rgba(24, 160, 125, .22);
+            color: #fff;
+            background:
+                radial-gradient(circle at 0 0, rgba(24, 160, 125, .36), transparent 34%),
+                linear-gradient(145deg, #0d2941, #07111f);
+            box-shadow: 0 30px 70px rgba(7, 17, 31, .18);
+        }
+
+        .problem-card > i {
+            display: grid;
+            place-items: center;
+            width: 50px;
+            height: 50px;
+            margin-bottom: 20px;
+            border-radius: 16px;
+            color: #64748b;
+            background: #f1f5f9;
+            font-size: 1.25rem;
+        }
+
+        .problem-card.solution > i {
+            color: #d1fae5;
+            background: rgba(16, 185, 129, .16);
+        }
+
+        .problem-card h3 {
+            margin-bottom: 10px;
+            font-family: 'Changa', sans-serif;
+            font-size: 1.35rem;
+        }
+
+        .problem-card p {
+            color: var(--text-soft);
+            line-height: 1.9;
+        }
+
+        .problem-card.solution p { color: rgba(255, 255, 255, .72); }
+
+        .problem-list {
+            display: grid;
+            gap: 10px;
+            margin-top: 20px;
+            list-style: none;
+        }
+
+        .problem-list li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: .86rem;
+            font-weight: 800;
+        }
+
+        .problem-list i { color: #94a3b8; }
+        .solution .problem-list i { color: #34d399; }
+
+        .outcome-strip {
+            position: relative;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 18px;
+            padding: 10px;
+            border: 1px solid rgba(15, 23, 42, .08);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, .8);
+            box-shadow: var(--shadow-sm);
+            backdrop-filter: blur(14px);
+        }
+
+        .outcome-item {
+            padding: 18px;
+            border-radius: 18px;
+            background: #fff;
+        }
+
+        .outcome-item i {
+            margin-bottom: 12px;
+            color: var(--mint-500);
+            font-size: 1.05rem;
+        }
+
+        .outcome-item strong {
+            display: block;
+            margin-bottom: 5px;
+            font-family: 'Changa', sans-serif;
+            font-size: .95rem;
+        }
+
+        .outcome-item span {
+            display: block;
+            color: var(--text-soft);
+            font-size: .78rem;
+            line-height: 1.65;
+        }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .feature-card {
+            position: relative;
+            grid-column: span 4;
+            min-height: 275px;
+            overflow: hidden;
+            padding: 26px;
+            border: 1px solid rgba(15, 23, 42, .08);
+            border-radius: 26px;
+            background: #fff;
+            box-shadow: var(--shadow-sm);
+            isolation: isolate;
+        }
+
+        .feature-card.wide { grid-column: span 6; min-height: 330px; }
+
+        .feature-card::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            left: -60px;
+            bottom: -80px;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: rgba(24, 160, 125, .08);
+            filter: blur(2px);
+        }
+
+        .feature-card.dark {
+            color: #fff;
+            border-color: rgba(255, 255, 255, .08);
+            background:
+                radial-gradient(circle at 0 100%, rgba(24, 160, 125, .3), transparent 34%),
+                linear-gradient(145deg, #12304f, #07111f);
+            box-shadow: var(--shadow-md);
+        }
+
+        .feature-icon {
+            display: grid;
+            place-items: center;
+            width: 48px;
+            height: 48px;
+            margin-bottom: 18px;
+            border-radius: 15px;
+            color: var(--mint-500);
+            background: rgba(24, 160, 125, .1);
+            font-size: 1.15rem;
+        }
+
+        .feature-card.dark .feature-icon {
+            color: #6ee7b7;
+            background: rgba(16, 185, 129, .15);
+        }
+
+        .feature-card h3 {
+            margin: 10px 0 8px;
+            font-family: 'Changa', sans-serif;
+            font-size: 1.22rem;
+        }
+
+        .feature-card > p {
+            color: var(--text-soft);
+            font-size: .9rem;
+            line-height: 1.85;
+        }
+
+        .feature-card.dark > p { color: rgba(255, 255, 255, .68); }
+
+        .feature-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            margin-top: 18px;
+        }
+
+        .feature-pills span {
+            border: 1px solid rgba(15, 23, 42, .08);
+            border-radius: 999px;
+            padding: 7px 10px;
+            color: #475569;
+            background: #f8fafc;
+            font-size: .7rem;
+            font-weight: 800;
+        }
+
+        .dark .feature-pills span {
+            color: rgba(255, 255, 255, .8);
+            border-color: rgba(255, 255, 255, .1);
+            background: rgba(255, 255, 255, .06);
+        }
+
+        .emergency-preview {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 12px;
+            margin-top: 22px;
+            padding: 15px;
+            border: 1px solid rgba(254, 202, 202, .18);
+            border-radius: 18px;
+            background: linear-gradient(135deg, rgba(220, 38, 38, .95), rgba(127, 29, 29, .95));
+            box-shadow: 0 18px 40px rgba(127, 29, 29, .25);
+        }
+
+        .emergency-preview > i {
+            display: grid;
+            place-items: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .12);
+        }
+
+        .emergency-preview strong { display: block; font-size: .88rem; }
+        .emergency-preview small { color: rgba(255, 255, 255, .68); font-size: .7rem; }
+        .emergency-preview > span { border-radius: 999px; padding: 6px 9px; background: #fff; color: #991b1b; font-size: .66rem; font-weight: 900; }
+
+        .status-console {
+            margin-top: 22px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, .1);
+            border-radius: 18px;
+            background: rgba(2, 6, 23, .34);
+        }
+
+        .status-console-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 11px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, .08);
+            color: rgba(255, 255, 255, .55);
+            font-size: .68rem;
+            font-weight: 800;
+        }
+
+        .status-console-head span:last-child { color: #6ee7b7; }
+
+        .status-row {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 10px;
+            padding: 13px 14px;
+            color: rgba(255, 255, 255, .88);
+            font-size: .75rem;
+            font-weight: 800;
+        }
+
+        .status-row + .status-row { border-top: 1px solid rgba(255, 255, 255, .06); }
+
+        .status-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #34d399;
+            box-shadow: 0 0 0 5px rgba(52, 211, 153, .1);
+        }
+
+        .status-row small { color: rgba(255, 255, 255, .5); }
+
+        .assurance-shell {
+            display: grid;
+            grid-template-columns: minmax(0, .88fr) minmax(460px, 1.12fr);
+            align-items: center;
+            gap: 42px;
+            overflow: hidden;
+            padding: 40px;
+            border-radius: 34px;
+            color: #fff;
+            background:
+                radial-gradient(circle at 12% 10%, rgba(24, 160, 125, .34), transparent 32%),
+                linear-gradient(135deg, #102d49, #07111f 72%);
+            box-shadow: 0 35px 90px rgba(7, 17, 31, .22);
+        }
+
+        .assurance-copy h2 {
+            margin: 16px 0 12px;
+            font-size: clamp(1.85rem, 3vw, 2.9rem);
+        }
+
+        .assurance-copy > p { color: rgba(255, 255, 255, .7); line-height: 1.9; }
+
+        .assurance-list {
+            display: grid;
+            gap: 12px;
+            margin-top: 22px;
+            list-style: none;
+        }
+
+        .assurance-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 11px;
+            color: rgba(255, 255, 255, .84);
+            font-size: .86rem;
+            line-height: 1.75;
+        }
+
+        .assurance-list i { margin-top: 5px; color: #6ee7b7; }
+
+        .assurance-dashboard {
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, .12);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, .07);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, .2);
+            backdrop-filter: blur(16px);
+        }
+
+        .assurance-dashboard-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, .08);
+            font-size: .76rem;
+            font-weight: 900;
+        }
+
+        .assurance-dashboard-head span:last-child {
+            border-radius: 999px;
+            padding: 6px 9px;
+            color: #a7f3d0;
+            background: rgba(16, 185, 129, .12);
+        }
+
+        .assurance-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            padding: 14px;
+        }
+
+        .assurance-stat {
+            padding: 17px;
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 17px;
+            background: rgba(2, 6, 23, .22);
+        }
+
+        .assurance-stat i { margin-bottom: 13px; color: #6ee7b7; }
+        .assurance-stat strong { display: block; margin-bottom: 5px; font-size: .86rem; }
+        .assurance-stat small { display: block; color: rgba(255, 255, 255, .5); font-size: .68rem; line-height: 1.6; }
+
+        details.faq-item {
+            display: block;
+            gap: 0;
+            padding: 0;
+            transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+        }
+
+        details.faq-item[open] {
+            border-color: rgba(24, 160, 125, .28);
+            background: #fff;
+            box-shadow: var(--shadow-sm);
+        }
+
+        details.faq-item summary {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-height: 84px;
+            padding: 20px 62px 20px 22px;
+            cursor: pointer;
+            list-style: none;
+            font-family: 'Changa', sans-serif;
+            font-size: .98rem;
+            font-weight: 800;
+        }
+
+        details.faq-item summary::-webkit-details-marker { display: none; }
+
+        details.faq-item summary::before {
+            content: "+";
+            position: absolute;
+            right: 22px;
+            top: 50%;
+            display: grid;
+            place-items: center;
+            width: 28px;
+            height: 28px;
+            translate: 0 -50%;
+            border-radius: 9px;
+            color: var(--mint-500);
+            background: rgba(24, 160, 125, .1);
+            font-family: Tajawal, sans-serif;
+            font-size: 1.2rem;
+        }
+
+        details.faq-item[open] summary::before { content: "−"; }
+
+        details.faq-item summary i {
+            display: grid;
+            place-items: center;
+            width: 38px;
+            height: 38px;
+            flex: 0 0 auto;
+            border-radius: 12px;
+            color: var(--mint-500);
+            background: rgba(24, 160, 125, .08);
+        }
+
+        details.faq-item > p {
+            margin: 0;
+            padding: 0 62px 22px 22px;
+            color: var(--text-soft);
+            line-height: 1.85;
+        }
+
+        .form-stepper {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+
+        .form-step-indicator {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 10px 12px;
+            border-radius: 13px;
+            color: #94a3b8;
+            background: #f8fafc;
+            font-size: .72rem;
+            font-weight: 900;
+        }
+
+        .form-step-indicator span {
+            display: grid;
+            place-items: center;
+            width: 23px;
+            height: 23px;
+            border-radius: 8px;
+            color: #64748b;
+            background: #e2e8f0;
+        }
+
+        .form-step-indicator.active {
+            color: #087456;
+            background: #ecfdf5;
+        }
+
+        .form-step-indicator.active span {
+            color: #fff;
+            background: var(--mint-500);
+        }
+
+        .form-step[hidden] { display: none !important; }
+
+        .form-navigation {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .form-navigation .btn-outline { min-width: 110px; }
+        .trial-complete .form-stepper,
+        .trial-complete .form-step { display: none !important; }
+        #journey .journey-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+        @media (max-width: 1000px) {
+            .bento-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .feature-card,
+            .feature-card.wide { grid-column: auto; }
+            .assurance-shell { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 800px) {
+            .problem-solution { grid-template-columns: 1fr; }
+            .outcome-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            #journey .journey-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 620px) {
+            .bento-grid { grid-template-columns: 1fr; }
+            .feature-card,
+            .feature-card.wide { min-height: auto; padding: 22px; }
+            .problem-card { min-height: auto; padding: 24px; }
+            .outcome-strip { grid-template-columns: 1fr; }
+            .assurance-shell { padding: 24px 20px; border-radius: 26px; }
+            .assurance-stats { grid-template-columns: 1fr; }
+            details.faq-item summary { min-height: 74px; padding: 17px 52px 17px 14px; font-size: .9rem; }
+            details.faq-item summary::before { right: 14px; }
+            details.faq-item summary i { width: 34px; height: 34px; }
+            details.faq-item > p { padding: 0 52px 18px 14px; font-size: .86rem; }
+            .form-navigation { grid-template-columns: 1fr; }
+            .form-navigation .btn-outline { order: 2; width: 100%; }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             html {
                 scroll-behavior: auto;
@@ -2569,17 +3128,17 @@
                     <div class="hero-grid">
                         <div class="hero-copy">
                             <div class="eyebrow">
-                                <i class="fa-solid fa-crown"></i>
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
                                 تجربة كاملة {{ landing_trial.duration_days }} يوماً — بلا بطاقة بنكية
                             </div>
 
                             <h1>
-                                كل ما يحدث في المدرسة،
-                                <span>يظهر في وقته وبصورة تليق بها</span>
+                                حوّل تلفاز المدرسة إلى شاشة ذكية
+                                <span>تُحدّث يومها تلقائياً</span>
                             </h1>
 
                             <p>
-                                حوّل أي تلفاز إلى شاشة مدرسية ذكية تعرض الجدول الحي، الانتظار، المناوبات، الإعلانات والتكريم تلقائياً — وتديرها من لوحة واحدة.
+                                اعرض الحصة الحالية والانتظار والمناوبات والإعلانات والتكريم وتنبيهات الطوارئ فوراً، وأدر كل شاشات المدرسة من لوحة واحدة.
                             </p>
 
                             <div class="hero-actions">
@@ -2595,21 +3154,21 @@
                             <div class="hero-assurance">
                                 <span><i class="fa-solid fa-circle-check"></i> كل المزايا مشمولة</span>
                                 <span><i class="fa-solid fa-circle-check"></i> تعمل على التلفاز الحالي</span>
-                                <span><i class="fa-solid fa-circle-check"></i> تهيئة ودعم مباشر</span>
+                                <span><i class="fa-solid fa-circle-check"></i> حساب جاهز فوراً</span>
                             </div>
 
                             <div class="hero-meta">
                                 <div class="hero-meta-item">
-                                    <i class="fa-regular fa-calendar-check"></i>
-                                    <div><strong>{{ landing_trial.duration_days }} يوماً</strong><span>تجربة كاملة</span></div>
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                    <div><strong>طوارئ فورية</strong><span>إلى شاشة أو جميع الشاشات</span></div>
                                 </div>
                                 <div class="hero-meta-item">
-                                    <i class="fa-solid fa-display"></i>
-                                    <div><strong>شاشتك الحالية</strong><span>لا أجهزة خاصة</span></div>
+                                    <i class="fa-solid fa-cloud-arrow-down"></i>
+                                    <div><strong>استمرار ذكي</strong><span>آخر بيانات عند انقطاع الاتصال</span></div>
                                 </div>
                                 <div class="hero-meta-item">
-                                    <i class="fa-solid fa-mobile-screen-button"></i>
-                                    <div><strong>من أي جهاز</strong><span>إدارة سهلة وآمنة</span></div>
+                                    <i class="fa-solid fa-heart-pulse"></i>
+                                    <div><strong>مراقبة التشغيل</strong><span>تنبيه وتقارير أسبوعية</span></div>
                                 </div>
                             </div>
 
@@ -2621,8 +3180,8 @@
                         <div class="hero-visual">
                             <div class="visual-stack">
                                 <div class="floating-pill">
-                                    <i class="fa-solid fa-signal"></i>
-                                    تشغيل حي طوال اليوم الدراسي
+                                    <i class="fa-solid fa-circle-check"></i>
+                                    متصلة الآن — مراقبة تلقائية
                                 </div>
 
                                 <div class="display-frame">
@@ -2681,19 +3240,19 @@
                                 </div>
 
                                 <div class="ops-card surface-card">
-                                    <small>ما الذي يظهر على الشاشة؟</small>
+                                    <small>منصة واحدة لليوم كله</small>
                                     <div class="ops-list">
                                         <div class="ops-item"><i class="fa-solid fa-check"></i> جدول حي يتبدل تلقائياً</div>
-                                        <div class="ops-item"><i class="fa-solid fa-check"></i> مناوبات وإشراف وفسح</div>
-                                        <div class="ops-item"><i class="fa-solid fa-check"></i> تكريم وصور وإنجازات</div>
-                                        <div class="ops-item"><i class="fa-solid fa-check"></i> تنبيهات ورسائل يومية</div>
+                                        <div class="ops-item"><i class="fa-solid fa-check"></i> انتظار ومناوبات وإشراف</div>
+                                        <div class="ops-item"><i class="fa-solid fa-check"></i> مناسبات وتكريم وإنجازات</div>
+                                        <div class="ops-item"><i class="fa-solid fa-check"></i> تنبيهات طوارئ ملء الشاشة</div>
                                     </div>
                                 </div>
 
                                 <div class="support-card">
-                                    <small><i class="fa-solid fa-bolt"></i> تحديث تلقائي</small>
-                                    <strong>غيّر المعلومة مرة واحدة</strong>
-                                    <span>وتصل إلى شاشات المدرسة دون نقل ملفات أو إعادة تصميم.</span>
+                                    <small><i class="fa-solid fa-wifi"></i> جاهزية مستمرة</small>
+                                    <strong>حتى عند ضعف الاتصال</strong>
+                                    <span>تستمر الشاشة بآخر بيانات محفوظة وتعود للتحديث عند استقرار الشبكة.</span>
                                 </div>
                             </div>
                         </div>
@@ -2702,14 +3261,14 @@
 
                 <div class="marquee-strip reveal">
                     <div>
-                        <strong>مصمم لمدارس تريد أن تبدو مرتبة، حديثة، وسريعة الاستجابة.</strong>
-                        <p>بدلاً من شاشة صامتة أو محتوى يتأخر تحديثه، تحصل المدرسة على لوحة عرض تبني الثقة، توضح اليوم الدراسي، وتبرز الإنجاز بأسلوب أنيق.</p>
+                        <strong>غيّر المعلومة مرة واحدة، ودع كل شاشة تعرض الصحيح في وقته.</strong>
+                        <p>بدلاً من نقل الملفات والتحديث اليدوي، تصبح الشاشة جزءاً حياً من تشغيل المدرسة اليومي.</p>
                     </div>
                     <div class="marquee-list">
-                        <span><i class="fa-solid fa-star"></i> انطباع أول أقوى</span>
-                        <span><i class="fa-solid fa-bolt"></i> إدارة يومية أسرع</span>
-                        <span><i class="fa-solid fa-medal"></i> إبراز هوية المدرسة</span>
-                        <span><i class="fa-solid fa-laptop-mobile"></i> تشغيل من أي جهاز</span>
+                        <span><i class="fa-solid fa-file-excel"></i> استيراد Excel</span>
+                        <span><i class="fa-solid fa-shield-halved"></i> مصادقة ثنائية</span>
+                        <span><i class="fa-solid fa-gift"></i> قوالب مناسبات</span>
+                        <span><i class="fa-solid fa-display"></i> تشغيل متعدد الشاشات</span>
                     </div>
                 </div>
             </div>
@@ -2742,60 +3301,58 @@
             </div>
         </section>
 
-        <section class="section" id="why">
+        <section class="section section-soft" id="why">
             <div class="container">
                 <div class="section-header reveal">
-                    <div class="eyebrow"><i class="fa-solid fa-gem"></i> لماذا نحن</div>
-                    <h2>ليس الهدف شاشة إضافية، بل يوم مدرسي أوضح وصورة أكثر احترافية</h2>
-                    <p>المنتج الجيد في البيئة المدرسية ليس مجرد ميزة تقنية. القيمة الحقيقية تظهر عندما يشعر الزائر والطالب والمعلم أن كل شيء منظم، واضح، واحترافي منذ اللحظة الأولى.</p>
+                    <div class="eyebrow"><i class="fa-solid fa-arrows-rotate"></i> فرق يظهر من اليوم الأول</div>
+                    <h2>اليوم المدرسي يتغير بسرعة. شاشتك يجب أن تستجيب بالسرعة نفسها.</h2>
+                    <p>المنصة تجمع الجدول والمحتوى والتنبيهات والتشغيل في مسار واحد، حتى تصل المعلومة الصحيحة دون ملفات متناثرة أو تحديث يدوي لكل شاشة.</p>
                 </div>
 
-                <div class="story-grid">
-                    <div class="story-panel reveal">
-                        <h3>ما الذي تكسبه الإدارة فعلياً؟</h3>
-                        <p>بدلاً من متابعة الرسائل المتفرقة، والتحديث اليدوي، والأسئلة المتكررة عن الحصة الحالية أو المناوبة أو الإعلان الجديد، تصبح الشاشة نقطة اتصال مركزية تنقل المعلومة بدقة وهدوء وأناقة.</p>
-                        <ul class="story-bullets">
-                            <li><i class="fa-solid fa-eye"></i><span>مشهد بصري يرفع قيمة المدرسة أمام أولياء الأمور والزوار والجهات الرسمية.</span></li>
-                            <li><i class="fa-solid fa-diagram-project"></i><span>توحيد الرسائل اليومية بدل الاعتماد على اجتهادات متفرقة أو تحديثات متأخرة.</span></li>
-                            <li><i class="fa-solid fa-shield-heart"></i><span>منصة مستقرة وبسيطة تقلل الفوضى التشغيلية وتمنح الفريق الإداري راحة أكبر.</span></li>
+                <div class="problem-solution">
+                    <article class="problem-card reveal">
+                        <i class="fa-solid fa-file-circle-xmark"></i>
+                        <h3>عندما تعمل الشاشة بالطريقة التقليدية</h3>
+                        <p>كل تعديل يعني ملفاً جديداً، ونقلاً يدوياً، وشخصاً يجب أن يكون أمام التلفاز في الوقت المناسب.</p>
+                        <ul class="problem-list">
+                            <li><i class="fa-solid fa-minus"></i> معلومات تتأخر عن الواقع</li>
+                            <li><i class="fa-solid fa-minus"></i> أسئلة متكررة عن الحصص والانتظار</li>
+                            <li><i class="fa-solid fa-minus"></i> لا أحد يعرف إن كانت الشاشة متصلة</li>
                         </ul>
-                    </div>
+                    </article>
 
-                    <div class="story-stack">
-                        <div class="story-highlight reveal">
-                            <small>قبل وبعد</small>
-                            <h3>من شاشة عادية لا تُلاحظ... إلى واجهة مدرسية تبقى في الذهن</h3>
-                            <p>المحتوى المهم يظهر في لحظته: الحصة الحالية، جدول الانتظار، أخبار المدرسة، التكريم، والرسائل اليومية. كل ذلك داخل قالب بصري أنيق يعطي المدرسة حضوراً مؤسسياً متماسكاً.</p>
-                        </div>
-
-                        <div class="story-quote reveal">
-                            <small>للإدارة والقيادة المدرسية</small>
-                            <strong>إذا كانت المدرسة تستثمر في جودة التجربة التعليمية، فمن الطبيعي أن يظهر ذلك بصرياً في شاشاتها أيضاً.</strong>
-                            <p>هذه المنصة مناسبة للمدارس التي تريد تشغيل المحتوى اليومي بسهولة، مع شكل عرض يوازي قيمة المدرسة واهتمامها بالتفاصيل.</p>
-                        </div>
-                    </div>
+                    <article class="problem-card solution reveal">
+                        <i class="fa-solid fa-layer-group"></i>
+                        <h3>مع لوحة العرض الذكية</h3>
+                        <p>تحدّث الإدارة المعلومة مرة واحدة؛ فتصل إلى الشاشة المناسبة، في وقتها، وبهوية موحدة.</p>
+                        <ul class="problem-list">
+                            <li><i class="fa-solid fa-check"></i> جدول حي يتغير تلقائياً</li>
+                            <li><i class="fa-solid fa-check"></i> تنبيهات عاجلة إلى شاشة أو الجميع</li>
+                            <li><i class="fa-solid fa-check"></i> متابعة لحالة الاتصال والتشغيل</li>
+                        </ul>
+                    </article>
                 </div>
-            </div>
-        </section>
 
-        <section class="section">
-            <div class="container">
-                <div class="trust-grid">
-                    <div class="trust-card reveal">
-                        <strong>وضوح لحظي</strong>
-                        <p>الطالب والمعلم والزائر يرون المعلومة الصحيحة في الوقت الصحيح بدون انتظار أو سؤال إضافي.</p>
+                <div class="outcome-strip reveal">
+                    <div class="outcome-item">
+                        <i class="fa-solid fa-clock"></i>
+                        <strong>وقت أقل في التحديث</strong>
+                        <span>لوحة واحدة بدلاً من تعديل كل شاشة يدوياً.</span>
                     </div>
-                    <div class="trust-card reveal">
-                        <strong>صورة أكثر فخامة</strong>
-                        <p>هوية عرض راقية تجعل الشاشة جزءاً من شخصية المدرسة وليس مجرد جهاز في الممر.</p>
+                    <div class="outcome-item">
+                        <i class="fa-solid fa-eye"></i>
+                        <strong>معلومة أوضح للجميع</strong>
+                        <span>الحصة والانتظار والمناوبة أمام الطالب والمعلم.</span>
                     </div>
-                    <div class="trust-card reveal">
-                        <strong>إدارة أخف</strong>
-                        <p>بدل تحديثات مشتتة، لوحة واحدة تختصر التشغيل اليومي وتخفف الضغط على الفريق الإداري.</p>
+                    <div class="outcome-item">
+                        <i class="fa-solid fa-shield-heart"></i>
+                        <strong>جاهزية وقت الحاجة</strong>
+                        <span>رسالة الطوارئ تتقدم على المحتوى وتظهر بوضوح.</span>
                     </div>
-                    <div class="trust-card reveal">
-                        <strong>مرونة في التوسع</strong>
-                        <p>يمكن البدء بشاشة واحدة ثم زيادة عدد الشاشات لاحقاً بدون تغيير في المزايا أو التعقيد.</p>
+                    <div class="outcome-item">
+                        <i class="fa-solid fa-arrow-up-right-dots"></i>
+                        <strong>توسع دون تعقيد</strong>
+                        <span>ابدأ بشاشة ثم أضف المزيد من اللوحة نفسها.</span>
                     </div>
                 </div>
             </div>
@@ -2804,69 +3361,105 @@
         <section class="section" id="features">
             <div class="container">
                 <div class="section-header reveal">
-                    <div class="eyebrow"><i class="fa-solid fa-wand-magic-sparkles"></i> المزايا الأساسية</div>
-                    <h2>كل ما تحتاجه المدرسة في منصة عرض واحدة</h2>
-                    <p>المحتوى الأكاديمي والتنظيمي والتكريمي في تجربة موحدة وسهلة الإدارة، مع تصميم بصري يليق بالعرض على شاشة المدرسة طوال اليوم.</p>
+                    <div class="eyebrow"><i class="fa-solid fa-table-cells-large"></i> منصة اليوم المدرسي</div>
+                    <h2>ليست شاشة إعلانات فقط. إنها طبقة تشغيل مرئية للمدرسة.</h2>
+                    <p>من الجدول الصباحي إلى تنبيه الطوارئ، ومن استيراد البيانات إلى متابعة اتصال الشاشة؛ كل وظيفة مصممة لتعمل مع الأخرى.</p>
                 </div>
 
-                <div class="capability-grid">
-                    <div class="capability-card reveal">
-                        <i class="fa-regular fa-calendar-days"></i>
-                        <strong>الجدول المدرسي الحي</strong>
-                        <p>عرض تلقائي للحصة الحالية والقادمة مع تحديث مستمر، حتى تبقى الشاشة متزامنة مع سير اليوم الدراسي دون تدخل يدوي.</p>
-                    </div>
-                    <div class="capability-card reveal">
-                        <i class="fa-solid fa-user-clock"></i>
-                        <strong>حصص الانتظار</strong>
-                        <p>إظهار الاحتياج والبدائل بسرعة ووضوح، بما يساعد الإدارة والمعلمين على التعامل مع التغييرات بدون ارتباك.</p>
-                    </div>
-                    <div class="capability-card reveal">
-                        <i class="fa-solid fa-bullhorn"></i>
-                        <strong>إعلانات ورسائل يومية</strong>
-                        <p>مرر الأخبار والتنبيهات والفعاليات المدرسية بطريقة مرتبة وواضحة بدلاً من الرسائل المبعثرة أو التذكير الشفهي.</p>
-                    </div>
-                    <div class="capability-card reveal">
-                        <i class="fa-solid fa-medal"></i>
-                        <strong>تكريم ولوحات شرف</strong>
-                        <p>اعرض أسماء وصور المتميزين والإنجازات بأسلوب راق يعزز الدافعية ويمنح التكريم قيمة بصرية أعلى.</p>
-                    </div>
-                    <div class="capability-card reveal">
-                        <i class="fa-solid fa-clipboard-user"></i>
-                        <strong>مناوبات وإشراف</strong>
-                        <p>لوحة منظمة للمناوبات والاصطفاف والفسح لتقليل الالتباس ورفع جاهزية الطاقم في الفترات الحساسة.</p>
-                    </div>
-                    <div class="capability-card reveal">
-                        <i class="fa-solid fa-mobile-screen-button"></i>
-                        <strong>إدارة من أي مكان</strong>
-                        <p>تحكم بالمحتوى من الجوال أو الجهاز اللوحي أو الحاسب، دون الحاجة للتواجد أمام الشاشة أو الاعتماد على شخص واحد.</p>
-                    </div>
+                <div class="bento-grid">
+                    <article class="feature-card wide dark reveal">
+                        <span class="feature-tag">ميزة جديدة</span>
+                        <div class="feature-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <h3>تنبيهات طوارئ تتصدر الشاشة فوراً</h3>
+                        <p>أرسل تنبيه إخلاء أو حريق أو حالة جوية أو تعليق دراسة إلى شاشة محددة أو جميع شاشات المدرسة، مع إمكانية الإلغاء والمتابعة من لوحة الإدارة.</p>
+                        <div class="emergency-preview" aria-hidden="true">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <div><strong>تنبيه حالة جوية</strong><small>يرجى اتباع تعليمات السلامة</small></div>
+                            <span>يظهر الآن</span>
+                        </div>
+                    </article>
+
+                    <article class="feature-card wide dark reveal">
+                        <span class="feature-tag">ميزة جديدة</span>
+                        <div class="feature-icon"><i class="fa-solid fa-heart-pulse"></i></div>
+                        <h3>تعرف أن الشاشة تعمل — قبل أن يخبرك أحد</h3>
+                        <p>تتابع المنصة اتصال الشاشات، تنبه عند الانقطاع، وتجهز تقارير تشغيل أسبوعية. وعند ضعف الإنترنت تعرض الشاشة آخر بيانات محفوظة حتى يعود الاتصال.</p>
+                        <div class="status-console" aria-hidden="true">
+                            <div class="status-console-head"><span>حالة الشاشات</span><span>تحديث مباشر</span></div>
+                            <div class="status-row"><span class="status-dot"></span><span>شاشة المدخل الرئيسي</span><small>متصلة الآن</small></div>
+                            <div class="status-row"><span class="status-dot"></span><span>شاشة مبنى الأنشطة</span><small>متصلة الآن</small></div>
+                        </div>
+                    </article>
+
+                    <article class="feature-card reveal">
+                        <div class="feature-icon"><i class="fa-regular fa-calendar-days"></i></div>
+                        <h3>الجدول الحي والانتظار</h3>
+                        <p>الحصة الحالية والقادمة والوقت المتبقي وحصص الانتظار تتحدث تلقائياً مع سير اليوم الدراسي.</p>
+                        <div class="feature-pills"><span>الحصة الحالية</span><span>الانتظار</span><span>الجرس</span></div>
+                    </article>
+
+                    <article class="feature-card reveal">
+                        <div class="feature-icon"><i class="fa-solid fa-clipboard-user"></i></div>
+                        <h3>المناوبات والإشراف</h3>
+                        <p>اعرض مناوبات الاصطفاف والفسح والإشراف بوضوح، وقلل اختلاف المعلومة بين أعضاء الطاقم.</p>
+                        <div class="feature-pills"><span>الاصطفاف</span><span>الفسح</span><span>الإشراف</span></div>
+                    </article>
+
+                    <article class="feature-card reveal">
+                        <div class="feature-icon"><i class="fa-solid fa-medal"></i></div>
+                        <h3>إعلانات وتكريم ومناسبات</h3>
+                        <p>أنشئ رسائل يومية ولوحات شرف، واستخدم قوالب جاهزة لليوم الوطني والتأسيس والتخرج والعودة للدراسة.</p>
+                        <div class="feature-pills"><span>قوالب مناسبات</span><span>صور الإنجاز</span><span>أخبار المدرسة</span></div>
+                    </article>
+
+                    <article class="feature-card reveal">
+                        <span class="latest-tag">تهيئة أسرع</span>
+                        <div class="feature-icon"><i class="fa-solid fa-file-excel"></i></div>
+                        <h3>استيراد الجدول من Excel</h3>
+                        <p>حمّل القالب المعتمد، راجع الأخطاء في المعاينة، ثم استورد المعلمين والمواد والفصول والحصص دفعة واحدة.</p>
+                    </article>
+
+                    <article class="feature-card reveal">
+                        <div class="feature-icon"><i class="fa-solid fa-mobile-screen-button"></i></div>
+                        <h3>إدارة من أي جهاز</h3>
+                        <p>حدث المحتوى من الجوال أو الجهاز اللوحي أو الحاسب، ثم وزعه على شاشة واحدة أو عدة شاشات.</p>
+                    </article>
+
+                    <article class="feature-card reveal">
+                        <div class="feature-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                        <h3>دخول أكثر أماناً</h3>
+                        <p>المصادقة الثنائية تحمي حسابات الإدارة، مع صلاحيات وربط واضح لكل مدرسة وشاشة.</p>
+                    </article>
                 </div>
             </div>
         </section>
 
         <section class="section">
             <div class="container">
-                <div class="section-header reveal">
-                    <div class="eyebrow"><i class="fa-solid fa-chart-line"></i> أثر مباشر على التشغيل</div>
-                    <h2>فوائد يلاحظها الفريق من اليوم الأول</h2>
-                    <p>عندما تصبح الشاشة جزءاً من النظام اليومي، تقل الأسئلة المتكررة، يزيد وضوح الرسائل، وتتحسن جودة المشهد داخل المدرسة.</p>
-                </div>
+                <div class="assurance-shell reveal">
+                    <div class="assurance-copy">
+                        <span class="latest-tag">ثقة تشغيلية</span>
+                        <h2>مصممة لتبقى جزءاً من يوم المدرسة، لا عرضاً مؤقتاً.</h2>
+                        <p>الجمال مهم، لكن الاعتمادية أهم. لذلك تجمع المنصة بين استمرار العرض، مراقبة الاتصال، الأمان، والدعم في تجربة واحدة.</p>
+                        <ul class="assurance-list">
+                            <li><i class="fa-solid fa-circle-check"></i><span>تستمر الشاشة بعرض آخر بيانات محفوظة عند انقطاع الإنترنت.</span></li>
+                            <li><i class="fa-solid fa-circle-check"></i><span>يمكن ضبط مدة الانتظار قبل إرسال تنبيه تعطل الشاشة.</span></li>
+                            <li><i class="fa-solid fa-circle-check"></i><span>تقارير تشغيل أسبوعية تساعد الإدارة على متابعة الجاهزية.</span></li>
+                            <li><i class="fa-solid fa-circle-check"></i><span>تهيئة ودعم مباشر من بداية التجربة وحتى التشغيل الفعلي.</span></li>
+                        </ul>
+                    </div>
 
-                <div class="benefit-grid">
-                    <div class="benefit-card reveal">
-                        <i class="fa-solid fa-hourglass-half"></i>
-                        <strong>أقل وقت ضائع في المتابعة</strong>
-                        <p>عرض مركزي للمعلومة يخفف الاعتماد على التواصل اليدوي، ويجعل المعلومات اليومية في مكان مرئي للجميع.</p>
-                    </div>
-                    <div class="benefit-card reveal">
-                        <i class="fa-solid fa-building-shield"></i>
-                        <strong>هيبة وانضباط بصري</strong>
-                        <p>الزائر يرى مدرسة واضحة ومتماسكة، والطالب يشعر أن اليوم الدراسي منظم والرسائل تصل باحتراف.</p>
-                    </div>
-                    <div class="benefit-card reveal">
-                        <i class="fa-solid fa-users-gear"></i>
-                        <strong>تنسيق أفضل بين الإدارة والطاقم</strong>
-                        <p>المحتوى الظاهر يوحد التوقعات ويقلل اختلاف المعلومة بين المعلمين والمشرفين والطلاب أثناء اليوم الدراسي.</p>
+                    <div class="assurance-dashboard" aria-label="معاينة لمركز متابعة التشغيل">
+                        <div class="assurance-dashboard-head">
+                            <span>مركز متابعة التشغيل</span>
+                            <span><i class="fa-solid fa-signal"></i> النظام يعمل</span>
+                        </div>
+                        <div class="assurance-stats">
+                            <div class="assurance-stat"><i class="fa-solid fa-display"></i><strong>حالة كل شاشة</strong><small>آخر اتصال وحالة التشغيل من لوحة الإدارة.</small></div>
+                            <div class="assurance-stat"><i class="fa-solid fa-envelope-open-text"></i><strong>تنبيهات الانقطاع</strong><small>إشعار بعد تجاوز المدة التي تحددها المدرسة.</small></div>
+                            <div class="assurance-stat"><i class="fa-solid fa-chart-line"></i><strong>تقرير أسبوعي</strong><small>ملخص جاهزية الشاشة وفترات الانقطاع.</small></div>
+                            <div class="assurance-stat"><i class="fa-solid fa-cloud-arrow-down"></i><strong>عرض دون اتصال</strong><small>استمرار آخر محتوى محفوظ حتى عودة الشبكة.</small></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2875,40 +3468,35 @@
         <section class="section" id="journey">
             <div class="container">
                 <div class="section-header reveal">
-                    <div class="eyebrow"><i class="fa-solid fa-route"></i> آلية البدء</div>
-                    <h2>ابدأ خلال وقت قصير، وانتقل من التجربة إلى التشغيل الفعلي بثقة</h2>
-                    <p>المسار واضح ومباشر. لا تحتاج المدرسة إلى مشروع تقني معقد حتى تحصل على شاشة احترافية تعمل فعلاً وتضيف قيمة يومية.</p>
+                    <div class="eyebrow"><i class="fa-solid fa-route"></i> من التسجيل إلى أول شاشة</div>
+                    <h2>ثلاث خطوات واضحة، بدون مشروع تقني معقد</h2>
+                    <p>أنشئ التجربة فوراً، أدخل بيانات المدرسة بالطريقة الأنسب لك، ثم افتح رابط الشاشة على التلفاز الحالي.</p>
                 </div>
 
                 <div class="journey-grid">
                     <div class="journey-card reveal" data-step="1">
-                        <i class="fa-solid fa-file-signature"></i>
-                        <strong>أرسل الطلب</strong>
-                        <p>املأ النموذج ببيانات المدرسة، ونراجع الاحتياج المناسب بسرعة ونبدأ معك مباشرة.</p>
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <strong>أنشئ حساب المدرسة</strong>
+                        <p>أكمل نموذجاً قصيراً، ويُجهز حساب التجربة والشاشة الأولى مباشرة بدون بطاقة بنكية.</p>
                     </div>
                     <div class="journey-card reveal" data-step="2">
-                        <i class="fa-solid fa-sliders"></i>
-                        <strong>تهيئة أول شاشة</strong>
-                        <p>نجهز هوية العرض ونفعّل الشاشة الأولى لتشاهد المدرسة النتيجة الفعلية بدل الوعود النظرية.</p>
+                        <i class="fa-solid fa-file-excel"></i>
+                        <strong>أدخل أو استورد البيانات</strong>
+                        <p>أضف الجدول والمحتوى من اللوحة، أو استورد المعلمين والمواد والفصول والحصص من Excel.</p>
                     </div>
                     <div class="journey-card reveal" data-step="3">
-                        <i class="fa-solid fa-display"></i>
-                        <strong>تجربة كاملة بكل الخصائص</strong>
-                        <p>التجربة المجانية ليست نسخة محدودة. ستختبر النظام كما هو، وتقيّم ملاءمته قبل الاشتراك.</p>
-                    </div>
-                    <div class="journey-card reveal" data-step="4">
-                        <i class="fa-solid fa-arrow-up-right-dots"></i>
-                        <strong>اختر عدد الشاشات</strong>
-                        <p>بعد نجاح التجربة، تختار فقط عدد الشاشات المناسب، مع بقاء جميع المزايا نفسها في كل باقة.</p>
+                        <i class="fa-solid fa-tv"></i>
+                        <strong>افتح رابط العرض على التلفاز</strong>
+                        <p>شغّل الشاشة بهوية المدرسة، وابدأ تحديث المحتوى ومتابعة الاتصال من أي جهاز.</p>
                     </div>
                 </div>
 
                 <div class="journey-note reveal">
                     <div>
-                        <strong>ميزة مهمة للإدارة</strong>
-                        <p>لا توجد قفزات سعرية بسبب حجب الخصائص. القيمة ثابتة، والتوسع يتم فقط بحسب عدد الشاشات.</p>
+                        <strong>التجربة هي المنصة الحقيقية</strong>
+                        <p>كل المزايا مشمولة لمدة {{ landing_trial.duration_days }} يوماً. وبعدها تختار فقط عدد الشاشات المناسب.</p>
                     </div>
-                    <button class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">اطلب التجربة الآن</button>
+                    <button type="button" class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">أنشئ التجربة الآن</button>
                 </div>
             </div>
         </section>
@@ -2957,6 +3545,7 @@
                             </li>
                         </ul>
                         <button
+                            type="button"
                             class="{% if plan.is_trial %}btn{% else %}btn-outline{% endif %} btn-block"
                             data-plan="{{ plan.name }}"
                             data-period="{{ plan.duration_label }}"
@@ -2986,31 +3575,43 @@
             <div class="container">
                 <div class="section-header reveal">
                     <div class="eyebrow"><i class="fa-solid fa-circle-question"></i> الأسئلة الشائعة</div>
-                    <h2>إجابات سريعة قبل اتخاذ القرار</h2>
-                    <p>الهدف أن تكون الصورة واضحة تماماً: ما الذي ستحصل عليه المدرسة، وكيف تبدأ، وما الفرق الحقيقي بين الباقات.</p>
+                    <h2>كل ما تحتاج معرفته قبل تشغيل أول شاشة</h2>
+                    <p>إجابات عملية عن الأجهزة والاتصال والأمان والدعم والتوسع.</p>
                 </div>
 
                 <div class="faq-grid">
-                    <div class="faq-item reveal">
-                        <i class="fa-solid fa-layer-group"></i>
-                        <h3>هل تختلف المزايا بين الباقات؟</h3>
+                    <details class="faq-item reveal" open>
+                        <summary><i class="fa-solid fa-tv"></i>هل أحتاج جهازاً أو شاشة خاصة؟</summary>
+                        <p>لا تحتاج شاشة مخصصة من المنصة. يمكنك استخدام التلفاز الحالي ما دام يستطيع فتح رابط العرض عبر متصفح أو جهاز متصل به.</p>
+                    </details>
+                    <details class="faq-item reveal">
+                        <summary><i class="fa-solid fa-wifi"></i>ماذا يحدث عند انقطاع الإنترنت؟</summary>
+                        <p>تستمر شاشة العرض باستخدام آخر بيانات محفوظة، وتظهر حالة عدم الاتصال، ثم تعود للتحديث تلقائياً عندما يستقر الاتصال.</p>
+                    </details>
+                    <details class="faq-item reveal">
+                        <summary><i class="fa-solid fa-layer-group"></i>هل تختلف المزايا بين الباقات؟</summary>
                         <p>لا. جميع الباقات تمنح نفس مزايا النظام بالكامل. الاختلاف الوحيد هو عدد الشاشات التي تعمل عليها المدرسة.</p>
-                    </div>
-                    <div class="faq-item reveal">
-                        <i class="fa-solid fa-stopwatch"></i>
-                        <h3>كم يستغرق التفعيل؟</h3>
-                        <p>يتم البدء بسرعة بعد استلام الطلب، ثم ننسق معكم تفعيل الشاشة الأولى وإعداد العرض المناسب لهوية المدرسة.</p>
-                    </div>
-                    <div class="faq-item reveal">
-                        <i class="fa-solid fa-arrow-up-right-dots"></i>
-                        <h3>هل يمكن زيادة عدد الشاشات لاحقاً؟</h3>
+                    </details>
+                    <details class="faq-item reveal">
+                        <summary><i class="fa-solid fa-arrow-up-right-dots"></i>هل يمكن زيادة عدد الشاشات لاحقاً؟</summary>
                         <p>نعم. يمكن البدء بعدد محدود ثم التوسع لاحقاً بحسب حاجة المدرسة، بدون تغيير في أسلوب العمل أو المزايا.</p>
-                    </div>
-                    <div class="faq-item reveal">
-                        <i class="fa-solid fa-gift"></i>
-                        <h3>هل التجربة المجانية محدودة؟</h3>
-                        <p>لا. التجربة المجانية تمنح المدرسة نفس تجربة النظام الحقيقية حتى يتم التقييم على أساس واضح وواقعي.</p>
-                    </div>
+                    </details>
+                    <details class="faq-item reveal">
+                        <summary><i class="fa-solid fa-file-excel"></i>هل يمكن استيراد الجدول من Excel؟</summary>
+                        <p>نعم. توفر المنصة قالباً معتمداً لاستيراد المعلمين والمواد والفصول والحصص، مع معاينة الأخطاء قبل تنفيذ الاستيراد.</p>
+                    </details>
+                    <details class="faq-item reveal">
+                        <summary><i class="fa-solid fa-triangle-exclamation"></i>كيف تعمل تنبيهات الطوارئ؟</summary>
+                        <p>تختار نوع التنبيه ونطاقه ووقته؛ فيظهر بملء الشاشة على شاشة محددة أو جميع الشاشات المستهدفة، ويمكن إلغاؤه من لوحة الإدارة.</p>
+                    </details>
+                    <details class="faq-item reveal">
+                        <summary><i class="fa-solid fa-shield-halved"></i>كيف تُحمى حسابات الإدارة؟</summary>
+                        <p>تدعم المنصة المصادقة الثنائية وتربط المستخدم بالمدرسة المصرح له بإدارتها، مع اتصال آمن ولوحة دخول مستقلة.</p>
+                    </details>
+                    <details class="faq-item reveal">
+                        <summary><i class="fa-solid fa-headset"></i>هل تشمل التجربة التهيئة والدعم؟</summary>
+                        <p>نعم. تبدأ بتجربة كاملة لمدة {{ landing_trial.duration_days }} يوماً بدون بطاقة بنكية، مع متابعة أولية ودعم يساعدك في تشغيل الشاشة الأولى.</p>
+                    </details>
                 </div>
             </div>
         </section>
@@ -3019,11 +3620,11 @@
             <div class="container">
                 <div class="cta-panel reveal">
                     <div>
-                        <h2>إذا كانت المدرسة تهتم بتجربة الطالب والانطباع المؤسسي، فالشاشة جزء من الصورة</h2>
-                        <p>ابدأ مجاناً لمدة {{ landing_trial.duration_days }} يوم، اختبر التشغيل الكامل على أرض الواقع، ثم اختر عدد الشاشات المناسب لمدرستك بعد أن ترى النتيجة بنفسك.</p>
+                        <h2>دع الشاشة تعمل مع المدرسة، لا بجانبها.</h2>
+                        <p>أنشئ حساب التجربة الآن، شغّل الشاشة الأولى بكل المزايا، واتخذ قرار الاشتراك بعد أن ترى النتيجة داخل مدرستك.</p>
                     </div>
                     <div style="display:flex; gap:12px; flex-wrap:wrap;">
-                        <button class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">ابدأ التجربة المجانية</button>
+                        <button type="button" class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">أنشئ تجربتك المجانية</button>
                         <a class="btn-outline" href="https://wa.me/966537720207" target="_blank" rel="noreferrer">تواصل واتساب</a>
                     </div>
                 </div>
@@ -3068,63 +3669,81 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="schoolName">اسم المدرسة</label>
-                    <input type="text" id="schoolName" name="school_name" class="form-input" placeholder="مثال: ثانوية الملك عبدالله" required autocomplete="organization" aria-describedby="error-school-name">
-                    <div class="field-error" id="error-school-name" data-error-for="school_name" aria-live="polite"></div>
+                <div class="form-stepper" aria-label="خطوات إنشاء التجربة">
+                    <div class="form-step-indicator active" data-step-indicator="1"><span>1</span> المدرسة والتواصل</div>
+                    <div class="form-step-indicator" data-step-indicator="2"><span>2</span> تهيئة الحساب</div>
                 </div>
 
-                <div class="form-group" role="group" aria-labelledby="schoolTypeLabel" aria-describedby="error-school-type">
-                    <div class="form-label" id="schoolTypeLabel">نوع المدرسة</div>
-                    <div class="radio-group">
-                        <label class="radio-label">
-                            <input type="radio" name="school_type" value="boys" checked>
-                            <div class="radio-tile"><i class="fa-solid fa-user-graduate"></i> بنين</div>
-                        </label>
-                        <label class="radio-label">
-                            <input type="radio" name="school_type" value="girls">
-                            <div class="radio-tile"><i class="fa-solid fa-user-graduate" style="color:#d14d86"></i> بنات</div>
-                        </label>
+                <div class="form-step" data-form-step="1">
+                    <div class="form-group">
+                        <label class="form-label" for="schoolName">اسم المدرسة</label>
+                        <input type="text" id="schoolName" name="school_name" class="form-input" placeholder="مثال: ثانوية الملك عبدالله" required autocomplete="organization" aria-describedby="error-school-name">
+                        <div class="field-error" id="error-school-name" data-error-for="school_name" aria-live="polite"></div>
                     </div>
-                    <div class="field-error" id="error-school-type" data-error-for="school_type" aria-live="polite"></div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="mobile">الجوال / واتساب</label>
+                        <input type="tel" id="mobile" name="mobile" class="form-input" placeholder="05XXXXXXXX" required inputmode="numeric" autocomplete="tel" maxlength="10" pattern="05[0-9]{8}" aria-describedby="error-mobile">
+                        <div class="field-error" id="error-mobile" data-error-for="mobile" aria-live="polite"></div>
+                    </div>
+
+                    <button type="button" id="formNextBtn" class="btn btn-block" style="border-radius:18px; margin-top:8px;">
+                        متابعة
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </button>
+                    <p class="form-consent"><i class="fa-solid fa-lock"></i> لن نطلب بطاقة بنكية. نستخدم الرقم لإنشاء الحساب والتواصل بشأن المدرسة فقط.</p>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="city">المدينة</label>
-                    <input type="text" id="city" name="city" class="form-input" placeholder="الرياض، جدة..." required autocomplete="address-level2" aria-describedby="error-city">
-                    <div class="field-error" id="error-city" data-error-for="city" aria-live="polite"></div>
-                </div>
+                <div class="form-step" data-form-step="2" hidden>
+                    <div class="form-group" role="group" aria-labelledby="schoolTypeLabel" aria-describedby="error-school-type">
+                        <div class="form-label" id="schoolTypeLabel">نوع المدرسة</div>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="school_type" value="boys" checked>
+                                <div class="radio-tile"><i class="fa-solid fa-user-graduate"></i> بنين</div>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="school_type" value="girls">
+                                <div class="radio-tile"><i class="fa-solid fa-user-graduate" style="color:#d14d86"></i> بنات</div>
+                            </label>
+                        </div>
+                        <div class="field-error" id="error-school-type" data-error-for="school_type" aria-live="polite"></div>
+                    </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="contactName">اسم المسؤول</label>
-                    <input type="text" id="contactName" name="contact_name" class="form-input" placeholder="الاسم الثلاثي" required autocomplete="name" aria-describedby="error-contact-name">
-                    <div class="field-error" id="error-contact-name" data-error-for="contact_name" aria-live="polite"></div>
-                </div>
+                    <div class="form-group">
+                        <label class="form-label" for="city">المدينة</label>
+                        <input type="text" id="city" name="city" class="form-input" placeholder="الرياض، جدة..." required autocomplete="address-level2" aria-describedby="error-city">
+                        <div class="field-error" id="error-city" data-error-for="city" aria-live="polite"></div>
+                    </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="mobile">الجوال / واتساب</label>
-                    <input type="tel" id="mobile" name="mobile" class="form-input" placeholder="05XXXXXXXX" required inputmode="numeric" autocomplete="tel" maxlength="10" pattern="05[0-9]{8}" aria-describedby="error-mobile">
-                    <div class="field-error" id="error-mobile" data-error-for="mobile" aria-live="polite"></div>
-                </div>
+                    <div class="form-group">
+                        <label class="form-label" for="contactName">اسم المسؤول</label>
+                        <input type="text" id="contactName" name="contact_name" class="form-input" placeholder="الاسم الثلاثي" required autocomplete="name" aria-describedby="error-contact-name">
+                        <div class="field-error" id="error-contact-name" data-error-for="contact_name" aria-live="polite"></div>
+                    </div>
 
-                <div class="form-group trial-only">
-                    <label class="form-label" for="password">كلمة المرور</label>
-                    <input type="password" id="password" name="password" class="form-input" placeholder="8 أحرف على الأقل" autocomplete="new-password" aria-describedby="passwordHint error-password">
-                    <div class="form-hint" id="passwordHint">ستدخل بها إلى لوحة التحكم مباشرة بعد إنشاء التجربة.</div>
-                    <div class="field-error" id="error-password" data-error-for="password" aria-live="polite"></div>
-                </div>
+                    <div class="form-group trial-only">
+                        <label class="form-label" for="password">كلمة المرور</label>
+                        <input type="password" id="password" name="password" class="form-input" placeholder="8 أحرف على الأقل" autocomplete="new-password" aria-describedby="passwordHint error-password">
+                        <div class="form-hint" id="passwordHint">ستدخل بها إلى لوحة التحكم مباشرة بعد إنشاء التجربة.</div>
+                        <div class="field-error" id="error-password" data-error-for="password" aria-live="polite"></div>
+                    </div>
 
-                <div class="form-group trial-only">
-                    <label class="form-label" for="passwordConfirm">تأكيد كلمة المرور</label>
-                    <input type="password" id="passwordConfirm" name="password_confirm" class="form-input" placeholder="أعد كتابة كلمة المرور" autocomplete="new-password" aria-describedby="error-password-confirm">
-                    <div class="field-error" id="error-password-confirm" data-error-for="password_confirm" aria-live="polite"></div>
-                </div>
+                    <div class="form-group trial-only">
+                        <label class="form-label" for="passwordConfirm">تأكيد كلمة المرور</label>
+                        <input type="password" id="passwordConfirm" name="password_confirm" class="form-input" placeholder="أعد كتابة كلمة المرور" autocomplete="new-password" aria-describedby="error-password-confirm">
+                        <div class="field-error" id="error-password-confirm" data-error-for="password_confirm" aria-live="polite"></div>
+                    </div>
 
-                <button type="submit" id="submitOrderBtn" class="btn btn-block" style="border-radius:18px; margin-top: 8px; background: linear-gradient(135deg, var(--mint-400), var(--mint-500));">
-                    <i class="fa-brands fa-whatsapp"></i>
-                    <span id="submitOrderText">إرسال الطلب</span>
-                </button>
-                <p class="form-consent"><i class="fa-solid fa-lock"></i> نستخدم هذه البيانات لإنشاء التجربة والتواصل بشأن حساب المدرسة فقط، ولا نطلب بيانات دفع.</p>
+                    <div class="form-navigation">
+                        <button type="submit" id="submitOrderBtn" class="btn btn-block" style="border-radius:18px; background:linear-gradient(135deg, var(--mint-400), var(--mint-500));">
+                            <i class="fa-brands fa-whatsapp"></i>
+                            <span id="submitOrderText">إرسال الطلب</span>
+                        </button>
+                        <button type="button" id="formBackBtn" class="btn-outline">رجوع</button>
+                    </div>
+                    <p class="form-consent"><i class="fa-solid fa-shield-halved"></i> بيانات المدرسة مخصصة للحساب والدعم فقط، ويمكنك بدء التجربة دون أي بيانات دفع.</p>
+                </div>
             </form>
         </div>
     </div>
@@ -3138,10 +3757,10 @@
                             <div class="logo-mark"><i class="fa-solid fa-layer-group"></i></div>
                             <div class="logo-copy">
                                 <strong>لوحة العرض الذكية</strong>
-                                <span>منصة عرض تليق بالمدارس الطموحة</span>
+                                <span>تشغيل يوم المدرسة على كل شاشة</span>
                             </div>
                         </div>
-                        <p>نصمم تجربة عرض مدرسية تجعل المعلومات اليومية أوضح، والانطباع المؤسسي أقوى، والإدارة أكثر راحة في التشغيل والمتابعة.</p>
+                        <p>جدول حي، محتوى مدرسي، طوارئ، مراقبة تشغيل وإدارة متعددة الشاشات في منصة واحدة سهلة وآمنة.</p>
                     </div>
 
                     <div class="footer-col">
@@ -3163,6 +3782,7 @@
                             <a href="mailto:info@schooldisplay.com">info@schooldisplay.com</a>
                             <a href="#pricing">اطلب باقة مناسبة</a>
                         </div>
+                        <p><i class="fa-solid fa-lock" style="color:var(--mint-500);"></i> لا نطلب بيانات دفع أثناء التجربة، وتُستخدم بيانات التسجيل لإنشاء حساب المدرسة ودعمها فقط.</p>
                     </div>
                 </div>
 
@@ -3176,7 +3796,7 @@
             <strong>{{ landing_trial.name }} {{ landing_trial.duration_days }} يوم</strong>
             <small>ابدأ الآن بكل المزايا</small>
         </div>
-        <button class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">ابدأ</button>
+        <button type="button" class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">ابدأ</button>
     </div>
 
     <script>
@@ -3194,6 +3814,10 @@
         const trialLoginUsername = document.getElementById('trialLoginUsername');
         const trialDashboardLink = document.getElementById('trialDashboardLink');
         const copyTrialUsername = document.getElementById('copyTrialUsername');
+        const formSteps = Array.from(document.querySelectorAll('[data-form-step]'));
+        const formStepIndicators = Array.from(document.querySelectorAll('[data-step-indicator]'));
+        const formNextBtn = document.getElementById('formNextBtn');
+        const formBackBtn = document.getElementById('formBackBtn');
         const mobileCta = document.querySelector('.mobile-cta');
         const videoLaunch = document.getElementById('videoLaunch');
         const revealElements = document.querySelectorAll('.reveal');
@@ -3263,6 +3887,7 @@
         function openOrderModal(plan, period, price, isTrial = null) {
             lastModalTrigger = document.activeElement;
             clearFormFeedback();
+            setFormStep(1);
             activeOrderIsTrial = typeof isTrial === 'boolean' ? isTrial : plan.includes('تجربة');
             document.getElementById('p_plan').value = plan;
 
@@ -3293,6 +3918,53 @@
             document.body.style.overflow = 'hidden';
             window.setTimeout(() => document.getElementById('schoolName').focus(), 0);
         }
+
+        function setFormStep(stepNumber) {
+            formSteps.forEach((step) => {
+                const isActive = Number(step.dataset.formStep) === stepNumber;
+                step.hidden = !isActive;
+            });
+            formStepIndicators.forEach((indicator) => {
+                indicator.classList.toggle('active', Number(indicator.dataset.stepIndicator) === stepNumber);
+            });
+        }
+
+        function validateFirstStep() {
+            const firstStepFields = [
+                document.getElementById('schoolName'),
+                document.getElementById('mobile')
+            ];
+            for (const field of firstStepFields) {
+                if (!field.checkValidity()) {
+                    field.reportValidity();
+                    field.focus();
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (formNextBtn) {
+            formNextBtn.addEventListener('click', () => {
+                if (!validateFirstStep()) return;
+                setFormStep(2);
+                window.setTimeout(() => document.getElementById('city').focus(), 0);
+            });
+        }
+
+        if (formBackBtn) {
+            formBackBtn.addEventListener('click', () => {
+                setFormStep(1);
+                window.setTimeout(() => document.getElementById('schoolName').focus(), 0);
+            });
+        }
+
+        formSteps[0]?.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                formNextBtn?.click();
+            }
+        });
 
         function closeOrderModal() {
             modal.classList.remove('active');
@@ -3369,6 +4041,7 @@
             }
             orderForm.classList.add('trial-complete');
             orderForm.querySelectorAll('.form-group').forEach((group) => { group.hidden = true; });
+            formSteps.forEach((step) => { step.hidden = true; });
             submitOrderBtn.hidden = true;
             showFormAlert('success', 'تم تجهيز الحساب. احتفظ ببيانات الدخول الظاهرة هنا.');
             if (trialResult) trialResult.focus();
@@ -3395,6 +4068,12 @@
 
         function showFieldErrors(errors) {
             const general = errors.__all__;
+            const firstErrorField = Object.keys(errors).find((field) => field !== '__all__');
+            if (firstErrorField) {
+                const firstErrorElement = document.querySelector(`[data-error-for="${firstErrorField}"]`);
+                const errorStep = firstErrorElement?.closest('[data-form-step]');
+                if (errorStep) setFormStep(Number(errorStep.dataset.formStep));
+            }
             Object.entries(errors).forEach(([field, message]) => {
                 if (field === '__all__') return;
                 const errorEl = document.querySelector(`[data-error-for="${field}"]`);

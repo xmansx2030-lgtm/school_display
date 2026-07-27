@@ -39,6 +39,15 @@ class SchoolSubscription(models.Model):
         ("expired", "منتهية"),
         ("cancelled", "ملغاة"),
     ]
+    CLOSURE_REASON_CHOICES = [
+        ("budget", "الميزانية"),
+        ("not_used", "ضعف الاستخدام"),
+        ("technical", "مشكلة تقنية"),
+        ("competitor", "الانتقال إلى منافس"),
+        ("school_closed", "إغلاق أو دمج المدرسة"),
+        ("no_response", "تعذر التواصل"),
+        ("other", "سبب آخر"),
+    ]
 
     school = models.ForeignKey(
         School,
@@ -71,6 +80,21 @@ class SchoolSubscription(models.Model):
     notes = models.TextField(
         blank=True,
         verbose_name="ملاحظات",
+    )
+    closure_reason = models.CharField(
+        "سبب الإلغاء أو عدم التجديد",
+        max_length=30,
+        choices=CLOSURE_REASON_CHOICES,
+        blank=True,
+    )
+    closure_notes = models.TextField(
+        "تفاصيل سبب الإلغاء أو عدم التجديد",
+        blank=True,
+    )
+    closed_at = models.DateTimeField(
+        "وقت تسجيل الإغلاق",
+        null=True,
+        blank=True,
     )
 
     created_at = models.DateTimeField(
@@ -108,6 +132,14 @@ class SchoolSubscription(models.Model):
                         self.ends_at = self.starts_at + timedelta(days=days_int)
             except Exception:
                 pass
+
+        if self.status in {"cancelled", "expired"} and not self.closed_at:
+            self.closed_at = timezone.now()
+        elif self.status not in {"cancelled", "expired"}:
+            self.closed_at = None
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = set(update_fields) | {"closed_at"}
 
         super().save(*args, **kwargs)
 
