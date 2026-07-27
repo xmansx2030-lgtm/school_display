@@ -5,8 +5,8 @@ from core.admin import SchoolScopedAdmin
 
 @admin.register(Announcement)
 class AnnouncementAdmin(SchoolScopedAdmin):
-    list_display = ("title", "school", "level", "starts_at", "expires_at", "is_active", "active_now")
-    list_filter = ("school", "level", "is_active")
+    list_display = ("title", "school", "level", "occasion_theme", "starts_at", "expires_at", "is_active", "active_now")
+    list_filter = ("school", "level", "occasion_theme", "is_active")
     search_fields = ("title", "body")
 
 from django.utils.html import format_html

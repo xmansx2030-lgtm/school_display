@@ -54,6 +54,9 @@
                 <span class="ann-level-dot"></span>
                 <div class="min-w-0">
                   <h3>{{ a.title }}</h3>
+                  {% if a.occasion_theme %}
+                    <span class="ann-occasion-chip">ثيم: {{ a.get_occasion_theme_display }}</span>
+                  {% endif %}
                   {% if a.body %}
                     <p>{{ a.body }}</p>
                   {% else %}
@@ -343,6 +346,16 @@ function confirmDelete(title) {
   font-size: 1rem;
   font-weight: 900;
   line-height: 1.45;
+}
+.ann-occasion-chip {
+  display: inline-flex;
+  margin-top: .35rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  padding: .25rem .55rem;
+  font-size: .66rem;
+  font-weight: 900;
 }
 
 .ann-title-block p {

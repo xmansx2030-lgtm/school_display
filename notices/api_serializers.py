@@ -72,6 +72,7 @@ class AnnouncementSerializer(serializers.Serializer):
     level = serializers.CharField()
     title = serializers.CharField()
     body = serializers.CharField(allow_blank=True, required=False)
+    occasion_theme = serializers.CharField(allow_blank=True, required=False)
     starts_at = serializers.DateTimeField(required=False)
     ends_at = serializers.DateTimeField(required=False)
 

@@ -86,6 +86,116 @@
     #emergencyMessage { margin-top: 1.5rem; max-width: 1500px; font-size: clamp(1.8rem, 3.5vw, 4.5rem); font-weight: 700; line-height: 1.5; white-space: pre-line; }
     #emergencyKind { margin-top: 2rem; display: inline-block; border: 2px solid rgba(255,255,255,.45); border-radius: 999px; padding: .5rem 1.5rem; font-size: clamp(1.2rem, 2vw, 2.2rem); font-weight: 900; }
 
+    /* Occasion themes are activated by a scheduled announcement and disappear
+       automatically when that announcement expires or is disabled. */
+    body[data-occasion-theme] {
+      --accent-main: var(--occasion-accent) !important;
+      --accent-sub: var(--occasion-highlight) !important;
+      --mesh1: color-mix(in srgb, var(--occasion-accent) 32%, transparent) !important;
+      --mesh2: color-mix(in srgb, var(--occasion-highlight) 22%, transparent) !important;
+    }
+    body[data-occasion-theme="national_day"] { --occasion-deep:#001d16; --occasion-accent:#009b4d; --occasion-highlight:#e2c269; --occasion-soft:#d1fae5; }
+    body[data-occasion-theme="founding_day"] { --occasion-deep:#28170f; --occasion-accent:#9a623b; --occasion-highlight:#e0b783; --occasion-soft:#ffedd5; }
+    body[data-occasion-theme="teachers_day"] { --occasion-deep:#071b31; --occasion-accent:#2563a6; --occasion-highlight:#f2c14e; --occasion-soft:#dbeafe; }
+    body[data-occasion-theme="back_to_school"] { --occasion-deep:#06233c; --occasion-accent:#168aad; --occasion-highlight:#ffd166; --occasion-soft:#cffafe; }
+    body[data-occasion-theme="graduation"] { --occasion-deep:#1d1135; --occasion-accent:#7c3bbd; --occasion-highlight:#f4c95d; --occasion-soft:#ede9fe; }
+    body[data-occasion-theme="weather"] { --occasion-deep:#06283d; --occasion-accent:#0284c7; --occasion-highlight:#67e8f9; --occasion-soft:#e0f2fe; }
+
+    body[data-occasion-theme] #fitRoot {
+      background:
+        radial-gradient(circle at 12% 5%, color-mix(in srgb, var(--occasion-highlight) 21%, transparent), transparent 30%),
+        radial-gradient(circle at 88% 92%, color-mix(in srgb, var(--occasion-accent) 38%, transparent), transparent 42%),
+        linear-gradient(145deg, color-mix(in srgb, var(--occasion-deep) 88%, #000), var(--occasion-deep));
+    }
+    body[data-occasion-theme] .bg-mesh {
+      opacity: .72;
+      background-image:
+        radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--occasion-accent) 46%, transparent), transparent 58%),
+        radial-gradient(circle at 10% 100%, color-mix(in srgb, var(--occasion-highlight) 22%, transparent), transparent 45%);
+    }
+    body[data-occasion-theme] .glass-panel {
+      border-color: color-mix(in srgb, var(--occasion-highlight) 24%, rgba(255,255,255,.12)) !important;
+    }
+    #occasionThemeDecor {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    #occasionThemeDecor.u-hidden,
+    #occasionThemeBadge.u-hidden { display: none !important; }
+    .occasion-theme-pattern {
+      position: absolute;
+      inset: 0;
+      opacity: .12;
+      background-size: 72px 72px;
+      mask-image: radial-gradient(circle at center, #000 10%, transparent 78%);
+    }
+    body[data-occasion-theme="national_day"] .occasion-theme-pattern {
+      background-image: linear-gradient(30deg, var(--occasion-highlight) 12%, transparent 12.5%, transparent 87%, var(--occasion-highlight) 87.5%);
+    }
+    body[data-occasion-theme="founding_day"] .occasion-theme-pattern {
+      background-image: repeating-linear-gradient(45deg, transparent 0 22px, var(--occasion-highlight) 23px 25px);
+    }
+    body[data-occasion-theme="teachers_day"] .occasion-theme-pattern {
+      background-image: linear-gradient(var(--occasion-highlight) 1px, transparent 1px), linear-gradient(90deg, var(--occasion-highlight) 1px, transparent 1px);
+      background-size: 56px 56px;
+    }
+    body[data-occasion-theme="back_to_school"] .occasion-theme-pattern {
+      background-image: linear-gradient(rgba(255,255,255,.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.8) 1px, transparent 1px);
+      background-size: 42px 42px;
+    }
+    body[data-occasion-theme="graduation"] .occasion-theme-pattern {
+      background-image: radial-gradient(var(--occasion-highlight) 2px, transparent 2px);
+      background-size: 48px 48px;
+    }
+    body[data-occasion-theme="weather"] .occasion-theme-pattern {
+      background-image: repeating-linear-gradient(112deg, transparent 0 28px, var(--occasion-highlight) 29px 31px);
+    }
+    .occasion-theme-symbol {
+      position: absolute;
+      opacity: .13;
+      filter: grayscale(.15);
+      font-size: 14rem;
+      line-height: 1;
+      animation: occasionFloat 9s ease-in-out infinite;
+    }
+    .occasion-theme-symbol--one { top: 9rem; right: 2rem; transform: rotate(8deg); }
+    .occasion-theme-symbol--two { bottom: 2rem; left: 2rem; transform: rotate(-10deg); animation-delay: -4s; }
+    #occasionThemeBadge {
+      position: fixed;
+      top: 1.7rem;
+      left: 50%;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      max-width: 34rem;
+      transform: translateX(-50%);
+      border: 1px solid color-mix(in srgb, var(--occasion-highlight) 52%, transparent);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--occasion-deep) 78%, transparent);
+      color: #fff;
+      padding: .58rem 1.15rem;
+      box-shadow: 0 14px 38px rgba(0,0,0,.3);
+      backdrop-filter: blur(14px);
+    }
+    #occasionThemeBadgeIcon { font-size: 1.45rem; }
+    #occasionThemeBadgeCopy { min-width: 0; }
+    #occasionThemeBadgeCopy small,
+    #occasionThemeBadgeCopy strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #occasionThemeBadgeCopy small { color: var(--occasion-soft); font-size: .63rem; font-weight: 800; }
+    #occasionThemeBadgeCopy strong { margin-top: .08rem; font-size: .9rem; font-weight: 950; }
+    @keyframes occasionFloat {
+      0%,100% { translate: 0 0; }
+      50% { translate: 0 -18px; }
+    }
+    body[data-lite="1"] .occasion-theme-symbol { animation: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .occasion-theme-symbol { animation: none; }
+    }
+
         /* Enhanced viewport sizing for TV displays */
         body.display-board {
             width: 100vw;
@@ -138,6 +248,7 @@
             transform-origin: top left;
             will-change: transform;
             display: flex;
+            z-index: 2;
             flex-direction: column;
             /* Anti-aliasing for crisp text on TV */
             -webkit-font-smoothing: antialiased;
@@ -2294,6 +2405,18 @@
 
         <!-- Auto-fit root: viewport container (NOT transformed) -->
         <div id="fitRoot" class="h-full w-full">
+    <div id="occasionThemeDecor" class="u-hidden" aria-hidden="true">
+      <div class="occasion-theme-pattern"></div>
+      <span id="occasionThemeSymbolOne" class="occasion-theme-symbol occasion-theme-symbol--one"></span>
+      <span id="occasionThemeSymbolTwo" class="occasion-theme-symbol occasion-theme-symbol--two"></span>
+    </div>
+    <div id="occasionThemeBadge" class="u-hidden" role="status" aria-live="polite">
+      <span id="occasionThemeBadgeIcon"></span>
+      <span id="occasionThemeBadgeCopy">
+        <small>ثيم المناسبة</small>
+        <strong id="occasionThemeBadgeLabel"></strong>
+      </span>
+    </div>
 
     <!-- Auto-fit stage: transformed/scaled to fit the viewport -->
     <div id="fitStage" class="">

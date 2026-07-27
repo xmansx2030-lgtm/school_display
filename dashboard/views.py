@@ -1418,13 +1418,25 @@ def ann_create(request):
         template_key = (request.GET.get("template") or "").strip()
         template = OCCASION_TEMPLATES.get(template_key)
         if template:
+            starts_at = timezone.now().replace(second=0, microsecond=0)
             initial = {
                 "title": template["title"],
                 "body": template["body"],
                 "level": template["level"],
+                "occasion_theme": template["theme"],
+                "starts_at": starts_at,
+                "expires_at": starts_at + timedelta(hours=template["duration_hours"]),
             }
         form = AnnouncementForm(initial=initial)
-    return render(request, "dashboard/ann_form.html", {"form": form, "title": "إنشاء تنبيه"})
+    return render(
+        request,
+        "dashboard/ann_form.html",
+        {
+            "form": form,
+            "title": "إنشاء تنبيه",
+            "occasion_templates": OCCASION_TEMPLATES,
+        },
+    )
 
 
 def _emergency_allowed_schools(request):
@@ -1541,7 +1553,15 @@ def ann_edit(request, pk: int):
         messages.error(request, "الرجاء تصحيح الأخطاء.")
     else:
         form = AnnouncementForm(instance=obj)
-    return render(request, "dashboard/ann_form.html", {"form": form, "title": "تعديل تنبيه"})
+    return render(
+        request,
+        "dashboard/ann_form.html",
+        {
+            "form": form,
+            "title": "تعديل تنبيه",
+            "occasion_templates": OCCASION_TEMPLATES,
+        },
+    )
 
 
 @manager_required
