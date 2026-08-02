@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Optional, Tuple
 
@@ -8,6 +9,8 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 
 from .models import SubscriptionInvoice, SubscriptionPaymentOperation
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -134,4 +137,42 @@ def build_invoice_from_operation(op: SubscriptionPaymentOperation) -> Subscripti
     )
     inv.html_snapshot = html
     inv.save(update_fields=["html_snapshot"])
+
+    # Queue delivery only after the immutable invoice snapshot is complete.
+    # Delivery happens in the background worker and never blocks payment flow.
+    from .email_notifications import queue_invoice_email
+
+    queue_invoice_email(inv)
     return inv
+
+
+def reconcile_missing_invoices(*, batch_size: int = 100) -> int:
+    """Backfill paid operations that were committed without an invoice.
+
+    The normal path creates the invoice synchronously from the payment-operation
+    signal. This reconciliation closes short deployment or transient-error gaps.
+    """
+    limit = max(1, min(int(batch_size), 1000))
+    operations = list(
+        SubscriptionPaymentOperation.objects.filter(
+            amount__gt=0,
+            invoice__isnull=True,
+        )
+        .select_related("school", "subscription", "plan", "created_by")
+        .order_by("id")[:limit]
+    )
+
+    created = 0
+    for operation in operations:
+        try:
+            build_invoice_from_operation(operation)
+            created += 1
+        except Exception:
+            # Another process may have reconciled the same operation meanwhile.
+            if SubscriptionInvoice.objects.filter(operation=operation).exists():
+                continue
+            logger.exception(
+                "Failed to reconcile invoice for payment operation id=%s",
+                operation.id,
+            )
+    return created

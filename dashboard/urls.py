@@ -9,6 +9,18 @@ urlpatterns = [
     # Auth / Account
     # ==================
     path("login/", auth_views.login_view, name="login"),
+    path("password-reset/", auth_views.DashboardPasswordResetView.as_view(), name="password_reset"),
+    path("password-reset/done/", auth_views.DashboardPasswordResetDoneView.as_view(), name="password_reset_done"),
+    path(
+        "reset/<uidb64>/<token>/",
+        auth_views.DashboardPasswordResetConfirmView.as_view(),
+        name="password_reset_confirm",
+    ),
+    path(
+        "reset/done/",
+        auth_views.DashboardPasswordResetCompleteView.as_view(),
+        name="password_reset_complete",
+    ),
     path("demo-login/", views.demo_login, name="demo_login"),
     path("logout/", auth_views.logout_view, name="logout"),
     path("2fa/verify/", two_factor_views.two_factor_verify, name="two_factor_verify"),
@@ -97,6 +109,7 @@ urlpatterns = [
     # ==================
     path("screens/", views_screens.screen_list, name="screen_list"),
     path("screens/new/", views_screens.screen_create, name="screen_create"),
+    path("screens/<int:pk>/edit/", views_screens.screen_edit, name="screen_edit"),
     path("screens/<int:pk>/refresh/", views_screens.screen_refresh_now, name="screen_refresh_now"),
     path("screens/<int:pk>/reload/", views_screens.screen_reload_now, name="screen_reload_now"),
     path("screens/<int:pk>/unbind/", views_screens.screen_unbind_device, name="screen_unbind_device"),

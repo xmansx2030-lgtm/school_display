@@ -125,6 +125,40 @@ services:
       retries: 3
       start_period: 71s
 
+  email-notification-worker:
+    <<: *django
+    mem_limit: ${EMAIL_NOTIFICATION_WORKER_MEMORY_LIMIT:-192m}
+    depends_on:
+      web:
+        condition: service_healthy
+    command: python manage.py email_notification_worker
+    networks:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD", "python", "manage.py", "email_notification_worker", "--healthcheck"]
+      interval: 61s
+      timeout: 10s
+      retries: 3
+      start_period: 71s
+
+  tamara-reconciliation-worker:
+    <<: *django
+    mem_limit: ${TAMARA_RECONCILIATION_WORKER_MEMORY_LIMIT:-192m}
+    depends_on:
+      web:
+        condition: service_healthy
+    command: python manage.py tamara_reconciliation_worker
+    networks:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD", "python", "manage.py", "tamara_reconciliation_worker", "--healthcheck"]
+      interval: 31s
+      timeout: 10s
+      retries: 3
+      start_period: 41s
+
   screen-monitor:
     <<: *django
     mem_limit: ${SCREEN_MONITOR_MEMORY_LIMIT:-192m}

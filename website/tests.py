@@ -29,6 +29,7 @@ class TrialSignupTests(TestCase):
             "city": "الرياض",
             "contact_name": "أحمد محمد",
             "mobile": "0501234567",
+            "email": "manager@example.com",
             "password": "StrongPass123!",
             "password_confirm": "StrongPass123!",
         }
@@ -53,6 +54,7 @@ class TrialSignupTests(TestCase):
         self.assertEqual(profile.active_school, school)
         self.assertTrue(profile.schools.filter(pk=school.pk).exists())
         self.assertEqual(profile.mobile, "0501234567")
+        self.assertEqual(profile.user.email, "manager@example.com")
         self.assertTrue(profile.needs_onboarding)
         self.assertEqual(subscription.school, school)
         self.assertEqual(subscription.status, "active")
@@ -97,6 +99,8 @@ class TrialSignupTests(TestCase):
         self.assertContains(response, 'aria-modal="true"')
         self.assertContains(response, 'class="pricing-sync-note"')
         self.assertContains(response, 'pattern="05[0-9]{8}"')
+        self.assertContains(response, 'type="email"')
+        self.assertContains(response, "يُستخدم لإرسال الفواتير واستعادة كلمة المرور")
 
     def test_landing_page_has_conversion_and_performance_contracts(self):
         response = self.client.get(reverse("website:home"))
@@ -119,12 +123,14 @@ class TrialSignupTests(TestCase):
         active_plan = SubscriptionPlan.objects.create(
             code="landing-annual",
             name="الباقة السنوية المتزامنة",
+            description="وصف موحد يظهر في جميع واجهات الباقات",
             price=9876,
             duration_days=365,
             max_schools=2,
             max_users=12,
             max_screens=4,
             sort_order=3,
+            is_featured=True,
             is_active=True,
         )
         SubscriptionPlan.objects.create(
@@ -142,10 +148,13 @@ class TrialSignupTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, active_plan.name)
+        self.assertContains(response, active_plan.description)
+        self.assertContains(response, "الأكثر طلباً")
         self.assertContains(response, "9876")
-        self.assertContains(response, "365 يوماً")
+        self.assertContains(response, "سنة كاملة")
         self.assertContains(response, "الشاشات:")
         self.assertContains(response, "data-plan-code=\"landing-annual\"")
+        self.assertNotContains(response, "المدارس:")
         self.assertNotContains(response, "باقة مخفية من الهبوط")
 
     def test_landing_pricing_reflects_dashboard_price_update_on_next_request(self):
@@ -187,6 +196,28 @@ class TrialSignupTests(TestCase):
         self.assertEqual(School.objects.count(), 1)
         self.assertEqual(SubscriptionPlan.objects.filter(code="free-trial").count(), 1)
 
+    def test_trial_signup_requires_a_valid_unique_email(self):
+        missing = self.client.post(
+            reverse("website:trial_signup"),
+            data=self._payload(email=""),
+        )
+        self.assertEqual(missing.status_code, 400)
+        self.assertIn("email", missing.json()["errors"])
+
+        first = self.client.post(reverse("website:trial_signup"), data=self._payload())
+        self.assertEqual(first.status_code, 200)
+
+        duplicate = self.client.post(
+            reverse("website:trial_signup"),
+            data=self._payload(
+                school_name="مدرسة بريد أخرى",
+                mobile="0512345678",
+                email="MANAGER@example.com",
+            ),
+        )
+        self.assertEqual(duplicate.status_code, 400)
+        self.assertIn("email", duplicate.json()["errors"])
+
 
 @override_settings(DISPLAY_WS_LIVE_STATUS_CHECK_SEC=60)
 class DisplayRuntimeConfigTests(TestCase):
@@ -199,3 +230,32 @@ class DisplayRuntimeConfigTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-ws-live-status-check="60"')
+
+    def test_display_page_exposes_screen_specific_theme_and_visibility(self):
+        school = School.objects.create(name="مدرسة التخصيص", slug="custom-display-school")
+        SchoolSettings.objects.create(name=school.name, school=school, theme="emerald")
+        screen = DisplayScreen.objects.create(
+            name="شاشة المدخل",
+            school=school,
+            theme_override="violet",
+            occasion_theme="founding_day",
+            featured_panel_override="duty",
+            show_announcements=False,
+            show_period_classes=True,
+            show_standby=False,
+            show_duty=True,
+            show_excellence=False,
+        )
+
+        response = self.client.get(reverse("website:short_display", args=[screen.short_code]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-theme="violet"')
+        self.assertContains(response, 'data-screen-theme="violet"')
+        self.assertContains(response, 'data-screen-occasion-theme="founding_day"')
+        self.assertContains(response, 'data-screen-featured-panel="duty"')
+        self.assertContains(response, 'data-screen-show-announcements="0"')
+        self.assertContains(response, 'data-screen-show-period-classes="1"')
+        self.assertContains(response, 'data-screen-show-standby="0"')
+        self.assertContains(response, 'data-screen-show-duty="1"')
+        self.assertContains(response, 'data-screen-show-excellence="0"')

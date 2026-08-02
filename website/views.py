@@ -15,6 +15,7 @@ from django.views.decorators.http import require_POST
 
 from core.models import DisplayScreen, SubscriptionPlan
 from schedule.models import SchoolSettings
+from subscriptions.plan_catalog import plan_cards
 from .services import (
     TrialSignupError,
     check_trial_rate_limit,
@@ -131,7 +132,8 @@ def _build_display_context(request, key: str | None) -> dict | None:
         logo_url = getattr(settings_obj, "logo_url", None)
     logo_url = _abs_media_url(request, logo_url)
 
-    raw_theme = getattr(settings_obj, "theme", "default")
+    screen_theme_override = (getattr(screen, "theme_override", "") or "").strip()
+    raw_theme = screen_theme_override or getattr(settings_obj, "theme", "default")
     theme = THEME_MAP.get(raw_theme, "indigo")
 
     # Preview overrides (non-persistent, per-request)
@@ -167,6 +169,16 @@ def _build_display_context(request, key: str | None) -> dict | None:
         "now_hour": timezone.localtime().hour,
         "theme": theme,
         "theme_key": raw_theme,
+        "screen_theme_override": screen_theme_override,
+        "screen_occasion_theme": getattr(screen, "occasion_theme", "auto") or "auto",
+        "screen_featured_panel": (
+            getattr(screen, "featured_panel_override", "") or ""
+        ),
+        "screen_show_announcements": bool(getattr(screen, "show_announcements", True)),
+        "screen_show_period_classes": bool(getattr(screen, "show_period_classes", True)),
+        "screen_show_standby": bool(getattr(screen, "show_standby", True)),
+        "screen_show_duty": bool(getattr(screen, "show_duty", True)),
+        "screen_show_excellence": bool(getattr(screen, "show_excellence", True)),
         "preview_lock": preview_lock,
         # ✅ نعطي الواجهة token الحقيقي دائمًا
         "api_token": effective_token,
@@ -196,28 +208,7 @@ def home(request):
         active_plans = list(
             SubscriptionPlan.objects.filter(is_active=True).order_by("sort_order", "price", "id")
         )
-        landing_plans = []
-        for plan in active_plans:
-            duration_days = int(plan.duration_days or 0)
-            duration_label = f"{duration_days} يوماً" if duration_days else "مدة مفتوحة"
-            is_trial = plan.code == "free-trial" or (
-                plan.price == 0 and "تجرب" in plan.name
-            )
-            landing_plans.append(
-                {
-                    "id": plan.pk,
-                    "code": plan.code,
-                    "name": plan.name,
-                    "price": plan.price,
-                    "duration_days": duration_days,
-                    "duration_label": duration_label,
-                    "max_schools": plan.max_schools,
-                    "max_users": plan.max_users,
-                    "max_screens": plan.max_screens,
-                    "is_trial": is_trial,
-                    "is_free": plan.price == 0,
-                }
-            )
+        landing_plans = plan_cards(active_plans)
 
         landing_trial = next(
             (plan for plan in landing_plans if plan["is_trial"]),
@@ -246,7 +237,15 @@ def home(request):
 
 
 def subscriptions(request):
-    return render(request, "website/subscriptions.html")
+    tamara_available = bool(
+        getattr(django_settings, "TAMARA_ENABLED", False)
+        and getattr(django_settings, "TAMARA_API_TOKEN", "")
+    )
+    return render(
+        request,
+        "website/subscriptions.html",
+        {"tamara_available": tamara_available},
+    )
 
 
 @require_POST

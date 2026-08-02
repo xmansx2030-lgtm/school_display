@@ -372,11 +372,6 @@
                             {{ seller.address|linebreaksbr }}
                         {% endif %}
                     </div>
-                    {% if seller.vat %}
-                    <div class="party-detail" style="margin-top:8px;">
-                        <strong>الرقم الضريبي:</strong> {{ seller.vat }}
-                    </div>
-                    {% endif %}
                     {% if seller.cr %}
                     <div class="party-detail">
                         <strong>السجل التجاري:</strong> {{ seller.cr }}
@@ -468,10 +463,6 @@
                     <div class="summary-row">
                         <span>المجموع الفرعي</span>
                         <span>{{ invoice.amount }} {{ invoice.get_currency_display }}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span>ضريبة القيمة المضافة (0%)</span>
-                        <span>0.00 {{ invoice.get_currency_display }}</span>
                     </div>
                     <div class="summary-row total">
                         <span>الإجمالي المستحق</span>

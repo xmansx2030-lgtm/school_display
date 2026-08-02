@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 import os
 import logging
+import re
 
 from django import forms
 from django.apps import apps
@@ -73,6 +74,33 @@ def _get_profile(user):
 # ========================
 
 class SchoolSettingsForm(forms.ModelForm):
+    email = forms.EmailField(
+        label="البريد الإلكتروني",
+        required=False,
+        max_length=254,
+        help_text="يُستخدم لإشعارات الاشتراك وإتمام الدفع عبر تمارا.",
+        widget=forms.EmailInput(
+            attrs={
+                "autocomplete": "email",
+                "dir": "ltr",
+                "placeholder": "name@example.com",
+            }
+        ),
+    )
+    mobile = forms.CharField(
+        label="رقم الجوال",
+        required=False,
+        max_length=20,
+        help_text="أدخل رقم جوال سعودي مثل 05xxxxxxxx. يُستخدم للدخول والدفع عبر تمارا.",
+        widget=forms.TextInput(
+            attrs={
+                "autocomplete": "tel",
+                "dir": "ltr",
+                "inputmode": "tel",
+                "placeholder": "05xxxxxxxx",
+            }
+        ),
+    )
     logo = forms.ImageField(
         label="شعار المدرسة",
         required=False,
@@ -149,6 +177,11 @@ class SchoolSettingsForm(forms.ModelForm):
         self.request_user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
+        if self.request_user and getattr(self.request_user, "is_authenticated", False):
+            self.fields["email"].initial = (getattr(self.request_user, "email", "") or "").strip()
+            profile = UserProfile.objects.filter(user=self.request_user).only("mobile").first()
+            self.fields["mobile"].initial = (getattr(profile, "mobile", "") or "").strip()
+
         # تأكيد attrs حتى لو تغيّرت الـ widgets أو تم override من مكان آخر
         for fname in ["standby_scroll_speed", "periods_scroll_speed"]:
             if fname in self.fields:
@@ -206,6 +239,27 @@ class SchoolSettingsForm(forms.ModelForm):
             raise forms.ValidationError("الحد الأدنى لسرعة تمرير جدول الحصص هو 0.5.")
         return v_f
 
+    def clean_email(self):
+        return (self.cleaned_data.get("email") or "").strip().casefold()
+
+    def clean_mobile(self):
+        value = (self.cleaned_data.get("mobile") or "").strip()
+        if not value:
+            return ""
+
+        arabic_digits = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+        digits = re.sub(r"\D+", "", value.translate(arabic_digits))
+        if digits.startswith("00966"):
+            digits = "0" + digits[5:]
+        elif digits.startswith("966"):
+            digits = "0" + digits[3:]
+        elif re.fullmatch(r"5\d{8}", digits):
+            digits = "0" + digits
+
+        if not re.fullmatch(r"05\d{8}", digits):
+            raise forms.ValidationError("أدخل رقم جوال سعودي صحيحًا بصيغة 05xxxxxxxx.")
+        return digits
+
     def clean(self):
         cleaned = super().clean()
         theme = (cleaned.get("theme") or "indigo").strip().lower()
@@ -226,6 +280,7 @@ class SchoolSettingsForm(forms.ModelForm):
             quality=84,
         )
 
+    @transaction.atomic
     def save(self, commit=True):
         """
         نحفظ الإعدادات، ولو تم رفع شعار جديد نحدّث school.logo بأمان.
@@ -250,6 +305,18 @@ class SchoolSettingsForm(forms.ModelForm):
             instance.save()
             # إذا كان عندك many-to-many في الفورم مستقبلًا
             self.save_m2m()
+
+            if self.request_user and getattr(self.request_user, "is_authenticated", False):
+                email = self.cleaned_data.get("email", "")
+                if self.request_user.email != email:
+                    self.request_user.email = email
+                    self.request_user.save(update_fields=["email"])
+
+                profile = _get_profile(self.request_user)
+                mobile = self.cleaned_data.get("mobile", "")
+                if (profile.mobile or "") != mobile:
+                    profile.mobile = mobile
+                    profile.save(update_fields=["mobile"])
 
         return instance
 
@@ -842,7 +909,24 @@ class DutyAssignmentForm(forms.ModelForm):
 class DisplayScreenForm(forms.ModelForm):
     class Meta:
         model = DisplayScreen
-        fields = ["name", "is_active"]
+        fields = [
+            "name",
+            "is_active",
+            "theme_override",
+            "occasion_theme",
+            "featured_panel_override",
+            "show_announcements",
+            "show_period_classes",
+            "show_standby",
+            "show_duty",
+            "show_excellence",
+        ]
+        widgets = {
+            "name": forms.TextInput(attrs={"maxlength": "100"}),
+            "theme_override": forms.Select(),
+            "occasion_theme": forms.Select(),
+            "featured_panel_override": forms.Select(),
+        }
 
 
 class LessonForm(forms.ModelForm):
@@ -1137,7 +1221,7 @@ class SubscriptionRenewalRequestForm(forms.Form, _ReceiptImageValidationMixin):
 
 class SubscriptionNewRequestForm(forms.Form, _ReceiptImageValidationMixin):
     plan = forms.ModelChoiceField(
-        queryset=SubscriptionPlan.objects.filter(is_active=True).order_by("sort_order", "name"),
+        queryset=SubscriptionPlan.objects.filter(is_active=True).order_by("sort_order", "price", "id"),
         label="اختر الخطة",
         widget=forms.Select(
             attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
@@ -1145,6 +1229,7 @@ class SubscriptionNewRequestForm(forms.Form, _ReceiptImageValidationMixin):
     )
     receipt_image = forms.ImageField(
         label="إيصال التحويل (صورة)",
+        required=False,
         widget=forms.ClearableFileInput(
             attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
         ),
@@ -1159,7 +1244,22 @@ class SubscriptionNewRequestForm(forms.Form, _ReceiptImageValidationMixin):
     )
 
     def clean_receipt_image(self):
-        return self._validate_receipt_image(self.cleaned_data.get("receipt_image"))
+        receipt = self.cleaned_data.get("receipt_image")
+        if not receipt:
+            return None
+        return self._validate_receipt_image(receipt)
+
+    def clean(self):
+        cleaned = super().clean()
+        plan = cleaned.get("plan")
+        receipt = cleaned.get("receipt_image")
+        try:
+            is_paid = bool(plan and (getattr(plan, "price", 0) or 0) > 0)
+        except Exception:
+            is_paid = True
+        if is_paid and not receipt:
+            self.add_error("receipt_image", "أرفق صورة إيصال التحويل للخطة المدفوعة.")
+        return cleaned
 
 
 # =========================
@@ -1463,28 +1563,32 @@ class SubscriptionPlanForm(forms.ModelForm):
         self.fields["code"].help_text = "رمز داخلي فريد بالإنجليزية، مثل: basic أو annual-pro."
         self.fields["price"].help_text = "السعر الكامل للباقة بالريال السعودي."
         self.fields["duration_days"].help_text = "عدد أيام الاشتراك، مثل 365 للباقة السنوية."
+        self.fields["description"].help_text = "وصف قصير يساعد المدرسة على اختيار الباقة المناسبة."
 
     class Meta:
         model = SubscriptionPlan
         fields = (
             "name",
+            "description",
             "code",
             "price",
             "duration_days",
-            "max_schools",
             "max_users",
             "max_screens",
             "sort_order",
+            "is_featured",
             "is_active",
         )
         widgets = {
             "name": forms.TextInput(attrs={"placeholder": "مثال: الباقة السنوية"}),
+            "description": forms.Textarea(
+                attrs={"rows": "3", "placeholder": "مثال: مناسبة للمدارس التي تشغّل ثلاث شاشات."}
+            ),
             "code": forms.TextInput(attrs={"placeholder": "annual-pro", "dir": "ltr"}),
             "price": forms.NumberInput(attrs={"min": "0", "step": "0.01"}),
             "duration_days": forms.NumberInput(attrs={"min": "1"}),
             "max_users": forms.NumberInput(attrs={"min": "1", "placeholder": "فارغ = غير محدود"}),
             "max_screens": forms.NumberInput(attrs={"min": "1", "placeholder": "فارغ = غير محدود"}),
-            "max_schools": forms.NumberInput(attrs={"min": "1"}),
             "sort_order": forms.NumberInput(attrs={"min": "0"}),
         }
 
@@ -1493,11 +1597,23 @@ class SubscriptionPlanForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        for field_name in ("duration_days", "max_schools"):
+        for field_name in ("duration_days",):
             value = cleaned.get(field_name)
             if value is not None and value < 1:
                 self.add_error(field_name, "يجب أن تكون القيمة 1 أو أكثر.")
         return cleaned
+
+    def save(self, commit=True):
+        plan = super().save(commit=False)
+        # الباقة تخص مدرسة واحدة دائماً؛ الحقل داخلي ولا يحتاج أن يظهر للمدير.
+        plan.max_schools = 1
+        if commit:
+            plan.save()
+            if plan.is_featured:
+                SubscriptionPlan.objects.exclude(pk=plan.pk).filter(is_featured=True).update(
+                    is_featured=False
+                )
+        return plan
 
 from core.models import SupportTicket, TicketComment
 from core.tenant_access import authorized_active_school

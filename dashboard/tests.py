@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from datetime import time, timedelta
 from io import BytesIO
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.cache import cache
+from django.core import mail
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
 from django.test import TestCase, override_settings
@@ -17,6 +20,7 @@ import pyotp
 from core.models import DisplayScreen, School, SubscriptionPlan, SupportTicket, UserProfile, UserTwoFactorAuth
 from core.display_presence import latest_display_presence, touch_display_presence
 from display.services.device_binding import bind_device_atomic
+from display.ws_groups import school_group_name
 from core.error_views import permission_denied
 from core.tenant_access import authorized_active_school
 from core.two_factor import (
@@ -27,7 +31,8 @@ from core.two_factor import (
 )
 from dashboard.access import get_active_school_or_redirect
 from dashboard.decorators import manager_required, superuser_required, system_staff_required
-from subscriptions.models import SchoolSubscription
+from dashboard.forms import SubscriptionNewRequestForm
+from subscriptions.models import SchoolSubscription, SubscriptionRequest, TamaraCheckout
 from schedule.models import ClassLesson, DaySchedule, Period, SchoolClass, SchoolSettings, Subject, Teacher
 from notices.models import Announcement, EmergencyAlert
 from dashboard.excel_import import apply_import, build_template_bytes, parse_workbook
@@ -109,6 +114,77 @@ class LoginRateLimitTests(TestCase):
         self.assertContains(response, 'for="loginUsername"')
         self.assertContains(response, 'for="loginPassword"')
         self.assertNotContains(response, "Smart School Control")
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    DEFAULT_FROM_EMAIL="no-reply@example.com",
+    PASSWORD_RESET_TIMEOUT=3600,
+)
+class PasswordResetTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="reset_manager",
+            email="reset@example.com",
+            password="OldStrongPass123!",
+        )
+
+    def test_login_page_links_to_password_reset(self):
+        response = self.client.get(reverse("dashboard:login"))
+
+        self.assertContains(response, reverse("dashboard:password_reset"))
+        self.assertContains(response, "نسيت كلمة المرور؟")
+
+    def test_password_reset_email_changes_password(self):
+        response = self.client.post(
+            reverse("dashboard:password_reset"),
+            {"email": "reset@example.com"},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:password_reset_done"),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["reset@example.com"])
+        self.assertIn("استعادة كلمة المرور", mail.outbox[0].subject)
+
+        reset_url = next(
+            line.strip()
+            for line in mail.outbox[0].body.splitlines()
+            if "/dashboard/reset/" in line
+        )
+        token_response = self.client.get(reset_url)
+        self.assertEqual(token_response.status_code, 302)
+
+        set_password_response = self.client.post(
+            token_response.url,
+            {
+                "new_password1": "NewStrongPass456!",
+                "new_password2": "NewStrongPass456!",
+            },
+        )
+        self.assertRedirects(
+            set_password_response,
+            reverse("dashboard:password_reset_complete"),
+            fetch_redirect_response=False,
+        )
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("NewStrongPass456!"))
+
+    def test_unknown_email_uses_same_success_page_without_sending(self):
+        response = self.client.post(
+            reverse("dashboard:password_reset"),
+            {"email": "unknown@example.com"},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:password_reset_done"),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(len(mail.outbox), 0)
 
 
 class TenantIsolationTests(TestCase):
@@ -321,9 +397,12 @@ class CustomerExperienceRegressionTests(TestCase):
         plan = SubscriptionPlan.objects.create(
             code="customer-plan",
             name="الخطة السنوية",
+            description="الخيار المناسب لتشغيل شاشات المدرسة",
             price=100,
             duration_days=365,
             max_screens=3,
+            max_users=4,
+            is_featured=True,
         )
         SchoolSubscription.objects.create(
             school=self.school,
@@ -344,6 +423,10 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertNotContains(response, "جميع الشاشات تعمل")
         self.assertNotContains(response, "internal mobile")
         self.assertNotContains(response, "مدرسة مدرسة التجربة")
+        self.assertContains(response, "data-plan-option")
+        self.assertContains(response, "الخيار المناسب لتشغيل شاشات المدرسة")
+        self.assertContains(response, "الأكثر طلباً")
+        self.assertNotContains(response, "المدارس:")
 
     def test_school_settings_exposes_clear_sections_and_display_preview(self):
         screen = DisplayScreen.objects.create(
@@ -362,6 +445,67 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(response, f"/s/{screen.short_code}/")
         self.assertContains(response, "كل التغييرات محفوظة")
 
+    @override_settings(
+        TAMARA_ENABLED=True,
+        TAMARA_API_TOKEN="test-token",
+        TAMARA_API_BASE_URL="https://api-sandbox.tamara.co",
+    )
+    def test_subscription_page_reviews_tamara_payment_before_redirect(self):
+        current_plan = SchoolSubscription.objects.get(school=self.school).plan
+        TamaraCheckout.objects.create(
+            school=self.school,
+            created_by=self.user,
+            plan=current_plan,
+            request_type="new",
+            amount=current_plan.price,
+            status="error",
+            error_message="تعذر الاتصال بتمارا حاليًا.",
+        )
+
+        response = self.client.get(reverse("dashboard:my_subscription"))
+
+        self.assertContains(response, "مراجعة قبل الانتقال")
+        self.assertContains(response, "لن يتم الخصم من هذه الصفحة")
+        self.assertContains(response, "data-tamara-form")
+        self.assertContains(response, "تعذر الاتصال بتمارا حاليًا.")
+        self.assertContains(response, "إعادة المحاولة")
+        self.assertContains(response, "التحويل البنكي بدلًا من ذلك")
+
+    def test_free_plan_needs_no_receipt_but_paid_bank_transfer_does(self):
+        free_plan = SubscriptionPlan.objects.create(
+            code="customer-free-plan",
+            name="تجربة مجانية",
+            price=0,
+            duration_days=14,
+            max_screens=1,
+        )
+        paid_plan = SchoolSubscription.objects.get(school=self.school).plan
+
+        free_form = SubscriptionNewRequestForm(
+            data={"new-plan": free_plan.pk},
+            prefix="new",
+        )
+        paid_form = SubscriptionNewRequestForm(
+            data={"new-plan": paid_plan.pk},
+            prefix="new",
+        )
+
+        self.assertTrue(free_form.is_valid(), free_form.errors)
+        self.assertFalse(paid_form.is_valid())
+        self.assertIn("receipt_image", paid_form.errors)
+
+        response = self.client.post(
+            reverse("dashboard:my_subscription"),
+            {"action": "new", "new-plan": free_plan.pk},
+        )
+        self.assertRedirects(
+            response,
+            reverse("dashboard:my_subscription"),
+            fetch_redirect_response=False,
+        )
+        request_obj = SubscriptionRequest.objects.get(plan=free_plan)
+        self.assertFalse(bool(request_obj.receipt_image))
+
     def test_connected_screen_is_reported_live_in_screen_list(self):
         screen = DisplayScreen.objects.create(
             name="الشاشة الرئيسية",
@@ -377,6 +521,90 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(response, "متصلة الآن")
         self.assertContains(response, "قبل أقل من دقيقة")
         self.assertNotContains(response, "لم تتصل بعد")
+
+    def test_manager_can_customize_each_screen_independently(self):
+        first = DisplayScreen.objects.create(name="شاشة المدخل", school=self.school)
+        second = DisplayScreen.objects.create(name="شاشة المعلمين", school=self.school)
+
+        form_response = self.client.get(reverse("dashboard:screen_edit", args=[first.pk]))
+        self.assertEqual(form_response.status_code, 200)
+        self.assertContains(form_response, "الثيم الخاص بالشاشة")
+        self.assertContains(form_response, "قالب المناسبة")
+        self.assertContains(form_response, "إظهار جدول الحصص الجارية")
+        self.assertContains(form_response, "إظهار حصص الانتظار")
+        self.assertContains(form_response, "إظهار الإشراف والمناوبة")
+        self.assertContains(form_response, "إظهار لوحة الشرف")
+
+        response = self.client.post(
+            reverse("dashboard:screen_edit", args=[first.pk]),
+            {
+                "name": first.name,
+                "is_active": "on",
+                "theme_override": "rose",
+                "occasion_theme": "graduation",
+                "featured_panel_override": "duty",
+                "show_announcements": "on",
+                "show_period_classes": "on",
+                "show_duty": "on",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:screen_list"),
+            fetch_redirect_response=False,
+        )
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.theme_override, "rose")
+        self.assertEqual(first.occasion_theme, "graduation")
+        self.assertEqual(first.featured_panel_override, "duty")
+        self.assertTrue(first.show_announcements)
+        self.assertTrue(first.show_period_classes)
+        self.assertFalse(first.show_standby)
+        self.assertTrue(first.show_duty)
+        self.assertFalse(first.show_excellence)
+        self.assertEqual(second.theme_override, "")
+        self.assertEqual(second.occasion_theme, "auto")
+        self.assertTrue(second.show_standby)
+        self.assertTrue(second.show_excellence)
+
+    def test_screen_customization_is_scoped_to_active_school(self):
+        other_school = School.objects.create(name="مدرسة أخرى", slug="other-screen-school")
+        other_screen = DisplayScreen.objects.create(name="شاشة أخرى", school=other_school)
+
+        response = self.client.get(reverse("dashboard:screen_edit", args=[other_screen.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+    @override_settings(DISPLAY_WS_ENABLED=True)
+    def test_manual_screen_commands_are_pushed_to_required_group_immediately(self):
+        screen = DisplayScreen.objects.create(
+            name="الشاشة الرئيسية",
+            school=self.school,
+            is_active=True,
+        )
+
+        for url_name, event_type in (
+            ("dashboard:screen_refresh_now", "broadcast_invalidate"),
+            ("dashboard:screen_reload_now", "broadcast_reload"),
+        ):
+            channel_layer = SimpleNamespace(group_send=AsyncMock())
+            with patch("channels.layers.get_channel_layer", return_value=channel_layer):
+                with self.captureOnCommitCallbacks(execute=True):
+                    response = self.client.post(reverse(url_name, args=[screen.pk]))
+
+            self.assertRedirects(
+                response,
+                reverse("dashboard:screen_list"),
+                fetch_redirect_response=False,
+            )
+            channel_layer.group_send.assert_awaited_once()
+            group, event = channel_layer.group_send.await_args.args
+            self.assertEqual(group, school_group_name(self.school.pk))
+            self.assertEqual(event["type"], event_type)
+            self.assertEqual(event["school_id"], self.school.pk)
+            self.assertEqual(event["target_screen_id"], screen.pk)
 
     def test_bound_screen_without_legacy_presence_is_not_called_offline(self):
         DisplayScreen.objects.create(
@@ -699,31 +927,42 @@ class SystemAdminExperienceTests(TestCase):
         self.assertContains(response, reverse("dashboard:system_plan_create"))
 
     def test_plan_crud_and_activation_controls(self):
+        form_response = self.client.get(reverse("dashboard:system_plan_create"))
+        self.assertContains(form_response, "وصف مختصر")
+        self.assertContains(form_response, "الباقة الموصى بها")
+        self.assertContains(form_response, "data-duration-days=\"365\"")
+        self.assertContains(form_response, "planPreviewName")
+        self.assertNotContains(form_response, "max_schools")
+
         create_response = self.client.post(
             reverse("dashboard:system_plan_create"),
             {
                 "name": "الباقة الجديدة",
+                "description": "وصف الباقة الجديدة",
                 "code": "NEW-PLAN",
                 "price": "1499.00",
                 "duration_days": "365",
-                "max_schools": "1",
                 "max_users": "10",
                 "max_screens": "3",
                 "sort_order": "2",
+                "is_featured": "on",
                 "is_active": "on",
             },
         )
         self.assertRedirects(create_response, reverse("dashboard:system_plans_list"))
         created_plan = SubscriptionPlan.objects.get(code="new-plan")
+        self.assertEqual(created_plan.max_schools, 1)
+        self.assertTrue(created_plan.is_featured)
+        self.assertEqual(created_plan.description, "وصف الباقة الجديدة")
 
         edit_response = self.client.post(
             reverse("dashboard:system_plan_edit", args=[created_plan.pk]),
             {
                 "name": "الباقة الجديدة المطورة",
+                "description": "وصف محدث",
                 "code": "new-plan",
                 "price": "1799.00",
                 "duration_days": "365",
-                "max_schools": "1",
                 "max_users": "15",
                 "max_screens": "4",
                 "sort_order": "2",

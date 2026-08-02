@@ -4,9 +4,11 @@ from core.models import SubscriptionPlan
 from .models import (
     SchoolSubscription,
     SubscriptionInvoice,
+    SubscriptionEmailNotification,
     SubscriptionPaymentOperation,
     SubscriptionScreenAddon,
     SubscriptionRequest,
+    TamaraCheckout,
 )
 
 
@@ -17,9 +19,10 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
     Admin بسيط لعرض خطط الاشتراك الموجودة في core.SubscriptionPlan
     بدون افتراض أي حقول غير مضمونة.
     """
-    list_display = ("id", "name", "is_active")
-    search_fields = ("name",)
-    list_filter = ("is_active",)
+    list_display = ("id", "name", "price", "duration_days", "max_screens", "is_featured", "is_active")
+    search_fields = ("name", "code", "description")
+    list_filter = ("is_active", "is_featured")
+    ordering = ("sort_order", "price", "id")
 
 
 # إدارة اشتراكات المدارس
@@ -102,6 +105,32 @@ class SubscriptionPaymentOperationAdmin(admin.ModelAdmin):
     autocomplete_fields = ("school", "subscription", "plan", "created_by")
 
 
+@admin.register(TamaraCheckout)
+class TamaraCheckoutAdmin(admin.ModelAdmin):
+    list_display = (
+        "merchant_reference",
+        "school",
+        "plan",
+        "amount",
+        "status",
+        "tamara_order_id",
+        "created_at",
+    )
+    list_filter = ("status", "request_type", "created_at")
+    search_fields = ("merchant_reference", "tamara_order_id", "school__name")
+    autocomplete_fields = ("school", "plan", "created_by", "subscription", "payment_operation")
+    readonly_fields = (
+        "merchant_reference",
+        "tamara_order_id",
+        "checkout_id",
+        "checkout_url",
+        "last_event",
+        "processed_at",
+        "created_at",
+        "updated_at",
+    )
+
+
 @admin.register(SubscriptionInvoice)
 class SubscriptionInvoiceAdmin(admin.ModelAdmin):
     list_display = (
@@ -117,3 +146,33 @@ class SubscriptionInvoiceAdmin(admin.ModelAdmin):
     search_fields = ("invoice_number", "school__name", "plan__name")
     autocomplete_fields = ("school", "subscription", "plan", "operation")
     readonly_fields = ("invoice_number", "created_at")
+
+
+@admin.register(SubscriptionEmailNotification)
+class SubscriptionEmailNotificationAdmin(admin.ModelAdmin):
+    list_display = (
+        "event_type",
+        "recipient",
+        "subscription",
+        "status",
+        "attempts",
+        "sent_at",
+        "created_at",
+    )
+    list_filter = ("event_type", "status", "created_at")
+    search_fields = ("recipient", "dedupe_key", "subscription__school__name")
+    readonly_fields = (
+        "event_type",
+        "subscription",
+        "invoice",
+        "recipient",
+        "reminder_days",
+        "dedupe_key",
+        "attempts",
+        "available_at",
+        "locked_at",
+        "sent_at",
+        "last_error",
+        "created_at",
+        "updated_at",
+    )

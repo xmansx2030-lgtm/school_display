@@ -25,6 +25,23 @@ class DisplayClientTimingRegressionTests(SimpleTestCase):
         self.assertIn('"bell_boundary_exact"', self.source)
         self.assertNotIn('audio.load();\n      audio.play()', self.source)
 
+    def test_screen_wake_lock_is_reacquired_after_release_and_visibility_change(self):
+        self.assertIn('navigator.wakeLock.request("screen")', self.source)
+        self.assertIn('sentinel.addEventListener("release"', self.source)
+        self.assertIn('_scheduleWakeLockRetry(1000);', self.source)
+        self.assertIn('document.addEventListener("visibilitychange"', self.source)
+        self.assertIn('_stopWakeLockKeepalive();', self.source)
+
+    def test_emergency_overlay_expires_without_waiting_for_a_new_snapshot(self):
+        emergency_source = self.source.split(
+            "function renderEmergencyAlerts", 1
+        )[1].split("function renderOfflineMode", 1)[0]
+
+        self.assertIn('Date.parse(String(item.expires_at))', emergency_source)
+        self.assertIn('if (expiresMs <= currentMs) continue;', emergency_source)
+        self.assertIn('setNamedTimer("emergency_boundary"', emergency_source)
+        self.assertIn('renderEmergencyAlerts(list);', emergency_source)
+
     def test_display_does_not_reserve_a_generic_subtitle_slot(self):
         self.assertNotIn("heroSubtitle", self.source)
         self.assertNotIn('id="heroSubtitle"', self.template)
@@ -117,3 +134,44 @@ class DisplayConsumerEventTests(SimpleTestCase):
         )
 
         self.assertEqual(sent, [])
+
+    def test_targeted_commands_do_not_reach_another_screen(self):
+        consumer = DisplayConsumer()
+        consumer.screen = SimpleNamespace(id=10, school_id=7)
+        sent = []
+
+        async def fake_send(*, text_data=None, bytes_data=None):
+            sent.append(text_data)
+
+        consumer.send = fake_send
+
+        async_to_sync(consumer.broadcast_invalidate)(
+            {
+                "revision": 42,
+                "school_id": 7,
+                "target_screen_id": 11,
+                "reason": "manual_refresh",
+            }
+        )
+        async_to_sync(consumer.broadcast_reload)(
+            {"school_id": 7, "target_screen_id": 11}
+        )
+
+        self.assertEqual(sent, [])
+
+    def test_long_lived_connection_renews_its_group_memberships(self):
+        consumer = DisplayConsumer()
+        consumer.screen = SimpleNamespace(id=10, school_id=7)
+        consumer.channel_name = "test-channel"
+        consumer.school_group_name = "school_7"
+        consumer.token_group_name = "token_0123456789abcdef"
+        consumer.channel_layer = SimpleNamespace(group_add=AsyncMock())
+
+        async_to_sync(consumer._refresh_group_memberships)()
+
+        self.assertEqual(consumer.channel_layer.group_add.await_count, 2)
+        consumer.channel_layer.group_add.assert_any_await("school_7", "test-channel")
+        consumer.channel_layer.group_add.assert_any_await(
+            "token_0123456789abcdef", "test-channel"
+        )
+        self.assertGreater(consumer._last_group_refresh_at, 0)

@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 from datetime import timedelta
 import os
+import uuid
 
 from django.conf import settings
 import secrets
@@ -30,6 +31,10 @@ def _validate_receipt_extension(value):
             f"الامتدادات المسموح بها: {', '.join(sorted(e.lstrip('.') for e in _RECEIPT_ALLOWED_EXTS))}.",
             code="invalid_extension",
         )
+
+
+def _tamara_reference() -> str:
+    return f"SD-{uuid.uuid4().hex}"
 
 
 class SchoolSubscription(models.Model):
@@ -490,6 +495,7 @@ class SubscriptionRequest(models.Model):
     receipt_image = models.ImageField(
         upload_to="receipts/subscription_requests/%Y/%m",
         max_length=500,
+        blank=True,
         verbose_name="إيصال التحويل (صورة)",
         validators=[_validate_receipt_extension],
     )
@@ -625,6 +631,94 @@ class SubscriptionPaymentOperation(models.Model):
     def __str__(self) -> str:
         return f"{self.school} - {self.plan} - {self.get_method_display()}"
 
+
+class TamaraCheckout(models.Model):
+    REQUEST_TYPE_CHOICES = SubscriptionRequest.REQUEST_TYPE_CHOICES
+    STATUS_CHOICES = [
+        ("initiated", "بدأت"),
+        ("new", "بانتظار الدفع"),
+        ("approved", "تمت الموافقة"),
+        ("authorised", "مصرح بها"),
+        ("captured", "مكتملة"),
+        ("declined", "مرفوضة"),
+        ("canceled", "ملغاة"),
+        ("expired", "منتهية"),
+        ("refunded", "مستردة"),
+        ("error", "خطأ"),
+    ]
+
+    merchant_reference = models.CharField(
+        "مرجع التاجر",
+        max_length=40,
+        unique=True,
+        default=_tamara_reference,
+        editable=False,
+    )
+    tamara_order_id = models.CharField(
+        "رقم طلب تمارا",
+        max_length=80,
+        unique=True,
+        null=True,
+        blank=True,
+    )
+    checkout_id = models.CharField("رقم جلسة الدفع", max_length=80, blank=True, default="")
+    checkout_url = models.URLField("رابط الدفع", max_length=2048, blank=True, default="")
+    school = models.ForeignKey(
+        School,
+        on_delete=models.PROTECT,
+        related_name="tamara_checkouts",
+        verbose_name="المدرسة",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tamara_checkouts",
+        verbose_name="أنشئت بواسطة",
+    )
+    plan = models.ForeignKey(
+        SubscriptionPlan,
+        on_delete=models.PROTECT,
+        related_name="tamara_checkouts",
+        verbose_name="الخطة",
+    )
+    request_type = models.CharField(max_length=20, choices=REQUEST_TYPE_CHOICES)
+    starts_at = models.DateField("بداية الاشتراك المطلوبة", default=timezone.localdate)
+    amount = models.DecimalField("المبلغ", max_digits=10, decimal_places=2)
+    currency = models.CharField("العملة", max_length=3, default="SAR")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="initiated")
+    last_event = models.CharField("آخر حدث", max_length=40, blank=True, default="")
+    error_message = models.CharField("رسالة الخطأ", max_length=300, blank=True, default="")
+    subscription = models.ForeignKey(
+        SchoolSubscription,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="tamara_checkouts",
+    )
+    payment_operation = models.OneToOneField(
+        SubscriptionPaymentOperation,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="tamara_checkout",
+    )
+    processed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "جلسة دفع تمارا"
+        verbose_name_plural = "جلسات دفع تمارا"
+        ordering = ("-created_at", "-id")
+        indexes = [
+            models.Index(fields=["school", "status", "created_at"], name="tamara_school_status_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.merchant_reference} - {self.get_status_display()}"
+
 class SubscriptionInvoice(models.Model):
     """فاتورة إلكترونية محفوظة (HTML snapshot) مرتبطة بعملية دفع اشتراك."""
 
@@ -733,3 +827,56 @@ class SubscriptionInvoice(models.Model):
                     self.invoice_number = cand
                     break
         super().save(*args, **kwargs)
+
+
+class SubscriptionEmailNotification(models.Model):
+    """Durable outbox for customer invoice and subscription email messages."""
+
+    class EventType(models.TextChoices):
+        INVOICE = "invoice", "فاتورة اشتراك"
+        EXPIRY = "expiry", "تنبيه قرب انتهاء الاشتراك"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "بانتظار الإرسال"
+        PROCESSING = "processing", "جارٍ الإرسال"
+        SENT = "sent", "تم الإرسال"
+        FAILED = "failed", "فشل نهائي"
+
+    event_type = models.CharField(max_length=20, choices=EventType.choices)
+    subscription = models.ForeignKey(
+        SchoolSubscription,
+        on_delete=models.CASCADE,
+        related_name="email_notifications",
+    )
+    invoice = models.ForeignKey(
+        SubscriptionInvoice,
+        on_delete=models.CASCADE,
+        related_name="email_notifications",
+        null=True,
+        blank=True,
+    )
+    recipient = models.EmailField(max_length=254)
+    reminder_days = models.PositiveSmallIntegerField(null=True, blank=True)
+    dedupe_key = models.CharField(max_length=255, unique=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    available_at = models.DateTimeField(default=timezone.now)
+    locked_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("created_at", "id")
+        indexes = [
+            models.Index(
+                fields=("status", "available_at"),
+                name="sub_email_status_available_idx",
+            )
+        ]
+        verbose_name = "إشعار بريد اشتراك"
+        verbose_name_plural = "إشعارات بريد الاشتراكات"
+
+    def __str__(self) -> str:
+        return f"{self.get_event_type_display()} - {self.recipient}"

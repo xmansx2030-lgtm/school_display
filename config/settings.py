@@ -40,6 +40,21 @@ def env_list(key: str, default: str = "") -> list[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
+def env_secret(key: str, file_key: str) -> str:
+    """Read a secret from the environment or an externally mounted file."""
+    value = os.getenv(key, "").strip()
+    if value:
+        return value
+
+    file_path = os.getenv(file_key, "").strip()
+    if not file_path:
+        return ""
+    try:
+        return Path(file_path).expanduser().read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeError):
+        return ""
+
+
 def exists_dir(p: Path) -> bool:
     try:
         return p.exists() and p.is_dir()
@@ -603,6 +618,9 @@ elif REDIS_CONFIGURED:
                 "capacity": env_int("WS_CHANNEL_CAPACITY", "2000"),
                 # Expiry: messages auto-delete after N seconds
                 "expiry": env_int("WS_MESSAGE_EXPIRY", "60"),
+                # Group entries expire even while the socket itself stays open.
+                # Consumers renew membership periodically before this deadline.
+                "group_expiry": env_int("WS_GROUP_EXPIRY", "86400"),
                 # Optional encryption:
                 # "symmetric_encryption_keys": [SECRET_KEY[:32]],
             },
@@ -618,6 +636,7 @@ else:
 # WebSocket scaling knobs
 WS_MAX_CONNECTIONS_PER_INSTANCE = env_int("WS_MAX_CONNECTIONS", "2000")
 WS_PING_INTERVAL_SECONDS = env_int("WS_PING_INTERVAL", "20")
+WS_GROUP_REFRESH_INTERVAL_SECONDS = env_int("WS_GROUP_REFRESH_INTERVAL_SECONDS", str(6 * 60 * 60))
 WS_METRICS_LOG_INTERVAL = env_int("WS_METRICS_LOG_INTERVAL", "300")  # 5 minutes
 
 # Login brute-force protection (shared cache in production).
@@ -843,12 +862,113 @@ LOGGING = {
 LOGIN_URL = "dashboard:login"
 LOGIN_REDIRECT_URL = "dashboard:index"
 LOGOUT_REDIRECT_URL = "dashboard:login"
+PASSWORD_RESET_TIMEOUT = env_int_clamped("PASSWORD_RESET_TIMEOUT", 3600, 300, 86400)
 
 
 # =========================
 # Site base URL
 # =========================
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "https://school-display.com")
+
+
+# =========================
+# Tamara checkout
+# =========================
+TAMARA_ENABLED = env_bool("TAMARA_ENABLED", "False")
+TAMARA_API_BASE_URL = os.getenv(
+    "TAMARA_API_BASE_URL",
+    "https://api-sandbox.tamara.co",
+).strip().rstrip("/")
+TAMARA_API_TOKEN = env_secret("TAMARA_API_TOKEN", "TAMARA_API_TOKEN_FILE")
+TAMARA_NOTIFICATION_TOKEN = env_secret(
+    "TAMARA_NOTIFICATION_TOKEN",
+    "TAMARA_NOTIFICATION_TOKEN_FILE",
+)
+TAMARA_CALLBACK_BASE_URL = (
+    os.getenv("TAMARA_CALLBACK_BASE_URL", SITE_BASE_URL).strip().rstrip("/")
+    or SITE_BASE_URL.rstrip("/")
+)
+TAMARA_HTTP_TIMEOUT_SECONDS = env_int_clamped(
+    "TAMARA_HTTP_TIMEOUT_SECONDS",
+    15,
+    3,
+    60,
+)
+TAMARA_ELIGIBILITY_TIMEOUT_SECONDS = env_float_clamped(
+    "TAMARA_ELIGIBILITY_TIMEOUT_SECONDS",
+    0.2,
+    0.1,
+    2.0,
+)
+TAMARA_CAPTURE_DIGITAL_ORDERS = env_bool("TAMARA_CAPTURE_DIGITAL_ORDERS", "True")
+TAMARA_RECONCILIATION_INTERVAL_SECONDS = env_int_clamped(
+    "TAMARA_RECONCILIATION_INTERVAL_SECONDS",
+    10,
+    5,
+    300,
+)
+TAMARA_RECONCILIATION_BATCH_SIZE = env_int_clamped(
+    "TAMARA_RECONCILIATION_BATCH_SIZE",
+    20,
+    1,
+    100,
+)
+
+if TAMARA_ENABLED and not DEBUG and not RUNNING_TESTS:
+    if not TAMARA_API_TOKEN or TAMARA_API_TOKEN.startswith("CHANGE_ME"):
+        raise RuntimeError("TAMARA_API_TOKEN or TAMARA_API_TOKEN_FILE is required when Tamara is enabled")
+    if not TAMARA_CALLBACK_BASE_URL.startswith("https://"):
+        raise RuntimeError("TAMARA_CALLBACK_BASE_URL must use HTTPS in production")
+
+
+# =========================
+# Transactional email
+# =========================
+# Local development prints messages to the terminal unless explicitly
+# configured. Production uses SMTP and must provide the credentials below.
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    (
+        "django.core.mail.backends.console.EmailBackend"
+        if DEBUG
+        else "django.core.mail.backends.smtp.EmailBackend"
+    ),
+).strip()
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost").strip()
+EMAIL_PORT = env_int_clamped("EMAIL_PORT", 587, 1, 65535)
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "").strip()
+EMAIL_HOST_PASSWORD = env_secret("EMAIL_HOST_PASSWORD", "EMAIL_HOST_PASSWORD_FILE")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", "True")
+EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", "False")
+EMAIL_TIMEOUT = env_int_clamped("EMAIL_TIMEOUT", 15, 1, 60)
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL",
+    "لوحة العرض الذكية <no-reply@school-display.com>",
+).strip()
+SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL).strip()
+TRANSACTIONAL_EMAIL_ENABLED = env_bool("TRANSACTIONAL_EMAIL_ENABLED", "False")
+EMAIL_NOTIFICATION_POLL_INTERVAL_SECONDS = env_int_clamped(
+    "EMAIL_NOTIFICATION_POLL_INTERVAL_SECONDS", 30, 5, 300
+)
+EMAIL_NOTIFICATION_BATCH_SIZE = env_int_clamped("EMAIL_NOTIFICATION_BATCH_SIZE", 20, 1, 100)
+EMAIL_NOTIFICATION_MAX_ATTEMPTS = env_int_clamped("EMAIL_NOTIFICATION_MAX_ATTEMPTS", 8, 1, 20)
+EMAIL_SUBSCRIPTION_EXPIRY_DAYS = tuple(
+    sorted(
+        {
+            max(0, min(365, int(value)))
+            for value in env_list("EMAIL_SUBSCRIPTION_EXPIRY_DAYS", "14,7,3,1,0")
+            if value.lstrip("+-").isdigit()
+        },
+        reverse=True,
+    )
+)
+
+if TRANSACTIONAL_EMAIL_ENABLED and not DEBUG and not RUNNING_TESTS:
+    if not EMAIL_HOST or not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD:
+        raise RuntimeError(
+            "EMAIL_HOST, EMAIL_HOST_USER, and EMAIL_HOST_PASSWORD are required "
+            "when transactional email is enabled"
+        )
 
 
 # =========================

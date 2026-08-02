@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model, password_validation
 from django.core.cache import cache
+from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -171,6 +172,7 @@ def _validate_signup_data(data: dict) -> dict:
     city = _clean_text(data.get("city", ""), max_length=80)
     contact_name = _clean_text(data.get("contact_name", ""), max_length=120)
     mobile = normalize_mobile(data.get("mobile", ""))
+    email = (data.get("email") or "").strip().casefold()
     school_type = _school_type_value(data.get("school_type", ""))
     password = data.get("password") or ""
     password_confirm = data.get("password_confirm") or ""
@@ -189,6 +191,10 @@ def _validate_signup_data(data: dict) -> dict:
         errors["contact_name"] = "اكتب اسم المسؤول."
     if not re.fullmatch(r"05\d{8}", mobile):
         errors["mobile"] = "اكتب رقم جوال سعودي صحيح بصيغة 05XXXXXXXX."
+    try:
+        validate_email(email)
+    except ValidationError:
+        errors["email"] = "اكتب بريدًا إلكترونيًا صحيحًا."
     if password != password_confirm:
         errors["password_confirm"] = "تأكيد كلمة المرور غير مطابق."
 
@@ -197,11 +203,17 @@ def _validate_signup_data(data: dict) -> dict:
         errors["mobile"] = "يوجد حساب مسجل بهذا الرقم. يمكنك تسجيل الدخول أو التواصل معنا للمساعدة."
     if mobile and UserModel.objects.filter(username=f"trial_{mobile[-9:]}").exists():
         errors["mobile"] = "يوجد حساب مسجل بهذا الرقم. يمكنك تسجيل الدخول أو التواصل معنا للمساعدة."
+    if email and UserModel.objects.filter(email__iexact=email).exists():
+        errors["email"] = "يوجد حساب مسجل بهذا البريد. يمكنك استعادة كلمة المرور من صفحة الدخول."
 
     if errors:
         raise TrialSignupError(errors)
 
-    user_for_validation = UserModel(username=_make_username(mobile), first_name=contact_name[:150])
+    user_for_validation = UserModel(
+        username=_make_username(mobile),
+        first_name=contact_name[:150],
+        email=email,
+    )
     try:
         password_validation.validate_password(password, user_for_validation)
     except ValidationError as exc:
@@ -212,6 +224,7 @@ def _validate_signup_data(data: dict) -> dict:
         "city": city,
         "contact_name": contact_name,
         "mobile": mobile,
+        "email": email,
         "school_type": school_type,
         "password": password,
         "username": user_for_validation.username,
@@ -236,6 +249,7 @@ def create_trial_signup(data: dict) -> TrialSignupResult:
 
         user = UserModel.objects.create_user(
             username=cleaned["username"],
+            email=cleaned["email"],
             password=cleaned["password"],
             first_name=cleaned["contact_name"][:150],
             is_active=True,
@@ -267,6 +281,7 @@ def create_trial_signup(data: dict) -> TrialSignupResult:
                 f" | city: {cleaned['city']}"
                 f" | contact: {cleaned['contact_name']}"
                 f" | mobile: {cleaned['mobile']}"
+                f" | email: {cleaned['email']}"
             ),
         )
 

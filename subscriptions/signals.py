@@ -48,29 +48,30 @@ def _safe_sync_delete(sender, instance, **kwargs):
         logger.exception("Failed to sync school.is_active after delete for school_id=%s", getattr(instance, "school_id", None))
 
 
+def _safe_create_invoice(sender, instance: SubscriptionPaymentOperation, created: bool, **kwargs):
+    if not created:
+        return
+    try:
+        if not instance.amount or instance.amount <= 0:
+            return
+        if hasattr(instance, "invoice"):
+            return
+
+        from .invoicing import build_invoice_from_operation
+
+        build_invoice_from_operation(instance)
+    except Exception:
+        logger.exception(
+            "Failed to create invoice for payment operation id=%s",
+            getattr(instance, "id", None),
+        )
+
+
 def connect_signals():
     from django.db.models.signals import post_save, post_delete
 
     post_save.connect(_safe_sync, sender=SchoolSubscription, dispatch_uid="subscriptions_sync_school_active_save")
     post_delete.connect(_safe_sync_delete, sender=SchoolSubscription, dispatch_uid="subscriptions_sync_school_active_delete")
-
-    def _safe_create_invoice(sender, instance: SubscriptionPaymentOperation, created: bool, **kwargs):
-        if not created:
-            return
-        try:
-            if not instance.amount or instance.amount <= 0:
-                return
-            if hasattr(instance, "invoice"):
-                return
-
-            from .invoicing import build_invoice_from_operation
-
-            build_invoice_from_operation(instance)
-        except Exception:
-            logger.exception(
-                "Failed to create invoice for payment operation id=%s",
-                getattr(instance, "id", None),
-            )
 
     post_save.connect(
         _safe_create_invoice,

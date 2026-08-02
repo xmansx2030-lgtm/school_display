@@ -133,6 +133,32 @@ class UserTwoFactorAuth(models.Model):
 
 
 class DisplayScreen(models.Model):
+    THEME_CHOICES = [
+        ("", "استخدام ثيم المدرسة"),
+        ("indigo", "أزرق/نيلي"),
+        ("emerald", "أخضر"),
+        ("rose", "وردي"),
+        ("cyan", "سماوي"),
+        ("amber", "أصفر"),
+        ("orange", "برتقالي"),
+        ("violet", "بنفسجي"),
+    ]
+    OCCASION_THEME_CHOICES = [
+        ("auto", "تلقائي حسب التنبيه"),
+        ("off", "بدون قالب مناسبة"),
+        ("national_day", "اليوم الوطني السعودي"),
+        ("founding_day", "يوم التأسيس"),
+        ("teachers_day", "يوم المعلم"),
+        ("back_to_school", "العودة للدراسة"),
+        ("graduation", "حفل التخرج"),
+        ("weather", "حالة جوية"),
+    ]
+    FEATURED_PANEL_CHOICES = [
+        ("", "استخدام اختيار المدرسة"),
+        ("excellence", "لوحة الشرف"),
+        ("duty", "الإشراف والمناوبة"),
+    ]
+
     short_code = models.CharField(
         max_length=8,
         unique=True,
@@ -165,6 +191,34 @@ class DisplayScreen(models.Model):
         default=True,
         verbose_name="نشط",
     )
+    theme_override = models.CharField(
+        "الثيم الخاص بالشاشة",
+        max_length=20,
+        choices=THEME_CHOICES,
+        blank=True,
+        default="",
+        help_text="اتركه على ثيم المدرسة لتتبع الإعداد العام تلقائيًا.",
+    )
+    occasion_theme = models.CharField(
+        "قالب المناسبة",
+        max_length=30,
+        choices=OCCASION_THEME_CHOICES,
+        default="auto",
+        help_text="يمكن تفعيله تلقائيًا من التنبيهات أو تثبيت قالب لهذه الشاشة فقط.",
+    )
+    featured_panel_override = models.CharField(
+        "الكرت المميز",
+        max_length=20,
+        choices=FEATURED_PANEL_CHOICES,
+        blank=True,
+        default="",
+        help_text="يُستخدم عندما تكون لوحة الشرف والإشراف والمناوبة مفعّلتين معًا.",
+    )
+    show_announcements = models.BooleanField("إظهار التنبيهات المدرسية", default=True)
+    show_period_classes = models.BooleanField("إظهار جدول الحصص الجارية", default=True)
+    show_standby = models.BooleanField("إظهار حصص الانتظار", default=True)
+    show_duty = models.BooleanField("إظهار الإشراف والمناوبة", default=True)
+    show_excellence = models.BooleanField("إظهار لوحة الشرف", default=True)
     auto_disabled_by_limit = models.BooleanField(
         default=False,
         verbose_name="موقوف تلقائياً بسبب الحد",
@@ -290,6 +344,12 @@ class SubscriptionPlan(models.Model):
         help_text="يُستخدم داخليًا، مثل: basic, pro, enterprise",
     )
     name = models.CharField("اسم الخطة", max_length=150)
+    description = models.CharField(
+        "وصف مختصر",
+        max_length=240,
+        blank=True,
+        help_text="يظهر أسفل اسم الباقة في صفحة الاشتراك وصفحة الهبوط.",
+    )
     price = models.DecimalField(
         "سعر الباقة (ر.س)",
         max_digits=8,
@@ -323,6 +383,11 @@ class SubscriptionPlan(models.Model):
     is_active = models.BooleanField(
         "متاحة للاشتراك",
         default=True,
+    )
+    is_featured = models.BooleanField(
+        "الباقة الموصى بها",
+        default=False,
+        help_text="تميّز الباقة بصرياً وتعرض عليها شارة الأكثر طلباً.",
     )
     sort_order = models.PositiveIntegerField(
         "ترتيب العرض",

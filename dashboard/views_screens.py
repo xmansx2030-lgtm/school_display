@@ -16,7 +16,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from display.ws_groups import token_group_name
+from display.ws_groups import school_group_name
 from core.display_presence import display_live_threshold_seconds, latest_display_presence
 from .access import get_active_school_or_redirect
 from .decorators import manager_required
@@ -52,6 +52,68 @@ def _screen_command_ttl_seconds() -> int:
     except Exception:
         raw = default_ttl
     return max(30 * 60, min(raw, 24 * 60 * 60))
+
+
+def _broadcast_reload_screen_ws(*, school_id: int, screen_id: int) -> None:
+    try:
+        if not getattr(settings, "DISPLAY_WS_ENABLED", False):
+            return
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+
+        channel_layer = get_channel_layer()
+        if not channel_layer:
+            return
+        async_to_sync(channel_layer.group_send)(
+            school_group_name(int(school_id)),
+            {
+                "type": "broadcast_reload",
+                "school_id": int(school_id),
+                "target_screen_id": int(screen_id),
+            },
+        )
+    except Exception:
+        logger.exception(
+            "screen_reload_broadcast_failed school_id=%s screen_id=%s",
+            school_id,
+            screen_id,
+        )
+
+
+def _queue_screen_reload(screen, *, school_id: int) -> bool:
+    """Invalidate the rendered page and ask only this TV to reload."""
+    token_value = (
+        (getattr(screen, "token", None) or getattr(screen, "api_token", None) or "").strip()
+    )
+    if not token_value:
+        return False
+
+    token_hash = hashlib.sha256(token_value.encode("utf-8")).hexdigest()
+    try:
+        cache.set(
+            f"display:force_reload:{token_hash}",
+            "1",
+            timeout=_screen_command_ttl_seconds(),
+        )
+        cache.delete(f"display_ctx:{token_value}")
+        try:
+            revision = int(screen.school.schedule_settings.schedule_revision or 0)
+            cache.delete(f"display_ctx:{token_value}:rev:{revision}")
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    try:
+        transaction.on_commit(
+            lambda: _broadcast_reload_screen_ws(
+                school_id=int(school_id),
+                screen_id=int(screen.pk),
+            )
+        )
+    except Exception:
+        _broadcast_reload_screen_ws(school_id=int(school_id), screen_id=int(screen.pk))
+    return True
 
 
 def _get_subscription_model_robust():
@@ -295,6 +357,16 @@ def screen_list(request):
         screen.dashboard_last_seen_full = last_seen_full
         screen.dashboard_is_live = is_live
         screen.dashboard_bound_device = bound_device
+        screen.dashboard_has_customization = bool(
+            (getattr(screen, "theme_override", "") or "").strip()
+            or (getattr(screen, "occasion_theme", "auto") or "auto") != "auto"
+            or (getattr(screen, "featured_panel_override", "") or "").strip()
+            or not bool(getattr(screen, "show_announcements", True))
+            or not bool(getattr(screen, "show_period_classes", True))
+            or not bool(getattr(screen, "show_standby", True))
+            or not bool(getattr(screen, "show_duty", True))
+            or not bool(getattr(screen, "show_excellence", True))
+        )
         screen_rows.append(screen)
 
     if max_screens is None:
@@ -365,7 +437,7 @@ def screen_create(request):
                 "تم إضافة شاشة جديدة.\n\n"
                 "تنبيه مهم:\n"
                 "- سيتم حفظ الشاشة على أول تلفاز/متصفح يتم فتح الرابط عليه، ولا يمكن فتحها على جهاز آخر إلا بعد فصل الجهاز من لوحة التحكم.\n"
-                "- المحتوى موحّد وثابت في جميع الشاشات.",
+                "- يمكنك تعديل الثيم والمحتوى الظاهر لهذه الشاشة بشكل مستقل من زر تخصيص.",
             )
             return redirect("dashboard:screen_list")
         messages.error(request, "الرجاء تصحيح الأخطاء.")
@@ -373,6 +445,40 @@ def screen_create(request):
         form = DisplayScreenForm()
 
     return render(request, "dashboard/screen_form.html", {"form": form, "title": "إضافة شاشة"})
+
+
+@manager_required
+def screen_edit(request, pk: int):
+    display_screen = _display_screen_model()
+    school, response = get_active_school_or_redirect(request)
+    if response:
+        return response
+
+    screen = get_object_or_404(display_screen, pk=pk, school=school)
+    if request.method == "POST":
+        form = DisplayScreenForm(request.POST, instance=screen)
+        if form.is_valid():
+            screen = form.save()
+            _queue_screen_reload(screen, school_id=int(school.pk))
+            messages.success(
+                request,
+                f"تم حفظ تخصيص الشاشة ({screen.name}) وإرسال أمر تحديث لها.",
+            )
+            return redirect("dashboard:screen_list")
+        messages.error(request, "الرجاء تصحيح الأخطاء.")
+    else:
+        form = DisplayScreenForm(instance=screen)
+
+    return render(
+        request,
+        "dashboard/screen_form.html",
+        {
+            "form": form,
+            "screen": screen,
+            "title": f"تخصيص شاشة: {screen.name}",
+            "is_edit": True,
+        },
+    )
 
 
 @manager_required
@@ -406,7 +512,7 @@ def screen_refresh_now(request, pk: int):
     school_id = int(getattr(school, "id", 0) or 0)
     cur_rev = int(get_schedule_revision_for_school_id(school_id) or 0)
 
-    def _broadcast_invalidate_token_ws(*, token_hash: str, revision: int) -> None:
+    def _broadcast_invalidate_screen_ws(*, screen_id: int, revision: int) -> None:
         try:
             from django.conf import settings
 
@@ -423,12 +529,17 @@ def screen_refresh_now(request, pk: int):
             if not channel_layer:
                 return
 
-            group = token_group_name(token_hash, hash_len=16)
+            # Every connected display must join its school group. Token-group
+            # membership is best-effort and can expire independently on very
+            # long-running TV connections, so target the required group and let
+            # the consumer enforce the screen id.
+            group = school_group_name(school_id)
             async_to_sync(channel_layer.group_send)(
                 group,
                 {
                     "type": "broadcast_invalidate",
                     "school_id": int(school_id),
+                    "target_screen_id": int(screen_id),
                     "revision": int(revision or 0),
                     "reason": "manual_refresh",
                 },
@@ -437,10 +548,12 @@ def screen_refresh_now(request, pk: int):
             return
 
     try:
-        transaction.on_commit(lambda: _broadcast_invalidate_token_ws(token_hash=token_hash, revision=cur_rev))
+        transaction.on_commit(
+            lambda: _broadcast_invalidate_screen_ws(screen_id=int(obj.pk), revision=cur_rev)
+        )
     except Exception:
         try:
-            _broadcast_invalidate_token_ws(token_hash=token_hash, revision=cur_rev)
+            _broadcast_invalidate_screen_ws(screen_id=int(obj.pk), revision=cur_rev)
         except Exception:
             pass
 
@@ -480,54 +593,8 @@ def screen_reload_now(request, pk: int):
         messages.error(request, "تعذر إعادة تحميل الشاشة: لا يوجد token صالح.")
         return redirect("dashboard:screen_list")
 
-    token_hash = hashlib.sha256(token_value.encode("utf-8")).hexdigest()
-
-    try:
-        cache.set(
-            f"display:force_reload:{token_hash}",
-            "1",
-            timeout=_screen_command_ttl_seconds(),
-        )
-    except Exception:
-        pass
-
     school_id = int(getattr(school, "id", 0) or 0)
-
-    def _broadcast_reload_token_ws(*, token_hash: str) -> None:
-        try:
-            from django.conf import settings
-
-            if not getattr(settings, "DISPLAY_WS_ENABLED", False):
-                return
-        except Exception:
-            return
-
-        try:
-            from asgiref.sync import async_to_sync
-            from channels.layers import get_channel_layer
-
-            channel_layer = get_channel_layer()
-            if not channel_layer:
-                return
-
-            group = token_group_name(token_hash, hash_len=16)
-            async_to_sync(channel_layer.group_send)(
-                group,
-                {
-                    "type": "broadcast_reload",
-                    "school_id": int(school_id),
-                },
-            )
-        except Exception:
-            return
-
-    try:
-        transaction.on_commit(lambda: _broadcast_reload_token_ws(token_hash=token_hash))
-    except Exception:
-        try:
-            _broadcast_reload_token_ws(token_hash=token_hash)
-        except Exception:
-            pass
+    _queue_screen_reload(obj, school_id=school_id)
 
     logger.info(
         "screen_reload_now school_id=%s screen_id=%s",

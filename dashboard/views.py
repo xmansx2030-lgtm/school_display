@@ -59,6 +59,7 @@ from .views_screens import (
     request_screen_addon,
     screen_create,
     screen_delete,
+    screen_edit,
     screen_list,
     screen_refresh_now,
     screen_reload_now,
@@ -87,6 +88,7 @@ from .forms import (
 from core.models import SubscriptionPlan
 from core.display_presence import display_is_live, latest_display_presence, live_display_count
 from core.two_factor import get_enabled_config
+from subscriptions.plan_catalog import plan_card, plan_cards
 
 logger = logging.getLogger(__name__)
 
@@ -1033,7 +1035,10 @@ def school_settings(request):
             "screen_offline_email_enabled",
             "weekly_uptime_report_enabled",
         }
-        if error_fields & copy_fields:
+        contact_fields = {"email", "mobile"}
+        if error_fields & contact_fields:
+            initial_settings_tab = "contact"
+        elif error_fields & copy_fields:
             initial_settings_tab = "copy"
         elif error_fields & runtime_fields:
             initial_settings_tab = "runtime"
@@ -4258,7 +4263,7 @@ def my_subscription(request):
     # خطط الاشتراك (لإظهار تفاصيل الخطة في الواجهة)
     try:
         available_plans = list(
-            SubscriptionPlan.objects.filter(is_active=True).order_by("sort_order", "name", "id")
+            SubscriptionPlan.objects.filter(is_active=True).order_by("sort_order", "price", "id")
         )
     except Exception:
         available_plans = []
@@ -4266,7 +4271,7 @@ def my_subscription(request):
     # تأكيد أن نموذج الاشتراك الجديد يستخدم نفس القائمة حتى عند POST
     try:
         new_form.fields["plan"].queryset = SubscriptionPlan.objects.filter(is_active=True).order_by(
-            "sort_order", "name", "id"
+            "sort_order", "price", "id"
         )
     except Exception:
         pass
@@ -4275,24 +4280,16 @@ def my_subscription(request):
         if plan_obj is None:
             return None
         try:
-            price = getattr(plan_obj, "price", None)
-            duration_days = getattr(plan_obj, "duration_days", None)
-            max_screens = getattr(plan_obj, "max_screens", None)
-            return {
-                "id": getattr(plan_obj, "pk", None),
-                "name": getattr(plan_obj, "name", ""),
-                "price": str(price) if price is not None else "",
-                "duration_days": int(duration_days) if duration_days not in (None, "") else None,
-                "max_screens": int(max_screens) if max_screens not in (None, "") else None,
-            }
+            return plan_card(plan_obj)
         except Exception:
             return None
 
-    plans_map = {}
-    for p in available_plans:
-        d = _plan_details(p)
-        if d and d.get("id") is not None:
-            plans_map[str(d["id"])] = d
+    available_plan_cards = plan_cards(available_plans)
+    plans_map = {
+        str(details["id"]): details
+        for details in available_plan_cards
+        if details.get("id") is not None
+    }
 
     renewal_plan_obj = None
     if current_subscription is not None:
@@ -4362,7 +4359,7 @@ def my_subscription(request):
             new_form = SubscriptionNewRequestForm(request.POST, request.FILES, prefix="new")
             try:
                 new_form.fields["plan"].queryset = SubscriptionPlan.objects.filter(is_active=True).order_by(
-                    "sort_order", "name", "id"
+                    "sort_order", "price", "id"
                 )
             except Exception:
                 pass
@@ -4538,6 +4535,28 @@ def my_subscription(request):
     except Exception:
         subscription_history = []
 
+    tamara_checkouts = []
+    try:
+        from subscriptions.models import TamaraCheckout
+
+        tamara_checkouts = list(
+            TamaraCheckout.objects.filter(school=school, created_by=request.user)
+            .select_related("plan", "subscription", "payment_operation")
+            .order_by("-created_at", "-id")[:5]
+        )
+    except Exception:
+        tamara_checkouts = []
+
+    tamara_available = bool(
+        getattr(dj_settings, "TAMARA_ENABLED", False)
+        and getattr(dj_settings, "TAMARA_API_TOKEN", "")
+    )
+    tamara_environment = (
+        "sandbox"
+        if "sandbox" in str(getattr(dj_settings, "TAMARA_API_BASE_URL", "")).lower()
+        else "production"
+    )
+
     return render(
         request,
         "dashboard/my_subscription.html",
@@ -4558,10 +4577,14 @@ def my_subscription(request):
             "new_form": new_form,
             "subscription_requests": subscription_requests,
             "subscription_history": subscription_history,
+            "tamara_checkouts": tamara_checkouts,
+            "tamara_available": tamara_available,
+            "tamara_environment": tamara_environment,
 
             "active_request_tab": active_request_tab,
             "renewal_plan_details": _plan_details(renewal_plan_obj),
             "plans_map": plans_map,
+            "available_plan_cards": available_plan_cards,
             "screens_total_count": screens_total_count,
             "screens_active_count": screens_active_count,
             "screens_live_count": screens_live_count,
@@ -4668,6 +4691,10 @@ def system_plans_list(request):
         plans = plans.filter(is_active=True)
     elif state == "inactive":
         plans = plans.filter(is_active=False)
+
+    plans = list(plans.order_by("sort_order", "price", "id"))
+    for plan in plans:
+        plan.catalog = plan_card(plan)
 
     all_plans = SubscriptionPlan.objects.all()
     context = {

@@ -76,6 +76,15 @@ def _ws_ping_interval_seconds() -> int:
     return max(10, min(120, v))
 
 
+def _ws_group_refresh_interval_seconds() -> int:
+    """Refresh Redis group membership before Channels expires it."""
+    try:
+        v = int(getattr(settings, "WS_GROUP_REFRESH_INTERVAL_SECONDS", 6 * 60 * 60) or 6 * 60 * 60)
+    except Exception:
+        v = 6 * 60 * 60
+    return max(60, min(12 * 60 * 60, v))
+
+
 def _ws_metric_incr(name: str) -> None:
     key = f"metrics:ws:{str(name or '').strip()}"
     try:
@@ -113,6 +122,7 @@ class DisplayConsumer(AsyncWebsocketConsumer):
         self.device_id = None
         self.token_value = None
         self._server_ping_task = None
+        self._last_group_refresh_at = 0.0
 
     def _start_server_ping_task(self) -> None:
         if self._server_ping_task and not self._server_ping_task.done():
@@ -150,6 +160,8 @@ class DisplayConsumer(AsyncWebsocketConsumer):
         while True:
             await asyncio.sleep(interval)
             try:
+                if time.monotonic() - self._last_group_refresh_at >= _ws_group_refresh_interval_seconds():
+                    await self._refresh_group_memberships()
                 await self.send(text_data=json.dumps({"type": "heartbeat"}))
                 await self._touch_presence()
                 _ws_metric_incr("server_ping_sent")
@@ -158,6 +170,20 @@ class DisplayConsumer(AsyncWebsocketConsumer):
             except Exception:
                 _ws_metric_incr("server_ping_send_failed")
                 break
+
+    async def _refresh_group_memberships(self) -> None:
+        """Keep long-lived TV sockets addressable by dashboard broadcasts."""
+        if not self.channel_layer or not self.channel_name or not self.school_group_name:
+            return
+        try:
+            await self.channel_layer.group_add(self.school_group_name, self.channel_name)
+            if self.token_group_name:
+                await self.channel_layer.group_add(self.token_group_name, self.channel_name)
+            self._last_group_refresh_at = time.monotonic()
+        except Exception:
+            screen_id = int(self.screen.id) if self.screen else 0
+            if _should_log_ws_event("group_refresh_failed", screen_id=screen_id):
+                logger.exception("WS group membership refresh failed for screen %s", screen_id or "?")
     
     async def connect(self):
         """
@@ -255,6 +281,7 @@ class DisplayConsumer(AsyncWebsocketConsumer):
                 await self.channel_layer.group_add(self.token_group_name, self.channel_name)
             except Exception:
                 self.token_group_name = None
+        self._last_group_refresh_at = time.monotonic()
         
         # Accept connection
         await self.accept()
@@ -389,6 +416,7 @@ class DisplayConsumer(AsyncWebsocketConsumer):
         """
         revision = event.get("revision")
         school_id = event.get("school_id")
+        target_screen_id = event.get("target_screen_id")
         
         # Sanity check: only send if school_id matches (defensive)
         if self.screen and school_id != self.screen.school_id:
@@ -396,6 +424,8 @@ class DisplayConsumer(AsyncWebsocketConsumer):
                 f"WS broadcast mismatch: screen school {self.screen.school_id} "
                 f"got message for school {school_id}"
             )
+            return
+        if self.screen and target_screen_id and int(target_screen_id) != int(self.screen.id):
             return
         
         # Send snapshot refresh message to client
@@ -431,7 +461,10 @@ class DisplayConsumer(AsyncWebsocketConsumer):
         This is used for per-screen maintenance or when a TV browser gets stuck.
         """
         school_id = event.get("school_id")
+        target_screen_id = event.get("target_screen_id")
         if self.screen and school_id and int(school_id) != int(self.screen.school_id):
+            return
+        if self.screen and target_screen_id and int(target_screen_id) != int(self.screen.id):
             return
 
         start_time = time.time()

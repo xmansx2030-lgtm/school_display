@@ -2506,6 +2506,14 @@
   data-snapshot-url="{% if snapshot_url %}{{ snapshot_url }}{% endif %}"
   data-school-id="{% if school_id %}{{ school_id }}{% endif %}"
   data-screen-id="{% if screen_id %}{{ screen_id }}{% endif %}"
+  data-screen-theme="{{ screen_theme_override|default:'' }}"
+  data-screen-occasion-theme="{{ screen_occasion_theme|default:'auto' }}"
+  data-screen-featured-panel="{{ screen_featured_panel|default:'' }}"
+  data-screen-show-announcements="{% if screen_show_announcements %}1{% else %}0{% endif %}"
+  data-screen-show-period-classes="{% if screen_show_period_classes %}1{% else %}0{% endif %}"
+  data-screen-show-standby="{% if screen_show_standby %}1{% else %}0{% endif %}"
+  data-screen-show-duty="{% if screen_show_duty %}1{% else %}0{% endif %}"
+  data-screen-show-excellence="{% if screen_show_excellence %}1{% else %}0{% endif %}"
   data-school-type="{% if school_type %}{{ school_type }}{% endif %}"
   data-media-prefix="{% if MEDIA_URL %}{{ MEDIA_URL }}{% else %}/media/{% endif %}"
   data-bell-sound-url="{% static 'sounds/bell.mp3' %}"
@@ -2886,7 +2894,7 @@
   </noscript>
 
     <script defer src="{% static 'js/display-controls.js' %}?v=2026-07-23-b4"></script>
-    <script defer src="{% static 'js/display.js' %}?v=2026-07-27-occasion-themes-b3"></script>
+    <script defer src="{% static 'js/display.js' %}?v=2026-08-02-screen-customization-b5"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {

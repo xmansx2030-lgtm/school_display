@@ -3,7 +3,7 @@
 
 {% block title %}{{ title }}{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_description %}إضافة شاشة عرض جديدة للمدرسة{% endblock %}
+{% block page_description %}{% if is_edit %}تحكم في هوية ومحتوى هذه الشاشة فقط{% else %}إضافة شاشة عرض جديدة وتحديد محتواها{% endif %}{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
@@ -22,9 +22,17 @@
     <form method="post" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         {% csrf_token %}
         
-        <div class="p-6 space-y-6">
-            <!-- الاسم -->
-            <div class="space-y-2">
+        <div class="p-6 space-y-8">
+            {% if form.non_field_errors %}
+                <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <section class="space-y-4">
+              <div>
+                <h2 class="text-base font-bold text-slate-900">بيانات الشاشة</h2>
+                <p class="mt-1 text-sm text-slate-500">الاسم يظهر في لوحة الإدارة ليسهل تمييز موقع الشاشة.</p>
+              </div>
+              <div class="space-y-2">
                 <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-slate-700">
                     {{ form.name.label }}
                 </label>
@@ -32,22 +40,60 @@
                 {% if form.name.errors %}
                     <div class="text-red-600 text-sm">{{ form.name.errors }}</div>
                 {% endif %}
-            </div>
-
-            <!-- الحالة -->
-            <div class="space-y-2">
+              </div>
+              <div class="space-y-2">
                 <label for="{{ form.is_active.id_for_label }}" class="flex items-center space-x-2 space-x-reverse cursor-pointer">
                     {{ form.is_active }}
                     <span class="text-sm font-medium text-slate-700">{{ form.is_active.label }}</span>
                 </label>
-            </div>
+              </div>
+            </section>
+
+            <section class="border-t border-slate-100 pt-7 space-y-4">
+              <div>
+                <h2 class="text-base font-bold text-slate-900">الهوية وقالب المناسبة</h2>
+                <p class="mt-1 text-sm text-slate-500">هذه الخيارات تطبق على هذه الشاشة فقط، ويمكن إبقاء الثيم والكرت المميز تابعين لإعداد المدرسة.</p>
+              </div>
+              <div class="grid gap-4 md:grid-cols-3">
+                {% for field in form %}
+                  {% if field.name == 'theme_override' or field.name == 'occasion_theme' or field.name == 'featured_panel_override' %}
+                    <div class="space-y-2">
+                      <label for="{{ field.id_for_label }}" class="block text-sm font-semibold text-slate-700">{{ field.label }}</label>
+                      {{ field }}
+                      {% if field.help_text %}<p class="text-xs leading-5 text-slate-500">{{ field.help_text }}</p>{% endif %}
+                      {% if field.errors %}<div class="text-sm text-red-600">{{ field.errors }}</div>{% endif %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </section>
+
+            <section class="border-t border-slate-100 pt-7 space-y-4">
+              <div>
+                <h2 class="text-base font-bold text-slate-900">المحتوى الظاهر</h2>
+                <p class="mt-1 text-sm text-slate-500">أوقف أي قسم لا يناسب موقع هذه الشاشة. تنبيهات الطوارئ الموجهة للشاشة ستظل ظاهرة.</p>
+              </div>
+              <div class="grid gap-3 sm:grid-cols-2">
+                {% for field in form %}
+                  {% if field.name == 'show_announcements' or field.name == 'show_period_classes' or field.name == 'show_standby' or field.name == 'show_duty' or field.name == 'show_excellence' %}
+                    <label for="{{ field.id_for_label }}" class="screen-visibility-option cursor-pointer rounded-xl border border-slate-200 bg-slate-50/70 p-4 transition hover:border-indigo-200 hover:bg-indigo-50/50">
+                      <span class="flex items-center gap-3">
+                        {{ field }}
+                        <span class="text-sm font-semibold text-slate-800">{{ field.label }}</span>
+                      </span>
+                      {% if field.errors %}<span class="mt-2 block text-sm text-red-600">{{ field.errors }}</span>{% endif %}
+                    </label>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </section>
         </div>
 
         <!-- أزرار الإجراءات -->
         <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
             <button type="submit" 
                     class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm transition-all">
-                حفظ الشاشة
+                {% if is_edit %}حفظ التخصيص{% else %}حفظ الشاشة{% endif %}
             </button>
             
             <a href="{% url 'dashboard:screen_list' %}" 
@@ -65,10 +111,13 @@ document.addEventListener('DOMContentLoaded', function() {
         input.className = 'w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white text-slate-700';
     });
     
-    const checkbox = document.querySelector('input[type="checkbox"]');
-    if (checkbox) {
+    document.querySelectorAll('select').forEach(select => {
+        select.className = 'w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-700';
+    });
+
+    document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
         checkbox.className = 'w-4 h-4 text-indigo-600 bg-slate-100 border-slate-300 rounded focus:ring-indigo-500 focus:ring-2';
-    }
+    });
 });
 </script>
 {% endblock %}

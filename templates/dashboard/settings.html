@@ -37,10 +37,15 @@
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 12h16M8 7v10M16 9v6"/></svg>
             <span>سرعة العرض</span>
         </button>
+        <button type="button" id="settings-tab-contact" class="settings-tab-btn" data-settings-tab="contact" role="tab" aria-selected="false" aria-controls="settings-panel-contact">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16v12H4zM4 7l8 6 8-6M8 18v-3m8 3v-3"/></svg>
+            <span>التواصل والدفع</span>
+        </button>
         <button type="button" id="settings-tab-security" class="settings-tab-btn" data-settings-tab="security" role="tab" aria-selected="false" aria-controls="settings-panel-security">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3 5 6v5c0 4.8 2.8 8.1 7 10 4.2-1.9 7-5.2 7-10V6l-7-3Z"/><path stroke-linecap="round" d="m9.5 12 1.6 1.6 3.6-3.8"/></svg>
             <span>الأمان</span>
-                  </div>
+        </button>
+    </div>
 
     <!-- Security Card -->
     <section id="settings-panel-security" class="settings-security-panel hidden" data-settings-tab-panel="security" role="tabpanel" aria-labelledby="settings-tab-security" tabindex="0">
@@ -202,6 +207,42 @@
                             <p id="themeLabel" class="text-xs font-bold text-slate-400 mt-4 text-left transition-colors">اللون الحالي: <span class="text-slate-800">--</span></p>
                         </div>
                      </div>
+                </section>
+
+                <section id="settings-panel-contact" data-settings-tab-panel="contact" class="settings-tab-panel hidden" role="tabpanel" aria-labelledby="settings-tab-contact" tabindex="0">
+                    <div class="settings-section-heading">
+                        <div><span>بيانات مسؤول المدرسة</span><h3>وسائل التواصل والدفع</h3></div>
+                        <p>حدّث البريد ورقم الجوال المستخدمين في إشعارات الاشتراك والتحقق لدى تمارا.</p>
+                    </div>
+                    <div class="settings-copy-grid">
+                        <article class="settings-copy-card">
+                            <div class="settings-copy-card-head">
+                                <span class="settings-scenario-icon">@</span>
+                                <div><h4>البريد الإلكتروني</h4><p>لاستلام الفواتير والتنبيهات وإكمال بيانات الدفع.</p></div>
+                            </div>
+                            <div class="settings-field">
+                                <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                                {{ form.email }}
+                                {% if form.email.help_text %}<p id="{{ form.email.id_for_label }}_helptext">{{ form.email.help_text }}</p>{% endif %}
+                                {% if form.email.errors %}<div class="settings-field-error" role="alert">{% for error in form.email.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </article>
+                        <article class="settings-copy-card">
+                            <div class="settings-copy-card-head">
+                                <span class="settings-scenario-icon is-after">05</span>
+                                <div><h4>رقم الجوال</h4><p>رقم سعودي صالح لاستقبال التحقق واستخدام الدفع بالتقسيط.</p></div>
+                            </div>
+                            <div class="settings-field">
+                                <label for="{{ form.mobile.id_for_label }}">{{ form.mobile.label }}</label>
+                                {{ form.mobile }}
+                                {% if form.mobile.help_text %}<p id="{{ form.mobile.id_for_label }}_helptext">{{ form.mobile.help_text }}</p>{% endif %}
+                                {% if form.mobile.errors %}<div class="settings-field-error" role="alert">{% for error in form.mobile.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </article>
+                    </div>
+                    <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold leading-7 text-amber-900">
+                        يجب حفظ بريد إلكتروني ورقم جوال سعودي صحيحين قبل بدء الدفع عبر تمارا.
+                    </div>
                 </section>
 
                 <section id="settings-panel-copy" data-settings-tab-panel="copy" class="settings-tab-panel hidden" role="tabpanel" aria-labelledby="settings-tab-copy" tabindex="0">

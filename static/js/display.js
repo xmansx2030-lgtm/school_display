@@ -63,6 +63,23 @@
     return Math.max(a, Math.min(b, n));
   };
 
+  function screenSetting(name, fallback) {
+    try {
+      const value = document.body && document.body.dataset
+        ? document.body.dataset[name]
+        : undefined;
+      if (value === undefined || value === null || value === "") return fallback;
+      return String(value);
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function screenFlag(name, fallback) {
+    const value = screenSetting(name, fallback ? "1" : "0").toLowerCase();
+    return value !== "0" && value !== "false" && value !== "no" && value !== "off";
+  }
+
   function setTextIfChanged(el, next) {
     if (!el) return false;
     const v = safeText(next);
@@ -778,6 +795,9 @@
 
   function cleanupPageRuntime(reason) {
     clearAllRuntimeTimers();
+    try {
+      _stopWakeLockKeepalive();
+    } catch (e) {}
     try {
       if (periodsScroller) periodsScroller.stop();
       if (standbyScroller) standbyScroller.stop();
@@ -3015,7 +3035,7 @@
     const settings = (payload && payload.settings) || {};
     const name = safeText(settings.name || payload.school_name || "");
     const logo = resolveImageURL(settings.logo_url || payload.logo_url || "");
-    const theme = safeText(settings.theme || "");
+    const theme = safeText(screenSetting("screenTheme", "") || settings.theme || "");
     const schoolType = safeText(settings.school_type || "");
     const accent = safeText(settings.display_accent_color || "");
 
@@ -3822,15 +3842,29 @@
   function applyOccasionTheme(items) {
     const list = Array.isArray(items) ? items : [];
     let selected = null;
-    for (let i = 0; i < list.length; i++) {
-      const themeKey = safeText((list[i] || {}).occasion_theme || "");
-      if (OCCASION_THEME_META[themeKey]) {
-        selected = list[i] || {};
-        break;
+    const screenOccasion = screenSetting("screenOccasionTheme", "auto");
+    if (screenOccasion !== "off") {
+      for (let i = 0; i < list.length; i++) {
+        const themeKey = safeText((list[i] || {}).occasion_theme || "");
+        if (
+          OCCASION_THEME_META[themeKey] &&
+          (screenOccasion === "auto" || themeKey === screenOccasion)
+        ) {
+          selected = list[i] || {};
+          break;
+        }
+      }
+      if (!selected && OCCASION_THEME_META[screenOccasion]) {
+        selected = {
+          id: "screen-fixed-occasion",
+          occasion_theme: screenOccasion,
+          occasion_theme_label: OCCASION_THEME_META[screenOccasion].label,
+          title: OCCASION_THEME_META[screenOccasion].label,
+        };
       }
     }
     const key = selected ? safeText(selected.occasion_theme || "") : "";
-    const signature = key + "||" + safeText(selected && (selected.id || selected.pk || ""));
+    const signature = screenOccasion + "||" + key + "||" + safeText(selected && (selected.id || selected.pk || ""));
     activeOccasionAnnouncement = selected;
     if (signature === occasionThemeSignature) {
       refreshOccasionPresentation();
@@ -3875,15 +3909,17 @@
   }
 
   function renderAnnouncements(arr) {
-    const sig = annSignature(arr);
+    const sourceList = Array.isArray(arr) ? arr.slice() : [];
+    const showAnnouncements = screenFlag("screenShowAnnouncements", true);
+    const sig = annSignature(sourceList) + "||" + (showAnnouncements ? "1" : "0");
     if (sig && sig === last.annSig) {
       refreshOccasionPresentation();
       return;
     }
     last.annSig = sig;
 
-    annList = Array.isArray(arr) ? arr.slice() : [];
-    applyOccasionTheme(annList);
+    annList = showAnnouncements ? sourceList : [];
+    applyOccasionTheme(sourceList);
     if (annTimer) {
       clearInterval(annTimer);
       annTimer = null;
@@ -4386,7 +4422,9 @@
   }
 
   function renderPeriodClasses(items) {
-    const raw = Array.isArray(items) ? items.slice() : [];
+    const raw = screenFlag("screenShowPeriodClasses", true) && Array.isArray(items)
+      ? items.slice()
+      : [];
     const baseMs = nowMs();
 
     let arr = raw;
@@ -4446,7 +4484,9 @@
   }
 
   function renderStandby(items) {
-    const raw = Array.isArray(items) ? items.slice() : [];
+    const raw = screenFlag("screenShowStandby", true) && Array.isArray(items)
+      ? items.slice()
+      : [];
     const baseMs = nowMs();
 
     let arr = raw;
@@ -4885,13 +4925,17 @@
   // ===== Featured panel toggle =====
   function renderFeaturedPanel(snap) {
     const s = (snap && snap.settings) || {};
-    const mode = safeText(s.featured_panel || "excellence");
+    const showDutyPanel = screenFlag("screenShowDuty", true);
+    const showExcellencePanel = screenFlag("screenShowExcellence", true);
+    let mode = safeText(screenSetting("screenFeaturedPanel", "") || s.featured_panel || "excellence");
+    if (mode === "duty" && !showDutyPanel && showExcellencePanel) mode = "excellence";
+    if (mode !== "duty" && !showExcellencePanel && showDutyPanel) mode = "duty";
     const showDuty = mode === "duty";
     const dutyRaw =
-      snap && snap.duty && Array.isArray(snap.duty.items)
+      showDutyPanel && snap && snap.duty && Array.isArray(snap.duty.items)
         ? snap.duty.items
-        : (snap && Array.isArray(snap.duty) ? snap.duty : []);
-    const excellenceRaw = snap && Array.isArray(snap.excellence) ? snap.excellence : [];
+        : (showDutyPanel && snap && Array.isArray(snap.duty) ? snap.duty : []);
+    const excellenceRaw = showExcellencePanel && snap && Array.isArray(snap.excellence) ? snap.excellence : [];
     const excellenceHasItems = excellenceRaw.some((x) => {
       x = x || {};
       return !!(
@@ -4904,7 +4948,7 @@
         (x.teacher && x.teacher.name)
       );
     });
-    const hasFeatured = showDuty ? dutyRaw.length > 0 : excellenceHasItems;
+    const hasFeatured = (showDutyPanel || showExcellencePanel) && (showDuty ? dutyRaw.length > 0 : excellenceHasItems);
 
     setBoardData("featuredMode", showDuty ? "duty" : "excellence");
     setBoardData("featuredEmpty", hasFeatured ? "0" : "1");
@@ -4925,17 +4969,46 @@
   function renderEmergencyAlerts(alerts) {
     const overlay = document.getElementById("emergencyOverlay");
     if (!overlay) return;
+    clearNamedTimer("emergency_boundary");
+
     const screenId = parseInt(document.body.getAttribute("data-screen-id") || "0", 10);
     const list = Array.isArray(alerts) ? alerts : [];
+    const currentMs = nowMs();
     let selected = null;
+    let nextBoundaryMs = null;
+
     for (let i = 0; i < list.length; i++) {
       const item = list[i] || {};
       const targets = Array.isArray(item.screen_ids) ? item.screen_ids.map(Number) : [];
-      if (!targets.length || targets.indexOf(screenId) >= 0) {
-        selected = item;
-        break;
+      if (targets.length && targets.indexOf(screenId) < 0) continue;
+
+      // A snapshot can remain cached after an emergency alert expires. Enforce
+      // its time window in the display too, so the overlay never depends on a
+      // later HTTP poll or WebSocket event to disappear.
+      const startsMs = item.starts_at ? Date.parse(String(item.starts_at)) : NaN;
+      const expiresMs = item.expires_at ? Date.parse(String(item.expires_at)) : NaN;
+
+      if (!isNaN(startsMs) && startsMs > currentMs) {
+        if (nextBoundaryMs === null || startsMs < nextBoundaryMs) nextBoundaryMs = startsMs;
+        continue;
       }
+      if (!isNaN(expiresMs)) {
+        if (expiresMs <= currentMs) continue;
+        if (nextBoundaryMs === null || expiresMs < nextBoundaryMs) nextBoundaryMs = expiresMs;
+      }
+
+      if (!selected) selected = item;
     }
+
+    if (nextBoundaryMs !== null) {
+      // The small cushion avoids re-running just before the exact millisecond
+      // because of timer rounding. Cap long waits at the browser timeout limit;
+      // re-evaluation also promotes the next alert.
+      setNamedTimer("emergency_boundary", function () {
+        renderEmergencyAlerts(list);
+      }, Math.min(2147483000, Math.max(50, nextBoundaryMs - currentMs + 50)), "emergency_time_boundary");
+    }
+
     if (!selected) {
       overlay.classList.add("u-hidden");
       overlay.removeAttribute("data-kind");
@@ -7342,33 +7415,73 @@
 
   var _wakeLockSentinel = null;
   var _wakeLockReacquireTimer = null;
+  var _wakeLockRequestPending = false;
+  var _wakeLockKeepaliveStopped = false;
+
+  function _scheduleWakeLockRetry(delayMs) {
+    if (_wakeLockKeepaliveStopped || document.visibilityState === "hidden") return;
+    if (_wakeLockReacquireTimer) clearTimeout(_wakeLockReacquireTimer);
+    _wakeLockReacquireTimer = setTimeout(function () {
+      _wakeLockReacquireTimer = null;
+      _requestScreenWakeLock();
+    }, Math.max(1000, Number(delayMs) || 1000));
+  }
 
   function _requestScreenWakeLock() {
     try {
       if (!("wakeLock" in navigator) || !navigator.wakeLock) return;
       if (document.visibilityState === "hidden") return;
+      if (_wakeLockKeepaliveStopped || _wakeLockSentinel || _wakeLockRequestPending) return;
+      _wakeLockRequestPending = true;
       navigator.wakeLock.request("screen").then(function (sentinel) {
+        _wakeLockRequestPending = false;
+        if (_wakeLockKeepaliveStopped) {
+          try { sentinel.release(); } catch (e) {}
+          return;
+        }
         _wakeLockSentinel = sentinel;
         try {
           sentinel.addEventListener("release", function () {
-            _wakeLockSentinel = null;
+            if (_wakeLockSentinel === sentinel) _wakeLockSentinel = null;
             _log("wake_lock_released", {});
+            _scheduleWakeLockRetry(1000);
           });
         } catch (e) {}
         _log("wake_lock_acquired", {});
       }).catch(function (err) {
+        _wakeLockRequestPending = false;
         _log("wake_lock_failed", { error: String(err && err.message || err) });
+        // Permission and transient browser failures may clear after focus or a
+        // user interaction. Retry gently without creating a busy loop.
+        _scheduleWakeLockRetry(30000);
       });
-    } catch (e) {}
+    } catch (e) {
+      _wakeLockRequestPending = false;
+    }
   }
 
   function _initWakeLockKeepalive() {
+    _wakeLockKeepaliveStopped = false;
     _requestScreenWakeLock();
     document.addEventListener("visibilitychange", function () {
-      if (!document.hidden && !_wakeLockSentinel) {
+      if (document.hidden) {
+        if (_wakeLockReacquireTimer) clearTimeout(_wakeLockReacquireTimer);
+        _wakeLockReacquireTimer = null;
+      } else if (!_wakeLockSentinel) {
         _requestScreenWakeLock();
       }
     }, listenerOpts({ passive: true }));
+  }
+
+  function _stopWakeLockKeepalive() {
+    _wakeLockKeepaliveStopped = true;
+    if (_wakeLockReacquireTimer) clearTimeout(_wakeLockReacquireTimer);
+    _wakeLockReacquireTimer = null;
+    var sentinel = _wakeLockSentinel;
+    _wakeLockSentinel = null;
+    if (sentinel && typeof sentinel.release === "function") {
+      try { sentinel.release(); } catch (e) {}
+    }
   }
 
   var _silentAudioStarted = false;

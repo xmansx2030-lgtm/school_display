@@ -6,9 +6,17 @@ import re
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout, update_session_auth_hash
-from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm, SetPasswordForm
+from django.contrib.auth.views import (
+    PasswordResetCompleteView,
+    PasswordResetConfirmView,
+    PasswordResetDoneView,
+    PasswordResetView,
+)
+from django import forms
 from django.middleware.csrf import get_token
 from django.shortcuts import redirect, render
+from django.urls import reverse_lazy
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 
@@ -22,6 +30,56 @@ from .decorators import manager_required
 logger = logging.getLogger(__name__)
 UserModel = get_user_model()
 _ARABIC_DIGITS_TRANS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+
+
+class ArabicPasswordResetForm(PasswordResetForm):
+    email = forms.EmailField(
+        label="البريد الإلكتروني المسجل",
+        max_length=254,
+        widget=forms.EmailInput(
+            attrs={
+                "autocomplete": "email",
+                "placeholder": "name@example.com",
+                "autofocus": True,
+            }
+        ),
+    )
+
+
+class ArabicSetPasswordForm(SetPasswordForm):
+    new_password1 = forms.CharField(
+        label="كلمة المرور الجديدة",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+    new_password2 = forms.CharField(
+        label="تأكيد كلمة المرور الجديدة",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+
+
+class DashboardPasswordResetView(PasswordResetView):
+    template_name = "dashboard/password_reset_form.html"
+    form_class = ArabicPasswordResetForm
+    email_template_name = "dashboard/password_reset_email.txt"
+    html_email_template_name = "dashboard/password_reset_email.html"
+    subject_template_name = "dashboard/password_reset_subject.txt"
+    success_url = reverse_lazy("dashboard:password_reset_done")
+
+
+class DashboardPasswordResetDoneView(PasswordResetDoneView):
+    template_name = "dashboard/password_reset_done.html"
+
+
+class DashboardPasswordResetConfirmView(PasswordResetConfirmView):
+    template_name = "dashboard/password_reset_confirm.html"
+    form_class = ArabicSetPasswordForm
+    success_url = reverse_lazy("dashboard:password_reset_complete")
+
+
+class DashboardPasswordResetCompleteView(PasswordResetCompleteView):
+    template_name = "dashboard/password_reset_complete.html"
 
 
 def _normalize_login_mobile(value: str) -> str:

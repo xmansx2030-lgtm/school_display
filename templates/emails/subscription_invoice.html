@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<body style="margin:0;padding:24px;background:#f1f5f9;color:#1e293b;font-family:Arial,Tahoma,sans-serif;direction:rtl;text-align:right">
+  <div style="max-width:620px;margin:0 auto;padding:32px;border-radius:20px;background:#ffffff">
+    <p style="margin:0 0 8px;color:#4f46e5;font-size:13px;font-weight:bold">لوحة العرض الذكية</p>
+    <h1 style="margin:0 0 20px;font-size:24px">فاتورة اشتراك جديدة</h1>
+    <p style="font-size:15px;line-height:1.9">تم إصدار فاتورة اشتراك مدرسة <strong>{{ school.name }}</strong>.</p>
+    <table role="presentation" style="width:100%;margin:22px 0;border-collapse:collapse;background:#f8fafc">
+      <tr><td style="padding:11px;border-bottom:1px solid #e2e8f0">رقم الفاتورة</td><td style="padding:11px;border-bottom:1px solid #e2e8f0;font-weight:bold">{{ invoice.invoice_number }}</td></tr>
+      <tr><td style="padding:11px;border-bottom:1px solid #e2e8f0">الباقة</td><td style="padding:11px;border-bottom:1px solid #e2e8f0;font-weight:bold">{{ plan.name }}</td></tr>
+      <tr><td style="padding:11px">المبلغ</td><td style="padding:11px;font-weight:bold">{{ invoice.amount }} ر.س</td></tr>
+    </table>
+    <p style="margin:26px 0;text-align:center">
+      <a href="{{ invoice_url }}" style="display:inline-block;padding:14px 24px;border-radius:12px;background:#4f46e5;color:#ffffff;text-decoration:none;font-weight:bold">عرض وطباعة الفاتورة</a>
+    </p>
+    <p style="font-size:13px;line-height:1.9;color:#64748b">تجد نسخة HTML من الفاتورة مرفقة بهذه الرسالة للاحتفاظ بها.</p>
+  </div>
+</body>
+</html>

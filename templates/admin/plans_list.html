@@ -3,7 +3,7 @@
 {% block title %}إدارة الباقات والأسعار{% endblock %}
 {% block page_icon %}tags{% endblock %}
 {% block page_title %}إدارة الباقات والأسعار{% endblock %}
-{% block page_description %}إضافة الباقات وتعديل أسعارها وحدودها أو إيقافها وحذف غير المستخدمة منها.{% endblock %}
+{% block page_description %}مصدر واحد لأسعار الباقات وترتيبها وظهورها في صفحة الاشتراك وصفحة الهبوط.{% endblock %}
 {% block breadcrumb %}
   <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">الباقات والأسعار</span>
 {% endblock %}
@@ -95,6 +95,15 @@
             {% endif %}
           </div>
 
+          {% if plan.is_featured %}
+            <span class="mt-3 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-[10px] font-black text-white">
+              <i class="fas fa-star"></i> الأكثر طلباً
+            </span>
+          {% endif %}
+          {% if plan.description %}
+            <p class="mt-3 text-xs leading-6 text-slate-500">{{ plan.description }}</p>
+          {% endif %}
+
           <div class="mt-4 flex flex-wrap gap-2 admin-no-print">
             <a href="{% url 'dashboard:system_plan_edit' plan.pk %}" class="admin-btn admin-btn-primary">
               <i class="fas fa-pen"></i> تعديل
@@ -116,14 +125,13 @@
             <span class="mb-1 text-xs font-bold text-slate-500">ر.س</span>
           </div>
           <p class="mt-1 text-[11px] text-slate-400">
-            {% if plan.duration_days %}لمدة {{ plan.duration_days }} يوماً{% else %}مدة مفتوحة{% endif %}
+            {{ plan.catalog.duration_label }} · {{ plan.catalog.period_label }}
           </p>
+          {% if plan.catalog.monthly_equivalent %}
+            <p class="mt-1 text-[11px] font-bold text-indigo-600">يعادل {{ plan.catalog.monthly_equivalent }} ر.س شهرياً</p>
+          {% endif %}
 
-          <div class="mt-5 grid grid-cols-3 gap-2">
-            <div class="rounded-xl bg-slate-50 p-3 text-center">
-              <strong class="block text-sm text-slate-900">{{ plan.max_schools|default:"∞" }}</strong>
-              <span class="text-[10px] text-slate-500">مدارس</span>
-            </div>
+          <div class="mt-5 grid grid-cols-2 gap-2">
             <div class="rounded-xl bg-slate-50 p-3 text-center">
               <strong class="block text-sm text-slate-900">{{ plan.max_users|default:"∞" }}</strong>
               <span class="text-[10px] text-slate-500">مستخدمون</span>

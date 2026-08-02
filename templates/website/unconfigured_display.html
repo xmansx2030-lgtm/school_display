@@ -3518,14 +3518,18 @@
 
                 <div class="pricing-grid">
                     {% for plan in landing_plans %}
-                    <article class="price-card reveal{% if plan.is_trial %} popular{% endif %}" data-plan-code="{{ plan.code }}">
+                    <article class="price-card reveal{% if plan.is_trial or plan.is_featured %} popular{% endif %}" data-plan-code="{{ plan.code }}">
                         <div class="plan-badge">
-                            {% if plan.is_trial %}تجربة مجانية{% elif plan.is_free %}مجانية{% else %}متاحة للاشتراك{% endif %}
+                            {% if plan.is_trial %}تجربة مجانية{% elif plan.is_featured %}الأكثر طلباً{% elif plan.is_free %}مجانية{% else %}متاحة للاشتراك{% endif %}
                         </div>
                         <h3>{{ plan.name }}</h3>
+                        {% if plan.description %}<p class="plan-meta">{{ plan.description }}</p>{% endif %}
                         <p class="plan-meta">مدة الباقة: {{ plan.duration_label }}</p>
                         <div class="{% if plan.is_free %}price-val-static{% else %}price-val{% endif %}">{{ plan.price|floatformat:"-2" }}</div>
-                        <span class="price-period">ريال سعودي / {{ plan.duration_label }}</span>
+                        <span class="price-period">ريال سعودي / {{ plan.period_label }}</span>
+                        {% if plan.monthly_equivalent %}
+                          <span class="price-period">يعادل {{ plan.monthly_equivalent|floatformat:"-2" }} ر.س شهرياً</span>
+                        {% endif %}
                         <ul class="feature-list">
                             <li><i class="fa-solid fa-check"></i> جميع مزايا النظام كاملة</li>
                             <li>
@@ -3537,11 +3541,6 @@
                                 <i class="fa-solid fa-users"></i>
                                 المستخدمون:
                                 {% if plan.max_users %}{{ plan.max_users }}{% else %}غير محدودين{% endif %}
-                            </li>
-                            <li>
-                                <i class="fa-solid fa-school"></i>
-                                المدارس:
-                                {% if plan.max_schools %}{{ plan.max_schools }}{% else %}غير محدودة{% endif %}
                             </li>
                         </ul>
                         <button
@@ -3687,11 +3686,18 @@
                         <div class="field-error" id="error-mobile" data-error-for="mobile" aria-live="polite"></div>
                     </div>
 
+                    <div class="form-group">
+                        <label class="form-label" for="email">البريد الإلكتروني</label>
+                        <input type="email" id="email" name="email" class="form-input" placeholder="name@example.com" required autocomplete="email" maxlength="254" aria-describedby="emailHint error-email">
+                        <div class="form-hint" id="emailHint">يُستخدم لإرسال الفواتير واستعادة كلمة المرور.</div>
+                        <div class="field-error" id="error-email" data-error-for="email" aria-live="polite"></div>
+                    </div>
+
                     <button type="button" id="formNextBtn" class="btn btn-block" style="border-radius:18px; margin-top:8px;">
                         متابعة
                         <i class="fa-solid fa-arrow-left"></i>
                     </button>
-                    <p class="form-consent"><i class="fa-solid fa-lock"></i> لن نطلب بطاقة بنكية. نستخدم الرقم لإنشاء الحساب والتواصل بشأن المدرسة فقط.</p>
+                    <p class="form-consent"><i class="fa-solid fa-lock"></i> لن نطلب بطاقة بنكية. نستخدم بيانات التواصل للحساب والفواتير واستعادة كلمة المرور وخدمة المدرسة فقط.</p>
                 </div>
 
                 <div class="form-step" data-form-step="2" hidden>
@@ -3932,7 +3938,8 @@
         function validateFirstStep() {
             const firstStepFields = [
                 document.getElementById('schoolName'),
-                document.getElementById('mobile')
+                document.getElementById('mobile'),
+                document.getElementById('email')
             ];
             for (const field of firstStepFields) {
                 if (!field.checkValidity()) {
@@ -4155,6 +4162,7 @@
             const city = document.getElementById('city').value;
             const name = document.getElementById('contactName').value;
             const mobileNumber = document.getElementById('mobile').value;
+            const emailAddress = document.getElementById('email').value;
             const plan = document.getElementById('p_plan').value;
             const period = document.getElementById('p_period').value;
             const price = document.getElementById('p_price').value;
@@ -4164,7 +4172,8 @@
             message += `- المدرسة: ${school} (${type})\n`;
             message += `- المدينة: ${city}\n`;
             message += `- المسؤول: ${name}\n`;
-            message += `- الجوال: ${mobileNumber}\n\n`;
+            message += `- الجوال: ${mobileNumber}\n`;
+            message += `- البريد الإلكتروني: ${emailAddress}\n\n`;
 
             if (activeOrderIsTrial) {
                 message += '🎁 *نوع الطلب:* {{ landing_trial.name|escapejs }} لمدة {{ landing_trial.duration_days }} يوم\n';
