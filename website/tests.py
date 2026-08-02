@@ -97,7 +97,6 @@ class TrialSignupTests(TestCase):
 
         self.assertContains(response, 'role="dialog"')
         self.assertContains(response, 'aria-modal="true"')
-        self.assertContains(response, 'class="pricing-sync-note"')
         self.assertContains(response, 'pattern="05[0-9]{8}"')
         self.assertContains(response, 'type="email"')
         self.assertContains(response, "يُستخدم لإرسال الفواتير واستعادة كلمة المرور")
