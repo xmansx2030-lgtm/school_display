@@ -1,11 +1,19 @@
 # subscriptions/urls.py
 from django.urls import path
 from dashboard import views as dashboard_views
-from . import tamara_views
+from . import moyasar_views, tamara_views
 
 app_name = "subscriptions"
 
 urlpatterns = [
+    path("moyasar/start/", moyasar_views.moyasar_start, name="moyasar_start"),
+    path(
+        "moyasar/checkout/<str:reference>/",
+        moyasar_views.moyasar_checkout,
+        name="moyasar_checkout",
+    ),
+    path("moyasar/return/", moyasar_views.moyasar_return, name="moyasar_return"),
+    path("moyasar/webhook/", moyasar_views.moyasar_webhook, name="moyasar_webhook"),
     path("tamara/start/", tamara_views.tamara_start, name="tamara_start"),
     path("tamara/webhook/", tamara_views.tamara_webhook, name="tamara_webhook"),
     path(

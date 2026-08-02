@@ -1,0 +1,67 @@
+{% extends "dashboard/_base.html" %}
+{% load static %}
+
+{% block title %}الدفع عبر ميسر{% endblock %}
+{% block page_title %}الدفع الإلكتروني الآمن{% endblock %}
+{% block page_description %}أكمل دفع الاشتراك بالبطاقة عبر بوابة ميسر.{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/moyasar-payment-form@2.2.10/dist/moyasar.css">
+{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl space-y-6">
+  {% if not checkout.live_mode %}
+  <div class="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm leading-7 text-amber-950" role="status">
+    <strong class="block">بيئة اختبار — لن يُفعّل اشتراك حقيقي</strong>
+    استخدم بطاقات ميسر التجريبية فقط. لا تدخل بيانات بطاقة حقيقية في هذه الصفحة.
+  </div>
+  {% endif %}
+
+  <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="moyasar-payment-title">
+      <div class="mb-6 flex items-start gap-4 border-b border-slate-100 pb-5">
+        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#111827] text-xl font-black text-white">M</span>
+        <div>
+          <h2 id="moyasar-payment-title" class="text-xl font-black text-slate-900">بيانات البطاقة</h2>
+          <p class="mt-1 text-xs leading-6 text-slate-500">تُرسل بيانات البطاقة مباشرة إلى ميسر ولا تمر بخوادم المنصة.</p>
+        </div>
+      </div>
+      <div class="mysr-form" aria-live="polite"></div>
+      <p id="moyasar-load-error" class="mt-4 hidden rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">
+        تعذر تحميل نموذج الدفع. حدّث الصفحة أو حاول لاحقًا.
+      </p>
+    </section>
+
+    <aside class="h-fit rounded-3xl border border-slate-200 bg-slate-900 p-6 text-white shadow-sm">
+      <p class="text-xs font-bold text-slate-400">ملخص الطلب</p>
+      <h3 class="mt-2 text-xl font-black">{{ checkout.plan.name }}</h3>
+      <dl class="mt-6 space-y-4 text-sm">
+        <div class="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <dt class="text-slate-400">نوع الطلب</dt>
+          <dd class="font-bold">{{ checkout.get_request_type_display }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <dt class="text-slate-400">بداية الاشتراك</dt>
+          <dd class="font-bold" dir="ltr">{{ checkout.starts_at|date:"Y-m-d" }}</dd>
+        </div>
+        <div class="flex items-end justify-between gap-4">
+          <dt class="text-slate-400">الإجمالي</dt>
+          <dd class="text-2xl font-black">{{ checkout.amount }} <span class="text-xs text-slate-400">ر.س</span></dd>
+        </div>
+      </dl>
+      <div class="mt-6 rounded-2xl bg-white/10 px-4 py-3 text-xs leading-6 text-slate-300">
+        لن يُفعّل الاشتراك إلا بعد أن يتحقق الخادم من حالة الدفع والمبلغ والعملة والمرجع مباشرة من ميسر.
+      </div>
+      <a href="{% url 'dashboard:my_subscription' %}" class="mt-5 block rounded-xl border border-white/20 px-4 py-3 text-center text-sm font-black text-white transition hover:bg-white/10">إلغاء والعودة</a>
+    </aside>
+  </div>
+</div>
+
+{{ moyasar_config|json_script:"moyasar-config" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/moyasar-payment-form@2.2.10/dist/moyasar.umd.min.js" defer></script>
+<script src="{% static 'js/moyasar_checkout.js' %}?v=2026-08-02-m1" defer></script>
+{% endblock %}

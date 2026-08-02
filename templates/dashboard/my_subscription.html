@@ -256,8 +256,36 @@
           <span class="text-rose-500">💳</span>
           اختر طريقة الدفع المناسبة
         </h3>
-        <p class="text-sm leading-6 text-slate-500">راجع الخطة والمبلغ أولًا، ثم أكمل إلكترونيًا عبر تمارا أو استخدم التحويل البنكي.</p>
+        <p class="text-sm leading-6 text-slate-500">راجع الخطة والمبلغ أولًا، ثم أكمل إلكترونيًا عبر ميسر أو تمارا، أو استخدم التحويل البنكي.</p>
       </div>
+
+      {% if moyasar_available %}
+      <div class="rounded-2xl border border-slate-300 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 text-white shadow-sm">
+        <div class="flex items-start gap-4">
+          <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-xl font-black text-slate-950 shadow-sm">M</div>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="font-black">الدفع بالبطاقة عبر ميسر</p>
+              <span class="rounded-full bg-emerald-400/20 px-2.5 py-1 text-[10px] font-black text-emerald-200">مدى · Visa · Mastercard</span>
+              {% if not moyasar_live_mode %}
+              <span class="rounded-full bg-amber-400/20 px-2.5 py-1 text-[10px] font-black text-amber-200">اختبار لمدير النظام</span>
+              {% endif %}
+            </div>
+            <p class="mt-2 text-xs leading-6 text-slate-300">دفع آمن داخل نموذج ميسر، ثم تحقق خلفي من الحالة والمبلغ والعملة قبل تفعيل الاشتراك.</p>
+          </div>
+        </div>
+      </div>
+      {% elif moyasar_pending_activation %}
+      <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+        <div class="flex items-start gap-3">
+          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 font-black text-white">M</span>
+          <div>
+            <p class="font-black text-amber-950">الدفع عبر ميسر قيد التفعيل</p>
+            <p class="mt-1 text-xs leading-6 text-amber-800">اكتمل الربط التقني، وستظهر بطاقات مدى وVisa وMastercard تلقائيًا بعد اعتماد الحساب.</p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
 
       {% if tamara_available %}
       <div class="rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 via-white to-white p-5 shadow-sm">
@@ -388,6 +416,30 @@
                </div>
             </div>
 
+            {% if moyasar_available and renewal_plan_details.price %}
+            <div class="mb-6 rounded-2xl border border-slate-300 bg-slate-50 p-5">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-3">
+                  <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 font-black text-white">M</span>
+                  <div>
+                    <p class="font-black text-slate-900">ادفع بالبطاقة عبر ميسر</p>
+                    <p class="mt-0.5 text-xs text-slate-500">مدى وVisa وMastercard</p>
+                  </div>
+                </div>
+                <p class="text-lg font-black text-slate-900">{{ renewal_plan_details.price }} <span class="text-xs text-slate-500">ر.س</span></p>
+              </div>
+              <form method="post" action="{% url 'subscriptions:moyasar_start' %}" class="mt-4">
+                {% csrf_token %}
+                <input type="hidden" name="request_type" value="renewal">
+                <input type="hidden" name="plan_id" value="{{ subscription.plan_id }}">
+                <button type="submit" class="w-full rounded-xl bg-slate-900 px-5 py-4 font-black text-white transition hover:bg-slate-700 active:scale-[.99]">
+                  متابعة الدفع عبر ميسر <span aria-hidden="true">←</span>
+                </button>
+              </form>
+              {% if not moyasar_live_mode %}<p class="mt-3 text-center text-[11px] text-amber-700">بيئة اختبار؛ لن يُفعّل اشتراك حقيقي.</p>{% endif %}
+            </div>
+            {% endif %}
+
             {% if tamara_available and renewal_plan_details.price %}
             <div class="tamara-checkout-card mb-6 rounded-2xl border border-rose-200 bg-rose-50/50 p-5">
               <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -421,7 +473,7 @@
             </div>
             {% endif %}
 
-            <details class="bank-transfer-details rounded-2xl border border-slate-200 bg-slate-50" {% if renew_form.receipt_image.errors or renew_form.transfer_note.errors or not tamara_available %}open{% endif %}>
+            <details class="bank-transfer-details rounded-2xl border border-slate-200 bg-slate-50" {% if renew_form.receipt_image.errors or renew_form.transfer_note.errors or not tamara_available and not moyasar_available %}open{% endif %}>
               <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-black text-slate-800">
                 <span>استخدام التحويل البنكي بدلًا من ذلك</span>
                 <span class="details-chevron text-slate-400" aria-hidden="true">⌄</span>
@@ -541,6 +593,33 @@
           {% endif %}
         </div>
 
+        {% if moyasar_available %}
+        <div id="moyasar-new-card" class="mb-6 rounded-2xl border border-slate-300 bg-slate-50 p-5">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-center gap-3">
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 font-black text-white">M</span>
+              <div>
+                <p class="font-black text-slate-900">الدفع بالبطاقة عبر ميسر</p>
+                <p id="moyasar-plan-copy" class="mt-1 text-xs text-slate-500">اختر باقة مدفوعة للمتابعة</p>
+              </div>
+            </div>
+            <div class="rounded-xl bg-white px-4 py-3 text-center ring-1 ring-slate-200">
+              <p class="text-[10px] font-bold text-slate-500">الإجمالي</p>
+              <p class="mt-1 text-lg font-black text-slate-900"><span id="moyasar-total">—</span> <span class="text-xs">ر.س</span></p>
+            </div>
+          </div>
+          <form method="post" action="{% url 'subscriptions:moyasar_start' %}" id="moyasar-new-form" class="mt-4">
+            {% csrf_token %}
+            <input type="hidden" name="request_type" value="new">
+            <input type="hidden" name="plan_id" id="moyasar-plan-id" value="">
+            <button type="submit" id="moyasar-new-submit" class="w-full rounded-xl bg-slate-900 px-5 py-4 font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[.99]" disabled>
+              متابعة الدفع عبر ميسر <span aria-hidden="true">←</span>
+            </button>
+          </form>
+          {% if not moyasar_live_mode %}<p class="mt-3 text-center text-[11px] text-amber-700">بيئة اختبار؛ لن يُفعّل اشتراك حقيقي.</p>{% endif %}
+        </div>
+        {% endif %}
+
         {% if tamara_available %}
         <div id="tamara-new-card" class="tamara-checkout-card mb-6 rounded-2xl border border-rose-200 bg-rose-50/50 p-5">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -588,7 +667,7 @@
           </form>
         </div>
 
-        <details id="new-bank-details" class="bank-transfer-details rounded-2xl border border-slate-200 bg-slate-50" {% if new_form.receipt_image.errors or new_form.transfer_note.errors or not tamara_available %}open{% endif %}>
+        <details id="new-bank-details" class="bank-transfer-details rounded-2xl border border-slate-200 bg-slate-50" {% if new_form.receipt_image.errors or new_form.transfer_note.errors or not tamara_available and not moyasar_available %}open{% endif %}>
           <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-black text-slate-800">
             <span>استخدام التحويل البنكي بدلًا من ذلك</span>
             <span class="details-chevron text-slate-400" aria-hidden="true">⌄</span>
@@ -666,6 +745,48 @@
             <input type="hidden" name="plan_id" value="{{ checkout.plan_id }}">
             <button type="submit" class="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-black text-rose-700 transition hover:bg-rose-50">إعادة المحاولة</button>
           </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if moyasar_checkouts %}
+  <div class="dashboard-section-card mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="flex flex-col gap-1 border-b border-slate-100 bg-slate-50 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h4 class="font-black text-slate-800">مدفوعات ميسر</h4>
+        <p class="mt-1 text-xs text-slate-500">آخر محاولات الدفع بالبطاقة وحالة التحقق الخلفي.</p>
+      </div>
+      <span class="text-xs font-bold text-slate-500">آخر {{ moyasar_checkouts|length }} عمليات</span>
+    </div>
+    <div class="divide-y divide-slate-100">
+      {% for checkout in moyasar_checkouts %}
+      <div class="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <p class="font-bold text-slate-800">{{ checkout.plan.name }}</p>
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{{ checkout.get_request_type_display }}</span>
+            {% if not checkout.live_mode %}<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">اختبار</span>{% endif %}
+          </div>
+          <p class="mt-1 text-xs text-slate-500">{{ checkout.created_at|date:"Y-m-d H:i" }} · مرجع <span dir="ltr">#{{ checkout.merchant_reference|slice:"-8:" }}</span></p>
+          {% if checkout.status == 'paid' or checkout.status == 'captured' %}
+            {% if checkout.payment_operation_id %}
+            <p class="mt-2 text-xs text-emerald-700">تم التحقق وتفعيل الاشتراك.</p>
+            {% else %}
+            <p class="mt-2 text-xs text-amber-700">نجحت عملية الاختبار دون تفعيل اشتراك حقيقي.</p>
+            {% endif %}
+          {% elif checkout.status == 'failed' %}
+          <p class="mt-2 text-xs text-rose-700">لم تكتمل عملية الدفع ولم يُفعّل الاشتراك.</p>
+          {% endif %}
+        </div>
+        <div class="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+          <p class="font-black text-slate-800">{{ checkout.amount }} ر.س</p>
+          <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-black {% if checkout.status == 'paid' or checkout.status == 'captured' %}bg-emerald-100 text-emerald-800{% elif checkout.status == 'failed' or checkout.status == 'voided' or checkout.status == 'error' %}bg-rose-100 text-rose-800{% else %}bg-amber-100 text-amber-800{% endif %}">{{ checkout.get_status_display }}</span>
+          {% if checkout.status == 'initiated' and moyasar_available %}
+          <a href="{% url 'subscriptions:moyasar_checkout' reference=checkout.merchant_reference %}" class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-black text-white transition hover:bg-slate-700">متابعة الدفع</a>
           {% endif %}
         </div>
       </div>
@@ -860,16 +981,24 @@
       var tamaraCopy = document.getElementById('tamara-plan-copy');
       var tamaraTotal = document.getElementById('tamara-total');
       var tamaraInstallment = document.getElementById('tamara-installment');
+      var moyasarPlan = document.getElementById('moyasar-plan-id');
+      var moyasarSubmit = document.getElementById('moyasar-new-submit');
+      var moyasarCard = document.getElementById('moyasar-new-card');
+      var moyasarCopy = document.getElementById('moyasar-plan-copy');
+      var moyasarTotal = document.getElementById('moyasar-total');
       var bankPlan = document.getElementById('bank-new-plan-id');
       var bankDetails = document.getElementById('new-bank-details');
       var freeCard = document.getElementById('free-plan-card');
       var freePlan = document.getElementById('free-new-plan-id');
       var paidAmount = d ? Number(d.price || 0) : 0;
       if (tamaraPlan) tamaraPlan.value = planId || '';
+      if (moyasarPlan) moyasarPlan.value = planId || '';
       if (bankPlan) bankPlan.value = planId || '';
       if (freePlan) freePlan.value = planId || '';
       if (tamaraSubmit) tamaraSubmit.disabled = !planId || !d || paidAmount <= 0;
+      if (moyasarSubmit) moyasarSubmit.disabled = !planId || !d || paidAmount <= 0;
       if (tamaraCard) tamaraCard.classList.toggle('hidden', !!d && paidAmount <= 0);
+      if (moyasarCard) moyasarCard.classList.toggle('hidden', !!d && paidAmount <= 0);
       if (freeCard) freeCard.classList.toggle('hidden', !d || paidAmount > 0);
       if (bankDetails) bankDetails.classList.toggle('hidden', !!d && paidAmount <= 0);
       if (tamaraForm) {
@@ -879,6 +1008,8 @@
       if (tamaraCopy) tamaraCopy.textContent = d && d.name ? String(d.name) : 'اختر باقة مدفوعة للمتابعة';
       if (tamaraTotal) tamaraTotal.textContent = paidAmount > 0 ? formatMoney(paidAmount) : '—';
       if (tamaraInstallment) tamaraInstallment.textContent = paidAmount > 0 ? formatMoney(paidAmount / 4) : '—';
+      if (moyasarCopy) moyasarCopy.textContent = d && d.name ? String(d.name) : 'اختر باقة مدفوعة للمتابعة';
+      if (moyasarTotal) moyasarTotal.textContent = paidAmount > 0 ? formatMoney(paidAmount) : '—';
 
       var priceEl = document.getElementById('plan-price');
       var durEl = document.getElementById('plan-duration');

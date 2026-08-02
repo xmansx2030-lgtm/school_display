@@ -37,6 +37,10 @@ def _tamara_reference() -> str:
     return f"SD-{uuid.uuid4().hex}"
 
 
+def _moyasar_reference() -> str:
+    return f"MS-{uuid.uuid4().hex}"
+
+
 class SchoolSubscription(models.Model):
     STATUS_CHOICES = [
         ("pending", "قيد الإعداد"),
@@ -563,6 +567,7 @@ class SubscriptionPaymentOperation(models.Model):
         ("bank_transfer", "تحويل"),
         ("payment_link", "رابط دفع"),
         ("tamara", "تمارا"),
+        ("moyasar", "ميسر"),
     ]
 
     SOURCE_CHOICES = [
@@ -714,6 +719,93 @@ class TamaraCheckout(models.Model):
         ordering = ("-created_at", "-id")
         indexes = [
             models.Index(fields=["school", "status", "created_at"], name="tamara_school_status_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.merchant_reference} - {self.get_status_display()}"
+
+
+class MoyasarCheckout(models.Model):
+    """Local order used to verify Moyasar payments before activating access."""
+
+    REQUEST_TYPE_CHOICES = SubscriptionRequest.REQUEST_TYPE_CHOICES
+    STATUS_CHOICES = [
+        ("initiated", "بانتظار الدفع"),
+        ("paid", "مدفوعة"),
+        ("authorized", "مصرح بها"),
+        ("captured", "مكتملة"),
+        ("failed", "فشلت"),
+        ("refunded", "مستردة"),
+        ("voided", "ملغاة"),
+        ("error", "خطأ"),
+    ]
+
+    merchant_reference = models.CharField(
+        "مرجع التاجر",
+        max_length=40,
+        unique=True,
+        default=_moyasar_reference,
+        editable=False,
+    )
+    payment_id = models.CharField(
+        "رقم دفعة ميسر",
+        max_length=80,
+        unique=True,
+        null=True,
+        blank=True,
+    )
+    school = models.ForeignKey(
+        School,
+        on_delete=models.PROTECT,
+        related_name="moyasar_checkouts",
+        verbose_name="المدرسة",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="moyasar_checkouts",
+        verbose_name="أنشئت بواسطة",
+    )
+    plan = models.ForeignKey(
+        SubscriptionPlan,
+        on_delete=models.PROTECT,
+        related_name="moyasar_checkouts",
+        verbose_name="الخطة",
+    )
+    request_type = models.CharField(max_length=20, choices=REQUEST_TYPE_CHOICES)
+    starts_at = models.DateField("بداية الاشتراك المطلوبة", default=timezone.localdate)
+    amount = models.DecimalField("المبلغ", max_digits=10, decimal_places=2)
+    currency = models.CharField("العملة", max_length=3, default="SAR")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="initiated")
+    live_mode = models.BooleanField("عملية فعلية", default=False)
+    last_event = models.CharField("آخر حدث", max_length=40, blank=True, default="")
+    error_message = models.CharField("رسالة الخطأ", max_length=300, blank=True, default="")
+    subscription = models.ForeignKey(
+        SchoolSubscription,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="moyasar_checkouts",
+    )
+    payment_operation = models.OneToOneField(
+        SubscriptionPaymentOperation,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="moyasar_checkout",
+    )
+    processed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "جلسة دفع ميسر"
+        verbose_name_plural = "جلسات دفع ميسر"
+        ordering = ("-created_at", "-id")
+        indexes = [
+            models.Index(fields=["school", "status", "created_at"], name="moyasar_school_status_idx"),
         ]
 
     def __str__(self) -> str:

@@ -8,6 +8,7 @@ from .models import (
     SubscriptionPaymentOperation,
     SubscriptionScreenAddon,
     SubscriptionRequest,
+    MoyasarCheckout,
     TamaraCheckout,
 )
 
@@ -20,7 +21,7 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
     بدون افتراض أي حقول غير مضمونة.
     """
     list_display = ("id", "name", "price", "duration_days", "max_screens", "is_featured", "is_active")
-    search_fields = ("name", "code", "description")
+    search_fields = ("name", "code", "description", "card_features")
     list_filter = ("is_active", "is_featured")
     ordering = ("sort_order", "price", "id")
 
@@ -124,6 +125,32 @@ class TamaraCheckoutAdmin(admin.ModelAdmin):
         "tamara_order_id",
         "checkout_id",
         "checkout_url",
+        "last_event",
+        "processed_at",
+        "created_at",
+        "updated_at",
+    )
+
+
+@admin.register(MoyasarCheckout)
+class MoyasarCheckoutAdmin(admin.ModelAdmin):
+    list_display = (
+        "merchant_reference",
+        "school",
+        "plan",
+        "amount",
+        "status",
+        "live_mode",
+        "payment_id",
+        "created_at",
+    )
+    list_filter = ("status", "live_mode", "request_type", "created_at")
+    search_fields = ("merchant_reference", "payment_id", "school__name")
+    autocomplete_fields = ("school", "plan", "created_by", "subscription", "payment_operation")
+    readonly_fields = (
+        "merchant_reference",
+        "payment_id",
+        "live_mode",
         "last_event",
         "processed_at",
         "created_at",

@@ -4558,6 +4558,32 @@ def my_subscription(request):
         else "production"
     )
 
+    moyasar_checkouts = []
+    try:
+        from subscriptions.models import MoyasarCheckout
+
+        moyasar_checkouts = list(
+            MoyasarCheckout.objects.filter(school=school, created_by=request.user)
+            .select_related("plan", "subscription", "payment_operation")
+            .order_by("-created_at", "-id")[:5]
+        )
+    except Exception:
+        moyasar_checkouts = []
+
+    moyasar_configured = bool(
+        getattr(dj_settings, "MOYASAR_ENABLED", False)
+        and getattr(dj_settings, "MOYASAR_PUBLISHABLE_KEY", "")
+        and getattr(dj_settings, "MOYASAR_SECRET_KEY", "")
+    )
+    moyasar_live_mode = bool(getattr(dj_settings, "MOYASAR_LIVE_MODE", False))
+    # Test checkout is intentionally limited to the system owner. Test payments
+    # can never activate production access (enforced again in processing).
+    moyasar_available = bool(
+        moyasar_configured
+        and (moyasar_live_mode or dj_settings.DEBUG or request.user.is_superuser)
+    )
+    moyasar_pending_activation = bool(moyasar_configured and not moyasar_live_mode)
+
     return render(
         request,
         "dashboard/my_subscription.html",
@@ -4581,6 +4607,10 @@ def my_subscription(request):
             "tamara_checkouts": tamara_checkouts,
             "tamara_available": tamara_available,
             "tamara_environment": tamara_environment,
+            "moyasar_checkouts": moyasar_checkouts,
+            "moyasar_available": moyasar_available,
+            "moyasar_live_mode": moyasar_live_mode,
+            "moyasar_pending_activation": moyasar_pending_activation,
 
             "active_request_tab": active_request_tab,
             "renewal_plan_details": _plan_details(renewal_plan_obj),

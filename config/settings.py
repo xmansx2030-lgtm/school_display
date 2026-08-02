@@ -922,6 +922,49 @@ if TAMARA_ENABLED and not DEBUG and not RUNNING_TESTS:
 
 
 # =========================
+# Moyasar card checkout
+# =========================
+MOYASAR_ENABLED = env_bool("MOYASAR_ENABLED", "False")
+MOYASAR_LIVE_MODE = env_bool("MOYASAR_LIVE_MODE", "False")
+MOYASAR_ACTIVATE_TEST_PAYMENTS = env_bool("MOYASAR_ACTIVATE_TEST_PAYMENTS", "False")
+MOYASAR_API_BASE_URL = os.getenv(
+    "MOYASAR_API_BASE_URL",
+    "https://api.moyasar.com/v1",
+).strip().rstrip("/")
+MOYASAR_PUBLISHABLE_KEY = env_secret(
+    "MOYASAR_PUBLISHABLE_KEY",
+    "MOYASAR_PUBLISHABLE_KEY_FILE",
+)
+MOYASAR_SECRET_KEY = env_secret("MOYASAR_SECRET_KEY", "MOYASAR_SECRET_KEY_FILE")
+MOYASAR_WEBHOOK_SECRET = env_secret(
+    "MOYASAR_WEBHOOK_SECRET",
+    "MOYASAR_WEBHOOK_SECRET_FILE",
+)
+MOYASAR_CALLBACK_BASE_URL = (
+    os.getenv("MOYASAR_CALLBACK_BASE_URL", SITE_BASE_URL).strip().rstrip("/")
+    or SITE_BASE_URL.rstrip("/")
+)
+MOYASAR_HTTP_TIMEOUT_SECONDS = env_int_clamped(
+    "MOYASAR_HTTP_TIMEOUT_SECONDS",
+    15,
+    3,
+    60,
+)
+
+if MOYASAR_ENABLED and not DEBUG and not RUNNING_TESTS:
+    expected_publishable_prefix = "pk_live_" if MOYASAR_LIVE_MODE else "pk_test_"
+    expected_secret_prefix = "sk_live_" if MOYASAR_LIVE_MODE else "sk_test_"
+    if not MOYASAR_PUBLISHABLE_KEY.startswith(expected_publishable_prefix):
+        raise RuntimeError("MOYASAR_PUBLISHABLE_KEY does not match MOYASAR_LIVE_MODE")
+    if not MOYASAR_SECRET_KEY.startswith(expected_secret_prefix):
+        raise RuntimeError("MOYASAR_SECRET_KEY does not match MOYASAR_LIVE_MODE")
+    if not MOYASAR_CALLBACK_BASE_URL.startswith("https://"):
+        raise RuntimeError("MOYASAR_CALLBACK_BASE_URL must use HTTPS in production")
+    if MOYASAR_ACTIVATE_TEST_PAYMENTS and not MOYASAR_LIVE_MODE:
+        raise RuntimeError("MOYASAR_ACTIVATE_TEST_PAYMENTS must remain False in production")
+
+
+# =========================
 # Transactional email
 # =========================
 # Local development prints messages to the terminal unless explicitly
