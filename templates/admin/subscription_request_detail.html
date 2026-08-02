@@ -87,6 +87,7 @@
         <div class="mt-4 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
           <div class="font-bold text-slate-900 mb-2">إجراءات</div>
 
+          {% if can_manage_subscription_requests %}
           <form method="post" class="space-y-3">
             {% csrf_token %}
             <textarea name="admin_note" rows="3" placeholder="ملاحظة للإدارة/المدرسة (اختياري)" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">{{ obj.admin_note }}</textarea>
@@ -109,6 +110,11 @@
 
             <p class="text-xs text-slate-500">عند الاعتماد: يتم إنشاء اشتراك يبدأ من تاريخ التفعيل المطلوب.</p>
           </form>
+          {% else %}
+            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+              لديك صلاحية الاطلاع على الطلب فقط، ولا يمكنك تغيير حالته.
+            </div>
+          {% endif %}
         </div>
       </div>
     </div>

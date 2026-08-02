@@ -8,9 +8,11 @@
   <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">مدراء المدارس</span>
 {% endblock %}
 {% block page_actions %}
+  {% if can_users_manage %}
   <a href="{% url 'dashboard:system_user_create' %}{% if school_id %}?school={{ school_id }}{% endif %}" class="admin-btn admin-btn-primary">
     <i class="fas fa-user-plus"></i> إضافة مدير
   </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -48,8 +50,10 @@
       <select id="userRole" name="role">
         <option value="manager" {% if role == "manager" %}selected{% endif %}>مدراء المدارس</option>
         <option value="unassigned" {% if role == "unassigned" %}selected{% endif %}>غير مرتبطين</option>
-        <option value="system" {% if role == "system" %}selected{% endif %}>حسابات النظام</option>
-        <option value="all" {% if role == "all" %}selected{% endif %}>كل الحسابات</option>
+        {% if request.user.is_superuser %}
+          <option value="system" {% if role == "system" %}selected{% endif %}>حسابات النظام</option>
+          <option value="all" {% if role == "all" %}selected{% endif %}>كل الحسابات</option>
+        {% endif %}
       </select>
     </div>
     <div class="admin-filter-field">
@@ -116,9 +120,9 @@
               <td>
                 <div class="flex max-w-xs flex-wrap gap-1">
                   {% for school in user.profile.schools.all %}
-                    <a href="{% url 'dashboard:system_school_edit' school.pk %}" class="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700">
+                    {% if can_schools_manage %}<a href="{% url 'dashboard:system_school_edit' school.pk %}" class="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700">
                       {{ school.name }}
-                    </a>
+                    </a>{% else %}<span class="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700">{{ school.name }}</span>{% endif %}
                   {% empty %}
                     <span class="admin-status admin-status-warning">بدون مدرسة</span>
                   {% endfor %}
@@ -150,10 +154,10 @@
               </td>
               <td>
                 <div class="flex items-center gap-2 whitespace-nowrap">
-                  <a href="{% url 'dashboard:system_user_edit' user.pk %}" class="admin-btn admin-btn-secondary" style="min-height:2.15rem;padding:.35rem .65rem">
+                  {% if can_users_manage %}<a href="{% url 'dashboard:system_user_edit' user.pk %}" class="admin-btn admin-btn-secondary" style="min-height:2.15rem;padding:.35rem .65rem">
                     <i class="fas fa-pen"></i> تعديل
-                  </a>
-                  {% if request.user.is_superuser and request.user.pk != user.pk %}
+                  </a>{% endif %}
+                  {% if can_users_manage and request.user.pk != user.pk %}
                     <a href="{% url 'dashboard:system_user_delete' user.pk %}" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center" title="حذف الحساب">
                       <i class="fas fa-trash"></i>
                     </a>

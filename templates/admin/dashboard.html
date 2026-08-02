@@ -7,10 +7,12 @@
 {% block breadcrumb %}{% endblock %}
 
 {% block page_actions %}
-  {% if not is_support_staff %}
+  {% if can_schools_manage %}
     <a href="{% url 'dashboard:system_school_create' %}" class="admin-btn admin-btn-primary">
       <i class="fas fa-plus"></i> مدرسة جديدة
     </a>
+  {% endif %}
+  {% if can_subscriptions_manage %}
     <a href="{% url 'dashboard:system_subscription_create' %}" class="admin-btn admin-btn-success">
       <i class="fas fa-file-circle-plus"></i> اشتراك جديد
     </a>
@@ -31,14 +33,14 @@
         </a>
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
-        <div class="rounded-xl border border-slate-200 p-4">
+        {% if can_schools_view %}<div class="rounded-xl border border-slate-200 p-4">
           <div class="mb-3 flex items-center justify-between">
             <h3 class="text-sm font-black text-slate-800"><i class="fas fa-school ml-2 text-blue-600"></i>المدارس</h3>
             <a href="{% url 'dashboard:system_schools_list' %}?q={{ global_query|urlencode }}" class="text-xs font-bold text-blue-600">عرض الكل</a>
           </div>
           <div class="space-y-2">
             {% for school in search_results.schools %}
-              <a href="{% url 'dashboard:system_school_edit' school.pk %}" class="block rounded-lg bg-slate-50 px-3 py-2 hover:bg-blue-50">
+              <a href="{% if can_schools_manage %}{% url 'dashboard:system_school_edit' school.pk %}{% else %}{% url 'dashboard:system_schools_list' %}?q={{ school.name|urlencode }}{% endif %}" class="block rounded-lg bg-slate-50 px-3 py-2 hover:bg-blue-50">
                 <span class="block text-xs font-bold text-slate-800">{{ school.name }}</span>
                 <span class="text-[10px] text-slate-400">{{ school.slug }}</span>
               </a>
@@ -46,16 +48,16 @@
               <p class="py-5 text-center text-xs text-slate-400">لا توجد مدارس مطابقة.</p>
             {% endfor %}
           </div>
-        </div>
+        </div>{% endif %}
 
-        <div class="rounded-xl border border-slate-200 p-4">
+        {% if can_users_view %}<div class="rounded-xl border border-slate-200 p-4">
           <div class="mb-3 flex items-center justify-between">
             <h3 class="text-sm font-black text-slate-800"><i class="fas fa-user-tie ml-2 text-violet-600"></i>الحسابات</h3>
             <a href="{% url 'dashboard:system_users_list' %}?q={{ global_query|urlencode }}&role=all" class="text-xs font-bold text-blue-600">عرض الكل</a>
           </div>
           <div class="space-y-2">
             {% for user in search_results.users %}
-              <a href="{% url 'dashboard:system_user_edit' user.pk %}" class="block rounded-lg bg-slate-50 px-3 py-2 hover:bg-violet-50">
+              <a href="{% if can_users_manage %}{% url 'dashboard:system_user_edit' user.pk %}{% else %}{% url 'dashboard:system_users_list' %}?q={{ user.username|urlencode }}{% endif %}" class="block rounded-lg bg-slate-50 px-3 py-2 hover:bg-violet-50">
                 <span class="block text-xs font-bold text-slate-800">{{ user.get_full_name|default:user.username }}</span>
                 <span class="text-[10px] text-slate-400">{{ user.email|default:"بدون بريد" }}</span>
               </a>
@@ -63,16 +65,16 @@
               <p class="py-5 text-center text-xs text-slate-400">لا توجد حسابات مطابقة.</p>
             {% endfor %}
           </div>
-        </div>
+        </div>{% endif %}
 
-        <div class="rounded-xl border border-slate-200 p-4">
+        {% if can_subscriptions_view %}<div class="rounded-xl border border-slate-200 p-4">
           <div class="mb-3 flex items-center justify-between">
             <h3 class="text-sm font-black text-slate-800"><i class="fas fa-credit-card ml-2 text-emerald-600"></i>الاشتراكات</h3>
             <a href="{% url 'dashboard:system_subscriptions_list' %}?q={{ global_query|urlencode }}" class="text-xs font-bold text-blue-600">عرض الكل</a>
           </div>
           <div class="space-y-2">
             {% for subscription in search_results.subscriptions %}
-              <a href="{% url 'dashboard:system_subscription_edit' subscription.pk %}" class="block rounded-lg bg-slate-50 px-3 py-2 hover:bg-emerald-50">
+              <a href="{% if can_subscriptions_manage %}{% url 'dashboard:system_subscription_edit' subscription.pk %}{% else %}{% url 'dashboard:system_subscriptions_list' %}?q={{ subscription.school.name|urlencode }}{% endif %}" class="block rounded-lg bg-slate-50 px-3 py-2 hover:bg-emerald-50">
                 <span class="block text-xs font-bold text-slate-800">{{ subscription.school.name }}</span>
                 <span class="text-[10px] text-slate-400">{{ subscription.plan.name }}</span>
               </a>
@@ -80,13 +82,13 @@
               <p class="py-5 text-center text-xs text-slate-400">لا توجد اشتراكات مطابقة.</p>
             {% endfor %}
           </div>
-        </div>
+        </div>{% endif %}
       </div>
     </section>
   {% endif %}
 
   <section class="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4" aria-label="مؤشرات المنصة">
-    <a href="{% url 'dashboard:system_schools_list' %}" class="admin-metric-card" style="--metric-color:#2563eb">
+    {% if can_schools_view %}<a href="{% url 'dashboard:system_schools_list' %}" class="admin-metric-card" style="--metric-color:#2563eb">
       <div class="flex items-start justify-between">
         <span class="admin-metric-icon"><i class="fas fa-school"></i></span>
         <span class="admin-status admin-status-success">{{ active_schools_count }} نشطة</span>
@@ -94,9 +96,9 @@
       <p class="admin-metric-value">{{ schools_count }}</p>
       <p class="admin-metric-label">مدرسة في المنصة</p>
       <p class="admin-metric-note">{{ inactive_schools_count }} مدرسة موقوفة</p>
-    </a>
+    </a>{% endif %}
 
-    <a href="{% url 'dashboard:system_users_list' %}" class="admin-metric-card" style="--metric-color:#7c3aed">
+    {% if can_users_view %}<a href="{% url 'dashboard:system_users_list' %}" class="admin-metric-card" style="--metric-color:#7c3aed">
       <div class="flex items-start justify-between">
         <span class="admin-metric-icon"><i class="fas fa-user-tie"></i></span>
         {% if unassigned_users_count %}
@@ -108,9 +110,9 @@
       <p class="admin-metric-value">{{ managers_count }}</p>
       <p class="admin-metric-label">مدير مدرسة</p>
       <p class="admin-metric-note">{{ users_count }} حساباً إجمالاً</p>
-    </a>
+    </a>{% endif %}
 
-    <a href="{% url 'dashboard:system_subscriptions_list' %}" class="admin-metric-card" style="--metric-color:#059669">
+    {% if can_subscriptions_view %}<a href="{% url 'dashboard:system_subscriptions_list' %}" class="admin-metric-card" style="--metric-color:#059669">
       <div class="flex items-start justify-between">
         <span class="admin-metric-icon"><i class="fas fa-file-invoice-dollar"></i></span>
         {% if expiring_subs_count %}
@@ -122,9 +124,9 @@
       <p class="admin-metric-value">{{ subscriptions_count }}</p>
       <p class="admin-metric-label">اشتراكاً سارياً</p>
       <p class="admin-metric-note">{{ revenue }} ر.س قيمة الباقات النشطة</p>
-    </a>
+    </a>{% endif %}
 
-    <a href="{% url 'dashboard:system_schools_list' %}?screen=online" class="admin-metric-card" style="--metric-color:#0891b2">
+    {% if can_schools_view %}<a href="{% url 'dashboard:system_schools_list' %}?screen=online" class="admin-metric-card" style="--metric-color:#0891b2">
       <div class="flex items-start justify-between">
         <span class="admin-metric-icon"><i class="fas fa-display"></i></span>
         <span class="admin-status {% if live_screens_count %}admin-status-success{% else %}admin-status-muted{% endif %}">
@@ -134,9 +136,10 @@
       <p class="admin-metric-value">{{ total_screens_count }}</p>
       <p class="admin-metric-label">شاشة مفعلة</p>
       <p class="admin-metric-note">الاتصال خلال آخر دقيقتين</p>
-    </a>
+    </a>{% endif %}
   </section>
 
+  {% if can_reports_view or can_subscriptions_view %}
   <section class="admin-panel" aria-label="إحصائيات مسار البيع">
     <div class="admin-panel-header">
       <div>
@@ -180,6 +183,7 @@
       </div>
     </div>
   </section>
+  {% endif %}
 
   <section class="grid grid-cols-1 xl:grid-cols-3 gap-5">
     <div class="xl:col-span-2 admin-panel">
@@ -190,36 +194,44 @@
         </div>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
-        {% if not is_support_staff %}
+        {% if can_schools_manage %}
           <a href="{% url 'dashboard:system_school_create' %}" class="admin-quick-link">
             <span class="admin-metric-icon" style="--metric-color:#2563eb"><i class="fas fa-school-circle-check"></i></span>
             <span><strong class="block text-sm text-slate-800">إضافة مدرسة</strong><small class="text-[11px] text-slate-500">إنشاء المدرسة وبياناتها</small></span>
           </a>
+        {% endif %}
+        {% if can_users_manage %}
           <a href="{% url 'dashboard:system_user_create' %}" class="admin-quick-link">
             <span class="admin-metric-icon" style="--metric-color:#7c3aed"><i class="fas fa-user-plus"></i></span>
             <span><strong class="block text-sm text-slate-800">إضافة مدير</strong><small class="text-[11px] text-slate-500">ربطه بمدرسة وصلاحيات</small></span>
           </a>
+        {% endif %}
+        {% if can_subscriptions_manage %}
           <a href="{% url 'dashboard:system_subscription_create' %}" class="admin-quick-link">
             <span class="admin-metric-icon" style="--metric-color:#059669"><i class="fas fa-file-circle-plus"></i></span>
             <span><strong class="block text-sm text-slate-800">تفعيل اشتراك</strong><small class="text-[11px] text-slate-500">اختيار المدرسة والباقة</small></span>
           </a>
+        {% endif %}
+        {% if can_plans_view %}
           <a href="{% url 'dashboard:system_plans_list' %}" class="admin-quick-link">
             <span class="admin-metric-icon" style="--metric-color:#4f46e5"><i class="fas fa-tags"></i></span>
-            <span><strong class="block text-sm text-slate-800">إدارة الباقات</strong><small class="text-[11px] text-slate-500">الأسعار والحدود والمدد</small></span>
+            <span><strong class="block text-sm text-slate-800">{% if can_plans_manage %}إدارة الباقات{% else %}عرض الباقات{% endif %}</strong><small class="text-[11px] text-slate-500">الأسعار والحدود والمدد</small></span>
           </a>
+        {% endif %}
+        {% if can_emergency_alerts_manage %}
           <a href="{% url 'dashboard:emergency_alert_create' %}" class="admin-quick-link">
             <span class="admin-metric-icon" style="--metric-color:#dc2626"><i class="fas fa-triangle-exclamation"></i></span>
             <span><strong class="block text-sm text-slate-800">تنبيه طارئ شامل</strong><small class="text-[11px] text-slate-500">مدرسة أو شاشة أو عدة مدارس</small></span>
           </a>
         {% endif %}
-        <a href="{% url 'dashboard:system_subscription_requests_list' %}" class="admin-quick-link">
+        {% if can_subscription_requests_view %}<a href="{% url 'dashboard:system_subscription_requests_list' %}" class="admin-quick-link">
           <span class="admin-metric-icon" style="--metric-color:#e11d48"><i class="fas fa-receipt"></i></span>
           <span><strong class="block text-sm text-slate-800">مراجعة الطلبات</strong><small class="text-[11px] text-slate-500">{{ open_subscription_requests }} بانتظار الإجراء</small></span>
-        </a>
-        <a href="{% url 'dashboard:system_support_tickets' %}" class="admin-quick-link">
+        </a>{% endif %}
+        {% if can_support_view %}<a href="{% url 'dashboard:system_support_tickets' %}" class="admin-quick-link">
           <span class="admin-metric-icon" style="--metric-color:#d97706"><i class="fas fa-headset"></i></span>
           <span><strong class="block text-sm text-slate-800">تذاكر الدعم</strong><small class="text-[11px] text-slate-500">{{ admin_new_support_tickets_count }} تذكرة مفتوحة</small></span>
-        </a>
+        </a>{% endif %}
       </div>
     </div>
 
@@ -231,32 +243,32 @@
         </div>
       </div>
       <div class="px-4">
-        <a href="{% url 'dashboard:system_subscription_requests_list' %}?status=submitted" class="admin-alert-item">
+        {% if can_subscription_requests_view %}<a href="{% url 'dashboard:system_subscription_requests_list' %}?status=submitted" class="admin-alert-item">
           <span class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center"><i class="fas fa-receipt"></i></span>
           <span class="flex-1"><strong class="block text-xs text-slate-800">طلبات بانتظار المراجعة</strong><small class="text-[11px] text-slate-500">{{ open_subscription_requests }} طلباً</small></span>
           <strong class="text-sm text-rose-600">{{ open_subscription_requests }}</strong>
-        </a>
-        <a href="{% url 'dashboard:system_subscriptions_list' %}?status=expiring" class="admin-alert-item">
+        </a>{% endif %}
+        {% if can_subscriptions_view %}<a href="{% url 'dashboard:system_subscriptions_list' %}?status=expiring" class="admin-alert-item">
           <span class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center"><i class="fas fa-hourglass-half"></i></span>
           <span class="flex-1"><strong class="block text-xs text-slate-800">تنتهي خلال 30 يوماً</strong><small class="text-[11px] text-slate-500">تواصل قبل توقف الخدمة</small></span>
           <strong class="text-sm text-amber-600">{{ expiring_subs_count }}</strong>
-        </a>
-        <a href="{% url 'dashboard:system_schools_list' %}?state=active" class="admin-alert-item">
+        </a>{% endif %}
+        {% if can_schools_view %}<a href="{% url 'dashboard:system_schools_list' %}?state=active" class="admin-alert-item">
           <span class="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center"><i class="fas fa-link-slash"></i></span>
           <span class="flex-1"><strong class="block text-xs text-slate-800">مدارس بلا اشتراك سارٍ</strong><small class="text-[11px] text-slate-500">تحتاج تفعيل أو مراجعة</small></span>
           <strong class="text-sm text-violet-600">{{ schools_without_subscription_count }}</strong>
-        </a>
-        <a href="{% url 'dashboard:system_users_list' %}?role=unassigned" class="admin-alert-item">
+        </a>{% endif %}
+        {% if can_users_view %}<a href="{% url 'dashboard:system_users_list' %}?role=unassigned" class="admin-alert-item">
           <span class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><i class="fas fa-user-slash"></i></span>
           <span class="flex-1"><strong class="block text-xs text-slate-800">مدراء غير مرتبطين</strong><small class="text-[11px] text-slate-500">لن تظهر لهم مدرسة</small></span>
           <strong class="text-sm text-blue-600">{{ unassigned_users_count }}</strong>
-        </a>
+        </a>{% endif %}
       </div>
     </aside>
   </section>
 
   <section class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-    <div class="admin-panel">
+    {% if can_subscriptions_view %}<div class="admin-panel">
       <div class="admin-panel-header">
         <div>
           <h2 class="text-base font-black text-slate-900">اشتراكات تنتهي قريباً</h2>
@@ -273,7 +285,7 @@
                 <td class="font-bold text-slate-900">{{ subscription.school.name }}</td>
                 <td>{{ subscription.plan.name }}</td>
                 <td><span class="admin-status admin-status-warning">{{ subscription.ends_at|date:"Y-m-d" }}</span></td>
-                <td><a href="{% url 'dashboard:system_subscription_edit' subscription.pk %}" class="text-xs font-black text-blue-600">تجديد</a></td>
+                <td><a href="{% if can_subscriptions_manage %}{% url 'dashboard:system_subscription_edit' subscription.pk %}{% else %}{% url 'dashboard:system_subscriptions_list' %}?q={{ subscription.school.name|urlencode }}{% endif %}" class="text-xs font-black text-blue-600">{% if can_subscriptions_manage %}تجديد{% else %}عرض{% endif %}</a></td>
               </tr>
             {% empty %}
               <tr><td colspan="4"><div class="admin-empty"><i class="fas fa-circle-check mb-2 text-2xl text-emerald-500"></i><p>لا توجد اشتراكات قريبة الانتهاء.</p></div></td></tr>
@@ -281,9 +293,9 @@
           </tbody>
         </table>
       </div>
-    </div>
+    </div>{% endif %}
 
-    <div class="admin-panel">
+    {% if can_schools_view %}<div class="admin-panel">
       <div class="admin-panel-header">
         <div>
           <h2 class="text-base font-black text-slate-900">أحدث المدارس</h2>
@@ -300,7 +312,7 @@
                 <td><strong class="block text-slate-900">{{ school.name }}</strong><small class="text-[10px] text-slate-400">{{ school.created_at|date:"Y-m-d" }}</small></td>
                 <td>{{ school.managers_total }}</td>
                 <td>{{ school.screens_total }}</td>
-                <td><a href="{% url 'dashboard:system_school_edit' school.pk %}" class="text-xs font-black text-blue-600">فتح</a></td>
+                <td><a href="{% if can_schools_manage %}{% url 'dashboard:system_school_edit' school.pk %}{% else %}{% url 'dashboard:system_schools_list' %}?q={{ school.name|urlencode }}{% endif %}" class="text-xs font-black text-blue-600">{% if can_schools_manage %}فتح{% else %}عرض{% endif %}</a></td>
               </tr>
             {% empty %}
               <tr><td colspan="4"><div class="admin-empty">لا توجد مدارس بعد.</div></td></tr>
@@ -308,7 +320,7 @@
           </tbody>
         </table>
       </div>
-    </div>
+    </div>{% endif %}
   </section>
 </div>
 {% endblock %}

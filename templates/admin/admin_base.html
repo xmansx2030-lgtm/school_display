@@ -114,7 +114,7 @@
               {% if request.user.get_full_name %}{{ request.user.get_full_name }}{% else %}{{ request.user.username }}{% endif %}
             </p>
             <p class="text-xs text-slate-500 mt-1 truncate">
-              {% if request.user.email %}{{ request.user.email }}{% elif request.user.is_superuser %}مدير النظام{% else %}موظف النظام{% endif %}
+              {{ platform_role_label }}{% if request.user.email %} · {{ request.user.email }}{% endif %}
             </p>
           </div>
         </div>
@@ -201,7 +201,7 @@
         </form>
 
         <div class="mr-auto flex items-center gap-2">
-          <a href="{% url 'dashboard:system_subscription_requests_list' %}"
+          {% if can_subscription_requests_view %}<a href="{% url 'dashboard:system_subscription_requests_list' %}"
              class="relative w-11 h-11 rounded-xl bg-white border border-slate-200 text-slate-600 flex items-center justify-center hover:text-blue-600"
              aria-label="طلبات الاشتراك">
             <i class="fas fa-receipt"></i>
@@ -210,7 +210,7 @@
                 {{ admin_open_subscription_requests_count }}
               </span>
             {% endif %}
-          </a>
+          </a>{% endif %}
           <button id="adminReloadBtn" type="button"
                   class="w-11 h-11 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600"
                   aria-label="تحديث الصفحة">

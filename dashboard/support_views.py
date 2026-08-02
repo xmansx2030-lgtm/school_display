@@ -2,25 +2,28 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 
 from core.models import SupportTicket
 
-from .access import active_school_for_user
-from .decorators import system_staff_required
+from .access import active_school_for_user, has_system_permission
+from .decorators import system_permission_required
 from .forms import CustomerSupportTicketForm, SupportTicketForm, TicketCommentForm
 
 
-@system_staff_required
+@system_permission_required("support.view")
 def system_support_tickets(request):
     tickets = SupportTicket.objects.all().order_by("-created_at")
     return render(request, "admin/support_tickets.html", {"tickets": tickets})
 
 
-@system_staff_required
+@system_permission_required("support.view")
 def system_support_ticket_detail(request, pk: int):
     ticket = get_object_or_404(SupportTicket, pk=pk)
     if request.method == "POST":
+        if not has_system_permission(request.user, "support.manage"):
+            raise PermissionDenied("لا تملك صلاحية معالجة تذاكر الدعم.")
         if "status" in request.POST:
             valid_statuses = {status for status, _label in SupportTicket.STATUS_CHOICES}
             new_status = request.POST.get("status") or ""
@@ -46,11 +49,15 @@ def system_support_ticket_detail(request, pk: int):
     return render(
         request,
         "admin/support_ticket_detail.html",
-        {"ticket": ticket, "comment_form": comment_form},
+        {
+            "ticket": ticket,
+            "comment_form": comment_form,
+            "can_manage_support": has_system_permission(request.user, "support.manage"),
+        },
     )
 
 
-@system_staff_required
+@system_permission_required("support.manage")
 def system_support_ticket_create(request):
     if request.method == "POST":
         form = SupportTicketForm(request.POST)

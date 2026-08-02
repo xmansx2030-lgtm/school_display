@@ -3,11 +3,13 @@ from __future__ import annotations
 import logging
 
 from django.contrib import messages
+from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from core.models import School, UserProfile
+from core.system_access import PERMISSION_KEYS, ROLE_SUPPORT, normalize_permission_keys, role_permissions
 from core.tenant_access import authorized_active_school
 
 
@@ -18,6 +20,14 @@ def is_support_user(user) -> bool:
     if not user or not getattr(user, "is_authenticated", False):
         return False
     try:
+        employee = user.system_employee_profile
+        if employee.role == ROLE_SUPPORT:
+            return True
+    except ObjectDoesNotExist:
+        pass
+    except Exception:
+        logger.exception("employee_role_check_failed user_id=%s", getattr(user, "pk", None))
+    try:
         return user.groups.filter(name="Support").exists()
     except Exception:
         logger.exception("support_membership_check_failed user_id=%s", getattr(user, "pk", None))
@@ -25,9 +35,57 @@ def is_support_user(user) -> bool:
 
 
 def is_system_staff_user(user) -> bool:
-    return bool(getattr(user, "is_authenticated", False)) and (
-        bool(getattr(user, "is_superuser", False)) or is_support_user(user)
-    )
+    if not bool(getattr(user, "is_authenticated", False)) or not bool(getattr(user, "is_active", False)):
+        return False
+    if bool(getattr(user, "is_superuser", False)):
+        return True
+    try:
+        has_employee_profile = bool(user.system_employee_profile)
+    except ObjectDoesNotExist:
+        has_employee_profile = False
+    except Exception:
+        logger.exception("employee_profile_check_failed user_id=%s", getattr(user, "pk", None))
+        has_employee_profile = False
+    return bool(getattr(user, "is_staff", False) and has_employee_profile) or is_support_user(user)
+
+
+def get_system_permissions(user) -> frozenset[str]:
+    """Resolve platform permissions, retaining safe support-role compatibility."""
+
+    if not is_system_staff_user(user):
+        return frozenset()
+    if bool(getattr(user, "is_superuser", False)):
+        return frozenset(PERMISSION_KEYS)
+
+    cached = getattr(user, "_system_permission_keys_cache", None)
+    if cached is not None:
+        return cached
+
+    try:
+        employee = user.system_employee_profile
+        resolved = frozenset(normalize_permission_keys(employee.permission_keys))
+    except ObjectDoesNotExist:
+        resolved = frozenset(role_permissions(ROLE_SUPPORT)) if is_support_user(user) else frozenset()
+    except Exception:
+        logger.exception("employee_permissions_check_failed user_id=%s", getattr(user, "pk", None))
+        resolved = frozenset()
+    user._system_permission_keys_cache = resolved
+    return resolved
+
+
+def has_system_permission(user, permission_key: str) -> bool:
+    if bool(getattr(user, "is_superuser", False)) and bool(getattr(user, "is_authenticated", False)):
+        return True
+    return str(permission_key) in get_system_permissions(user)
+
+
+def get_system_role(user) -> str:
+    if bool(getattr(user, "is_superuser", False)):
+        return "owner"
+    try:
+        return str(user.system_employee_profile.role)
+    except ObjectDoesNotExist:
+        return ROLE_SUPPORT if is_support_user(user) else ""
 
 
 def get_or_create_user_profile(user) -> UserProfile:

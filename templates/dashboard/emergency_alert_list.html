@@ -11,7 +11,7 @@
       <h2 class="font-black text-slate-900">التنبيهات النشطة: {{ active_count }}</h2>
       <p class="mt-1 text-sm text-slate-500">يحتفظ النظام باسم المرسل واسم من ألغى التنبيه والوقت.</p>
     </div>
-    <a href="{% url 'dashboard:emergency_alert_create' %}" class="rounded-xl bg-red-600 px-5 py-3 text-center text-sm font-black text-white">تنبيه طارئ جديد</a>
+    {% if can_emergency_alerts_manage %}<a href="{% url 'dashboard:emergency_alert_create' %}" class="rounded-xl bg-red-600 px-5 py-3 text-center text-sm font-black text-white">تنبيه طارئ جديد</a>{% endif %}
   </div>
   <div class="space-y-3">
     {% for alert in alerts %}
@@ -31,11 +31,18 @@
               {% if alert.cancelled_at %}<p>ألغاه {{ alert.cancelled_by.get_full_name|default:alert.cancelled_by.username }} في {{ alert.cancelled_at|date:"Y-m-d H:i" }}</p>{% endif %}
             </div>
           </div>
-          {% if alert.active_now %}
-            <form method="post" action="{% url 'dashboard:emergency_alert_cancel' alert.pk %}" onsubmit="return confirm('إلغاء التنبيه الآن؟');">
-              {% csrf_token %}
-              <button class="rounded-xl border border-red-300 bg-white px-5 py-2.5 text-sm font-black text-red-700">إلغاء التنبيه</button>
-            </form>
+          {% if can_emergency_alerts_manage %}
+            {% if alert.active_now %}
+              <form method="post" action="{% url 'dashboard:emergency_alert_cancel' alert.pk %}" onsubmit="return confirm('إلغاء التنبيه الآن؟');">
+                {% csrf_token %}
+                <button class="rounded-xl border border-red-300 bg-white px-5 py-2.5 text-sm font-black text-red-700">إلغاء التنبيه</button>
+              </form>
+            {% else %}
+              <form method="post" action="{% url 'dashboard:emergency_alert_delete' alert.pk %}" onsubmit="return confirm('حذف هذا التنبيه القديم نهائيًا؟ لا يمكن التراجع عن الحذف.');">
+                {% csrf_token %}
+                <button class="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-black text-slate-700 hover:border-red-300 hover:text-red-700">حذف التنبيه</button>
+              </form>
+            {% endif %}
           {% endif %}
         </div>
       </article>

@@ -8,9 +8,11 @@
   <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">المدارس</span>
 {% endblock %}
 {% block page_actions %}
+  {% if can_schools_manage %}
   <a href="{% url 'dashboard:system_school_create' %}" class="admin-btn admin-btn-primary">
     <i class="fas fa-plus"></i> إضافة مدرسة
   </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -112,16 +114,16 @@
               </td>
               <td>
                 {% if school.managers_count %}
-                  <a href="{% url 'dashboard:system_users_list' %}?school={{ school.pk }}&role=manager" class="font-black text-violet-700">
+                  {% if can_users_view %}<a href="{% url 'dashboard:system_users_list' %}?school={{ school.pk }}&role=manager" class="font-black text-violet-700">
                     {{ school.managers_count }} مدير
-                  </a>
+                  </a>{% else %}<span class="font-black text-violet-700">{{ school.managers_count }} مدير</span>{% endif %}
                 {% else %}
-                  <a href="{% url 'dashboard:system_user_create' %}" class="admin-status admin-status-warning">بدون مدير</a>
+                  {% if can_users_manage %}<a href="{% url 'dashboard:system_user_create' %}" class="admin-status admin-status-warning">بدون مدير</a>{% else %}<span class="admin-status admin-status-warning">بدون مدير</span>{% endif %}
                 {% endif %}
               </td>
               <td>
                 {% if school.current_subscription %}
-                  <a href="{% url 'dashboard:system_subscription_edit' school.current_subscription.pk %}">
+                  <a href="{% if can_subscriptions_manage %}{% url 'dashboard:system_subscription_edit' school.current_subscription.pk %}{% else %}{% url 'dashboard:system_subscriptions_list' %}?q={{ school.name|urlencode }}{% endif %}">
                     <strong class="block text-xs text-slate-800">{{ school.current_plan.name|default:"باقة غير محددة" }}</strong>
                     {% if school.current_subscription.is_active %}
                       <span class="text-[10px] text-emerald-600">
@@ -132,7 +134,7 @@
                     {% endif %}
                   </a>
                 {% else %}
-                  <a href="{% url 'dashboard:system_subscription_create' %}" class="admin-status admin-status-danger">بدون اشتراك</a>
+                  {% if can_subscriptions_manage %}<a href="{% url 'dashboard:system_subscription_create' %}" class="admin-status admin-status-danger">بدون اشتراك</a>{% else %}<span class="admin-status admin-status-danger">بدون اشتراك</span>{% endif %}
                 {% endif %}
               </td>
               <td>
@@ -156,16 +158,16 @@
               <td class="whitespace-nowrap text-slate-500">{{ school.created_at|date:"Y-m-d" }}</td>
               <td>
                 <div class="flex items-center gap-2 whitespace-nowrap">
-                  <a href="{% url 'dashboard:system_school_edit' school.pk %}" class="admin-btn admin-btn-secondary" style="min-height:2.15rem;padding:.35rem .65rem">
+                  {% if can_schools_manage %}<a href="{% url 'dashboard:system_school_edit' school.pk %}" class="admin-btn admin-btn-secondary" style="min-height:2.15rem;padding:.35rem .65rem">
                     <i class="fas fa-pen"></i> تعديل
-                  </a>
-                  <a href="{% url 'dashboard:system_users_list' %}?school={{ school.pk }}&role=manager" class="w-8 h-8 rounded-lg bg-violet-50 text-violet-700 flex items-center justify-center" title="مدراء المدرسة">
+                  </a>{% endif %}
+                  {% if can_users_view %}<a href="{% url 'dashboard:system_users_list' %}?school={{ school.pk }}&role=manager" class="w-8 h-8 rounded-lg bg-violet-50 text-violet-700 flex items-center justify-center" title="مدراء المدرسة">
                     <i class="fas fa-users"></i>
-                  </a>
-                  <a href="{% url 'dashboard:system_subscriptions_list' %}?q={{ school.name|urlencode }}" class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center" title="اشتراكات المدرسة">
+                  </a>{% endif %}
+                  {% if can_subscriptions_view %}<a href="{% url 'dashboard:system_subscriptions_list' %}?q={{ school.name|urlencode }}" class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center" title="اشتراكات المدرسة">
                     <i class="fas fa-credit-card"></i>
-                  </a>
-                  {% if request.user.is_superuser %}
+                  </a>{% endif %}
+                  {% if can_schools_manage %}
                     <a href="{% url 'dashboard:system_school_delete' school.pk %}" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center" title="حذف المدرسة">
                       <i class="fas fa-trash"></i>
                     </a>

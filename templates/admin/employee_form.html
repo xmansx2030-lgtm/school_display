@@ -1,86 +1,203 @@
 {% extends "admin/admin_base.html" %}
 
-{% block title %}إضافة موظف{% endblock %}
-{% block page_title %}إضافة موظف{% endblock %}
-{% block page_description %}
-إنشاء موظف دعم بدون ربطه بمدارس.
+{% block title %}{% if is_edit %}تعديل موظف المنصة{% else %}إضافة موظف منصة{% endif %}{% endblock %}
+{% block page_icon %}user-shield{% endblock %}
+{% block page_title %}{% if is_edit %}تعديل موظف المنصة{% else %}إضافة موظف منصة{% endif %}{% endblock %}
+{% block page_description %}دور وظيفي واضح، وصلاحيات دقيقة، ووصول لا يتجاوز حاجة الموظف.{% endblock %}
+
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:system_employees_list' %}" class="hover:text-blue-600">الموظفون</a>
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <span class="text-slate-500">{% if is_edit %}تعديل الصلاحيات{% else %}موظف جديد{% endif %}</span>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto space-y-6">
+<style>
+  .employee-field input:not([type="checkbox"]), .employee-field select {
+    width: 100%; border: 1px solid #dbe3ef; border-radius: 14px; padding: .75rem .9rem;
+    background: #fff; color: #0f172a; font-size: .875rem; outline: none;
+    transition: border-color .2s, box-shadow .2s, transform .2s;
+  }
+  .employee-field input:focus, .employee-field select:focus {
+    border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37,99,235,.1);
+  }
+  .permission-card:has(input:checked) { border-color:#93c5fd; background:linear-gradient(135deg,#eff6ff,#fff); }
+  .permission-card:has(input:checked) .permission-check { background:#2563eb; border-color:#2563eb; color:#fff; }
+</style>
 
-  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-    <div>
-      <h1 class="text-2xl md:text-3xl font-bold text-slate-900">إضافة موظف</h1>
-      <p class="text-slate-500 mt-1 text-sm md:text-base">
-        هذه الصفحة مخصصة لموظفي الدعم وليست لمدراء المدارس.
-      </p>
-    </div>
-    <a href="{% url 'dashboard:system_employees_list' %}"
-       class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200">
-      ⬅ العودة لقائمة الموظفين
-    </a>
-  </div>
+<form method="post" class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-6" novalidate>
+  {% csrf_token %}
 
-  <div class="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-    <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-      <div class="h-10 w-10 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center text-xl">🧑‍💼</div>
-      <div>
-        <p class="text-sm font-semibold text-slate-900">بيانات الموظف</p>
-        <p class="text-xs text-slate-500">املأ البيانات ثم احفظ.</p>
+  <div class="space-y-6">
+    {% if form.non_field_errors %}
+      <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-800">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
       </div>
-    </div>
+    {% endif %}
 
-    <form method="post" class="p-5 space-y-6">
-      {% csrf_token %}
-
-      {% if form.non_field_errors %}
-      <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 space-y-1">
-        {% for error in form.non_field_errors %}
-          <p>• {{ error }}</p>
-        {% endfor %}
+    <section class="admin-panel overflow-hidden">
+      <div class="admin-panel-header">
+        <div>
+          <h2 class="font-black text-slate-900"><i class="fas fa-address-card ml-2 text-blue-600"></i>هوية الموظف</h2>
+          <p class="mt-1 text-xs text-slate-500">بيانات الدخول والتواصل الخاصة بموظف المنصة فقط.</p>
+        </div>
+        {% if is_edit %}
+          <span class="admin-status {% if employee_user.is_active %}admin-status-success{% else %}admin-status-danger{% endif %}">
+            {% if employee_user.is_active %}حساب نشط{% else %}حساب موقوف{% endif %}
+          </span>
+        {% endif %}
       </div>
-      {% endif %}
-
-      <div class="grid gap-4 md:grid-cols-2">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 p-5">
         {% for field in form %}
-          <div class="space-y-1 md:col-span-1">
-            <label class="block text-xs font-semibold text-slate-700">
-              {{ field.label }}
-              {% if field.field.required %}
-                <span class="text-rose-500">*</span>
-              {% endif %}
-            </label>
-            <div class="space-y-1">
-              <div class="relative">{{ field }}</div>
-
-              {% if field.help_text %}
-              <p class="text-[11px] text-slate-400 leading-relaxed">{{ field.help_text }}</p>
-              {% endif %}
-
-              {% if field.errors %}
-              <div class="text-[11px] text-rose-600 space-y-0.5">
-                {% for error in field.errors %}
-                  <p>• {{ error }}</p>
-                {% endfor %}
-              </div>
-              {% endif %}
+          {% if field.name == 'username' or field.name == 'email' or field.name == 'first_name' or field.name == 'last_name' or field.name == 'mobile' or field.name == 'password1' or field.name == 'password2' or field.name == 'new_password1' or field.name == 'new_password2' %}
+            <div class="employee-field {% if field.name == 'email' %}md:col-span-2{% endif %}">
+              <label for="{{ field.id_for_label }}" class="mb-2 block text-xs font-black text-slate-700">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<p class="mt-1.5 text-[11px] leading-5 text-slate-400">{{ field.help_text|safe }}</p>{% endif %}
+              {% for error in field.errors %}<p class="mt-1 text-xs font-bold text-rose-600">{{ error }}</p>{% endfor %}
             </div>
-          </div>
+          {% endif %}
         {% endfor %}
       </div>
+    </section>
 
-      <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 mt-2">
-        <a href="{% url 'dashboard:system_employees_list' %}"
-           class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition">
-          إلغاء
-        </a>
-        <button type="submit"
-                class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 shadow-md hover:shadow-lg transition">
-          حفظ الموظف
+    <section class="admin-panel overflow-hidden">
+      <div class="admin-panel-header">
+        <div>
+          <h2 class="font-black text-slate-900"><i class="fas fa-briefcase ml-2 text-violet-600"></i>الدور الوظيفي</h2>
+          <p class="mt-1 text-xs text-slate-500">الدور يقترح مجموعة صلاحيات متوازنة، ويمكنك تخصيصها بعد ذلك.</p>
+        </div>
+      </div>
+      <div class="p-5">
+        <div class="employee-field">
+          <label for="{{ form.role.id_for_label }}" class="mb-2 block text-xs font-black text-slate-700">{{ form.role.label }}</label>
+          {{ form.role }}
+          {% for error in form.role.errors %}<p class="mt-1 text-xs font-bold text-rose-600">{{ error }}</p>{% endfor %}
+        </div>
+        <div class="mt-4 flex flex-col md:flex-row md:items-center gap-3 rounded-2xl border border-violet-100 bg-violet-50/70 p-4">
+          <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white"><i class="fas fa-wand-magic-sparkles"></i></span>
+          <div class="flex-1">
+            <strong id="rolePresetTitle" class="block text-sm text-violet-950"></strong>
+            <p id="rolePresetDescription" class="mt-1 text-xs leading-6 text-violet-800"></p>
+          </div>
+          <button id="applyRolePreset" type="button" class="admin-btn admin-btn-secondary whitespace-nowrap">
+            <i class="fas fa-check-double"></i> تطبيق المقترح
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="admin-panel overflow-hidden">
+      <div class="admin-panel-header">
+        <div>
+          <h2 class="font-black text-slate-900"><i class="fas fa-key ml-2 text-amber-500"></i>صلاحيات الوصول</h2>
+          <p class="mt-1 text-xs text-slate-500">القسم غير المحدد يختفي من الواجهة ويُمنع فتح روابطه مباشرة.</p>
+        </div>
+        <button id="clearPermissions" type="button" class="admin-btn admin-btn-secondary text-xs">
+          <i class="fas fa-eraser"></i> مسح الاختيار
         </button>
       </div>
-    </form>
+      <div class="space-y-5 p-5">
+        {% for group in permission_groups %}
+          <fieldset>
+            <legend class="mb-3 flex items-center gap-2 text-xs font-black text-slate-500">
+              <span class="h-2 w-2 rounded-full bg-blue-500"></span>{{ group.label }}
+            </legend>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {% for permission in group.permissions %}
+                <label class="permission-card group flex cursor-pointer gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-sm">
+                  <input class="permission-input sr-only" type="checkbox" name="permissions" value="{{ permission.key }}" {% if permission.key in selected_permission_keys %}checked{% endif %}>
+                  <span class="permission-check mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 border-slate-200 text-[10px] text-transparent transition"><i class="fas fa-check"></i></span>
+                  <span class="min-w-0 flex-1">
+                    <span class="flex flex-wrap items-center gap-2">
+                      <strong class="text-sm text-slate-800">{{ permission.label }}</strong>
+                      <small class="rounded-full px-2 py-0.5 text-[9px] font-black {% if permission.level == 'manage' %}bg-amber-100 text-amber-700{% else %}bg-sky-100 text-sky-700{% endif %}">
+                        {% if permission.level == 'manage' %}إدارة{% else %}عرض{% endif %}
+                      </small>
+                    </span>
+                    <span class="mt-1 block text-[11px] leading-5 text-slate-500">{{ permission.description }}</span>
+                  </span>
+                </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+        {% endfor %}
+        {% for error in form.permissions.errors %}<p class="text-xs font-bold text-rose-600">{{ error }}</p>{% endfor %}
+      </div>
+    </section>
   </div>
-</div>
+
+  <aside class="space-y-5 xl:sticky xl:top-5 xl:self-start">
+    <section class="overflow-hidden rounded-3xl bg-slate-950 text-white shadow-xl">
+      <div class="bg-gradient-to-l from-blue-600 to-indigo-600 p-5">
+        <span class="text-[10px] font-black tracking-widest text-blue-100">ملخص الوصول</span>
+        <div class="mt-3 flex items-end gap-2">
+          <strong id="permissionCount" class="text-4xl font-black">0</strong>
+          <span class="pb-1 text-xs text-blue-100">صلاحية مفعّلة</span>
+        </div>
+      </div>
+      <div class="space-y-4 p-5">
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-xs leading-6 text-slate-300">
+          <i class="fas fa-shield-halved ml-2 text-emerald-400"></i>
+          الحماية تُطبق في الخادم والواجهة معًا. تغيير الصلاحيات يصبح نافذًا من الطلب التالي.
+        </div>
+        <label class="flex cursor-pointer items-center justify-between rounded-2xl border border-white/10 p-4">
+          <span>
+            <strong class="block text-sm">حالة الحساب</strong>
+            <small class="mt-1 block text-[10px] text-slate-400">يمكن إيقاف الدخول دون حذف السجل.</small>
+          </span>
+          <span class="employee-active-field">{{ form.is_active }}</span>
+        </label>
+        {% for error in form.is_active.errors %}<p class="text-xs font-bold text-rose-300">{{ error }}</p>{% endfor %}
+      </div>
+    </section>
+
+    <section class="admin-panel p-5">
+      <div class="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+        <i class="fas fa-lock mt-1 text-amber-600"></i>
+        <p class="text-[11px] leading-6 text-amber-900">إدارة الموظفين وإنشاء المالكين تبقى حصرًا على مالك المنصة ولا يمكن تفويضها من هذه الشاشة.</p>
+      </div>
+      <div class="mt-5 grid gap-2">
+        <button type="submit" class="admin-btn admin-btn-primary w-full justify-center py-3">
+          <i class="fas fa-floppy-disk"></i>
+          {% if is_edit %}حفظ البيانات والصلاحيات{% else %}إنشاء الموظف وتفعيل الوصول{% endif %}
+        </button>
+        <a href="{% url 'dashboard:system_employees_list' %}" class="admin-btn admin-btn-secondary w-full justify-center">إلغاء والعودة</a>
+      </div>
+    </section>
+  </aside>
+</form>
+
+{{ role_presets|json_script:"role-presets-data" }}
+<script>
+  (() => {
+    const presets = JSON.parse(document.getElementById('role-presets-data').textContent || '{}');
+    const roleSelect = document.getElementById('{{ form.role.id_for_label }}');
+    const inputs = Array.from(document.querySelectorAll('.permission-input'));
+    const title = document.getElementById('rolePresetTitle');
+    const description = document.getElementById('rolePresetDescription');
+    const count = document.getElementById('permissionCount');
+
+    function refreshSummary() {
+      const preset = presets[roleSelect.value] || {};
+      title.textContent = preset.label || 'دور مخصص';
+      description.textContent = preset.description || '';
+      count.textContent = String(inputs.filter((input) => input.checked).length);
+    }
+
+    document.getElementById('applyRolePreset').addEventListener('click', () => {
+      const selected = new Set((presets[roleSelect.value] || {}).permissions || []);
+      inputs.forEach((input) => { input.checked = selected.has(input.value); });
+      refreshSummary();
+    });
+    document.getElementById('clearPermissions').addEventListener('click', () => {
+      inputs.forEach((input) => { input.checked = input.value === 'dashboard.view'; });
+      refreshSummary();
+    });
+    roleSelect.addEventListener('change', refreshSummary);
+    inputs.forEach((input) => input.addEventListener('change', refreshSummary));
+    refreshSummary();
+  })();
+</script>
 {% endblock %}

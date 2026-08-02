@@ -12,12 +12,16 @@ def permission_denied(request, exception=None):
     is_system_staff = False
     if is_authenticated:
         try:
-            is_system_staff = bool(
-                getattr(user, "is_superuser", False)
-                or user.groups.filter(name="Support").exists()
-            )
+            has_employee_profile = bool(getattr(user, "is_staff", False) and user.system_employee_profile)
         except Exception:
-            is_system_staff = bool(getattr(user, "is_superuser", False))
+            has_employee_profile = False
+        try:
+            is_legacy_support = user.groups.filter(name="Support").exists()
+        except Exception:
+            is_legacy_support = False
+        is_system_staff = bool(
+            getattr(user, "is_superuser", False) or has_employee_profile or is_legacy_support
+        )
 
     if is_system_staff:
         return_url = reverse("dashboard:system_admin_dashboard")

@@ -17,7 +17,16 @@ from django.urls import resolve, reverse
 from django.utils import timezone
 import pyotp
 
-from core.models import DisplayScreen, School, SubscriptionPlan, SupportTicket, UserProfile, UserTwoFactorAuth
+from core.models import (
+    DisplayScreen,
+    School,
+    SubscriptionPlan,
+    SupportTicket,
+    SystemEmployeeProfile,
+    UserProfile,
+    UserTwoFactorAuth,
+)
+from core.system_access import ROLE_FINANCE, ROLE_SUPPORT, role_permissions
 from core.display_presence import latest_display_presence, touch_display_presence
 from display.services.device_binding import bind_device_atomic
 from display.ws_groups import school_group_name
@@ -424,6 +433,14 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertNotContains(response, "internal mobile")
         self.assertNotContains(response, "مدرسة مدرسة التجربة")
         self.assertContains(response, "data-plan-option")
+        self.assertContains(response, 'id="plan-filter-search"')
+        self.assertContains(response, 'id="plan-filter-duration"')
+        self.assertContains(response, 'id="plan-filter-screens"')
+        self.assertContains(response, 'data-payment-hub="new"')
+        self.assertContains(response, 'data-payment-hub="renewal"')
+        self.assertContains(response, 'data-payment-choice="new"', count=3)
+        self.assertContains(response, 'data-payment-choice="renewal"', count=3)
+        self.assertContains(response, "خطوة واحدة واضحة")
         self.assertContains(response, "الخيار المناسب لتشغيل شاشات المدرسة")
         self.assertContains(response, "الأكثر طلباً")
         self.assertNotContains(response, "المدارس:")
@@ -1030,6 +1047,256 @@ class SystemAdminExperienceTests(TestCase):
         self.assertTrue(SchoolSubscription.objects.filter(plan=self.plan).exists())
 
 
+@override_settings(
+    CACHES=TEST_CACHES,
+    TWO_FACTOR_REQUIRED_FOR_PRIVILEGED=False,
+)
+class SystemEmployeePermissionTests(TestCase):
+    def setUp(self):
+        self.owner = get_user_model().objects.create_superuser(
+            username="platform_owner",
+            email="owner@example.com",
+            password="StrongPass123!",
+        )
+        self.plan = SubscriptionPlan.objects.create(
+            code="employee-access-plan",
+            name="باقة اختبار الصلاحيات",
+            price=500,
+            duration_days=365,
+            max_screens=2,
+        )
+        self.school = School.objects.create(
+            name="مدرسة صلاحيات الموظفين",
+            slug="employee-permissions-school",
+        )
+
+    def _create_employee(self, *, username="delegated_employee", permissions=None, role="custom"):
+        employee = get_user_model().objects.create_user(
+            username=username,
+            password="StrongPass123!",
+            is_staff=True,
+        )
+        SystemEmployeeProfile.objects.create(
+            user=employee,
+            role=role,
+            permission_keys=permissions or ["dashboard.view"],
+            created_by=self.owner,
+        )
+        return employee
+
+    def test_owner_can_create_finance_employee_with_granular_permissions(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            reverse("dashboard:system_employee_create"),
+            {
+                "username": "finance_agent",
+                "email": "finance@example.com",
+                "first_name": "موظف",
+                "last_name": "المالية",
+                "mobile": "0500000000",
+                "is_active": "on",
+                "role": ROLE_FINANCE,
+                "permissions": [
+                    "subscriptions.manage",
+                    "subscription_requests.manage",
+                    "reports.view",
+                ],
+                "password1": "StrongPass123!",
+                "password2": "StrongPass123!",
+            },
+        )
+
+        self.assertRedirects(response, reverse("dashboard:system_employees_list"))
+        employee = get_user_model().objects.get(username="finance_agent")
+        profile = employee.system_employee_profile
+        self.assertTrue(employee.is_staff)
+        self.assertFalse(employee.is_superuser)
+        self.assertEqual(profile.role, ROLE_FINANCE)
+        self.assertEqual(
+            set(profile.permission_keys),
+            {
+                "dashboard.view",
+                "subscriptions.view",
+                "subscriptions.manage",
+                "subscription_requests.view",
+                "subscription_requests.manage",
+                "reports.view",
+            },
+        )
+        self.assertFalse(employee.profile.schools.exists())
+
+    def test_view_only_permission_hides_actions_and_blocks_direct_mutation(self):
+        employee = self._create_employee(permissions=["dashboard.view", "plans.view"])
+        self.client.force_login(employee)
+
+        list_response = self.client.get(reverse("dashboard:system_plans_list"))
+        create_response = self.client.get(reverse("dashboard:system_plan_create"))
+        toggle_response = self.client.post(
+            reverse("dashboard:system_plan_toggle", args=[self.plan.pk])
+        )
+        schools_response = self.client.get(reverse("dashboard:system_schools_list"))
+        employees_response = self.client.get(reverse("dashboard:system_employees_list"))
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertContains(list_response, self.plan.name)
+        self.assertNotContains(list_response, reverse("dashboard:system_plan_create"))
+        self.assertEqual(create_response.status_code, 403)
+        self.assertEqual(toggle_response.status_code, 403)
+        self.assertEqual(schools_response.status_code, 403)
+        self.assertEqual(employees_response.status_code, 403)
+        self.plan.refresh_from_db()
+        self.assertTrue(self.plan.is_active)
+
+    def test_navigation_contains_only_authorized_platform_sections(self):
+        employee = self._create_employee(
+            permissions=["dashboard.view", "subscriptions.view", "support.view"]
+        )
+        self.client.force_login(employee)
+
+        response = self.client.get(reverse("dashboard:system_admin_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        nav_keys = {item["key"] for item in response.context["admin_nav_links"]}
+        self.assertEqual(nav_keys, {"home", "subscriptions", "support"})
+        self.assertNotContains(response, reverse("dashboard:system_employees_list"))
+        self.assertNotContains(response, reverse("dashboard:system_schools_list"))
+
+    def test_owner_edit_applies_permissions_on_the_next_request(self):
+        employee = self._create_employee(
+            username="support_agent",
+            permissions=role_permissions(ROLE_SUPPORT),
+            role=ROLE_SUPPORT,
+        )
+        self.client.force_login(self.owner)
+        response = self.client.post(
+            reverse("dashboard:system_employee_edit", args=[employee.pk]),
+            {
+                "username": employee.username,
+                "email": "support@example.com",
+                "first_name": "الدعم",
+                "last_name": "الفني",
+                "mobile": "",
+                "is_active": "on",
+                "role": "custom",
+                "permissions": ["dashboard.view", "plans.view"],
+                "new_password1": "",
+                "new_password2": "",
+            },
+        )
+        self.assertRedirects(response, reverse("dashboard:system_employees_list"))
+
+        self.client.force_login(employee)
+        self.assertEqual(
+            self.client.get(reverse("dashboard:system_plans_list")).status_code,
+            200,
+        )
+        self.assertEqual(
+            self.client.get(reverse("dashboard:system_support_tickets")).status_code,
+            403,
+        )
+
+    def test_delegated_user_manager_cannot_promote_customer_or_list_employees(self):
+        employee = self._create_employee(
+            permissions=["dashboard.view", "users.view", "users.manage"]
+        )
+        self.client.force_login(employee)
+
+        create_response = self.client.post(
+            reverse("dashboard:system_user_create"),
+            {
+                "username": "new_school_manager",
+                "email": "manager@example.com",
+                "first_name": "مدير",
+                "last_name": "مدرسة",
+                "mobile": "",
+                "is_active": "on",
+                "is_staff": "on",
+                "is_superuser": "on",
+                "schools": [self.school.pk],
+                "active_school": self.school.pk,
+                "password1": "StrongPass123!",
+                "password2": "StrongPass123!",
+            },
+        )
+        self.assertRedirects(create_response, reverse("dashboard:system_users_list"))
+        customer = get_user_model().objects.get(username="new_school_manager")
+        self.assertFalse(customer.is_staff)
+        self.assertFalse(customer.is_superuser)
+
+        list_response = self.client.get(
+            reverse("dashboard:system_users_list"),
+            {"role": "system"},
+        )
+        self.assertEqual(list_response.status_code, 200)
+        listed_usernames = {
+            user.username for user in list_response.context["page_obj"].object_list
+        }
+        self.assertNotIn(self.owner.username, listed_usernames)
+        self.assertNotIn(employee.username, listed_usernames)
+        self.assertIn(customer.username, listed_usernames)
+        self.assertNotContains(list_response, "حسابات النظام")
+        self.assertContains(list_response, customer.username)
+
+    def test_view_only_support_and_emergency_access_hides_mutating_controls(self):
+        employee = self._create_employee(
+            permissions=[
+                "dashboard.view",
+                "support.view",
+                "emergency_alerts.view",
+            ]
+        )
+        ticket = SupportTicket.objects.create(
+            user=self.owner,
+            school=self.school,
+            subject="تذكرة للقراءة فقط",
+            message="لا ينبغي أن تظهر أدوات المعالجة.",
+        )
+        old_alert = EmergencyAlert.objects.create(
+            kind=EmergencyAlert.KIND_URGENT,
+            title="تنبيه قديم للقراءة فقط",
+            message="لا ينبغي أن تظهر أداة حذفه.",
+            created_by=self.owner,
+            is_active=False,
+        )
+        old_alert.schools.add(self.school)
+        self.client.force_login(employee)
+
+        ticket_response = self.client.get(
+            reverse("dashboard:system_support_ticket_detail", args=[ticket.pk])
+        )
+        emergency_response = self.client.get(reverse("dashboard:emergency_alert_list"))
+
+        self.assertEqual(ticket_response.status_code, 200)
+        self.assertContains(ticket_response, ticket.subject)
+        self.assertNotContains(ticket_response, "إضافة رد")
+        self.assertNotContains(ticket_response, "إرسال الرد")
+        self.assertEqual(
+            self.client.post(
+                reverse("dashboard:system_support_ticket_detail", args=[ticket.pk]),
+                {"status": "closed"},
+            ).status_code,
+            403,
+        )
+        self.assertEqual(emergency_response.status_code, 200)
+        self.assertNotContains(emergency_response, "تنبيه طارئ جديد")
+        self.assertNotContains(
+            emergency_response,
+            reverse("dashboard:emergency_alert_delete", kwargs={"pk": old_alert.pk}),
+        )
+        self.assertEqual(
+            self.client.get(reverse("dashboard:emergency_alert_create")).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("dashboard:emergency_alert_delete", kwargs={"pk": old_alert.pk})
+            ).status_code,
+            403,
+        )
+        self.assertTrue(EmergencyAlert.objects.filter(pk=old_alert.pk).exists())
+
+
 @override_settings(CACHES=TEST_CACHES)
 class EmergencyAlertsAndExcelImportTests(TestCase):
     def setUp(self):
@@ -1098,6 +1365,70 @@ class EmergencyAlertsAndExcelImportTests(TestCase):
         self.assertFalse(alert.is_active)
         self.assertEqual(alert.cancelled_by, self.manager)
         self.assertIsNotNone(alert.cancelled_at)
+
+    def test_manager_can_delete_an_expired_emergency_alert(self):
+        alert = EmergencyAlert.objects.create(
+            kind=EmergencyAlert.KIND_URGENT,
+            title="تنبيه قديم",
+            message="انتهى هذا التنبيه",
+            created_by=self.manager,
+            expires_at=timezone.now() - timedelta(minutes=1),
+        )
+        alert.schools.add(self.school)
+
+        list_response = self.client.get(reverse("dashboard:emergency_alert_list"))
+        self.assertContains(
+            list_response,
+            reverse("dashboard:emergency_alert_delete", kwargs={"pk": alert.pk}),
+        )
+
+        response = self.client.post(
+            reverse("dashboard:emergency_alert_delete", kwargs={"pk": alert.pk})
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:emergency_alert_list"),
+            fetch_redirect_response=False,
+        )
+        self.assertFalse(EmergencyAlert.objects.filter(pk=alert.pk).exists())
+
+    def test_manager_must_cancel_an_active_emergency_alert_before_deleting_it(self):
+        alert = EmergencyAlert.objects.create(
+            kind=EmergencyAlert.KIND_FIRE,
+            title="تنبيه نشط",
+            message="لا يمكن حذفه مباشرة",
+            created_by=self.manager,
+        )
+        alert.schools.add(self.school)
+
+        response = self.client.post(
+            reverse("dashboard:emergency_alert_delete", kwargs={"pk": alert.pk})
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:emergency_alert_list"),
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(EmergencyAlert.objects.filter(pk=alert.pk).exists())
+
+    def test_manager_cannot_delete_another_schools_emergency_alert(self):
+        alert = EmergencyAlert.objects.create(
+            kind=EmergencyAlert.KIND_WEATHER,
+            title="تنبيه مدرسة أخرى",
+            message="خارج نطاق المدير",
+            created_by=self.manager,
+            is_active=False,
+        )
+        alert.schools.add(self.other_school)
+
+        response = self.client.post(
+            reverse("dashboard:emergency_alert_delete", kwargs={"pk": alert.pk})
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(EmergencyAlert.objects.filter(pk=alert.pk).exists())
 
     def test_emergency_screen_selection_wins_over_stale_all_scope(self):
         response = self.client.post(

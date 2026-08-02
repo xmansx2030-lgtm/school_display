@@ -67,6 +67,7 @@ urlpatterns = [
     path("emergency-alerts/", views.emergency_alert_list, name="emergency_alert_list"),
     path("emergency-alerts/new/", views.emergency_alert_create, name="emergency_alert_create"),
     path("emergency-alerts/<int:pk>/cancel/", views.emergency_alert_cancel, name="emergency_alert_cancel"),
+    path("emergency-alerts/<int:pk>/delete/", views.emergency_alert_delete, name="emergency_alert_delete"),
     path("occasion-templates/", views.occasion_templates, name="occasion_templates"),
 
     # ==================
@@ -151,6 +152,7 @@ urlpatterns = [
     path("admin-panel/users/", views.system_users_list, name="system_users_list"),
     path("admin-panel/employees/", views.system_employees_list, name="system_employees_list"),
     path("admin-panel/employees/add/", views.system_employee_create, name="system_employee_create"),
+    path("admin-panel/employees/<int:pk>/edit/", views.system_employee_edit, name="system_employee_edit"),
     path("admin-panel/users/add/", views.system_user_create, name="system_user_create"),
     path("admin-panel/users/<int:pk>/edit/", views.system_user_edit, name="system_user_edit"),
     path("admin-panel/users/<int:pk>/delete/", views.system_user_delete, name="system_user_delete"),

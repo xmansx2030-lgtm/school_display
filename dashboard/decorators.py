@@ -10,7 +10,11 @@ from django.shortcuts import redirect
 
 from core.tenant_access import authorized_active_school
 
-from .access import get_or_create_user_profile, is_support_user, is_system_staff_user
+from .access import (
+    get_or_create_user_profile,
+    has_system_permission,
+    is_system_staff_user,
+)
 
 
 def manager_required(view_func: Callable[..., Any]):
@@ -31,8 +35,8 @@ def manager_required(view_func: Callable[..., Any]):
 
         # Support accounts are system-level identities and must never cross
         # into school-manager endpoints, even if a stale profile is attached.
-        if is_support_user(user):
-            raise PermissionDenied("حساب الدعم غير مخول لإدارة بيانات المدارس.")
+        if is_system_staff_user(user):
+            raise PermissionDenied("حساب موظف المنصة غير مخول بالدخول إلى لوحة مدرسة.")
 
         profile = get_or_create_user_profile(user)
 
@@ -68,7 +72,7 @@ def superuser_required(view_func: Callable[..., Any]):
 
 
 def system_staff_required(view_func: Callable[..., Any]):
-    """Allow only superusers and members of the Support group."""
+    """Allow authenticated platform employees and the platform owner."""
 
     @login_required(login_url="dashboard:login")
     @wraps(view_func)
@@ -78,3 +82,39 @@ def system_staff_required(view_func: Callable[..., Any]):
         raise PermissionDenied("هذه الصفحة مخصصة لفريق إدارة النظام فقط.")
 
     return _wrapped
+
+
+def system_permission_required(permission_key: str):
+    """Protect a platform view with one explicit server-side permission."""
+
+    def decorator(view_func: Callable[..., Any]):
+        @login_required(login_url="dashboard:login")
+        @wraps(view_func)
+        def _wrapped(request, *args, **kwargs):
+            if has_system_permission(request.user, permission_key):
+                return view_func(request, *args, **kwargs)
+            raise PermissionDenied("هذه العملية ليست ضمن صلاحيات موظف المنصة.")
+
+        return _wrapped
+
+    return decorator
+
+
+def manager_or_system_permission_required(permission_key: str):
+    """Allow a school manager normally, or a platform employee with permission."""
+
+    def decorator(view_func: Callable[..., Any]):
+        manager_view = manager_required(view_func)
+
+        @login_required(login_url="dashboard:login")
+        @wraps(view_func)
+        def _wrapped(request, *args, **kwargs):
+            if is_system_staff_user(request.user):
+                if has_system_permission(request.user, permission_key):
+                    return view_func(request, *args, **kwargs)
+                raise PermissionDenied("هذه العملية ليست ضمن صلاحيات موظف المنصة.")
+            return manager_view(request, *args, **kwargs)
+
+        return _wrapped
+
+    return decorator

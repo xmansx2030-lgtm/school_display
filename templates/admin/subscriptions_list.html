@@ -8,12 +8,12 @@
   <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">الاشتراكات</span>
 {% endblock %}
 {% block page_actions %}
-  {% if request.user.is_superuser %}
+  {% if can_plans_view %}
     <a href="{% url 'dashboard:system_plans_list' %}" class="admin-btn admin-btn-secondary"><i class="fas fa-tags"></i> الباقات</a>
   {% endif %}
-  <a href="{% url 'dashboard:system_subscription_create' %}" class="admin-btn admin-btn-success">
+  {% if can_subscriptions_manage %}<a href="{% url 'dashboard:system_subscription_create' %}" class="admin-btn admin-btn-success">
     <i class="fas fa-plus"></i> اشتراك جديد
-  </a>
+  </a>{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -146,13 +146,13 @@
               </td>
               <td>
                 <div class="flex items-center gap-2 whitespace-nowrap">
-                  <a href="{% url 'dashboard:system_subscription_edit' subscription.id %}" class="admin-btn admin-btn-secondary" style="min-height:2.15rem;padding:.35rem .65rem">
+                  {% if can_subscriptions_manage %}<a href="{% url 'dashboard:system_subscription_edit' subscription.id %}" class="admin-btn admin-btn-secondary" style="min-height:2.15rem;padding:.35rem .65rem">
                     <i class="fas fa-pen"></i> تعديل / تجديد
-                  </a>
-                  <a href="{% url 'dashboard:system_screen_addon_create' %}" class="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-700 flex items-center justify-center" title="إضافة شاشات">
+                  </a>{% endif %}
+                  {% if can_screen_addons_manage %}<a href="{% url 'dashboard:system_screen_addon_create' %}" class="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-700 flex items-center justify-center" title="إضافة شاشات">
                     <i class="fas fa-display"></i>
-                  </a>
-                  {% if request.user.is_superuser %}
+                  </a>{% endif %}
+                  {% if can_subscriptions_manage %}
                     <form method="post" action="{% url 'dashboard:system_subscription_delete' subscription.id %}" onsubmit="return confirm('حذف اشتراك {{ subscription.school_name }}؟');">
                       {% csrf_token %}
                       <button type="submit" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center" title="حذف الاشتراك">

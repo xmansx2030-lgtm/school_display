@@ -9,6 +9,7 @@ from django.conf import settings
 
 from subscriptions.utils import school_has_active_subscription
 from core.two_factor import get_enabled_config, two_factor_required_for
+from .access import is_system_staff_user
 
 
 class TwoFactorRequiredMiddleware:
@@ -89,12 +90,9 @@ class SubscriptionRequiredMiddleware:
         if getattr(request.user, "is_superuser", False):
             return None
 
-        # موظف الدعم (Support group) لا يخضع لشرط اشتراك مدرسة
-        try:
-            if request.user.groups.filter(name="Support").exists():
-                return None
-        except Exception:
-            pass
+        # موظفو المنصة لا يتبعون اشتراك مدرسة بعينها.
+        if is_system_staff_user(request.user):
+            return None
 
         try:
             match = resolve(request.path_info)
@@ -126,16 +124,11 @@ class SubscriptionRequiredMiddleware:
 
 
 class SupportDashboardOnlyMiddleware:
-    """Restrict Support employees to the SaaS admin panel, excluding Schools.
+    """Keep every platform employee inside authorized platform surfaces.
 
-    Goal (per product requirement):
-    - Support users can use the system admin panel features.
-    - Schools management must be hidden/blocked for them.
-    - If they navigate outside the admin panel, redirect them back to the system dashboard.
-
-    Notes:
-    - Superusers are NOT restricted.
-    - Static/media and display API endpoints are excluded.
+    Granular access is enforced by view decorators.  This middleware provides
+    the tenant boundary: platform identities cannot drift into school-manager
+    screens even if an old profile or bookmark exists.
     """
 
     ADMIN_PANEL_PREFIX = "/dashboard/admin-panel/"
@@ -150,11 +143,11 @@ class SupportDashboardOnlyMiddleware:
         "dashboard:two_factor_verify",
     }
 
-    FORBIDDEN_VIEW_NAMES = {
-        "dashboard:system_schools_list",
-        "dashboard:system_school_create",
-        "dashboard:system_school_edit",
-        "dashboard:system_school_delete",
+    PLATFORM_VIEWS_OUTSIDE_ADMIN_PREFIX = {
+        "dashboard:emergency_alert_list",
+        "dashboard:emergency_alert_create",
+        "dashboard:emergency_alert_cancel",
+        "dashboard:emergency_alert_delete",
     }
 
     def __init__(self, get_response):
@@ -177,12 +170,9 @@ class SupportDashboardOnlyMiddleware:
         if getattr(user, "is_superuser", False):
             return self.get_response(request)
 
-        try:
-            is_support = user.groups.filter(name="Support").exists()
-        except Exception:
-            is_support = False
+        is_platform_staff = is_system_staff_user(user)
 
-        if not is_support:
+        if not is_platform_staff:
             # A school manager may reach an internal admin URL from an old
             # bookmark or browser history. Send them back to their own panel
             # with a useful explanation instead of exposing Django's raw 403.
@@ -212,12 +202,13 @@ class SupportDashboardOnlyMiddleware:
         if view_name in self.EXEMPT_VIEW_NAMES:
             return self.get_response(request)
 
-        # Explicitly block schools pages for Support.
-        if view_name in self.FORBIDDEN_VIEW_NAMES:
-            return redirect("dashboard:system_admin_dashboard")
-
-        # Allow anything within the admin panel.
-        if path.startswith(self.ADMIN_PANEL_PREFIX) or view_name == "dashboard:system_admin_dashboard":
+        # Permission decorators provide the second, granular authorization
+        # layer for every page accepted by this tenant boundary.
+        if (
+            path.startswith(self.ADMIN_PANEL_PREFIX)
+            or view_name == "dashboard:system_admin_dashboard"
+            or view_name in self.PLATFORM_VIEWS_OUTSIDE_ADMIN_PREFIX
+        ):
             return self.get_response(request)
 
         # Anything else: force back to the system admin dashboard.

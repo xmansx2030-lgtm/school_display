@@ -8,9 +8,9 @@
 <div class="space-y-6">
   <div class="flex justify-between items-center">
     <h2 class="text-2xl font-bold text-slate-800">التذاكر</h2>
-    <a href="{% url 'dashboard:system_support_ticket_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+    {% if can_support_manage %}<a href="{% url 'dashboard:system_support_ticket_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
       <i class="fas fa-plus ml-2"></i> فتح تذكرة جديدة
-    </a>
+    </a>{% endif %}
   </div>
 
   <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">

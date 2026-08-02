@@ -5,6 +5,8 @@ from django.utils import timezone
 import os
 import secrets
 
+from .system_access import ROLE_CHOICES
+
 
 _IMAGE_ALLOWED_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -105,6 +107,47 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.active_school.name if self.active_school else 'No Active School'}"
+
+
+class SystemEmployeeProfile(models.Model):
+    """Platform-level employee identity, separate from school managers."""
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="system_employee_profile",
+        verbose_name="الموظف",
+    )
+    role = models.CharField(
+        "الدور الوظيفي",
+        max_length=32,
+        choices=ROLE_CHOICES,
+        default="support",
+    )
+    permission_keys = models.JSONField(
+        "صلاحيات المنصة",
+        default=list,
+        blank=True,
+        help_text="قائمة مفاتيح الصلاحيات الممنوحة لهذا الموظف.",
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="created_system_employees",
+        verbose_name="أنشأه",
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "موظف منصة"
+        verbose_name_plural = "موظفو المنصة"
+        ordering = ("user__first_name", "user__username")
+
+    def __str__(self):
+        return f"{self.user.get_full_name() or self.user.username} - {self.get_role_display()}"
 
 
 class UserTwoFactorAuth(models.Model):

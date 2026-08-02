@@ -250,7 +250,7 @@
   <div id="renewal-section" class="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-8">
     
     <!-- ملخص طرق الدفع -->
-    <div class="lg:col-span-5 space-y-6">
+    {% comment %}Legacy payment overview retained temporarily for content reference; the unified hub below is the only rendered checkout UI.
       <div class="space-y-2 mb-6">
         <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
           <span class="text-rose-500">💳</span>
@@ -372,11 +372,24 @@
          <p class="text-xs text-amber-900 leading-relaxed">احتفظ بصورة إيصال التحويل، ثم افتح خيار التحويل في النموذج وارفع الصورة لإرسال الطلب.</p>
        </div>
       </div>
-    </div>
+    {% endcomment %}
 
 
     <!-- الجانب الأيسر: نموذج الطلب -->
-    <div class="dashboard-form-shell lg:col-span-7 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+    <div class="dashboard-form-shell lg:col-span-12 bg-white rounded-[1.75rem] shadow-sm border border-slate-200 p-5 md:p-8">
+      <div class="mb-7 flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <span class="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-black text-indigo-700">
+            <span class="h-1.5 w-1.5 rounded-full bg-indigo-500"></span> مركز الاشتراك والدفع
+          </span>
+          <h3 class="mt-3 text-xl font-black text-slate-900 md:text-2xl">اختر الباقة، ثم وسيلة الدفع</h3>
+          <p class="mt-1 text-xs leading-6 text-slate-500">خطوة واحدة واضحة؛ لن تظهر لك إلا تفاصيل الوسيلة التي تختارها.</p>
+        </div>
+        <div class="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800">
+          <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-600 text-white">✓</span>
+          اتصال آمن وتحقق من المبلغ
+        </div>
+      </div>
       {% if requested_plan %}
       <div class="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900" role="status">
         <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 font-black text-white">✓</span>
@@ -425,8 +438,21 @@
                </div>
             </div>
 
+            {% if renewal_plan_details and not renewal_plan_details.is_free %}
+            <section
+              class="payment-hub"
+              data-payment-hub="renewal"
+              data-default-method="{% if renew_form.receipt_image.errors or renew_form.transfer_note.errors %}bank{% elif moyasar_available %}moyasar{% elif tamara_available %}tamara{% else %}bank{% endif %}"
+            >
+              <div class="mb-4">
+                <h4 class="font-black text-slate-900">كيف تفضّل الدفع؟</h4>
+                <p class="mt-1 text-xs leading-6 text-slate-500">اختر وسيلة واحدة، وستظهر تفاصيلها هنا مباشرة.</p>
+              </div>
+              {% include "dashboard/_payment_method_selector.html" with payment_scope="renewal" %}
+              <div class="mt-5">
+
             {% if moyasar_available and renewal_plan_details.price %}
-            <div class="mb-6 rounded-2xl border border-slate-300 bg-slate-50 p-5">
+            <div class="rounded-2xl border border-slate-300 bg-slate-50 p-5" data-payment-panel="renewal" data-payment-method="moyasar">
               <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-3">
                   <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 font-black text-white">M</span>
@@ -450,7 +476,7 @@
             {% endif %}
 
             {% if tamara_available and renewal_plan_details.price %}
-            <div class="tamara-checkout-card mb-6 rounded-2xl border border-rose-200 bg-rose-50/50 p-5">
+            <div class="tamara-checkout-card rounded-2xl border border-rose-200 bg-rose-50/50 p-5" data-payment-panel="renewal" data-payment-method="tamara">
               <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div class="flex items-center gap-2">
@@ -482,14 +508,15 @@
             </div>
             {% endif %}
 
-            <details class="bank-transfer-details rounded-2xl border border-slate-200 bg-slate-50" {% if renew_form.receipt_image.errors or renew_form.transfer_note.errors or not tamara_available and not moyasar_available %}open{% endif %}>
+            <details class="bank-transfer-details rounded-2xl border border-slate-200 bg-slate-50" data-payment-panel="renewal" data-payment-method="bank" open>
               <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-black text-slate-800">
-                <span>استخدام التحويل البنكي بدلًا من ذلك</span>
+                <span>استخدام التحويل البنكي بدلًا من ذلك ورفع الإيصال</span>
                 <span class="details-chevron text-slate-400" aria-hidden="true">⌄</span>
               </summary>
               <form method="post" enctype="multipart/form-data" class="space-y-5 border-t border-slate-200 bg-white p-5">
               {% csrf_token %}
               <input type="hidden" name="action" value="renewal">
+              {% include "dashboard/_bank_transfer_account.html" %}
               
               <div class="space-y-1">
                 <label class="block text-sm font-bold text-slate-700">صورة الإيصال</label>
@@ -497,7 +524,7 @@
                    {{ renew_form.receipt_image }}
                    <!-- Custom file input styling can be added via JS or CSS, keeping default for compatibility but styled wrappers -->
                 </div>
-                <p class="text-[11px] text-slate-400">يرجى رفع صورة واضحة (JPEG, PNG, PDF)</p>
+                <p class="text-[11px] text-slate-400">يرجى رفع صورة واضحة بصيغة JPG أو PNG أو WEBP.</p>
                  {% if renew_form.receipt_image.errors %}
                    <p class="text-xs text-red-500 mt-1">{{ renew_form.receipt_image.errors }}</p>
                  {% endif %}
@@ -517,6 +544,14 @@
               </button>
               </form>
             </details>
+              </div>
+            </section>
+            {% else %}
+              <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-900">
+                <p class="font-black">الباقة الحالية لا تتطلب بوابة دفع</p>
+                <p class="mt-1 text-xs leading-6">يمكنك التواصل مع الدعم لتجديد الباقة المجانية أو اختيار باقة جديدة من التبويب المجاور.</p>
+              </div>
+            {% endif %}
           {% else %}
              <div class="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
                <p class="text-slate-500 mb-2">لا يوجد اشتراك حالي لتجديده.</p>
@@ -537,12 +572,42 @@
             </div>
             <span class="hidden text-[11px] font-bold text-indigo-600 sm:inline">جميع مزايا النظام مشمولة</span>
           </div>
+          {% if available_plan_cards %}<div class="plan-filter-shell mb-4" aria-label="فلترة باقات الاشتراك">
+            <div class="plan-search-field">
+              <span aria-hidden="true">⌕</span>
+              <input id="plan-filter-search" type="search" placeholder="ابحث باسم الباقة أو وصفها..." autocomplete="off" aria-label="البحث في الباقات">
+            </div>
+            <select id="plan-filter-duration" class="plan-filter-select" aria-label="تصفية حسب المدة">
+              <option value="all">كل المدد</option>
+              <option value="short">حتى 3 أشهر</option>
+              <option value="half">حتى 6 أشهر</option>
+              <option value="annual">سنوية</option>
+              <option value="other">مدد أخرى</option>
+            </select>
+            <select id="plan-filter-screens" class="plan-filter-select" aria-label="تصفية حسب عدد الشاشات">
+              <option value="0">كل حدود الشاشات</option>
+              <option value="1">شاشة واحدة فأكثر</option>
+              <option value="2">شاشتان فأكثر</option>
+              <option value="3">3 شاشات فأكثر</option>
+              <option value="5">5 شاشات فأكثر</option>
+            </select>
+            <button id="plan-filter-reset" type="button" class="plan-filter-reset">إعادة الضبط</button>
+            <div class="plan-price-filters" role="group" aria-label="تصفية حسب السعر">
+              <button type="button" class="plan-filter-chip is-active" data-plan-price-filter="all" aria-pressed="true">الكل</button>
+              <button type="button" class="plan-filter-chip" data-plan-price-filter="paid" aria-pressed="false">مدفوعة</button>
+              <button type="button" class="plan-filter-chip" data-plan-price-filter="free" aria-pressed="false">مجانية</button>
+              <span id="plan-visible-count" class="mr-auto text-[11px] font-black text-slate-500" aria-live="polite"></span>
+            </div>
+          </div>{% endif %}
           <div class="grid grid-cols-1 gap-3 md:grid-cols-2" id="plan-options-grid">
             {% for plan in available_plan_cards %}
               <button
                 type="button"
                 data-plan-option
                 data-plan-id="{{ plan.id }}"
+                data-plan-price="{{ plan.price }}"
+                data-plan-duration="{{ plan.duration_days }}"
+                data-plan-max-screens="{% if plan.max_screens is not None %}{{ plan.max_screens }}{% endif %}"
                 aria-pressed="false"
                 class="group relative rounded-2xl border p-4 text-right transition-all {% if plan.is_featured %}border-indigo-300 bg-indigo-50/60{% else %}border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/30{% endif %}"
               >
@@ -569,6 +634,11 @@
               </div>
             {% endfor %}
           </div>
+          {% if available_plan_cards %}<div id="plan-filter-empty" class="hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+            <span class="text-3xl" aria-hidden="true">⌕</span>
+            <h5 class="mt-2 font-black text-slate-800">لا توجد باقة مطابقة</h5>
+            <p class="mt-1 text-xs text-slate-500">جرّب تغيير المدة أو عدد الشاشات أو أعد ضبط الفلتر.</p>
+          </div>{% endif %}
         </div>
 
         <!-- Plan Details Card -->
@@ -599,8 +669,32 @@
           {% endif %}
         </div>
 
+        <div id="payment-plan-prompt" class="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/60 px-5 py-6 text-center">
+          <span class="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-xl text-white">↓</span>
+          <p class="mt-3 font-black text-indigo-950">اختر باقة لعرض وسائل الدفع</p>
+          <p class="mt-1 text-xs leading-6 text-indigo-700">بعد اختيار الباقة ستظهر ميسر وتمارا والتحويل البنكي في مكان واحد.</p>
+        </div>
+
+        <section
+          id="new-payment-hub"
+          class="payment-hub hidden"
+          data-payment-hub="new"
+          data-default-method="{% if new_form.receipt_image.errors or new_form.transfer_note.errors %}bank{% elif moyasar_available %}moyasar{% elif tamara_available %}tamara{% else %}bank{% endif %}"
+        >
+          <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h4 class="font-black text-slate-900">اختر وسيلة الدفع</h4>
+              <p class="mt-1 text-xs leading-6 text-slate-500">سيتم تحديث المبلغ والخطة تلقائيًا قبل الانتقال للبوابة.</p>
+            </div>
+            <div class="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700">
+              الإجمالي: <span id="payment-hub-total">—</span> ر.س
+            </div>
+          </div>
+          {% include "dashboard/_payment_method_selector.html" with payment_scope="new" %}
+          <div class="mt-5">
+
         {% if moyasar_available %}
-        <div id="moyasar-new-card" class="mb-6 rounded-2xl border border-slate-300 bg-slate-50 p-5">
+        <div id="moyasar-new-card" class="rounded-2xl border border-slate-300 bg-slate-50 p-5" data-payment-panel="new" data-payment-method="moyasar">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-3">
               <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 font-black text-white">M</span>
@@ -627,7 +721,7 @@
         {% endif %}
 
         {% if tamara_available %}
-        <div id="tamara-new-card" class="tamara-checkout-card mb-6 rounded-2xl border border-rose-200 bg-rose-50/50 p-5">
+        <div id="tamara-new-card" class="tamara-checkout-card rounded-2xl border border-rose-200 bg-rose-50/50 p-5" data-payment-panel="new" data-payment-method="tamara">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-3">
               <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ff5a78] font-black text-white">t</span>
@@ -673,15 +767,16 @@
           </form>
         </div>
 
-        <details id="new-bank-details" class="bank-transfer-details rounded-2xl border border-slate-200 bg-slate-50" {% if new_form.receipt_image.errors or new_form.transfer_note.errors or not tamara_available and not moyasar_available %}open{% endif %}>
+        <details id="new-bank-details" class="bank-transfer-details rounded-2xl border border-slate-200 bg-slate-50" data-payment-panel="new" data-payment-method="bank" open>
           <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-black text-slate-800">
-            <span>استخدام التحويل البنكي بدلًا من ذلك</span>
+            <span>استخدام التحويل البنكي بدلًا من ذلك ورفع الإيصال</span>
             <span class="details-chevron text-slate-400" aria-hidden="true">⌄</span>
           </summary>
           <form method="post" enctype="multipart/form-data" class="space-y-5 border-t border-slate-200 bg-white p-5" id="new-bank-transfer-form">
             {% csrf_token %}
             <input type="hidden" name="action" value="new">
             <input type="hidden" name="new-plan" id="bank-new-plan-id" value="">
+            {% include "dashboard/_bank_transfer_account.html" %}
 
             <div class="space-y-1">
               <label class="block text-sm font-bold text-slate-700" for="{{ new_form.receipt_image.id_for_label }}">صورة الإيصال</label>
@@ -706,6 +801,8 @@
             </button>
           </form>
         </details>
+          </div>
+        </section>
       </div>
 
     </div>
@@ -957,6 +1054,40 @@
       el.textContent = amount > 0 ? formatMoney(amount / 4) : '—';
     });
 
+    // --- Unified payment method selector ---
+    function activatePaymentMethod(hub, method) {
+      if (!hub) return;
+      var choices = Array.prototype.slice.call(hub.querySelectorAll('[data-payment-choice]'));
+      var requested = choices.find(function (choice) {
+        return choice.getAttribute('data-payment-method') === method && !choice.disabled;
+      });
+      var activeChoice = requested || choices.find(function (choice) { return !choice.disabled; });
+      var activeMethod = activeChoice ? activeChoice.getAttribute('data-payment-method') : 'bank';
+
+      choices.forEach(function (choice) {
+        var isActive = choice === activeChoice;
+        choice.classList.toggle('is-active', isActive);
+        choice.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+      hub.querySelectorAll('[data-payment-panel]').forEach(function (panel) {
+        var isActive = panel.getAttribute('data-payment-method') === activeMethod;
+        panel.classList.toggle('hidden', !isActive);
+        panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+        if (isActive && panel.tagName === 'DETAILS') panel.open = true;
+      });
+      hub.setAttribute('data-active-payment-method', activeMethod || '');
+    }
+
+    document.querySelectorAll('[data-payment-hub]').forEach(function (hub) {
+      hub.querySelectorAll('[data-payment-choice]').forEach(function (choice) {
+        choice.addEventListener('click', function () {
+          if (!choice.disabled) activatePaymentMethod(hub, choice.getAttribute('data-payment-method'));
+        });
+      });
+      activatePaymentMethod(hub, hub.getAttribute('data-default-method') || 'bank');
+      hub.classList.add('is-ready');
+    });
+
     function updatePlanDetails() {
       var script = document.getElementById('plans-map');
       if (!script) return;
@@ -996,6 +1127,9 @@
       var bankDetails = document.getElementById('new-bank-details');
       var freeCard = document.getElementById('free-plan-card');
       var freePlan = document.getElementById('free-new-plan-id');
+      var paymentHub = document.getElementById('new-payment-hub');
+      var paymentPrompt = document.getElementById('payment-plan-prompt');
+      var paymentHubTotal = document.getElementById('payment-hub-total');
       var paidAmount = d ? Number(d.price || 0) : 0;
       if (tamaraPlan) tamaraPlan.value = planId || '';
       if (moyasarPlan) moyasarPlan.value = planId || '';
@@ -1007,6 +1141,13 @@
       if (moyasarCard) moyasarCard.classList.toggle('hidden', !!d && paidAmount <= 0);
       if (freeCard) freeCard.classList.toggle('hidden', !d || paidAmount > 0);
       if (bankDetails) bankDetails.classList.toggle('hidden', !!d && paidAmount <= 0);
+      if (paymentHub) {
+        paymentHub.classList.toggle('hidden', !d);
+        paymentHub.classList.toggle('is-free', !!d && paidAmount <= 0);
+        paymentHub.setAttribute('data-has-plan', d ? 'true' : 'false');
+      }
+      if (paymentPrompt) paymentPrompt.classList.toggle('hidden', !!d);
+      if (paymentHubTotal) paymentHubTotal.textContent = d ? formatMoney(paidAmount) : '—';
       if (tamaraForm) {
         tamaraForm.setAttribute('data-plan-name', d && d.name ? String(d.name) : '');
         tamaraForm.setAttribute('data-plan-amount', paidAmount > 0 ? String(paidAmount) : '');
@@ -1016,6 +1157,9 @@
       if (tamaraInstallment) tamaraInstallment.textContent = paidAmount > 0 ? formatMoney(paidAmount / 4) : '—';
       if (moyasarCopy) moyasarCopy.textContent = d && d.name ? String(d.name) : 'اختر باقة مدفوعة للمتابعة';
       if (moyasarTotal) moyasarTotal.textContent = paidAmount > 0 ? formatMoney(paidAmount) : '—';
+      if (paymentHub && d && paidAmount > 0) {
+        activatePaymentMethod(paymentHub, paymentHub.getAttribute('data-active-payment-method') || paymentHub.getAttribute('data-default-method') || 'bank');
+      }
 
       var priceEl = document.getElementById('plan-price');
       var durEl = document.getElementById('plan-duration');
@@ -1049,6 +1193,85 @@
       }
       updatePlanDetails();
     }
+
+    // --- Plan filters ---
+    var planSearch = document.getElementById('plan-filter-search');
+    var durationFilter = document.getElementById('plan-filter-duration');
+    var screensFilter = document.getElementById('plan-filter-screens');
+    var filterReset = document.getElementById('plan-filter-reset');
+    var filterEmpty = document.getElementById('plan-filter-empty');
+    var visibleCount = document.getElementById('plan-visible-count');
+    var priceMode = 'all';
+
+    function durationMatches(days, mode) {
+      if (mode === 'all') return true;
+      if (mode === 'short') return days > 0 && days <= 100;
+      if (mode === 'half') return days > 100 && days <= 200;
+      if (mode === 'annual') return days >= 300 && days <= 400;
+      return days <= 0 || (days > 200 && (days < 300 || days > 400));
+    }
+
+    function applyPlanFilters() {
+      var query = String(planSearch && planSearch.value || '').trim().toLocaleLowerCase('ar');
+      var durationMode = durationFilter ? durationFilter.value : 'all';
+      var requiredScreens = Number(screensFilter && screensFilter.value || 0);
+      var shown = 0;
+      var selectedStillVisible = true;
+
+      document.querySelectorAll('[data-plan-option]').forEach(function (button) {
+        var price = Number(button.getAttribute('data-plan-price') || 0);
+        var days = Number(button.getAttribute('data-plan-duration') || 0);
+        var maxRaw = button.getAttribute('data-plan-max-screens');
+        var maxScreens = maxRaw === '' || maxRaw === null ? Infinity : Number(maxRaw || 0);
+        var searchable = String(button.textContent || '').toLocaleLowerCase('ar');
+        var matches = (!query || searchable.indexOf(query) !== -1)
+          && durationMatches(days, durationMode)
+          && (!requiredScreens || maxScreens >= requiredScreens)
+          && (priceMode === 'all' || (priceMode === 'free' ? price <= 0 : price > 0));
+        button.classList.toggle('hidden', !matches);
+        if (matches) shown += 1;
+        if (planSelect && String(planSelect.value || '') === String(button.getAttribute('data-plan-id') || '') && !matches) {
+          selectedStillVisible = false;
+        }
+      });
+
+      if (planSelect && planSelect.value && !selectedStillVisible) {
+        planSelect.value = '';
+        planSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (filterEmpty) filterEmpty.classList.toggle('hidden', shown !== 0);
+      if (visibleCount) visibleCount.textContent = shown + (shown === 1 ? ' باقة' : ' باقات');
+    }
+
+    document.querySelectorAll('[data-plan-price-filter]').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        priceMode = chip.getAttribute('data-plan-price-filter') || 'all';
+        document.querySelectorAll('[data-plan-price-filter]').forEach(function (item) {
+          var active = item === chip;
+          item.classList.toggle('is-active', active);
+          item.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        applyPlanFilters();
+      });
+    });
+    if (planSearch) planSearch.addEventListener('input', applyPlanFilters);
+    if (durationFilter) durationFilter.addEventListener('change', applyPlanFilters);
+    if (screensFilter) screensFilter.addEventListener('change', applyPlanFilters);
+    if (filterReset) {
+      filterReset.addEventListener('click', function () {
+        if (planSearch) planSearch.value = '';
+        if (durationFilter) durationFilter.value = 'all';
+        if (screensFilter) screensFilter.value = '0';
+        priceMode = 'all';
+        document.querySelectorAll('[data-plan-price-filter]').forEach(function (chip) {
+          var active = chip.getAttribute('data-plan-price-filter') === 'all';
+          chip.classList.toggle('is-active', active);
+          chip.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        applyPlanFilters();
+      });
+    }
+    applyPlanFilters();
 
     // Initialize Tab
     setActiveTab('{% if active_request_tab == "new" %}new{% else %}renewal{% endif %}');
@@ -1185,6 +1408,163 @@
   .animate-bounce-slow {
     animation: bounce 2s infinite;
   }
+  .plan-filter-shell {
+    display: grid;
+    grid-template-columns: minmax(14rem, 1.5fr) minmax(9rem, .7fr) minmax(10rem, .8fr) auto;
+    gap: .65rem;
+    padding: .85rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 1.15rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #fff 100%);
+  }
+  .plan-search-field {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    min-height: 2.85rem;
+    padding: 0 .85rem;
+    border: 1px solid #e2e8f0;
+    border-radius: .85rem;
+    background: #fff;
+    color: #64748b;
+  }
+  .plan-search-field input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #0f172a;
+    font-size: .75rem;
+  }
+  .plan-filter-select,
+  .plan-filter-reset {
+    min-height: 2.85rem;
+    border: 1px solid #e2e8f0;
+    border-radius: .85rem;
+    background: #fff;
+    padding: 0 .75rem;
+    color: #334155;
+    font-size: .72rem;
+    font-weight: 800;
+  }
+  .plan-filter-reset {
+    color: #4f46e5;
+    transition: background .2s ease, border-color .2s ease;
+  }
+  .plan-filter-reset:hover { border-color: #c7d2fe; background: #eef2ff; }
+  .plan-price-filters {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .45rem;
+    padding-top: .15rem;
+  }
+  .plan-filter-chip {
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    background: #fff;
+    padding: .4rem .8rem;
+    color: #64748b;
+    font-size: .65rem;
+    font-weight: 900;
+    transition: .2s ease;
+  }
+  .plan-filter-chip.is-active {
+    border-color: #4f46e5;
+    background: #4f46e5;
+    color: #fff;
+    box-shadow: 0 7px 18px rgba(79, 70, 229, .18);
+  }
+  .payment-hub {
+    border: 1px solid #e2e8f0;
+    border-radius: 1.4rem;
+    background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+    padding: 1rem;
+  }
+  .payment-method-selector {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .65rem;
+  }
+  .payment-method-choice {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    min-height: 5.3rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    background: #fff;
+    padding: .8rem;
+    color: #334155;
+    transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
+  }
+  .payment-method-choice:hover:not(:disabled) {
+    transform: translateY(-2px);
+    border-color: #c7d2fe;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
+  }
+  .payment-method-choice.is-active {
+    border-color: #6366f1;
+    background: linear-gradient(135deg, #eef2ff 0%, #fff 75%);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, .11), 0 12px 28px rgba(79, 70, 229, .1);
+  }
+  .payment-method-choice.is-active::after {
+    content: '✓';
+    position: absolute;
+    top: -.4rem;
+    left: -.4rem;
+    display: flex;
+    width: 1.45rem;
+    height: 1.45rem;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #fff;
+    border-radius: 999px;
+    background: #4f46e5;
+    color: #fff;
+    font-size: .58rem;
+    font-weight: 900;
+  }
+  .payment-method-choice:disabled { cursor: not-allowed; opacity: .58; background: #f8fafc; }
+  .payment-method-logo {
+    display: flex;
+    width: 2.55rem;
+    height: 2.55rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: .85rem;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 900;
+  }
+  .payment-method-logo-moyasar { background: #0f172a; }
+  .payment-method-logo-tamara { background: #ff5a78; }
+  .payment-method-logo-bank { background: #059669; }
+  .payment-method-status {
+    position: absolute;
+    top: .45rem;
+    left: .5rem;
+    border-radius: 999px;
+    background: #f1f5f9;
+    padding: .2rem .45rem;
+    color: #64748b;
+    font-size: .48rem;
+    font-weight: 900;
+  }
+  .payment-method-status.is-ready { background: #dcfce7; color: #047857; }
+  .payment-method-status.is-pending { background: #fef3c7; color: #b45309; }
+  .payment-method-status.is-manual { background: #e0f2fe; color: #0369a1; }
+  .payment-hub.is-free .payment-method-selector,
+  .payment-hub.is-free [data-payment-panel] { display: none !important; }
+  .bank-account-summary {
+    border-radius: 1rem;
+    background: radial-gradient(circle at top left, rgba(16, 185, 129, .18), transparent 45%), #0f172a;
+    padding: 1rem;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, .13);
+  }
   .tamara-pay-button {
     display: flex;
     align-items: center;
@@ -1257,6 +1637,10 @@
     to { opacity: 1; transform: translateY(0) scale(1); }
   }
   @media (max-width: 640px) {
+    .plan-filter-shell { grid-template-columns: 1fr; }
+    .plan-price-filters { grid-column: 1; }
+    .payment-method-selector { grid-template-columns: 1fr; }
+    .payment-method-choice { min-height: 4.8rem; }
     .tamara-modal {
       align-items: flex-end;
       padding: 0;

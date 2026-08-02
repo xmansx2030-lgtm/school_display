@@ -30,7 +30,14 @@ from schedule.models import (
 from notices.models import Announcement, EmergencyAlert, Excellence
 from standby.models import StandbyAssignment
 from core.image_uploads import optimize_uploaded_image
-from core.models import DisplayScreen, School, UserProfile, SubscriptionPlan
+from core.models import DisplayScreen, School, SystemEmployeeProfile, UserProfile, SubscriptionPlan
+from core.system_access import (
+    PERMISSION_DEFINITIONS,
+    ROLE_CHOICES,
+    ROLE_SUPPORT as ROLE_SUPPORT_KEY,
+    normalize_permission_keys,
+    role_permissions,
+)
 from subscriptions.models import SchoolSubscription, SubscriptionScreenAddon, SubscriptionRequest
 logger = logging.getLogger(__name__)
 
@@ -1513,17 +1520,20 @@ class SystemUserUpdateForm(forms.ModelForm):
 class SystemEmployeeCreateForm(UserCreationForm):
     """إنشاء موظف نظام (بدون ربط بمدارس)."""
 
-    ROLE_SUPPORT = "support"
-    ROLE_SUPERUSER = "superuser"
+    ROLE_SUPPORT = ROLE_SUPPORT_KEY
 
     role = forms.ChoiceField(
-        label="نوع الموظف",
-        choices=[
-            (ROLE_SUPPORT, "موظف دعم"),
-        ],
+        label="الدور الوظيفي",
+        choices=ROLE_CHOICES,
         widget=forms.Select(
             attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
         ),
+    )
+    permissions = forms.MultipleChoiceField(
+        label="صلاحيات المنصة",
+        required=True,
+        choices=[(item["key"], item["label"]) for item in PERMISSION_DEFINITIONS],
+        widget=forms.CheckboxSelectMultiple,
     )
 
     mobile = forms.CharField(
@@ -1545,6 +1555,7 @@ class SystemEmployeeCreateForm(UserCreationForm):
             "mobile",
             "is_active",
             "role",
+            "permissions",
         ]
         labels = {
             "username": "اسم المستخدم",
@@ -1554,15 +1565,26 @@ class SystemEmployeeCreateForm(UserCreationForm):
             "is_active": "حساب نشط",
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            self.fields["role"].initial = ROLE_SUPPORT_KEY
+            self.fields["permissions"].initial = role_permissions(ROLE_SUPPORT_KEY)
+
+    def clean_permissions(self):
+        permissions = normalize_permission_keys(self.cleaned_data.get("permissions"))
+        if not permissions:
+            raise ValidationError("اختر صلاحية واحدة على الأقل للموظف.")
+        return permissions
+
     @transaction.atomic
-    def save(self, commit=True):
+    def save(self, commit=True, *, created_by=None):
         user = super().save(commit=False)
 
         # الموظف يجب أن يكون staff دائمًا
         user.is_staff = True
-
         role = self.cleaned_data.get("role")
-        user.is_superuser = bool(role == self.ROLE_SUPERUSER)
+        user.is_superuser = False
 
         if commit:
             user.save()
@@ -1574,18 +1596,143 @@ class SystemEmployeeCreateForm(UserCreationForm):
         profile.mobile = self.cleaned_data.get("mobile")
         profile.save()
 
-        # ربط مجموعة Support حسب الدور
+        from django.contrib.auth.models import Group
+
+        platform_group, _ = Group.objects.get_or_create(name="Platform Staff")
+        support_group, _ = Group.objects.get_or_create(name="Support")
+        user.groups.add(platform_group)
+        if role == self.ROLE_SUPPORT:
+            user.groups.add(support_group)
+        else:
+            user.groups.remove(support_group)
+
+        SystemEmployeeProfile.objects.update_or_create(
+            user=user,
+            defaults={
+                "role": role,
+                "permission_keys": self.cleaned_data["permissions"],
+                "created_by": created_by,
+            },
+        )
+
+        return user
+
+
+class SystemEmployeeUpdateForm(forms.ModelForm):
+    """Update a platform employee without exposing tenant or superuser fields."""
+
+    role = forms.ChoiceField(
+        label="الدور الوظيفي",
+        choices=ROLE_CHOICES,
+        widget=forms.Select(
+            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+        ),
+    )
+    permissions = forms.MultipleChoiceField(
+        label="صلاحيات المنصة",
+        required=True,
+        choices=[(item["key"], item["label"]) for item in PERMISSION_DEFINITIONS],
+        widget=forms.CheckboxSelectMultiple,
+    )
+    mobile = forms.CharField(
+        label="رقم الجوال",
+        required=False,
+        max_length=20,
+        widget=forms.TextInput(
+            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+        ),
+    )
+    new_password1 = forms.CharField(
+        label="كلمة مرور جديدة",
+        required=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+        help_text="اترك الحقلين فارغين للإبقاء على كلمة المرور الحالية.",
+    )
+    new_password2 = forms.CharField(
+        label="تأكيد كلمة المرور الجديدة",
+        required=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+
+    class Meta:
+        model = UserModel
+        fields = ["username", "email", "first_name", "last_name", "mobile", "is_active"]
+        labels = {
+            "username": "اسم المستخدم",
+            "email": "البريد الإلكتروني",
+            "first_name": "الاسم الأول",
+            "last_name": "اسم العائلة",
+            "is_active": "حساب نشط",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         try:
-            from django.contrib.auth.models import Group
+            employee = self.instance.system_employee_profile
+        except SystemEmployeeProfile.DoesNotExist:
+            employee = None
+        profile = UserProfile.objects.filter(user=self.instance).first()
+        if profile:
+            self.fields["mobile"].initial = profile.mobile
+        self.fields["role"].initial = employee.role if employee else ROLE_SUPPORT_KEY
+        self.fields["permissions"].initial = (
+            normalize_permission_keys(employee.permission_keys)
+            if employee
+            else role_permissions(ROLE_SUPPORT_KEY)
+        )
 
-            support_group, _ = Group.objects.get_or_create(name="Support")
-            if role == self.ROLE_SUPPORT:
-                user.groups.add(support_group)
-            else:
-                user.groups.remove(support_group)
-        except Exception:
-            pass
+    def clean_permissions(self):
+        permissions = normalize_permission_keys(self.cleaned_data.get("permissions"))
+        if not permissions:
+            raise ValidationError("اختر صلاحية واحدة على الأقل للموظف.")
+        return permissions
 
+    def clean(self):
+        cleaned = super().clean()
+        password1 = cleaned.get("new_password1")
+        password2 = cleaned.get("new_password2")
+        if password1 or password2:
+            if not password1 or not password2:
+                raise ValidationError("أدخل كلمة المرور الجديدة وتأكيدها.")
+            if password1 != password2:
+                raise ValidationError("كلمتا المرور غير متطابقتين.")
+            if len(password1) < 8:
+                raise ValidationError("يجب أن تكون كلمة المرور 8 أحرف على الأقل.")
+        return cleaned
+
+    @transaction.atomic
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.is_staff = True
+        user.is_superuser = False
+        if self.cleaned_data.get("new_password1"):
+            user.set_password(self.cleaned_data["new_password1"])
+        if commit:
+            user.save()
+
+        profile = _get_profile(user)
+        profile.schools.clear()
+        profile.active_school = None
+        profile.mobile = self.cleaned_data.get("mobile")
+        profile.save()
+
+        from django.contrib.auth.models import Group
+
+        platform_group, _ = Group.objects.get_or_create(name="Platform Staff")
+        support_group, _ = Group.objects.get_or_create(name="Support")
+        user.groups.add(platform_group)
+        role = self.cleaned_data["role"]
+        if role == ROLE_SUPPORT_KEY:
+            user.groups.add(support_group)
+        else:
+            user.groups.remove(support_group)
+        SystemEmployeeProfile.objects.update_or_create(
+            user=user,
+            defaults={
+                "role": role,
+                "permission_keys": self.cleaned_data["permissions"],
+            },
+        )
         return user
 
 

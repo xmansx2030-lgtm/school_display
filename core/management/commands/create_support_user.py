@@ -6,6 +6,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand, CommandError
 
+from core.models import SystemEmployeeProfile
+from core.system_access import ROLE_SUPPORT, role_permissions
+
 from .setup_support_role import SUPPORT_GROUP_NAME
 
 
@@ -56,7 +59,14 @@ class Command(BaseCommand):
 
         group, _ = Group.objects.get_or_create(name=SUPPORT_GROUP_NAME)
         user.groups.add(group)
+        platform_group, _ = Group.objects.get_or_create(name="Platform Staff")
+        user.groups.add(platform_group)
+        SystemEmployeeProfile.objects.create(
+            user=user,
+            role=ROLE_SUPPORT,
+            permission_keys=role_permissions(ROLE_SUPPORT),
+        )
 
         self.stdout.write(self.style.SUCCESS(f"Created support user: {username}"))
         self.stdout.write(self.style.SUCCESS(f"Added to group: {SUPPORT_GROUP_NAME}"))
-        self.stdout.write("Next: run `python manage.py setup_support_role` to ensure permissions are assigned.")
+        self.stdout.write(self.style.SUCCESS("Applied the support role and platform permissions."))

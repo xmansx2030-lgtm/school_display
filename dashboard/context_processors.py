@@ -4,6 +4,14 @@ from django.apps import apps
 from django.urls import reverse
 
 from core.models import SupportTicket
+from core.system_access import NAV_PERMISSION_MAP, role_label
+
+from .access import (
+    get_system_permissions,
+    get_system_role,
+    has_system_permission,
+    is_system_staff_user,
+)
 
 
 def _is_active_link(current_url_name: str, *, exact: tuple[str, ...] = (), startswith: tuple[str, ...] = ()) -> bool:
@@ -22,7 +30,8 @@ def _is_active_link(current_url_name: str, *, exact: tuple[str, ...] = (), start
 def _build_admin_nav_links(
     *,
     current_url_name: str,
-    is_support_staff: bool,
+    permission_keys: frozenset[str],
+    is_superuser: bool,
     open_subscription_requests_count: int,
     open_support_tickets_count: int,
 ):
@@ -56,7 +65,7 @@ def _build_admin_nav_links(
             "tone": "blue",
             "exact": (),
             "startswith": ("system_school",),
-            "visible": not is_support_staff,
+            "visible": True,
             "badge_count": 0,
         },
         {
@@ -84,8 +93,8 @@ def _build_admin_nav_links(
             "icon": "fa-user-tie",
             "emoji": "🧑‍💼",
             "tone": "sky",
-            "exact": ("system_employees_list",),
-            "startswith": (),
+            "exact": (),
+            "startswith": ("system_employee",),
             "visible": True,
             "badge_count": 0,
         },
@@ -131,7 +140,7 @@ def _build_admin_nav_links(
             "tone": "indigo",
             "exact": (),
             "startswith": ("system_plan",),
-            "visible": not is_support_staff,
+            "visible": True,
             "badge_count": 0,
         },
         {
@@ -176,7 +185,7 @@ def _build_admin_nav_links(
             "tone": "rose",
             "exact": (),
             "startswith": ("emergency_alert",),
-            "visible": not is_support_staff,
+            "visible": True,
             "badge_count": 0,
         },
         {
@@ -199,6 +208,16 @@ def _build_admin_nav_links(
     links = []
     for item in base_items:
         if not item.get("visible", True):
+            continue
+        required_permission = NAV_PERMISSION_MAP.get(item["key"])
+        if required_permission == "employees.owner_only" and not is_superuser:
+            continue
+        if (
+            required_permission
+            and required_permission != "employees.owner_only"
+            and not is_superuser
+            and required_permission not in permission_keys
+        ):
             continue
 
         resolved = {
@@ -238,42 +257,67 @@ def admin_support_ticket_badges(request):
     if not user or not getattr(user, "is_authenticated", False):
         return {}
 
-    try:
-        is_support = user.groups.filter(name="Support").exists()
-    except Exception:
-        is_support = False
-
     is_superuser = bool(getattr(user, "is_superuser", False))
-    is_system_staff = bool(is_superuser or is_support)
+    is_system_staff = is_system_staff_user(user)
     if not is_system_staff:
         return {}
 
-    open_support_tickets_count = SupportTicket.objects.filter(status="open").count()
+    permission_keys = get_system_permissions(user)
+    open_support_tickets_count = (
+        SupportTicket.objects.filter(status="open").count()
+        if has_system_permission(user, "support.view")
+        else 0
+    )
     counts = {
         "is_system_staff": True,
-        # قد يكون مدير النظام مضافًا أيضاً إلى مجموعة الدعم. في هذه الحالة
-        # يجب ألا تختفي منه أدوات المالك مثل المدارس والباقات.
-        "is_support_staff": bool(is_support and not is_superuser),
+        # Backward-compatible template name: now means any delegated employee.
+        "is_support_staff": bool(not is_superuser),
+        "is_platform_employee": bool(not is_superuser),
         "is_superuser": is_superuser,
+        "platform_role_label": "مالك المنصة" if is_superuser else role_label(get_system_role(user)),
         "admin_new_support_tickets_count": open_support_tickets_count,
     }
 
+    for permission_key in (
+        "schools.view",
+        "schools.manage",
+        "users.view",
+        "users.manage",
+        "subscriptions.view",
+        "subscriptions.manage",
+        "subscription_requests.view",
+        "subscription_requests.manage",
+        "plans.view",
+        "plans.manage",
+        "screen_addons.view",
+        "screen_addons.manage",
+        "reports.view",
+        "support.view",
+        "support.manage",
+        "emergency_alerts.view",
+        "emergency_alerts.manage",
+    ):
+        template_key = "can_" + permission_key.replace(".", "_")
+        counts[template_key] = has_system_permission(user, permission_key)
+
     # Subscription requests (best-effort: feature may not exist in older DBs)
     open_subscription_requests_count = 0
-    try:
-        Req = apps.get_model("subscriptions", "SubscriptionRequest")
-        open_subscription_requests_count = Req.objects.filter(
-            status__in=["submitted", "under_review"]
-        ).count()
-    except Exception:
-        open_subscription_requests_count = 0
+    if has_system_permission(user, "subscription_requests.view"):
+        try:
+            Req = apps.get_model("subscriptions", "SubscriptionRequest")
+            open_subscription_requests_count = Req.objects.filter(
+                status__in=["submitted", "under_review"]
+            ).count()
+        except Exception:
+            open_subscription_requests_count = 0
 
     counts["admin_open_subscription_requests_count"] = int(open_subscription_requests_count or 0)
 
     current_url_name = getattr(getattr(request, "resolver_match", None), "url_name", "") or ""
     counts["admin_nav_links"] = _build_admin_nav_links(
         current_url_name=current_url_name,
-        is_support_staff=bool(is_support and not is_superuser),
+        permission_keys=permission_keys,
+        is_superuser=is_superuser,
         open_subscription_requests_count=int(open_subscription_requests_count or 0),
         open_support_tickets_count=int(open_support_tickets_count or 0),
     )

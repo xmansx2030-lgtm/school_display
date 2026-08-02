@@ -22,13 +22,13 @@
         </div>
       </div>
 
-      <a href="{% url 'dashboard:system_screen_addon_create' %}"
+      {% if can_screen_addons_manage %}<a href="{% url 'dashboard:system_screen_addon_create' %}"
          class="group inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold
                 bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700
                 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
         <span class="text-lg">＋</span>
         إضافة زيادة
-      </a>
+      </a>{% endif %}
     </div>
   </div>
 
@@ -120,7 +120,7 @@
                 </td>
                 <td class="px-6 py-4 text-slate-900 font-semibold">{{ r.total_price|default:"0" }}</td>
                 <td class="px-6 py-4">
-                  <div class="flex items-center gap-2">
+                  {% if can_screen_addons_manage %}<div class="flex items-center gap-2">
                     <a href="{% url 'dashboard:system_screen_addon_edit' r.id %}"
                        class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">
                       تعديل
@@ -129,7 +129,7 @@
                        class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100">
                       حذف
                     </a>
-                  </div>
+                  </div>{% endif %}
                 </td>
               </tr>
             {% endfor %}

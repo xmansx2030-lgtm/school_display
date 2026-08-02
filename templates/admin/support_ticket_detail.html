@@ -50,6 +50,7 @@
     </div>
 
     <!-- Add Reply -->
+    {% if can_manage_support %}
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
       <h4 class="font-bold text-slate-800 mb-4">إضافة رد</h4>
       <form method="post">
@@ -62,6 +63,7 @@
         </div>
       </form>
     </div>
+    {% endif %}
 
   </div>
 
@@ -70,7 +72,7 @@
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
       <h4 class="font-bold text-slate-800 mb-4">معلومات التذكرة</h4>
       
-      <form method="post" class="space-y-4">
+      {% if can_manage_support %}<form method="post" class="space-y-4">
         {% csrf_token %}
         
         <div>
@@ -99,7 +101,13 @@
           </div>
         </div>
 
-      </form>
+      </form>{% else %}
+        <div class="space-y-3 text-sm">
+          <div class="flex justify-between"><span class="text-slate-500">الحالة:</span><strong>{{ ticket.get_status_display }}</strong></div>
+          <div class="flex justify-between"><span class="text-slate-500">الأولوية:</span><strong>{{ ticket.get_priority_display }}</strong></div>
+          <div class="flex justify-between"><span class="text-slate-500">المدرسة:</span><strong>{{ ticket.school.name|default:"-" }}</strong></div>
+        </div>
+      {% endif %}
     </div>
   </div>
 

@@ -8,9 +8,11 @@
   <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">الباقات والأسعار</span>
 {% endblock %}
 {% block page_actions %}
+  {% if can_plans_manage %}
   <a href="{% url 'dashboard:system_plan_create' %}" class="admin-btn admin-btn-primary">
     <i class="fas fa-plus"></i> إضافة باقة
   </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -28,9 +30,9 @@
           </p>
         </div>
       </div>
-      <a href="{% url 'dashboard:system_plan_create' %}" class="admin-btn admin-btn-primary shrink-0">
+      {% if can_plans_manage %}<a href="{% url 'dashboard:system_plan_create' %}" class="admin-btn admin-btn-primary shrink-0">
         <i class="fas fa-plus"></i> إضافة باقة جديدة
-      </a>
+      </a>{% endif %}
     </div>
   </section>
 
@@ -104,7 +106,7 @@
             <p class="mt-3 text-xs leading-6 text-slate-500">{{ plan.description }}</p>
           {% endif %}
 
-          <div class="mt-4 flex flex-wrap gap-2 admin-no-print">
+          {% if can_plans_manage %}<div class="mt-4 flex flex-wrap gap-2 admin-no-print">
             <a href="{% url 'dashboard:system_plan_edit' plan.pk %}" class="admin-btn admin-btn-primary">
               <i class="fas fa-pen"></i> تعديل
             </a>
@@ -118,7 +120,7 @@
             <a href="{% url 'dashboard:system_plan_delete' plan.pk %}" class="admin-btn admin-btn-secondary text-rose-700">
               <i class="fas fa-trash-can"></i> حذف
             </a>
-          </div>
+          </div>{% endif %}
 
           <div class="mt-5 flex items-end gap-2">
             <strong class="text-3xl font-black text-slate-900">{{ plan.price }}</strong>

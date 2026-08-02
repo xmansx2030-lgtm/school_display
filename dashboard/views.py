@@ -43,10 +43,18 @@ from django.views.decorators.http import require_POST
 from .access import (
     get_active_school_or_redirect,
     get_or_create_user_profile as _get_or_create_profile,
+    has_system_permission,
+    is_system_staff_user,
     safe_next_url as _safe_next_url,
 )
 from .auth_views import change_password, login_view, logout_view
-from .decorators import manager_required, superuser_required, system_staff_required
+from .decorators import (
+    manager_or_system_permission_required,
+    manager_required,
+    superuser_required,
+    system_permission_required,
+    system_staff_required,
+)
 from .support_views import (
     customer_support_ticket_create,
     customer_support_ticket_detail,
@@ -77,6 +85,7 @@ from .forms import (
     SchoolSubscriptionForm,
     SystemUserCreateForm,
     SystemEmployeeCreateForm,
+    SystemEmployeeUpdateForm,
     SystemUserUpdateForm,
     PeriodFormSet,
     BreakFormSet,
@@ -85,7 +94,14 @@ from .forms import (
     SubscriptionRenewalRequestForm,
     SubscriptionNewRequestForm,
 )
-from core.models import SubscriptionPlan
+from core.models import SubscriptionPlan, SystemEmployeeProfile
+from core.system_access import (
+    PERMISSION_LABELS,
+    ROLE_PRESETS,
+    grouped_permission_definitions,
+    normalize_permission_keys,
+    role_label,
+)
 from core.display_presence import display_is_live, latest_display_presence, live_display_count
 from core.two_factor import get_enabled_config
 from subscriptions.plan_catalog import plan_card, plan_cards
@@ -1447,17 +1463,20 @@ def ann_create(request):
 
 def _emergency_allowed_schools(request):
     School = SchoolModel()
-    if getattr(request.user, "is_superuser", False):
+    if getattr(request.user, "is_superuser", False) or has_system_permission(
+        request.user, "emergency_alerts.view"
+    ):
         return School.objects.filter(is_active=True)
     profile = _get_or_create_profile(request.user)
     return profile.schools.filter(is_active=True)
 
 
-@manager_required
+@manager_or_system_permission_required("emergency_alerts.view")
 def emergency_alert_list(request):
     from notices.models import EmergencyAlert
 
     allowed_schools = _emergency_allowed_schools(request)
+    now = timezone.now()
     alerts = (
         EmergencyAlert.objects.filter(schools__in=allowed_schools)
         .select_related("created_by", "cancelled_by")
@@ -1470,12 +1489,22 @@ def emergency_alert_list(request):
         "dashboard/emergency_alert_list.html",
         {
             "alerts": alerts[:100],
-            "active_count": alerts.filter(is_active=True, cancelled_at__isnull=True).count(),
+            "active_count": alerts.filter(
+                is_active=True,
+                cancelled_at__isnull=True,
+                starts_at__lte=now,
+            )
+            .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+            .count(),
+            "can_emergency_alerts_manage": (
+                not is_system_staff_user(request.user)
+                or has_system_permission(request.user, "emergency_alerts.manage")
+            ),
         },
     )
 
 
-@manager_required
+@manager_or_system_permission_required("emergency_alerts.manage")
 def emergency_alert_create(request):
     allowed_schools = _emergency_allowed_schools(request)
     initial = {}
@@ -1512,7 +1541,7 @@ def emergency_alert_create(request):
     )
 
 
-@manager_required
+@manager_or_system_permission_required("emergency_alerts.manage")
 @require_POST
 def emergency_alert_cancel(request, pk: int):
     from notices.models import EmergencyAlert
@@ -1530,6 +1559,28 @@ def emergency_alert_cancel(request, pk: int):
         for school in alert.schools.all():
             _invalidate_display_cache(school, force_bump=True)
         messages.success(request, "تم إلغاء التنبيه وتسجيل وقت الإلغاء.")
+    return redirect("dashboard:emergency_alert_list")
+
+
+@manager_or_system_permission_required("emergency_alerts.manage")
+@require_POST
+def emergency_alert_delete(request, pk: int):
+    from notices.models import EmergencyAlert
+
+    allowed_schools = _emergency_allowed_schools(request)
+    alert = get_object_or_404(
+        EmergencyAlert.objects.filter(schools__in=allowed_schools).distinct(),
+        pk=pk,
+    )
+    if alert.active_now:
+        messages.error(request, "يجب إلغاء التنبيه النشط قبل حذفه.")
+        return redirect("dashboard:emergency_alert_list")
+
+    affected_schools = list(alert.schools.all())
+    alert.delete()
+    for school in affected_schools:
+        _invalidate_display_cache(school, force_bump=True)
+    messages.success(request, "تم حذف التنبيه القديم نهائيًا.")
     return redirect("dashboard:emergency_alert_list")
 
 
@@ -2718,7 +2769,7 @@ def switch_school(request, school_id=None):
     return redirect(_safe_next_url(request, default_name="dashboard:index"))
 
 
-@system_staff_required
+@system_permission_required("dashboard.view")
 def system_admin_dashboard(request):
     School = SchoolModel()
     DisplayScreen = DisplayScreenModel()
@@ -2726,6 +2777,9 @@ def system_admin_dashboard(request):
     now = timezone.now()
     expiring_until = today + timedelta(days=30)
     global_query = (request.GET.get("q") or "").strip()
+    can_view_schools = has_system_permission(request.user, "schools.view")
+    can_view_users = has_system_permission(request.user, "users.view")
+    can_view_subscriptions = has_system_permission(request.user, "subscriptions.view")
 
     school_count = School.objects.count()
     active_schools_count = School.objects.filter(is_active=True).count()
@@ -2881,14 +2935,18 @@ def system_admin_dashboard(request):
     )
 
     search_results = {"schools": [], "users": [], "subscriptions": []}
-    if global_query:
+    if global_query and can_view_schools:
         search_results["schools"] = list(
             School.objects.filter(
                 Q(name__icontains=global_query) | Q(slug__icontains=global_query)
             ).order_by("name")[:6]
         )
+    if global_query and can_view_users:
+        user_search_qs = UserModel.objects.all()
+        if not getattr(request.user, "is_superuser", False):
+            user_search_qs = user_search_qs.filter(is_staff=False, is_superuser=False)
         search_results["users"] = list(
-            UserModel.objects.filter(
+            user_search_qs.filter(
                 Q(username__icontains=global_query)
                 | Q(email__icontains=global_query)
                 | Q(first_name__icontains=global_query)
@@ -2898,18 +2956,18 @@ def system_admin_dashboard(request):
             .distinct()
             .order_by("username")[:6]
         )
-        if SubModel is not None:
-            try:
-                search_results["subscriptions"] = list(
-                    SubModel.objects.select_related("school", "plan")
-                    .filter(
-                        Q(school__name__icontains=global_query)
-                        | Q(plan__name__icontains=global_query)
-                    )
-                    .order_by("-id")[:6]
+    if global_query and can_view_subscriptions and SubModel is not None:
+        try:
+            search_results["subscriptions"] = list(
+                SubModel.objects.select_related("school", "plan")
+                .filter(
+                    Q(school__name__icontains=global_query)
+                    | Q(plan__name__icontains=global_query)
                 )
-            except Exception:
-                search_results["subscriptions"] = []
+                .order_by("-id")[:6]
+            )
+        except Exception:
+            search_results["subscriptions"] = []
 
     return render(
         request,
@@ -2947,7 +3005,7 @@ def system_admin_dashboard(request):
     )
 
 
-@system_staff_required
+@system_permission_required("schools.view")
 def system_schools_list(request):
     School = SchoolModel()
     DisplayScreen = DisplayScreenModel()
@@ -3074,7 +3132,7 @@ def system_schools_list(request):
     )
 
 
-@system_staff_required
+@system_permission_required("schools.manage")
 def system_school_create(request):
     FormCls = _admin_school_form_class()
 
@@ -3091,7 +3149,7 @@ def system_school_create(request):
     return render(request, "admin/school_form.html", {"form": form, "title": "إضافة مدرسة"})
 
 
-@system_staff_required
+@system_permission_required("schools.manage")
 def system_school_edit(request, pk: int):
     School = SchoolModel()
     FormCls = _admin_school_form_class()
@@ -3110,7 +3168,7 @@ def system_school_edit(request, pk: int):
     return render(request, "admin/school_form.html", {"form": form, "title": "تعديل مدرسة", "edit": True})
 
 
-@superuser_required
+@system_permission_required("schools.manage")
 def system_school_delete(request, pk: int):
     School = SchoolModel()
     school = get_object_or_404(School, pk=pk)
@@ -3121,12 +3179,17 @@ def system_school_delete(request, pk: int):
     return render(request, "admin/school_confirm_delete.html", {"school": school})
 
 
-@system_staff_required
+@system_permission_required("users.view")
 def system_users_list(request):
     q = (request.GET.get("q") or "").strip()
     state = (request.GET.get("state") or "").strip()
     role = (request.GET.get("role") or "manager").strip()
     school_id = (request.GET.get("school") or "").strip()
+
+    # Delegated staff may manage customer accounts, never enumerate platform
+    # owners/employees through a crafted role query parameter.
+    if not getattr(request.user, "is_superuser", False) and role not in {"manager", "unassigned"}:
+        role = "manager"
 
     qs = UserModel.objects.all().order_by("-id")
 
@@ -3201,23 +3264,21 @@ def system_users_list(request):
     )
 
 
-@system_staff_required
+@superuser_required
 def system_employees_list(request):
-    """قائمة موظفي النظام (Superuser / Support group)."""
+    """List platform employees; employee administration remains owner-only."""
     q = (request.GET.get("q") or "").strip()
 
     qs = (
         UserModel.objects.filter(
-            Q(is_staff=True) | Q(is_superuser=True) | Q(groups__name="Support")
+            Q(is_superuser=True)
+            | Q(system_employee_profile__isnull=False)
+            | Q(groups__name="Support")
         )
         .distinct()
         .order_by("-id")
     )
-
-    try:
-        qs = qs.prefetch_related("groups")
-    except Exception:
-        pass
+    qs = qs.select_related("system_employee_profile").prefetch_related("groups")
 
     if q:
         filters = Q()
@@ -3228,54 +3289,107 @@ def system_employees_list(request):
             except Exception:
                 continue
         filters |= Q(groups__name__icontains=q)
+        filters |= Q(system_employee_profile__role__icontains=q)
         qs = qs.filter(filters).distinct()
 
     paginator = Paginator(qs, 25)
     page_obj = paginator.get_page(request.GET.get("page") or 1)
 
+    for employee_user in page_obj.object_list:
+        if employee_user.is_superuser:
+            employee_user.platform_role_label = "مالك المنصة"
+            employee_user.platform_permission_labels = ["وصول كامل"]
+            employee_user.platform_permission_count = len(PERMISSION_LABELS)
+            continue
+        try:
+            employee_profile = employee_user.system_employee_profile
+            permission_keys = normalize_permission_keys(employee_profile.permission_keys)
+            employee_user.platform_role_label = role_label(employee_profile.role)
+        except SystemEmployeeProfile.DoesNotExist:
+            permission_keys = list(ROLE_PRESETS["support"]["permissions"])
+            employee_user.platform_role_label = "الدعم الفني (حساب قديم)"
+        employee_user.platform_permission_labels = [
+            PERMISSION_LABELS[key] for key in permission_keys if key in PERMISSION_LABELS
+        ]
+        employee_user.platform_permission_count = len(employee_user.platform_permission_labels)
+
     return render(request, "admin/employees_list.html", {"page_obj": page_obj, "q": q})
 
 
-@system_staff_required
+def _employee_form_context(form, *, employee_user=None):
+    if form.is_bound:
+        selected_permission_keys = normalize_permission_keys(form.data.getlist("permissions"))
+    else:
+        selected_permission_keys = normalize_permission_keys(form.fields["permissions"].initial)
+    role_presets = {
+        role: {
+            "label": details["label"],
+            "description": details["description"],
+            "permissions": normalize_permission_keys(details["permissions"]),
+        }
+        for role, details in ROLE_PRESETS.items()
+    }
+    return {
+        "form": form,
+        "employee_user": employee_user,
+        "is_edit": employee_user is not None,
+        "permission_groups": grouped_permission_definitions(),
+        "selected_permission_keys": selected_permission_keys,
+        "role_presets": role_presets,
+    }
+
+
+@superuser_required
 def system_employee_create(request):
     if request.method == "POST":
         form = SystemEmployeeCreateForm(request.POST)
-        # منع غير السوبر من إنشاء superuser
-        if not getattr(request.user, "is_superuser", False):
-            form.fields["role"].choices = [
-                (SystemEmployeeCreateForm.ROLE_SUPPORT, "موظف دعم"),
-            ]
-        else:
-            form.fields["role"].choices = [
-                (SystemEmployeeCreateForm.ROLE_SUPPORT, "موظف دعم"),
-                (SystemEmployeeCreateForm.ROLE_SUPERUSER, "مدير نظام (superuser)"),
-            ]
-
         if form.is_valid():
-            role = form.cleaned_data.get("role")
-            if role == SystemEmployeeCreateForm.ROLE_SUPERUSER and not getattr(request.user, "is_superuser", False):
-                raise PermissionDenied("لا تملك صلاحية إنشاء مدير نظام.")
-
-            form.save()
-            messages.success(request, "تم إنشاء الموظف بنجاح.")
+            employee = form.save(created_by=request.user)
+            messages.success(
+                request,
+                f"تم إنشاء الموظف {employee.get_full_name() or employee.username} وتطبيق صلاحياته.",
+            )
             return redirect("dashboard:system_employees_list")
 
         messages.error(request, "الرجاء تصحيح الأخطاء.")
     else:
         form = SystemEmployeeCreateForm()
-        if getattr(request.user, "is_superuser", False):
-            form.fields["role"].choices = [
-                (SystemEmployeeCreateForm.ROLE_SUPPORT, "موظف دعم"),
-                (SystemEmployeeCreateForm.ROLE_SUPERUSER, "مدير نظام (superuser)"),
-            ]
 
-    return render(request, "admin/employee_form.html", {"form": form})
+    return render(request, "admin/employee_form.html", _employee_form_context(form))
 
 
-@system_staff_required
+@superuser_required
+def system_employee_edit(request, pk: int):
+    employee_user = get_object_or_404(UserModel, pk=pk, is_superuser=False)
+    is_employee = SystemEmployeeProfile.objects.filter(user=employee_user).exists()
+    is_legacy_support = employee_user.groups.filter(name="Support").exists()
+    if not is_employee and not is_legacy_support:
+        raise PermissionDenied("هذا الحساب ليس موظف منصة.")
+
+    if request.method == "POST":
+        form = SystemEmployeeUpdateForm(request.POST, instance=employee_user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "تم تحديث بيانات الموظف وصلاحياته فورًا.")
+            return redirect("dashboard:system_employees_list")
+        messages.error(request, "الرجاء تصحيح الأخطاء.")
+    else:
+        form = SystemEmployeeUpdateForm(instance=employee_user)
+
+    return render(
+        request,
+        "admin/employee_form.html",
+        _employee_form_context(form, employee_user=employee_user),
+    )
+
+
+@system_permission_required("users.manage")
 def system_user_create(request):
     if request.method == "POST":
         form = SystemUserCreateForm(request.POST)
+        if not getattr(request.user, "is_superuser", False):
+            form.fields.pop("is_staff", None)
+            form.fields.pop("is_superuser", None)
         if form.is_valid():
             form.save()
             messages.success(request, "تم إنشاء المستخدم بنجاح.")
@@ -3292,26 +3406,33 @@ def system_user_create(request):
                     "active_school": requested_school.pk,
                 }
         form = SystemUserCreateForm(initial=initial)
-
-    # موظف الدعم لا يُسمح له بترقية المستخدمين إلى staff/superuser
-    if not getattr(request.user, "is_superuser", False):
-        for f in ("is_staff", "is_superuser"):
-            if f in form.fields:
-                del form.fields[f]
+        if not getattr(request.user, "is_superuser", False):
+            form.fields.pop("is_staff", None)
+            form.fields.pop("is_superuser", None)
 
     return render(request, "admin/user_edit.html", {"form": form, "is_create": True})
 
 
-@system_staff_required
+@system_permission_required("users.manage")
 def system_user_edit(request, pk: int):
     user = get_object_or_404(UserModel, pk=pk)
 
-    # موظف الدعم لا يعدّل حسابات السوبر
-    if not getattr(request.user, "is_superuser", False) and getattr(user, "is_superuser", False):
-        raise PermissionDenied("لا تملك صلاحية تعديل هذا المستخدم.")
+    # Delegated employees manage school accounts only, never platform identities.
+    if not getattr(request.user, "is_superuser", False):
+        is_platform_identity = bool(
+            getattr(user, "is_staff", False)
+            or getattr(user, "is_superuser", False)
+            or SystemEmployeeProfile.objects.filter(user=user).exists()
+            or user.groups.filter(name="Support").exists()
+        )
+        if is_platform_identity:
+            raise PermissionDenied("إدارة موظفي المنصة محصورة بمالك النظام.")
 
     if request.method == "POST":
         form = SystemUserUpdateForm(request.POST, instance=user)
+        if not getattr(request.user, "is_superuser", False):
+            form.fields.pop("is_staff", None)
+            form.fields.pop("is_superuser", None)
         if form.is_valid():
             form.save()
             messages.success(request, "تم تحديث بيانات المستخدم بنجاح.")
@@ -3319,19 +3440,26 @@ def system_user_edit(request, pk: int):
         messages.error(request, "الرجاء تصحيح الأخطاء.")
     else:
         form = SystemUserUpdateForm(instance=user)
-
-    # موظف الدعم لا يُسمح له بتعديل staff/superuser
-    if not getattr(request.user, "is_superuser", False):
-        for f in ("is_staff", "is_superuser"):
-            if f in form.fields:
-                del form.fields[f]
+        if not getattr(request.user, "is_superuser", False):
+            form.fields.pop("is_staff", None)
+            form.fields.pop("is_superuser", None)
 
     return render(request, "admin/user_edit.html", {"form": form, "is_create": False, "user_obj": user})
 
 
-@superuser_required
+@system_permission_required("users.manage")
 def system_user_delete(request, pk: int):
     user = get_object_or_404(UserModel, pk=pk)
+
+    if not getattr(request.user, "is_superuser", False):
+        is_platform_identity = bool(
+            getattr(user, "is_staff", False)
+            or getattr(user, "is_superuser", False)
+            or SystemEmployeeProfile.objects.filter(user=user).exists()
+            or user.groups.filter(name="Support").exists()
+        )
+        if is_platform_identity:
+            raise PermissionDenied("إدارة موظفي المنصة محصورة بمالك النظام.")
 
     if request.method == "POST":
         username = getattr(user, "username", str(user.pk))
@@ -3368,7 +3496,7 @@ def _get_subscription_model_robust():
 def _get_subscription_model():
     return _get_subscription_model_robust()
 
-@system_staff_required
+@system_permission_required("subscriptions.view")
 def system_subscriptions_list(request):
     SubModel = _get_subscription_model_robust()
 
@@ -3603,7 +3731,7 @@ def system_subscriptions_list(request):
     )
 
 
-@system_staff_required
+@system_permission_required("subscriptions.manage")
 def system_subscription_create(request):
     SubModel = _get_subscription_model()
     if SubModel is None:
@@ -3664,7 +3792,7 @@ def system_subscription_create(request):
     )
 
 
-@system_staff_required
+@system_permission_required("subscriptions.manage")
 def system_subscription_edit(request, pk: int):
     SubModel = _get_subscription_model()
     if SubModel is None:
@@ -3805,7 +3933,7 @@ def system_subscription_edit(request, pk: int):
     )
 
 
-@superuser_required
+@system_permission_required("subscriptions.manage")
 @require_POST
 def system_subscription_delete(request, pk: int):
     SubModel = _get_subscription_model()
@@ -3819,7 +3947,7 @@ def system_subscription_delete(request, pk: int):
     return redirect("dashboard:system_subscriptions_list")
 
 
-@system_staff_required
+@system_permission_required("subscriptions.view")
 def system_subscription_invoice_view(request, pk: int):
     """عرض الفاتورة (HTML snapshot) لعمليات الدفع."""
     from django.http import HttpResponse
@@ -3863,7 +3991,7 @@ def system_subscription_invoice_view(request, pk: int):
 # ===============================
 
 
-@system_staff_required
+@system_permission_required("subscription_requests.view")
 def system_subscription_requests_list(request):
     Req = _get_subscription_request_model()
     if Req is None:
@@ -3929,7 +4057,7 @@ def system_subscription_requests_list(request):
     )
 
 
-@system_staff_required
+@system_permission_required("subscription_requests.view")
 def system_subscription_request_detail(request, pk: int):
     Req = _get_subscription_request_model()
     if Req is None:
@@ -3943,6 +4071,8 @@ def system_subscription_request_detail(request, pk: int):
         return redirect("dashboard:system_subscription_requests_list")
 
     if request.method == "POST":
+        if not has_system_permission(request.user, "subscription_requests.manage"):
+            raise PermissionDenied("لا تملك صلاحية معالجة طلبات الاشتراك.")
         action = (request.POST.get("action") or "").strip()
         admin_note = (request.POST.get("admin_note") or "").strip()
 
@@ -4050,7 +4180,16 @@ def system_subscription_request_detail(request, pk: int):
             messages.success(request, "تم اعتماد الطلب وإنشاء/ربط الاشتراك.")
             return redirect("dashboard:system_subscription_request_detail", pk=pk)
 
-    return render(request, "admin/subscription_request_detail.html", {"obj": obj})
+    return render(
+        request,
+        "admin/subscription_request_detail.html",
+        {
+            "obj": obj,
+            "can_manage_subscription_requests": has_system_permission(
+                request.user, "subscription_requests.manage"
+            ),
+        },
+    )
 
 
 # ==========================
@@ -4720,8 +4859,7 @@ def subscription_invoice_view(request, pk: int):
 # Plans Management
 # ==================
 
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
+@system_permission_required("plans.view")
 def system_plans_list(request):
     q = (request.GET.get("q") or "").strip()
     state = (request.GET.get("state") or "").strip()
@@ -4758,8 +4896,7 @@ def system_plans_list(request):
     }
     return render(request, "admin/plans_list.html", context)
 
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
+@system_permission_required("plans.manage")
 def system_plan_create(request):
     if request.method == "POST":
         form = SubscriptionPlanForm(request.POST)
@@ -4775,8 +4912,7 @@ def system_plan_create(request):
         {"form": form, "title": "إضافة باقة جديدة", "submit_label": "إضافة الباقة"},
     )
 
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
+@system_permission_required("plans.manage")
 def system_plan_edit(request, pk):
     plan = get_object_or_404(SubscriptionPlan, pk=pk)
     if request.method == "POST":
@@ -4795,7 +4931,7 @@ def system_plan_edit(request, pk):
 
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser)
+@system_permission_required("plans.manage")
 @require_POST
 def system_plan_toggle(request, pk):
     plan = get_object_or_404(SubscriptionPlan, pk=pk)
@@ -4807,8 +4943,7 @@ def system_plan_toggle(request, pk):
         messages.warning(request, f"تم إيقاف باقة «{plan.name}» ولن تظهر للاشتراكات الجديدة.")
     return redirect("dashboard:system_plans_list")
 
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
+@system_permission_required("plans.manage")
 def system_plan_delete(request, pk):
     plan = get_object_or_404(SubscriptionPlan, pk=pk)
     linked_counts = {
@@ -4856,8 +4991,7 @@ def system_plan_delete(request, pk):
 # Reports
 # ==================
 
-@login_required
-@system_staff_required
+@system_permission_required("reports.view")
 def system_reports(request):
     School = SchoolModel()
     SubModel = _get_subscription_model()
@@ -5022,7 +5156,7 @@ def _get_subscription_request_model():
         return None
 
 
-@system_staff_required
+@system_permission_required("screen_addons.view")
 def system_screen_addons_list(request):
     Addon = _get_screen_addon_model()
     if Addon is None:
@@ -5085,7 +5219,7 @@ def system_screen_addons_list(request):
     )
 
 
-@system_staff_required
+@system_permission_required("screen_addons.manage")
 def system_screen_addon_create(request):
     Addon = _get_screen_addon_model()
     if Addon is None:
@@ -5105,7 +5239,7 @@ def system_screen_addon_create(request):
     return render(request, "admin/screen_addon_form.html", {"form": form, "title": "إضافة زيادة شاشات"})
 
 
-@system_staff_required
+@system_permission_required("screen_addons.manage")
 def system_screen_addon_edit(request, pk: int):
     Addon = _get_screen_addon_model()
     if Addon is None:
@@ -5131,7 +5265,7 @@ def system_screen_addon_edit(request, pk: int):
     )
 
 
-@superuser_required
+@system_permission_required("screen_addons.manage")
 def system_screen_addon_delete(request, pk: int):
     Addon = _get_screen_addon_model()
     if Addon is None:

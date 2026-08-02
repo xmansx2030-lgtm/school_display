@@ -34,6 +34,11 @@ def is_privileged_user(user) -> bool:
     if bool(getattr(user, "is_superuser", False)):
         return True
     try:
+        if bool(getattr(user, "is_staff", False) and user.system_employee_profile):
+            return True
+    except Exception:
+        pass
+    try:
         return user.groups.filter(name="Support").exists()
     except Exception:
         return False
