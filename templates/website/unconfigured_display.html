@@ -5,21 +5,21 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-    <title>لوحة العرض الذكية للمدارس | منصة تشغيل الشاشة المدرسية باحتراف</title>
-    <meta name="description" content="حوّل تلفاز المدرسة إلى شاشة ذكية للجدول الحي، الانتظار، المناوبات، الإعلانات، التكريم وتنبيهات الطوارئ، مع مراقبة التشغيل واستمرار العرض عند انقطاع الاتصال. جرّب المنصة كاملة مجاناً لمدة {{ landing_trial.duration_days }} يوماً.">
+    <title>لوحة العرض الذكية | خصّص كل شاشة وأدرها من مكان واحد</title>
+    <meta name="description" content="خصّص محتوى كل شاشة مدرسية حسب موقعها وجمهورها، وأدر الجدول الحي والانتظار والمناوبات والإعلانات والتكريم والطوارئ من لوحة واحدة. جرّب المنصة كاملة مجاناً لمدة {{ landing_trial.duration_days }} يوماً.">
     <meta name="robots" content="index,follow,max-image-preview:large">
     <link rel="canonical" href="https://school-display.com/">
 
     <meta property="og:type" content="website">
     <meta property="og:locale" content="ar_SA">
     <meta property="og:site_name" content="لوحة العرض الذكية">
-    <meta property="og:title" content="لوحة العرض الذكية للمدارس">
-    <meta property="og:description" content="شاشة مدرسية ذكية تتحدث تلقائياً، تستمر عند انقطاع الاتصال، وتمنح الإدارة مراقبة أوضح لكل شاشة.">
+    <meta property="og:title" content="خصّص كل شاشة مدرسية وأدرها من مكان واحد">
+    <meta property="og:description" content="محتوى مناسب لكل شاشة، وإدارة مركزية للجدول والتنبيهات والإعلانات ومراقبة التشغيل.">
     <meta property="og:url" content="https://school-display.com/">
     <meta property="og:image" content="https://school-display.com/favicon.png?v=20260723-logo1">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="لوحة العرض الذكية للمدارس">
-    <meta name="twitter:description" content="الجدول والتنبيهات والمحتوى ومراقبة التشغيل في منصة شاشة مدرسية واحدة.">
+    <meta name="twitter:title" content="خصّص كل شاشة مدرسية وأدرها من مكان واحد">
+    <meta name="twitter:description" content="وجّه المحتوى المناسب إلى الشاشة المناسبة من لوحة إدارة مركزية واحدة.">
 
     <meta name="theme-color" content="#07111f">
 
@@ -39,7 +39,7 @@
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web",
       "url": "https://school-display.com/",
-      "description": "منصة لإدارة شاشة المدرسة والجدول الحي وحصص الانتظار والإعلانات والتكريم والمناوبات وتنبيهات الطوارئ ومراقبة التشغيل.",
+      "description": "منصة مركزية لتخصيص محتوى كل شاشة مدرسية وإدارة الجدول الحي وحصص الانتظار والإعلانات والتكريم والمناوبات وتنبيهات الطوارئ ومراقبة التشغيل.",
       "offers": {
         "@type": "Offer",
         "price": "{{ landing_trial.price|floatformat:'-2' }}",
@@ -2706,6 +2706,183 @@
             box-shadow: var(--shadow-md);
         }
 
+        .feature-card.orchestration-card {
+            grid-column: 1 / -1;
+            min-height: 390px;
+            display: grid;
+            grid-template-columns: minmax(0, .82fr) minmax(480px, 1.18fr);
+            align-items: center;
+            gap: 34px;
+            padding: 34px;
+            background:
+                radial-gradient(circle at 8% 15%, rgba(201, 154, 72, .24), transparent 28%),
+                radial-gradient(circle at 96% 100%, rgba(24, 160, 125, .3), transparent 34%),
+                linear-gradient(145deg, #12304f, #07111f 66%);
+        }
+
+        .orchestration-copy {
+            position: relative;
+            z-index: 2;
+        }
+
+        .orchestration-copy .feature-icon {
+            margin-bottom: 14px;
+        }
+
+        .orchestration-copy h3 {
+            max-width: 560px;
+            font-size: clamp(1.7rem, 3vw, 2.45rem);
+            line-height: 1.3;
+        }
+
+        .orchestration-copy > p {
+            max-width: 610px;
+            color: rgba(255, 255, 255, .72);
+            font-size: 1rem;
+            line-height: 1.95;
+        }
+
+        .orchestration-benefits {
+            display: grid;
+            gap: 10px;
+            margin-top: 22px;
+            list-style: none;
+        }
+
+        .orchestration-benefits li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: rgba(255, 255, 255, .88);
+            font-size: .86rem;
+            font-weight: 800;
+        }
+
+        .orchestration-benefits i {
+            display: grid;
+            place-items: center;
+            width: 26px;
+            height: 26px;
+            flex: 0 0 auto;
+            border-radius: 9px;
+            color: #6ee7b7;
+            background: rgba(16, 185, 129, .14);
+        }
+
+        .orchestration-map {
+            position: relative;
+            display: grid;
+            grid-template-columns: minmax(155px, .72fr) 54px minmax(220px, 1.28fr);
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .control-source {
+            padding: 22px;
+            border: 1px solid rgba(255, 255, 255, .14);
+            border-radius: 22px;
+            background: rgba(255, 255, 255, .1);
+            box-shadow: 0 24px 52px rgba(2, 6, 23, .28);
+            backdrop-filter: blur(14px);
+        }
+
+        .control-source > i {
+            display: grid;
+            place-items: center;
+            width: 44px;
+            height: 44px;
+            margin-bottom: 14px;
+            border-radius: 14px;
+            color: #f9d58a;
+            background: rgba(201, 154, 72, .16);
+        }
+
+        .control-source strong,
+        .control-source small {
+            display: block;
+        }
+
+        .control-source strong {
+            font-family: 'Changa', sans-serif;
+            font-size: 1rem;
+        }
+
+        .control-source small {
+            margin-top: 5px;
+            color: rgba(255, 255, 255, .6);
+            line-height: 1.65;
+        }
+
+        .flow-arrow {
+            position: relative;
+            height: 2px;
+            background: linear-gradient(90deg, #6ee7b7, rgba(110, 231, 183, .2));
+        }
+
+        .flow-arrow::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: -1px;
+            width: 10px;
+            height: 10px;
+            border-bottom: 2px solid #6ee7b7;
+            border-left: 2px solid #6ee7b7;
+            transform: translateY(-50%) rotate(45deg);
+        }
+
+        .screen-destinations {
+            display: grid;
+            gap: 10px;
+        }
+
+        .destination-screen {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 12px;
+            padding: 13px 14px;
+            border: 1px solid rgba(255, 255, 255, .11);
+            border-radius: 17px;
+            background: rgba(2, 6, 23, .3);
+        }
+
+        .destination-screen > i {
+            display: grid;
+            place-items: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 11px;
+            color: #6ee7b7;
+            background: rgba(16, 185, 129, .12);
+        }
+
+        .destination-screen strong,
+        .destination-screen small {
+            display: block;
+        }
+
+        .destination-screen strong {
+            font-size: .8rem;
+        }
+
+        .destination-screen small {
+            margin-top: 2px;
+            color: rgba(255, 255, 255, .54);
+            font-size: .67rem;
+        }
+
+        .destination-screen > span {
+            border-radius: 999px;
+            padding: 5px 8px;
+            color: #d1fae5;
+            background: rgba(16, 185, 129, .14);
+            font-size: .62rem;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
         .feature-icon {
             display: grid;
             place-items: center;
@@ -3037,6 +3214,10 @@
             .bento-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .feature-card,
             .feature-card.wide { grid-column: auto; }
+            .feature-card.orchestration-card {
+                grid-column: 1 / -1;
+                grid-template-columns: 1fr;
+            }
             .assurance-shell { grid-template-columns: 1fr; }
         }
 
@@ -3050,6 +3231,26 @@
             .bento-grid { grid-template-columns: 1fr; }
             .feature-card,
             .feature-card.wide { min-height: auto; padding: 22px; }
+            .feature-card.orchestration-card {
+                grid-column: auto;
+                gap: 26px;
+                padding: 24px 20px;
+            }
+            .orchestration-map {
+                grid-template-columns: 1fr;
+            }
+            .flow-arrow {
+                width: 2px;
+                height: 34px;
+                margin: 0 auto;
+                background: linear-gradient(180deg, #6ee7b7, rgba(110, 231, 183, .2));
+            }
+            .flow-arrow::after {
+                top: auto;
+                bottom: -1px;
+                left: 50%;
+                transform: translateX(-50%) rotate(-45deg);
+            }
             .problem-card { min-height: auto; padding: 24px; }
             .outcome-strip { grid-template-columns: 1fr; }
             .assurance-shell { padding: 24px 20px; border-radius: 26px; }
@@ -3133,12 +3334,12 @@
                             </div>
 
                             <h1>
-                                حوّل تلفاز المدرسة إلى شاشة ذكية
-                                <span>تُحدّث يومها تلقائياً</span>
+                                خصّص ما تعرضه كل شاشة
+                                <span>وأدرها كلها من مكان واحد</span>
                             </h1>
 
                             <p>
-                                اعرض الحصة الحالية والانتظار والمناوبات والإعلانات والتكريم وتنبيهات الطوارئ فوراً، وأدر كل شاشات المدرسة من لوحة واحدة.
+                                اجعل شاشة المدخل للإعلانات والتكريم، وشاشة المعلمين للجدول والانتظار، وشاشة الأنشطة للمناسبات — وكلها تتحدّث من لوحة إدارة مركزية واحدة.
                             </p>
 
                             <div class="hero-actions">
@@ -3159,8 +3360,8 @@
 
                             <div class="hero-meta">
                                 <div class="hero-meta-item">
-                                    <i class="fa-solid fa-triangle-exclamation"></i>
-                                    <div><strong>طوارئ فورية</strong><span>إلى شاشة أو جميع الشاشات</span></div>
+                                    <i class="fa-solid fa-sliders"></i>
+                                    <div><strong>محتوى مخصص</strong><span>لكل شاشة أو للجميع</span></div>
                                 </div>
                                 <div class="hero-meta-item">
                                     <i class="fa-solid fa-cloud-arrow-down"></i>
@@ -3261,8 +3462,8 @@
 
                 <div class="marquee-strip reveal">
                     <div>
-                        <strong>غيّر المعلومة مرة واحدة، ودع كل شاشة تعرض الصحيح في وقته.</strong>
-                        <p>بدلاً من نقل الملفات والتحديث اليدوي، تصبح الشاشة جزءاً حياً من تشغيل المدرسة اليومي.</p>
+                        <strong>مصدر واحد للمحتوى. تجربة مناسبة لكل شاشة.</strong>
+                        <p>حدّث المعلومة من اللوحة، وحدد أين تظهر؛ بلا ملفات متناثرة أو تعديل يدوي أمام كل تلفاز.</p>
                     </div>
                     <div class="marquee-list">
                         <span><i class="fa-solid fa-file-excel"></i> استيراد Excel</span>
@@ -3362,11 +3563,51 @@
             <div class="container">
                 <div class="section-header reveal">
                     <div class="eyebrow"><i class="fa-solid fa-table-cells-large"></i> منصة اليوم المدرسي</div>
-                    <h2>ليست شاشة إعلانات فقط. إنها طبقة تشغيل مرئية للمدرسة.</h2>
-                    <p>من الجدول الصباحي إلى تنبيه الطوارئ، ومن استيراد البيانات إلى متابعة اتصال الشاشة؛ كل وظيفة مصممة لتعمل مع الأخرى.</p>
+                    <h2>كل شاشة لها دورها. والإدارة كلها في لوحة واحدة.</h2>
+                    <p>خصّص نوع المحتوى والثيم والقالب لكل شاشة، ووجّه الإعلانات والتنبيهات إلى شاشة بعينها أو إلى الجميع، من مصدر مركزي واحد.</p>
                 </div>
 
                 <div class="bento-grid">
+                    <article class="feature-card orchestration-card dark reveal">
+                        <div class="orchestration-copy">
+                            <span class="feature-tag">إدارة متعددة الشاشات</span>
+                            <div class="feature-icon"><i class="fa-solid fa-diagram-project"></i></div>
+                            <h3>المحتوى المناسب، على الشاشة المناسبة</h3>
+                            <p>أنشئ المحتوى مرة واحدة من لوحة الإدارة، ثم حدّد ما يظهر على كل شاشة بحسب موقعها وجمهورها — مع هوية مدرسية موحّدة وتحكم مستقل عند الحاجة.</p>
+                            <ul class="orchestration-benefits">
+                                <li><i class="fa-solid fa-check"></i> اختر أقسام المحتوى الظاهرة على كل شاشة</li>
+                                <li><i class="fa-solid fa-check"></i> خصّص الثيم وقالب المناسبة واللوحة البارزة</li>
+                                <li><i class="fa-solid fa-check"></i> وجّه الإعلانات والطوارئ لشاشة محددة أو للجميع</li>
+                            </ul>
+                        </div>
+
+                        <div class="orchestration-map" aria-hidden="true">
+                            <div class="control-source">
+                                <i class="fa-solid fa-table-columns"></i>
+                                <strong>لوحة إدارة واحدة</strong>
+                                <small>المحتوى والجدول والتنبيهات وإعدادات العرض</small>
+                            </div>
+                            <div class="flow-arrow"></div>
+                            <div class="screen-destinations">
+                                <div class="destination-screen">
+                                    <i class="fa-solid fa-display"></i>
+                                    <div><strong>شاشة المدخل</strong><small>إعلانات المدرسة والتكريم</small></div>
+                                    <span>مخصصة</span>
+                                </div>
+                                <div class="destination-screen">
+                                    <i class="fa-solid fa-display"></i>
+                                    <div><strong>شاشة المعلمين</strong><small>الجدول والانتظار والمناوبات</small></div>
+                                    <span>مخصصة</span>
+                                </div>
+                                <div class="destination-screen">
+                                    <i class="fa-solid fa-display"></i>
+                                    <div><strong>شاشة الأنشطة</strong><small>المناسبات والإنجازات</small></div>
+                                    <span>مخصصة</span>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
                     <article class="feature-card wide dark reveal">
                         <span class="feature-tag">ميزة جديدة</span>
                         <div class="feature-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
@@ -3596,6 +3837,10 @@
                         <p>نعم. يمكن البدء بعدد محدود ثم التوسع لاحقاً بحسب حاجة المدرسة، بدون تغيير في أسلوب العمل أو المزايا.</p>
                     </details>
                     <details class="faq-item reveal">
+                        <summary><i class="fa-solid fa-sliders"></i>هل يمكن تخصيص محتوى كل شاشة بشكل مستقل؟</summary>
+                        <p>نعم. من لوحة الإدارة نفسها تستطيع تحديد أقسام المحتوى والثيم والقالب واللوحة البارزة لكل شاشة، كما تستطيع توجيه إعلان أو تنبيه طارئ إلى شاشة محددة أو إلى جميع الشاشات.</p>
+                    </details>
+                    <details class="faq-item reveal">
                         <summary><i class="fa-solid fa-file-excel"></i>هل يمكن استيراد الجدول من Excel؟</summary>
                         <p>نعم. توفر المنصة قالباً معتمداً لاستيراد المعلمين والمواد والفصول والحصص، مع معاينة الأخطاء قبل تنفيذ الاستيراد.</p>
                     </details>
@@ -3619,8 +3864,8 @@
             <div class="container">
                 <div class="cta-panel reveal">
                     <div>
-                        <h2>دع الشاشة تعمل مع المدرسة، لا بجانبها.</h2>
-                        <p>أنشئ حساب التجربة الآن، شغّل الشاشة الأولى بكل المزايا، واتخذ قرار الاشتراك بعد أن ترى النتيجة داخل مدرستك.</p>
+                        <h2>شغّل الشاشة الأولى اليوم. وتوسّع من اللوحة نفسها.</h2>
+                        <p>أنشئ حساب التجربة، خصّص أول شاشة خلال دقائق، ثم أضف شاشات أخرى بمحتوى يناسب كل موقع عندما تحتاج.</p>
                     </div>
                     <div style="display:flex; gap:12px; flex-wrap:wrap;">
                         <button type="button" class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">أنشئ تجربتك المجانية</button>
