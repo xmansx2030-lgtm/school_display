@@ -441,6 +441,10 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(response, 'data-payment-choice="new"', count=3)
         self.assertContains(response, 'data-payment-choice="renewal"', count=3)
         self.assertContains(response, "خطوة واحدة واضحة")
+        self.assertContains(response, "ربط شاشة الآن")
+        self.assertContains(response, reverse("dashboard:screen_list"))
+        self.assertContains(response, "dashboard-form-shell col-span-full")
+        self.assertNotContains(response, "lg:col-span-12")
         self.assertContains(response, "الخيار المناسب لتشغيل شاشات المدرسة")
         self.assertContains(response, "الأكثر طلباً")
         self.assertNotContains(response, "المدارس:")
@@ -487,6 +491,25 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(response, "تعذر الاتصال بتمارا حاليًا.")
         self.assertContains(response, "إعادة المحاولة")
         self.assertContains(response, "التحويل البنكي بدلًا من ذلك")
+        self.assertContains(response, 'data-tamara-history')
+        self.assertContains(response, 'data-default-expanded="false"')
+
+    def test_tamara_history_expands_when_payment_can_be_continued(self):
+        current_plan = SchoolSubscription.objects.get(school=self.school).plan
+        TamaraCheckout.objects.create(
+            school=self.school,
+            created_by=self.user,
+            plan=current_plan,
+            request_type="renewal",
+            amount=current_plan.price,
+            status="new",
+            checkout_url="https://checkout.tamara.test/session",
+        )
+
+        response = self.client.get(reverse("dashboard:my_subscription"))
+
+        self.assertContains(response, 'data-default-expanded="true"')
+        self.assertContains(response, "متابعة الدفع")
 
     def test_free_plan_needs_no_receipt_but_paid_bank_transfer_does(self):
         free_plan = SubscriptionPlan.objects.create(

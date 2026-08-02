@@ -4706,6 +4706,11 @@ def my_subscription(request):
     except Exception:
         tamara_checkouts = []
 
+    tamara_history_expanded = any(
+        checkout.status in {"initiated", "new", "approved", "authorised"}
+        for checkout in tamara_checkouts
+    )
+
     tamara_available = bool(
         getattr(dj_settings, "TAMARA_ENABLED", False)
         and getattr(dj_settings, "TAMARA_API_TOKEN", "")
@@ -4763,6 +4768,7 @@ def my_subscription(request):
             "subscription_requests": subscription_requests,
             "subscription_history": subscription_history,
             "tamara_checkouts": tamara_checkouts,
+            "tamara_history_expanded": tamara_history_expanded,
             "tamara_available": tamara_available,
             "tamara_environment": tamara_environment,
             "moyasar_checkouts": moyasar_checkouts,
