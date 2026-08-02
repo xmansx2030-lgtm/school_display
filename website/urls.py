@@ -21,6 +21,9 @@ urlpatterns = [
     # إنشاء حساب تجربة مجانية من صفحة الهبوط
     path("trial/start/", views.trial_signup, name="trial_signup"),
 
+    # استكمال طلب باقة مدفوعة بعد الدخول أو إنشاء الحساب
+    path("plans/order/", views.plan_order, name="plan_order"),
+
     # Health check
     path("health/", views.health, name="health"),
 

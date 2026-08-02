@@ -4292,6 +4292,21 @@ def my_subscription(request):
         if details.get("id") is not None
     }
 
+    requested_plan = None
+    requested_plan_code = (request.GET.get("plan") or "").strip()
+    if request.method == "GET" and requested_plan_code:
+        requested_plan = next(
+            (
+                plan
+                for plan in available_plans
+                if getattr(plan, "code", "") == requested_plan_code
+                and (getattr(plan, "price", 0) or 0) > 0
+            ),
+            None,
+        )
+        if requested_plan is not None:
+            new_form.initial["plan"] = requested_plan.pk
+
     renewal_plan_obj = None
     if current_subscription is not None:
         renewal_plan_obj = getattr(current_subscription, "plan", None)
@@ -4300,7 +4315,11 @@ def my_subscription(request):
     elif primary_subscription is not None:
         renewal_plan_obj = getattr(primary_subscription, "plan", None)
 
-    active_request_tab = "renewal" if renewal_plan_obj is not None else "new"
+    active_request_tab = (
+        "new"
+        if requested_plan is not None
+        else ("renewal" if renewal_plan_obj is not None else "new")
+    )
 
     if request.method == "POST":
         action = (request.POST.get("action") or "").strip()
@@ -4616,6 +4635,7 @@ def my_subscription(request):
             "renewal_plan_details": _plan_details(renewal_plan_obj),
             "plans_map": plans_map,
             "available_plan_cards": available_plan_cards,
+            "requested_plan": requested_plan,
             "screens_total_count": screens_total_count,
             "screens_active_count": screens_active_count,
             "screens_live_count": screens_live_count,

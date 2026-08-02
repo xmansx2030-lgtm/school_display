@@ -1599,6 +1599,7 @@ class SubscriptionPlanForm(forms.ModelForm):
         self.fields["price"].help_text = "السعر الكامل للباقة بالريال السعودي."
         self.fields["duration_days"].help_text = "عدد أيام الاشتراك، مثل 365 للباقة السنوية."
         self.fields["description"].help_text = "وصف قصير يساعد المدرسة على اختيار الباقة المناسبة."
+        self.fields["card_features"].help_text = "اكتب كل ميزة في سطر مستقل، وستظهر بالترتيب نفسه داخل البطاقة."
 
     class Meta:
         model = SubscriptionPlan
@@ -1608,8 +1609,18 @@ class SubscriptionPlanForm(forms.ModelForm):
             "code",
             "price",
             "duration_days",
-            "max_users",
             "max_screens",
+            "card_badge_text",
+            "card_duration_text",
+            "card_price_caption",
+            "card_monthly_text",
+            "card_features",
+            "card_screen_text",
+            "card_cta_text",
+            "show_card_badge",
+            "show_card_duration",
+            "show_monthly_equivalent",
+            "show_screen_limit",
             "sort_order",
             "is_featured",
             "is_active",
@@ -1622,8 +1633,16 @@ class SubscriptionPlanForm(forms.ModelForm):
             "code": forms.TextInput(attrs={"placeholder": "annual-pro", "dir": "ltr"}),
             "price": forms.NumberInput(attrs={"min": "0", "step": "0.01"}),
             "duration_days": forms.NumberInput(attrs={"min": "1"}),
-            "max_users": forms.NumberInput(attrs={"min": "1", "placeholder": "فارغ = غير محدود"}),
             "max_screens": forms.NumberInput(attrs={"min": "1", "placeholder": "فارغ = غير محدود"}),
+            "card_badge_text": forms.TextInput(attrs={"placeholder": "مثال: متاحة للاشتراك"}),
+            "card_duration_text": forms.TextInput(attrs={"placeholder": "فارغ = يُنشأ تلقائياً"}),
+            "card_price_caption": forms.TextInput(attrs={"placeholder": "فارغ = يُنشأ تلقائياً"}),
+            "card_monthly_text": forms.TextInput(attrs={"placeholder": "فارغ = يُحسب تلقائياً"}),
+            "card_features": forms.Textarea(
+                attrs={"rows": "5", "placeholder": "جميع مزايا النظام كاملة\nدعم فني مباشر"}
+            ),
+            "card_screen_text": forms.TextInput(attrs={"placeholder": "فارغ = يُنشأ من عدد الشاشات"}),
+            "card_cta_text": forms.TextInput(attrs={"placeholder": "اطلب هذه الباقة"}),
             "sort_order": forms.NumberInput(attrs={"min": "0"}),
         }
 

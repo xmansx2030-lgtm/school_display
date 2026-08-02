@@ -1,23 +1,28 @@
 from __future__ import annotations
 
+from urllib.parse import urlencode
+
+from django.contrib import messages
 from django.contrib.auth import login
 from django.conf import settings as django_settings
 from django.core.cache import cache
 from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from core.models import DisplayScreen, SubscriptionPlan
+from dashboard.access import get_active_school_or_redirect
 from schedule.models import SchoolSettings
 from subscriptions.plan_catalog import plan_cards
 from .services import (
     TrialSignupError,
+    activate_trial_if_eligible,
     check_trial_rate_limit,
     create_trial_signup,
     normalize_mobile,
@@ -228,6 +233,7 @@ def home(request):
                 "token": key,
                 "login_url": reverse("dashboard:login"),
                 "trial_signup_url": reverse("website:trial_signup"),
+                "plan_order_url": reverse("website:plan_order"),
                 "dashboard_url": reverse("dashboard:index"),
                 "landing_plans": landing_plans,
                 "landing_trial": landing_trial,
@@ -245,6 +251,42 @@ def subscriptions(request):
         request,
         "website/subscriptions.html",
         {"tamara_available": tamara_available},
+    )
+
+
+@never_cache
+@require_GET
+def plan_order(request):
+    """Resume a landing-page paid-plan journey after authentication."""
+    plan_code = (request.GET.get("plan") or "").strip()
+    plan = (
+        SubscriptionPlan.objects.filter(code=plan_code, is_active=True, price__gt=0)
+        .only("code", "name")
+        .first()
+    )
+    if plan is None:
+        messages.error(request, "الباقة المطلوبة غير متاحة حاليًا. اختر إحدى الباقات المتاحة.")
+        return redirect(f'{reverse("website:home")}#pricing')
+
+    order_path = f'{reverse("website:plan_order")}?{urlencode({"plan": plan.code})}'
+    if not request.user.is_authenticated:
+        login_url = reverse("dashboard:login")
+        return redirect(f'{login_url}?{urlencode({"next": order_path})}')
+
+    school, response = get_active_school_or_redirect(request)
+    if response:
+        return response
+
+    trial_result = activate_trial_if_eligible(request.user, school)
+    if trial_result.activated:
+        messages.success(
+            request,
+            "تم تفعيل الباقة المجانية تلقائيًا. يمكنك الآن اختيار الباقة المدفوعة وإكمال الدفع.",
+        )
+
+    subscription_url = reverse("dashboard:my_subscription")
+    return redirect(
+        f'{subscription_url}?{urlencode({"plan": plan.code, "source": "landing"})}#renewal-section'
     )
 
 
@@ -271,11 +313,29 @@ def trial_signup(request):
 
     login(request, result.user, backend="django.contrib.auth.backends.ModelBackend")
 
+    requested_plan_code = (request.POST.get("plan_code") or "").strip()
+    requested_plan = (
+        SubscriptionPlan.objects.filter(
+            code=requested_plan_code,
+            is_active=True,
+            price__gt=0,
+        )
+        .only("code")
+        .first()
+    )
+    if requested_plan is not None:
+        redirect_url = (
+            f'{reverse("website:plan_order")}?'
+            f'{urlencode({"plan": requested_plan.code})}'
+        )
+    else:
+        redirect_url = reverse("dashboard:help_getting_started")
+
     return JsonResponse(
         {
             "ok": True,
             "message": "تم تجهيز تجربة المدرسة بنجاح.",
-            "redirect_url": reverse("dashboard:help_getting_started"),
+            "redirect_url": redirect_url,
             "login_url": reverse("dashboard:login"),
             "username": result.user.username,
             "mobile": getattr(getattr(result.user, "profile", None), "mobile", "") or mobile,

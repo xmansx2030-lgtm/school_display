@@ -33,8 +33,46 @@ def plan_card(plan) -> dict:
     code = str(getattr(plan, "code", "") or "")
     name = str(getattr(plan, "name", "") or "")
     is_trial = code == "free-trial" or (price == 0 and "تجرب" in name)
-    max_users = getattr(plan, "max_users", None)
     max_screens = getattr(plan, "max_screens", None)
+    show_badge = bool(getattr(plan, "show_card_badge", True))
+    show_duration = bool(getattr(plan, "show_card_duration", True))
+    show_monthly = bool(getattr(plan, "show_monthly_equivalent", True))
+    show_screens = bool(getattr(plan, "show_screen_limit", True))
+
+    automatic_badge = (
+        "تجربة مجانية"
+        if is_trial
+        else "الأكثر طلباً"
+        if bool(getattr(plan, "is_featured", False))
+        else "مجانية"
+        if price == 0
+        else "متاحة للاشتراك"
+    )
+    badge_text = str(getattr(plan, "card_badge_text", "") or "").strip() or automatic_badge
+    duration_text = str(getattr(plan, "card_duration_text", "") or "").strip()
+    if not duration_text:
+        duration_text = f"مدة الباقة: {duration_label}"
+    price_caption = str(getattr(plan, "card_price_caption", "") or "").strip()
+    if not price_caption:
+        price_caption = f"ريال سعودي / {period_label}"
+
+    custom_monthly_text = str(getattr(plan, "card_monthly_text", "") or "").strip()
+    if custom_monthly_text:
+        monthly_text = custom_monthly_text
+    elif monthly_equivalent is not None:
+        monthly_text = f"يعادل {monthly_equivalent} ر.س شهرياً"
+    else:
+        monthly_text = ""
+
+    raw_features = str(getattr(plan, "card_features", "") or "")
+    features = [line.strip() for line in raw_features.splitlines() if line.strip()]
+    custom_screen_text = str(getattr(plan, "card_screen_text", "") or "").strip()
+    if custom_screen_text:
+        screen_text = custom_screen_text
+    elif max_screens not in (None, ""):
+        screen_text = f"الشاشات: {int(max_screens)}"
+    else:
+        screen_text = "الشاشات: غير محدودة"
 
     return {
         "id": getattr(plan, "pk", None),
@@ -46,11 +84,17 @@ def plan_card(plan) -> dict:
         "duration_label": duration_label,
         "period_label": period_label,
         "monthly_equivalent": str(monthly_equivalent) if monthly_equivalent is not None else None,
-        "max_users": int(max_users) if max_users not in (None, "") else None,
         "max_screens": int(max_screens) if max_screens not in (None, "") else None,
         "is_featured": bool(getattr(plan, "is_featured", False)),
         "is_trial": is_trial,
         "is_free": price == 0,
+        "badge_text": badge_text if show_badge else "",
+        "duration_text": duration_text if show_duration else "",
+        "price_caption": price_caption,
+        "monthly_text": monthly_text if show_monthly else "",
+        "features": features,
+        "screen_text": screen_text if show_screens else "",
+        "cta_text": str(getattr(plan, "card_cta_text", "") or "").strip() or "اطلب هذه الباقة",
     }
 
 

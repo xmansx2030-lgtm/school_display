@@ -377,6 +377,15 @@
 
     <!-- الجانب الأيسر: نموذج الطلب -->
     <div class="dashboard-form-shell lg:col-span-7 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+      {% if requested_plan %}
+      <div class="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900" role="status">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 font-black text-white">✓</span>
+        <div>
+          <p class="font-black">تم اختيار {{ requested_plan.name }}</p>
+          <p class="mt-1 text-xs leading-6">راجع تفاصيل الباقة أدناه، ثم اختر طريقة الدفع المناسبة لإكمال الاشتراك.</p>
+        </div>
+      </div>
+      {% endif %}
       
       <!-- Tabs Layout -->
       <div class="dashboard-tab-strip flex p-1.5 bg-slate-100 rounded-2xl mb-8" role="tablist" aria-label="نوع طلب الاشتراك">
@@ -537,10 +546,8 @@
                 aria-pressed="false"
                 class="group relative rounded-2xl border p-4 text-right transition-all {% if plan.is_featured %}border-indigo-300 bg-indigo-50/60{% else %}border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/30{% endif %}"
               >
-                {% if plan.is_trial %}
-                  <span class="absolute left-3 top-3 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-black text-white">تجربة مجانية</span>
-                {% elif plan.is_featured %}
-                  <span class="absolute left-3 top-3 rounded-full bg-indigo-600 px-2.5 py-1 text-[10px] font-black text-white">الأكثر طلباً</span>
+                {% if plan.badge_text %}
+                  <span class="absolute left-3 top-3 rounded-full {% if plan.is_trial %}bg-emerald-600{% else %}bg-indigo-600{% endif %} px-2.5 py-1 text-[10px] font-black text-white">{{ plan.badge_text }}</span>
                 {% endif %}
                 <div class="pl-20">
                   <p class="font-black text-slate-900">{{ plan.name }}</p>
@@ -549,11 +556,10 @@
                 <div class="mt-4 flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
                   <div>
                     <strong class="text-2xl font-black text-indigo-700">{{ plan.price|floatformat:"-2" }}</strong>
-                    <span class="text-[10px] font-bold text-slate-500">ر.س / {{ plan.period_label }}</span>
+                    <span class="text-[10px] font-bold text-slate-500">{{ plan.price_caption }}</span>
                   </div>
                   <div class="flex gap-2 text-[10px] font-bold text-slate-600">
-                    <span class="rounded-lg bg-slate-50 px-2 py-1.5">{{ plan.max_screens|default:"غير محدود" }} شاشة</span>
-                    <span class="rounded-lg bg-slate-50 px-2 py-1.5">{{ plan.max_users|default:"غير محدود" }} مستخدم</span>
+                    {% if plan.screen_text %}<span class="rounded-lg bg-slate-50 px-2 py-1.5">{{ plan.screen_text }}</span>{% endif %}
                   </div>
                 </div>
               </button>

@@ -32,6 +32,13 @@ class TrialSignupResult:
     screen: DisplayScreen
 
 
+@dataclass(frozen=True)
+class TrialActivationResult:
+    activated: bool
+    reason: str
+    subscription: SchoolSubscription | None = None
+
+
 class TrialSignupError(Exception):
     def __init__(self, errors: dict[str, str]):
         self.errors = errors
@@ -130,6 +137,7 @@ def get_or_create_trial_plan() -> SubscriptionPlan:
         "max_users": 1,
         "max_screens": TRIAL_MAX_SCREENS,
         "max_schools": 1,
+        "card_cta_text": "ابدأ التجربة",
         "is_active": True,
         "sort_order": 0,
     }
@@ -165,6 +173,59 @@ def get_or_create_trial_plan() -> SubscriptionPlan:
     if changed:
         plan.save(update_fields=changed)
     return plan
+
+
+@transaction.atomic
+def activate_trial_if_eligible(user, school: School) -> TrialActivationResult:
+    """Activate one trial per customer, only before any subscription history.
+
+    Eligibility is checked across every school attached to the user's profile,
+    not just the currently selected school. Locking the profile makes repeated
+    clicks safe and prevents two concurrent requests from granting two trials.
+    """
+    if not getattr(user, "is_authenticated", False) or school is None:
+        return TrialActivationResult(False, "invalid_account")
+
+    try:
+        profile = UserProfile.objects.select_for_update().get(user=user)
+    except UserProfile.DoesNotExist:
+        return TrialActivationResult(False, "invalid_account")
+
+    school_ids = list(profile.schools.values_list("id", flat=True))
+    if school.pk not in school_ids:
+        return TrialActivationResult(False, "unauthorized_school")
+
+    if SchoolSubscription.objects.filter(school_id__in=school_ids).exists():
+        return TrialActivationResult(False, "subscription_history")
+
+    plan = get_or_create_trial_plan()
+    today = timezone.localdate()
+    subscription = SchoolSubscription.objects.create(
+        school=school,
+        plan=plan,
+        starts_at=today,
+        status="active",
+        notes="Free trial activated automatically from paid-plan journey",
+    )
+
+    theme = "emerald" if getattr(school, "school_type", "") == "boys" else "rose"
+    SchoolSettings.objects.get_or_create(
+        school=school,
+        defaults={
+            "name": school.name,
+            "theme": theme,
+            "timezone_name": "Asia/Riyadh",
+            "refresh_interval_sec": 30,
+        },
+    )
+    if not DisplayScreen.objects.filter(school=school).exists():
+        DisplayScreen.objects.create(
+            school=school,
+            name="الشاشة الرئيسية",
+            is_active=True,
+        )
+
+    return TrialActivationResult(True, "activated", subscription)
 
 
 def _validate_signup_data(data: dict) -> dict:

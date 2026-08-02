@@ -350,6 +350,48 @@ class SubscriptionPlan(models.Model):
         blank=True,
         help_text="يظهر أسفل اسم الباقة في صفحة الاشتراك وصفحة الهبوط.",
     )
+    card_badge_text = models.CharField(
+        "نص شارة الباقة",
+        max_length=80,
+        blank=True,
+        help_text="اتركه فارغًا لاستخدام النص التلقائي بحسب نوع الباقة.",
+    )
+    card_duration_text = models.CharField(
+        "نص مدة الباقة",
+        max_length=120,
+        blank=True,
+        help_text="مثال: مدة الباقة: 6 أشهر. اتركه فارغًا ليُنشأ من عدد الأيام.",
+    )
+    card_price_caption = models.CharField(
+        "وصف السعر",
+        max_length=120,
+        blank=True,
+        help_text="مثال: ريال سعودي / نصف سنوي. اتركه فارغًا للنص التلقائي.",
+    )
+    card_monthly_text = models.CharField(
+        "نص المعادل الشهري",
+        max_length=160,
+        blank=True,
+        help_text="اتركه فارغًا ليُحسب المعادل الشهري تلقائيًا من السعر والمدة.",
+    )
+    card_features = models.TextField(
+        "مزايا الباقة",
+        default="جميع مزايا النظام كاملة",
+        blank=True,
+        help_text="اكتب كل ميزة في سطر مستقل. يمكن ترك الحقل فارغًا لإخفاء المزايا.",
+    )
+    card_screen_text = models.CharField(
+        "نص عدد الشاشات",
+        max_length=120,
+        blank=True,
+        help_text="مثال: الشاشات: 3. اتركه فارغًا ليُنشأ من حد الشاشات.",
+    )
+    card_cta_text = models.CharField(
+        "نص زر الطلب",
+        max_length=80,
+        default="اطلب هذه الباقة",
+        blank=True,
+    )
     price = models.DecimalField(
         "سعر الباقة (ر.س)",
         max_digits=8,
@@ -389,6 +431,10 @@ class SubscriptionPlan(models.Model):
         default=False,
         help_text="تميّز الباقة بصرياً وتعرض عليها شارة الأكثر طلباً.",
     )
+    show_card_badge = models.BooleanField("إظهار شارة الباقة", default=True)
+    show_card_duration = models.BooleanField("إظهار مدة الباقة", default=True)
+    show_monthly_equivalent = models.BooleanField("إظهار المعادل الشهري", default=True)
+    show_screen_limit = models.BooleanField("إظهار عدد الشاشات", default=True)
     sort_order = models.PositiveIntegerField(
         "ترتيب العرض",
         default=1,

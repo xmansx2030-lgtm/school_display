@@ -113,6 +113,10 @@ def _needs_onboarding(user) -> bool:
         return False
 
 
+def _has_requested_next(request) -> bool:
+    return bool((request.GET.get("next") or request.POST.get("next") or "").strip())
+
+
 @never_cache
 @ensure_csrf_cookie
 @csrf_protect
@@ -125,6 +129,8 @@ def login_view(request):
         _school, response = get_active_school_or_redirect(request)
         if response:
             return response
+        if _has_requested_next(request):
+            return redirect(next_url)
         if _needs_onboarding(request.user):
             return redirect("dashboard:help_getting_started")
         return redirect("dashboard:index")
@@ -168,6 +174,8 @@ def login_view(request):
             _school, response = get_active_school_or_redirect(request)
             if response:
                 return response
+            if _has_requested_next(request):
+                return redirect(next_url)
             if _needs_onboarding(user):
                 return redirect("dashboard:help_getting_started")
             return redirect(safe_next_url(request, default_name="dashboard:index"))

@@ -89,23 +89,73 @@
       <section class="admin-panel">
         <div class="admin-panel-header">
           <div>
-            <h2><i class="fas fa-sliders ml-2 text-blue-500"></i>حدود الاستخدام</h2>
-            <p>حدد ما يحصل عليه العميل ضمن هذه الباقة.</p>
+            <h2><i class="fas fa-rectangle-list ml-2 text-blue-500"></i>محتوى بطاقة الباقة</h2>
+            <p>تحكم في جميع النصوص والمزايا التي يراها العميل داخل البطاقة.</p>
           </div>
         </div>
         <div class="admin-form-grid md:grid-cols-2">
           <div class="admin-form-field">
-            <label for="{{ form.max_users.id_for_label }}">{{ form.max_users.label }}</label>
-            {{ form.max_users }}
-            <p class="admin-field-help">اتركه فارغاً لعدد غير محدود.</p>
-            {% if form.max_users.errors %}<p class="admin-field-error">{{ form.max_users.errors.0 }}</p>{% endif %}
-          </div>
-          <div class="admin-form-field">
             <label for="{{ form.max_screens.id_for_label }}">{{ form.max_screens.label }}</label>
             {{ form.max_screens }}
-            <p class="admin-field-help">اتركه فارغاً لعدد غير محدود.</p>
+            <p class="admin-field-help">يُستخدم كحد فعلي للباقة وفي النص التلقائي للبطاقة.</p>
             {% if form.max_screens.errors %}<p class="admin-field-error">{{ form.max_screens.errors.0 }}</p>{% endif %}
           </div>
+          <div class="admin-form-field">
+            <label for="{{ form.card_badge_text.id_for_label }}">{{ form.card_badge_text.label }}</label>
+            {{ form.card_badge_text }}
+            <p class="admin-field-help">{{ form.card_badge_text.help_text }}</p>
+            {% if form.card_badge_text.errors %}<p class="admin-field-error">{{ form.card_badge_text.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="admin-form-field">
+            <label for="{{ form.card_duration_text.id_for_label }}">{{ form.card_duration_text.label }}</label>
+            {{ form.card_duration_text }}
+            <p class="admin-field-help">{{ form.card_duration_text.help_text }}</p>
+            {% if form.card_duration_text.errors %}<p class="admin-field-error">{{ form.card_duration_text.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="admin-form-field">
+            <label for="{{ form.card_price_caption.id_for_label }}">{{ form.card_price_caption.label }}</label>
+            {{ form.card_price_caption }}
+            <p class="admin-field-help">{{ form.card_price_caption.help_text }}</p>
+            {% if form.card_price_caption.errors %}<p class="admin-field-error">{{ form.card_price_caption.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="admin-form-field md:col-span-2">
+            <label for="{{ form.card_monthly_text.id_for_label }}">{{ form.card_monthly_text.label }}</label>
+            {{ form.card_monthly_text }}
+            <p class="admin-field-help">{{ form.card_monthly_text.help_text }}</p>
+            {% if form.card_monthly_text.errors %}<p class="admin-field-error">{{ form.card_monthly_text.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="admin-form-field md:col-span-2">
+            <label for="{{ form.card_features.id_for_label }}">{{ form.card_features.label }}</label>
+            {{ form.card_features }}
+            <p class="admin-field-help">{{ form.card_features.help_text }}</p>
+            {% if form.card_features.errors %}<p class="admin-field-error">{{ form.card_features.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="admin-form-field">
+            <label for="{{ form.card_screen_text.id_for_label }}">{{ form.card_screen_text.label }}</label>
+            {{ form.card_screen_text }}
+            <p class="admin-field-help">{{ form.card_screen_text.help_text }}</p>
+            {% if form.card_screen_text.errors %}<p class="admin-field-error">{{ form.card_screen_text.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="admin-form-field">
+            <label for="{{ form.card_cta_text.id_for_label }}">{{ form.card_cta_text.label }}</label>
+            {{ form.card_cta_text }}
+            {% if form.card_cta_text.errors %}<p class="admin-field-error">{{ form.card_cta_text.errors.0 }}</p>{% endif %}
+          </div>
+        </div>
+
+        <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label class="admin-switch-row" for="{{ form.show_card_badge.id_for_label }}">
+            <span><strong>{{ form.show_card_badge.label }}</strong></span>{{ form.show_card_badge }}
+          </label>
+          <label class="admin-switch-row" for="{{ form.show_card_duration.id_for_label }}">
+            <span><strong>{{ form.show_card_duration.label }}</strong></span>{{ form.show_card_duration }}
+          </label>
+          <label class="admin-switch-row" for="{{ form.show_monthly_equivalent.id_for_label }}">
+            <span><strong>{{ form.show_monthly_equivalent.label }}</strong></span>{{ form.show_monthly_equivalent }}
+          </label>
+          <label class="admin-switch-row" for="{{ form.show_screen_limit.id_for_label }}">
+            <span><strong>{{ form.show_screen_limit.label }}</strong></span>{{ form.show_screen_limit }}
+          </label>
         </div>
       </section>
     </div>
@@ -118,17 +168,18 @@
       <div class="mt-5 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-4 text-right">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <span id="planPreviewBadge" class="hidden rounded-full bg-indigo-600 px-2.5 py-1 text-[10px] font-black text-white">الأكثر طلباً</span>
+            <span id="planPreviewBadge" class="rounded-full bg-indigo-600 px-2.5 py-1 text-[10px] font-black text-white">متاحة للاشتراك</span>
             <h3 id="planPreviewName" class="mt-2 font-black text-slate-900">اسم الباقة</h3>
           </div>
           <strong class="text-lg font-black text-indigo-700"><span id="planPreviewPrice">0</span> ر.س</strong>
         </div>
         <p id="planPreviewDescription" class="mt-2 text-xs leading-6 text-slate-500">سيظهر وصف الباقة هنا.</p>
-        <div class="mt-3 flex flex-wrap gap-2 text-[10px] font-bold text-slate-600">
-          <span class="rounded-lg bg-white px-2.5 py-1.5 ring-1 ring-slate-100"><i class="fas fa-calendar ml-1 text-indigo-500"></i><span id="planPreviewDuration">—</span></span>
-          <span class="rounded-lg bg-white px-2.5 py-1.5 ring-1 ring-slate-100"><i class="fas fa-display ml-1 text-indigo-500"></i><span id="planPreviewScreens">—</span> شاشة</span>
-          <span class="rounded-lg bg-white px-2.5 py-1.5 ring-1 ring-slate-100"><i class="fas fa-user-group ml-1 text-indigo-500"></i><span id="planPreviewUsers">—</span> مستخدم</span>
-        </div>
+        <p id="planPreviewDuration" class="mt-3 text-[11px] font-bold text-slate-600">مدة الباقة: —</p>
+        <p id="planPreviewPriceCaption" class="mt-1 text-[11px] font-bold text-slate-500">ريال سعودي</p>
+        <p id="planPreviewMonthly" class="mt-1 text-[11px] font-bold text-indigo-600"></p>
+        <ul id="planPreviewFeatures" class="mt-3 space-y-1 text-[11px] font-bold text-slate-600"></ul>
+        <p id="planPreviewScreens" class="mt-2 text-[11px] font-bold text-slate-600">الشاشات: غير محدودة</p>
+        <div id="planPreviewCta" class="mt-4 rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-xs font-black text-slate-900">اطلب هذه الباقة</div>
       </div>
 
       <label class="admin-switch-row mt-5" for="{{ form.is_featured.id_for_label }}">
@@ -167,7 +218,17 @@
       price: document.getElementById('{{ form.price.id_for_label }}'),
       duration: document.getElementById('{{ form.duration_days.id_for_label }}'),
       screens: document.getElementById('{{ form.max_screens.id_for_label }}'),
-      users: document.getElementById('{{ form.max_users.id_for_label }}'),
+      badgeText: document.getElementById('{{ form.card_badge_text.id_for_label }}'),
+      durationText: document.getElementById('{{ form.card_duration_text.id_for_label }}'),
+      priceCaption: document.getElementById('{{ form.card_price_caption.id_for_label }}'),
+      monthlyText: document.getElementById('{{ form.card_monthly_text.id_for_label }}'),
+      features: document.getElementById('{{ form.card_features.id_for_label }}'),
+      screenText: document.getElementById('{{ form.card_screen_text.id_for_label }}'),
+      ctaText: document.getElementById('{{ form.card_cta_text.id_for_label }}'),
+      showBadge: document.getElementById('{{ form.show_card_badge.id_for_label }}'),
+      showDuration: document.getElementById('{{ form.show_card_duration.id_for_label }}'),
+      showMonthly: document.getElementById('{{ form.show_monthly_equivalent.id_for_label }}'),
+      showScreens: document.getElementById('{{ form.show_screen_limit.id_for_label }}'),
       featured: document.getElementById('{{ form.is_featured.id_for_label }}')
     };
 
@@ -188,11 +249,34 @@
       setText('planPreviewName', (fields.name && fields.name.value.trim()) || 'اسم الباقة');
       setText('planPreviewDescription', (fields.description && fields.description.value.trim()) || 'سيظهر وصف الباقة هنا.');
       setText('planPreviewPrice', (fields.price && fields.price.value) || '0');
-      setText('planPreviewDuration', durationLabel(fields.duration && fields.duration.value));
-      setText('planPreviewScreens', (fields.screens && fields.screens.value) || 'غير محدود');
-      setText('planPreviewUsers', (fields.users && fields.users.value) || 'غير محدود');
+      var generatedDuration = 'مدة الباقة: ' + durationLabel(fields.duration && fields.duration.value);
+      setText('planPreviewDuration', (fields.durationText && fields.durationText.value.trim()) || generatedDuration);
+      setText('planPreviewPriceCaption', (fields.priceCaption && fields.priceCaption.value.trim()) || 'ريال سعودي / حسب مدة الباقة');
+      setText('planPreviewMonthly', (fields.monthlyText && fields.monthlyText.value.trim()) || 'يُحسب المعادل الشهري تلقائياً');
+      setText('planPreviewScreens', (fields.screenText && fields.screenText.value.trim()) || 'الشاشات: ' + ((fields.screens && fields.screens.value) || 'غير محدودة'));
+      setText('planPreviewCta', (fields.ctaText && fields.ctaText.value.trim()) || 'اطلب هذه الباقة');
+
+      var featuresList = document.getElementById('planPreviewFeatures');
+      if (featuresList) {
+        featuresList.innerHTML = '';
+        var lines = ((fields.features && fields.features.value) || '').split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean);
+        lines.forEach(function (line) {
+          var item = document.createElement('li');
+          item.textContent = '✓ ' + line;
+          featuresList.appendChild(item);
+        });
+      }
       var badge = document.getElementById('planPreviewBadge');
-      if (badge) badge.classList.toggle('hidden', !(fields.featured && fields.featured.checked));
+      if (badge) {
+        badge.textContent = (fields.badgeText && fields.badgeText.value.trim()) || ((fields.featured && fields.featured.checked) ? 'الأكثر طلباً' : 'متاحة للاشتراك');
+        badge.classList.toggle('hidden', !(fields.showBadge && fields.showBadge.checked));
+      }
+      var duration = document.getElementById('planPreviewDuration');
+      if (duration) duration.classList.toggle('hidden', !(fields.showDuration && fields.showDuration.checked));
+      var monthly = document.getElementById('planPreviewMonthly');
+      if (monthly) monthly.classList.toggle('hidden', !(fields.showMonthly && fields.showMonthly.checked));
+      var screens = document.getElementById('planPreviewScreens');
+      if (screens) screens.classList.toggle('hidden', !(fields.showScreens && fields.showScreens.checked));
     }
 
     Object.keys(fields).forEach(function (key) {

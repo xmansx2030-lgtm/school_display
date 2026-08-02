@@ -932,6 +932,9 @@ class SystemAdminExperienceTests(TestCase):
         self.assertContains(form_response, "الباقة الموصى بها")
         self.assertContains(form_response, "data-duration-days=\"365\"")
         self.assertContains(form_response, "planPreviewName")
+        self.assertContains(form_response, "محتوى بطاقة الباقة")
+        self.assertContains(form_response, "مزايا الباقة")
+        self.assertNotContains(form_response, "الحد الأقصى للمستخدمين")
         self.assertNotContains(form_response, "max_schools")
 
         create_response = self.client.post(
@@ -942,8 +945,18 @@ class SystemAdminExperienceTests(TestCase):
                 "code": "NEW-PLAN",
                 "price": "1499.00",
                 "duration_days": "365",
-                "max_users": "10",
                 "max_screens": "3",
+                "card_badge_text": "باقة المدارس النشطة",
+                "card_duration_text": "مدة خاصة للعميل",
+                "card_price_caption": "ريال سعودي / عرض سنوي",
+                "card_monthly_text": "قيمة شهرية مخصصة",
+                "card_features": "الميزة الأولى\nالميزة الثانية",
+                "card_screen_text": "3 شاشات متزامنة",
+                "card_cta_text": "اطلب العرض الآن",
+                "show_card_badge": "on",
+                "show_card_duration": "on",
+                "show_monthly_equivalent": "on",
+                "show_screen_limit": "on",
                 "sort_order": "2",
                 "is_featured": "on",
                 "is_active": "on",
@@ -954,6 +967,9 @@ class SystemAdminExperienceTests(TestCase):
         self.assertEqual(created_plan.max_schools, 1)
         self.assertTrue(created_plan.is_featured)
         self.assertEqual(created_plan.description, "وصف الباقة الجديدة")
+        self.assertEqual(created_plan.card_badge_text, "باقة المدارس النشطة")
+        self.assertEqual(created_plan.card_features, "الميزة الأولى\nالميزة الثانية")
+        self.assertEqual(created_plan.card_cta_text, "اطلب العرض الآن")
 
         edit_response = self.client.post(
             reverse("dashboard:system_plan_edit", args=[created_plan.pk]),
@@ -963,8 +979,18 @@ class SystemAdminExperienceTests(TestCase):
                 "code": "new-plan",
                 "price": "1799.00",
                 "duration_days": "365",
-                "max_users": "15",
                 "max_screens": "4",
+                "card_badge_text": "باقة مطورة",
+                "card_duration_text": "مدة محدثة",
+                "card_price_caption": "سعر محدث",
+                "card_monthly_text": "معادل محدث",
+                "card_features": "ميزة محدثة",
+                "card_screen_text": "4 شاشات متزامنة",
+                "card_cta_text": "اطلب النسخة المطورة",
+                "show_card_badge": "on",
+                "show_card_duration": "on",
+                "show_monthly_equivalent": "on",
+                "show_screen_limit": "on",
                 "sort_order": "2",
                 "is_active": "on",
             },

@@ -95,9 +95,9 @@
             {% endif %}
           </div>
 
-          {% if plan.is_featured %}
+          {% if plan.catalog.badge_text %}
             <span class="mt-3 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-[10px] font-black text-white">
-              <i class="fas fa-star"></i> الأكثر طلباً
+              <i class="fas fa-star"></i> {{ plan.catalog.badge_text }}
             </span>
           {% endif %}
           {% if plan.description %}
@@ -125,22 +125,18 @@
             <span class="mb-1 text-xs font-bold text-slate-500">ر.س</span>
           </div>
           <p class="mt-1 text-[11px] text-slate-400">
-            {{ plan.catalog.duration_label }} · {{ plan.catalog.period_label }}
+            {{ plan.catalog.duration_text|default:plan.catalog.duration_label }} · {{ plan.catalog.price_caption }}
           </p>
-          {% if plan.catalog.monthly_equivalent %}
-            <p class="mt-1 text-[11px] font-bold text-indigo-600">يعادل {{ plan.catalog.monthly_equivalent }} ر.س شهرياً</p>
+          {% if plan.catalog.monthly_text %}
+            <p class="mt-1 text-[11px] font-bold text-indigo-600">{{ plan.catalog.monthly_text }}</p>
           {% endif %}
 
-          <div class="mt-5 grid grid-cols-2 gap-2">
-            <div class="rounded-xl bg-slate-50 p-3 text-center">
-              <strong class="block text-sm text-slate-900">{{ plan.max_users|default:"∞" }}</strong>
-              <span class="text-[10px] text-slate-500">مستخدمون</span>
+          {% if plan.catalog.features or plan.catalog.screen_text %}
+            <div class="mt-5 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+              {% for feature in plan.catalog.features %}<p class="mb-1"><i class="fas fa-check ml-1 text-emerald-600"></i>{{ feature }}</p>{% endfor %}
+              {% if plan.catalog.screen_text %}<p><i class="fas fa-display ml-1 text-indigo-600"></i>{{ plan.catalog.screen_text }}</p>{% endif %}
             </div>
-            <div class="rounded-xl bg-slate-50 p-3 text-center">
-              <strong class="block text-sm text-slate-900">{{ plan.max_screens|default:"∞" }}</strong>
-              <span class="text-[10px] text-slate-500">شاشات</span>
-            </div>
-          </div>
+          {% endif %}
 
           <div class="mt-4 rounded-xl border border-slate-100 p-3">
             <div class="flex items-center justify-between text-xs">

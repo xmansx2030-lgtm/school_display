@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth import get_user
 from django.core.cache import cache
@@ -135,6 +137,13 @@ class TrialSignupTests(TestCase):
             sort_order=3,
             is_featured=True,
             is_active=True,
+            card_badge_text="الخيار الأنسب للمدارس",
+            card_duration_text="اشتراك مدرسي لمدة عام",
+            card_price_caption="ريال سعودي شامل الضريبة / سنوي",
+            card_monthly_text="أقل من 30 ريالاً لكل شاشة شهرياً",
+            card_features="كل مزايا المنصة\nدعم فني مباشر\nتحديثات مستمرة",
+            card_screen_text="تشغيل حتى 4 شاشات",
+            card_cta_text="اشترك في الباقة الآن",
         )
         SubscriptionPlan.objects.create(
             code="landing-hidden",
@@ -152,11 +161,16 @@ class TrialSignupTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, active_plan.name)
         self.assertContains(response, active_plan.description)
-        self.assertContains(response, "الأكثر طلباً")
+        self.assertContains(response, "الخيار الأنسب للمدارس")
         self.assertContains(response, "9876")
-        self.assertContains(response, "سنة كاملة")
-        self.assertContains(response, "الشاشات:")
+        self.assertContains(response, "اشتراك مدرسي لمدة عام")
+        self.assertContains(response, "ريال سعودي شامل الضريبة / سنوي")
+        self.assertContains(response, "أقل من 30 ريالاً لكل شاشة شهرياً")
+        self.assertContains(response, "دعم فني مباشر")
+        self.assertContains(response, "تشغيل حتى 4 شاشات")
+        self.assertContains(response, "اشترك في الباقة الآن")
         self.assertContains(response, "data-plan-code=\"landing-annual\"")
+        self.assertNotContains(response, "المستخدمون:")
         self.assertNotContains(response, "المدارس:")
         self.assertNotContains(response, "باقة مخفية من الهبوط")
 
@@ -220,6 +234,147 @@ class TrialSignupTests(TestCase):
         )
         self.assertEqual(duplicate.status_code, 400)
         self.assertIn("email", duplicate.json()["errors"])
+
+
+@override_settings(CACHES=TEST_CACHES)
+class PaidPlanJourneyTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.plan = SubscriptionPlan.objects.create(
+            code="paid-three-screens",
+            name="باقة 3 شاشات",
+            price=1190,
+            duration_days=180,
+            max_screens=3,
+            is_active=True,
+        )
+
+    def _account(self, *, school_name="مدرسة العميل"):
+        user = get_user_model().objects.create_user(
+            username="customer",
+            password="StrongPass123!",
+        )
+        school = School.objects.create(
+            name=school_name,
+            slug="customer-school",
+            school_type="boys",
+        )
+        profile = UserProfile.objects.create(
+            user=user,
+            active_school=school,
+            needs_onboarding=True,
+        )
+        profile.schools.add(school)
+        return user, school
+
+    def _order_url(self):
+        return f'{reverse("website:plan_order")}?{urlencode({"plan": self.plan.code})}'
+
+    def test_paid_plan_requires_login_and_preserves_the_selected_plan(self):
+        response = self.client.get(self._order_url())
+
+        self.assertEqual(response.status_code, 302)
+        expected_next = urlencode({"next": self._order_url()})
+        self.assertEqual(response.url, f'{reverse("dashboard:login")}?{expected_next}')
+
+    def test_eligible_existing_account_gets_one_trial_then_reaches_selected_plan(self):
+        user, school = self._account()
+        self.client.force_login(user)
+
+        response = self.client.get(self._order_url())
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(f"plan={self.plan.code}", response.url)
+        self.assertIn("#renewal-section", response.url)
+        trial = SchoolSubscription.objects.get(school=school)
+        self.assertEqual(trial.plan.code, "free-trial")
+        self.assertEqual(trial.status, "active")
+        self.assertTrue(DisplayScreen.objects.filter(school=school).exists())
+        self.assertTrue(SchoolSettings.objects.filter(school=school).exists())
+
+        second = self.client.get(self._order_url())
+        self.assertEqual(second.status_code, 302)
+        self.assertEqual(SchoolSubscription.objects.filter(school=school).count(), 1)
+
+    def test_any_previous_subscription_across_users_schools_blocks_a_new_trial(self):
+        user, first_school = self._account(school_name="المدرسة الأولى")
+        previous_plan = SubscriptionPlan.objects.create(
+            code="previous-plan",
+            name="اشتراك سابق",
+            price=500,
+            duration_days=30,
+            is_active=False,
+        )
+        SchoolSubscription.objects.create(
+            school=first_school,
+            plan=previous_plan,
+            status="expired",
+        )
+        second_school = School.objects.create(
+            name="المدرسة الثانية",
+            slug="second-customer-school",
+            school_type="girls",
+        )
+        profile = user.profile
+        profile.schools.add(second_school)
+        profile.active_school = second_school
+        profile.save(update_fields=["active_school"])
+        self.client.force_login(user)
+
+        response = self.client.get(self._order_url())
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            SchoolSubscription.objects.filter(
+                school=second_school,
+                plan__code="free-trial",
+            ).exists()
+        )
+
+    def test_paid_plan_signup_redirects_to_plan_journey(self):
+        response = self.client.post(
+            reverse("website:trial_signup"),
+            data={
+                "school_name": "مدرسة الاشتراك الجديد",
+                "school_type": "boys",
+                "city": "الرياض",
+                "contact_name": "أحمد محمد",
+                "mobile": "0501234567",
+                "email": "paid-signup@example.com",
+                "password": "StrongPass123!",
+                "password_confirm": "StrongPass123!",
+                "plan_code": self.plan.code,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["redirect_url"], self._order_url())
+        self.assertEqual(SchoolSubscription.objects.count(), 1)
+
+    def test_selected_paid_plan_is_preselected_on_subscription_page(self):
+        user, _school = self._account()
+        self.client.force_login(user)
+
+        response = self.client.get(self._order_url(), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f"تم اختيار {self.plan.name}")
+        self.assertContains(response, f'value="{self.plan.pk}" selected')
+
+    def test_login_honors_paid_plan_next_even_when_onboarding_is_pending(self):
+        user, _school = self._account()
+
+        response = self.client.post(
+            reverse("dashboard:login"),
+            data={
+                "username": user.username,
+                "password": "StrongPass123!",
+                "next": self._order_url(),
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, self._order_url())
 
 
 @override_settings(DISPLAY_WS_LIVE_STATUS_CHECK_SEC=60)

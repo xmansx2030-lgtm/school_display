@@ -1271,6 +1271,30 @@
             color: var(--text-soft);
         }
 
+        .account-login-choice {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border: 1px solid rgba(37, 99, 235, 0.16);
+            border-radius: 16px;
+            background: rgba(37, 99, 235, 0.06);
+            color: var(--text-soft);
+            font-size: 0.9rem;
+        }
+
+        .account-login-choice a {
+            flex: 0 0 auto;
+            color: #1d4ed8;
+            font-weight: 900;
+        }
+
+        .account-login-choice[hidden] {
+            display: none;
+        }
+
         .form-group {
             margin-bottom: 16px;
         }
@@ -3756,39 +3780,38 @@
                 <div class="pricing-grid">
                     {% for plan in landing_plans %}
                     <article class="price-card reveal{% if plan.is_trial or plan.is_featured %} popular{% endif %}" data-plan-code="{{ plan.code }}">
+                        {% if plan.badge_text %}
                         <div class="plan-badge">
-                            {% if plan.is_trial %}تجربة مجانية{% elif plan.is_featured %}الأكثر طلباً{% elif plan.is_free %}مجانية{% else %}متاحة للاشتراك{% endif %}
+                            {{ plan.badge_text }}
                         </div>
+                        {% endif %}
                         <h3>{{ plan.name }}</h3>
                         {% if plan.description %}<p class="plan-meta">{{ plan.description }}</p>{% endif %}
-                        <p class="plan-meta">مدة الباقة: {{ plan.duration_label }}</p>
+                        {% if plan.duration_text %}<p class="plan-meta">{{ plan.duration_text }}</p>{% endif %}
                         <div class="{% if plan.is_free %}price-val-static{% else %}price-val{% endif %}">{{ plan.price|floatformat:"-2" }}</div>
-                        <span class="price-period">ريال سعودي / {{ plan.period_label }}</span>
-                        {% if plan.monthly_equivalent %}
-                          <span class="price-period">يعادل {{ plan.monthly_equivalent|floatformat:"-2" }} ر.س شهرياً</span>
-                        {% endif %}
+                        <span class="price-period">{{ plan.price_caption }}</span>
+                        {% if plan.monthly_text %}<span class="price-period">{{ plan.monthly_text }}</span>{% endif %}
                         <ul class="feature-list">
-                            <li><i class="fa-solid fa-check"></i> جميع مزايا النظام كاملة</li>
-                            <li>
+                            {% for feature in plan.features %}
+                              <li><i class="fa-solid fa-check"></i> {{ feature }}</li>
+                            {% endfor %}
+                            {% if plan.screen_text %}<li>
                                 <i class="fa-solid fa-display"></i>
-                                الشاشات:
-                                {% if plan.max_screens %}{{ plan.max_screens }}{% else %}غير محدودة{% endif %}
-                            </li>
-                            <li>
-                                <i class="fa-solid fa-users"></i>
-                                المستخدمون:
-                                {% if plan.max_users %}{{ plan.max_users }}{% else %}غير محدودين{% endif %}
-                            </li>
+                                {{ plan.screen_text }}
+                            </li>{% endif %}
                         </ul>
                         <button
                             type="button"
                             class="{% if plan.is_trial %}btn{% else %}btn-outline{% endif %} btn-block"
                             data-plan="{{ plan.name }}"
+                            data-plan-code="{{ plan.code }}"
                             data-period="{{ plan.duration_label }}"
                             data-price="{{ plan.price|floatformat:'-2' }}"
                             data-is-trial="{{ plan.is_trial|yesno:'true,false' }}"
+                            data-order-url="{{ plan_order_url }}?plan={{ plan.code|urlencode }}"
+                            data-user-authenticated="{{ request.user.is_authenticated|yesno:'true,false' }}"
                             onclick="openPlanFromButton(this)">
-                            {% if plan.is_trial %}ابدأ التجربة{% else %}اطلب هذه الباقة{% endif %}
+                            {{ plan.cta_text }}
                         </button>
                     </article>
                     {% empty %}
@@ -3883,6 +3906,7 @@
 
             <form id="orderForm" method="post" action="{{ trial_signup_url }}" onsubmit="submitOrder(event)" novalidate>
                 {% csrf_token %}
+                <input type="hidden" id="p_plan_code" name="plan_code">
                 <input type="hidden" id="p_plan" name="plan_label">
                 <input type="hidden" id="p_period" name="period_label">
                 <input type="hidden" id="p_price" name="price_label">
@@ -3890,8 +3914,13 @@
 
                 <div class="form-alert" id="formAlert" role="status" aria-live="polite" aria-atomic="true"></div>
 
+                <div class="account-login-choice" id="accountLoginChoice" hidden>
+                    <span>لديك حساب بالفعل؟</span>
+                    <a id="orderLoginLink" href="{{ login_url }}">تسجيل الدخول والمتابعة</a>
+                </div>
+
                 <div class="trial-result" id="trialResult" role="status" aria-live="polite" aria-atomic="true" tabindex="-1" hidden>
-                    <h3>تم إنشاء تجربة المدرسة بنجاح</h3>
+                    <h3 id="trialResultTitle">تم إنشاء تجربة المدرسة بنجاح</h3>
                     <p>تم تسجيل دخولك تلقائيا. عند العودة لاحقا يمكنك الدخول برقم الجوال أو باسم المستخدم التالي مع كلمة المرور التي اخترتها.</p>
                     <div class="trial-login-grid">
                         <div class="trial-login-item">
@@ -4048,6 +4077,7 @@
 
     <script>
         let activeOrderIsTrial = false;
+        let activeOrderUrl = '';
         let lastModalTrigger = null;
 
         const header = document.getElementById('header');
@@ -4057,10 +4087,14 @@
         const submitOrderText = document.getElementById('submitOrderText');
         const formAlert = document.getElementById('formAlert');
         const trialResult = document.getElementById('trialResult');
+        const trialResultTitle = document.getElementById('trialResultTitle');
         const trialLoginMobile = document.getElementById('trialLoginMobile');
         const trialLoginUsername = document.getElementById('trialLoginUsername');
         const trialDashboardLink = document.getElementById('trialDashboardLink');
         const copyTrialUsername = document.getElementById('copyTrialUsername');
+        const accountLoginChoice = document.getElementById('accountLoginChoice');
+        const orderLoginLink = document.getElementById('orderLoginLink');
+        const loginBaseUrl = '{{ login_url|escapejs }}';
         const formSteps = Array.from(document.querySelectorAll('[data-form-step]'));
         const formStepIndicators = Array.from(document.querySelectorAll('[data-step-indicator]'));
         const formNextBtn = document.getElementById('formNextBtn');
@@ -4123,19 +4157,29 @@
         }
 
         function openPlanFromButton(buttonElement) {
+            const isTrial = buttonElement.dataset.isTrial === 'true';
+            const orderUrl = buttonElement.dataset.orderUrl || '';
+            if (!isTrial && buttonElement.dataset.userAuthenticated === 'true' && orderUrl) {
+                window.location.assign(orderUrl);
+                return;
+            }
             openOrderModal(
                 buttonElement.dataset.plan || '',
                 buttonElement.dataset.period || '',
                 buttonElement.dataset.price || '0',
-                buttonElement.dataset.isTrial === 'true'
+                isTrial,
+                buttonElement.dataset.planCode || '',
+                orderUrl
             );
         }
 
-        function openOrderModal(plan, period, price, isTrial = null) {
+        function openOrderModal(plan, period, price, isTrial = null, planCode = '', orderUrl = '') {
             lastModalTrigger = document.activeElement;
             clearFormFeedback();
             setFormStep(1);
             activeOrderIsTrial = typeof isTrial === 'boolean' ? isTrial : plan.includes('تجربة');
+            activeOrderUrl = orderUrl || '';
+            document.getElementById('p_plan_code').value = activeOrderIsTrial ? '' : planCode;
             document.getElementById('p_plan').value = plan;
 
             const periodText = period;
@@ -4150,13 +4194,18 @@
                 submitOrderBtn.querySelector('i').className = 'fa-solid fa-wand-magic-sparkles';
                 submitOrderText.innerText = 'إنشاء التجربة الآن';
                 setTrialFieldsEnabled(true);
+                if (accountLoginChoice) accountLoginChoice.hidden = true;
             } else {
-                document.getElementById('modalTitle').innerText = 'طلب اشتراك جديد';
-                document.getElementById('modalSubtitle').innerText = `باقة ${plan} - ${periodText} - بسعر ${price} ريال`;
-                orderForm.classList.remove('trial-mode');
-                submitOrderBtn.querySelector('i').className = 'fa-brands fa-whatsapp';
-                submitOrderText.innerText = 'إرسال الطلب عبر واتساب';
-                setTrialFieldsEnabled(false);
+                document.getElementById('modalTitle').innerText = 'تابع طلب الباقة';
+                document.getElementById('modalSubtitle').innerText = `أنشئ حسابًا جديدًا للمتابعة إلى باقة ${plan}، أو سجل الدخول إذا كان لديك حساب`;
+                orderForm.classList.add('trial-mode');
+                submitOrderBtn.querySelector('i').className = 'fa-solid fa-user-plus';
+                submitOrderText.innerText = 'إنشاء حساب والمتابعة';
+                setTrialFieldsEnabled(true);
+                if (accountLoginChoice) accountLoginChoice.hidden = false;
+                if (orderLoginLink) {
+                    orderLoginLink.href = `${loginBaseUrl}?next=${encodeURIComponent(activeOrderUrl)}`;
+                }
             }
 
             modal.classList.add('active');
@@ -4265,6 +4314,8 @@
                 trialResult.classList.remove('active');
                 trialResult.hidden = true;
             }
+            if (trialResultTitle) trialResultTitle.textContent = 'تم إنشاء تجربة المدرسة بنجاح';
+            if (trialDashboardLink) trialDashboardLink.textContent = 'الدخول إلى لوحة التحكم الآن';
             if (orderForm) orderForm.classList.remove('trial-complete');
             orderForm.querySelectorAll('.form-group').forEach((group) => { group.hidden = false; });
             submitOrderBtn.hidden = false;
@@ -4280,9 +4331,18 @@
         function showTrialSuccess(payload) {
             const username = payload.username || '';
             const mobile = payload.mobile || document.getElementById('mobile').value || '';
+            if (accountLoginChoice) accountLoginChoice.hidden = true;
             if (trialLoginUsername) trialLoginUsername.textContent = username || '—';
             if (trialLoginMobile) trialLoginMobile.textContent = mobile || '—';
             if (trialDashboardLink) trialDashboardLink.href = payload.redirect_url || '{{ dashboard_url|default:"/dashboard/" }}';
+            if (trialResultTitle) {
+                trialResultTitle.textContent = activeOrderIsTrial
+                    ? 'تم إنشاء تجربة المدرسة بنجاح'
+                    : 'تم إنشاء الحساب وتفعيل التجربة المجانية';
+            }
+            if (trialDashboardLink && !activeOrderIsTrial) {
+                trialDashboardLink.textContent = 'اختيار الباقة وإكمال الدفع';
+            }
             if (trialResult) {
                 trialResult.hidden = false;
                 trialResult.classList.add('active');
@@ -4293,6 +4353,9 @@
             submitOrderBtn.hidden = true;
             showFormAlert('success', 'تم تجهيز الحساب. احتفظ ببيانات الدخول الظاهرة هنا.');
             if (trialResult) trialResult.focus();
+            if (!activeOrderIsTrial && payload.redirect_url) {
+                window.setTimeout(() => window.location.assign(payload.redirect_url), 700);
+            }
         }
 
         if (copyTrialUsername) {
@@ -4352,8 +4415,8 @@
                 submitOrderBtn.querySelector('i').className = 'fa-solid fa-wand-magic-sparkles';
                 submitOrderText.innerText = 'إنشاء التجربة الآن';
             } else {
-                submitOrderBtn.querySelector('i').className = 'fa-brands fa-whatsapp';
-                submitOrderText.innerText = 'إرسال الطلب عبر واتساب';
+                submitOrderBtn.querySelector('i').className = 'fa-solid fa-user-plus';
+                submitOrderText.innerText = 'إنشاء حساب والمتابعة';
             }
         }
 
@@ -4392,45 +4455,7 @@
                 return;
             }
 
-            if (activeOrderIsTrial) {
-                submitTrialSignup();
-                return;
-            }
-
-            const school = document.getElementById('schoolName').value;
-            const selectedType = document.querySelector('input[name="school_type"]:checked').value;
-            const type = selectedType === 'girls' ? 'بنات' : 'بنين';
-            const city = document.getElementById('city').value;
-            const name = document.getElementById('contactName').value;
-            const mobileNumber = document.getElementById('mobile').value;
-            const emailAddress = document.getElementById('email').value;
-            const plan = document.getElementById('p_plan').value;
-            const period = document.getElementById('p_period').value;
-            const price = document.getElementById('p_price').value;
-
-            let message = `السلام عليكم، أرغب ب${activeOrderIsTrial ? 'تجربة النظام' : 'الاشتراك في النظام'} بشكل رسمي.\n\n`;
-            message += '📄 *بيانات الطلب:*\n';
-            message += `- المدرسة: ${school} (${type})\n`;
-            message += `- المدينة: ${city}\n`;
-            message += `- المسؤول: ${name}\n`;
-            message += `- الجوال: ${mobileNumber}\n`;
-            message += `- البريد الإلكتروني: ${emailAddress}\n\n`;
-
-            if (activeOrderIsTrial) {
-                message += '🎁 *نوع الطلب:* {{ landing_trial.name|escapejs }} لمدة {{ landing_trial.duration_days }} يوم\n';
-                message += '- المطلوب: تفعيل التجربة بكامل المزايا\n';
-                message += '- الهدف: تقييم النظام على أرض الواقع قبل الاشتراك';
-            } else {
-                message += '📊 *تفاصيل الباقة:*\n';
-                message += `- الباقة: ${plan}\n`;
-                message += `- المدة: ${period}\n`;
-                message += `- السعر: ${price} ريال\n`;
-                message += '- المزايا: نفس المزايا الكاملة، والاختلاف فقط في عدد الشاشات';
-            }
-
-            const url = `https://wa.me/966537720207?text=${encodeURIComponent(message)}`;
-            window.open(url, '_blank');
-            closeOrderModal();
+            submitTrialSignup();
         }
     </script>
 </body>
