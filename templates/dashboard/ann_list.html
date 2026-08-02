@@ -88,6 +88,16 @@
                   <strong>بدون نهاية</strong>
                 {% endif %}
               </div>
+              <div>
+                <span>الشاشات المستهدفة</span>
+                {% with targeted_screens=a.screens.all %}
+                  {% if targeted_screens %}
+                    <strong>{% for screen in targeted_screens %}{{ screen.name }}{% if not forloop.last %}، {% endif %}{% endfor %}</strong>
+                  {% else %}
+                    <strong>جميع الشاشات</strong>
+                  {% endif %}
+                {% endwith %}
+              </div>
             </div>
 
             <div class="ann-card-actions">

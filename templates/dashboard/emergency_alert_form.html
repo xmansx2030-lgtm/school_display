@@ -68,6 +68,14 @@ document.addEventListener('DOMContentLoaded', function () {
   const targets = document.getElementById('screenTargets');
   function syncScope() { targets.style.display = scope.value === 'screens' ? 'block' : 'none'; }
   scope.addEventListener('change', syncScope); syncScope();
+  document.querySelectorAll('#screenTargets input[type="checkbox"]').forEach(function (item) {
+    item.addEventListener('change', function () {
+      if (item.checked) {
+        scope.value = 'screens';
+        syncScope();
+      }
+    });
+  });
   const templates = JSON.parse(document.getElementById('emergencyTemplates').textContent);
   const kind = document.getElementById('{{ form.kind.id_for_label }}');
   const title = document.getElementById('{{ form.title.id_for_label }}');

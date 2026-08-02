@@ -150,6 +150,13 @@ class Announcement(models.Model):
         default="",
         help_text="يغيّر مظهر شاشة العرض طوال فترة نشاط هذا الإعلان.",
     )
+    screens = models.ManyToManyField(
+        DisplayScreen,
+        related_name="announcements",
+        verbose_name="شاشات محددة",
+        blank=True,
+        help_text="اتركها فارغة لعرض التنبيه على جميع شاشات المدرسة.",
+    )
     starts_at = models.DateTimeField("يظهر من", default=timezone.now)
     expires_at = models.DateTimeField("ينتهي في", blank=True, null=True)
     is_active = models.BooleanField("مفعّل", default=True)
@@ -210,6 +217,7 @@ class Announcement(models.Model):
             "level_label": self.get_level_display(),
             "occasion_theme": self.occasion_theme,
             "occasion_theme_label": self.get_occasion_theme_display() if self.occasion_theme else "",
+            "screen_ids": list(self.screens.values_list("id", flat=True)),
             "starts_at": self.starts_at.isoformat() if self.starts_at else None,
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "active": self.active_now,

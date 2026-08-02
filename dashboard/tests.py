@@ -1073,6 +1073,26 @@ class EmergencyAlertsAndExcelImportTests(TestCase):
         self.assertEqual(alert.cancelled_by, self.manager)
         self.assertIsNotNone(alert.cancelled_at)
 
+    def test_emergency_screen_selection_wins_over_stale_all_scope(self):
+        response = self.client.post(
+            reverse("dashboard:emergency_alert_create"),
+            {
+                "kind": "urgent",
+                "title": "رسالة لشاشة واحدة",
+                "message": "لا تعمم هذه الرسالة",
+                "schools": [self.school.pk],
+                "scope": "all",
+                "screens": [self.screen.pk],
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:emergency_alert_list"),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(list(EmergencyAlert.objects.get().screens.all()), [self.screen])
+
     def test_manager_cannot_send_emergency_to_another_school(self):
         response = self.client.post(
             reverse("dashboard:emergency_alert_create"),
@@ -1136,6 +1156,61 @@ class EmergencyAlertsAndExcelImportTests(TestCase):
             snap["announcements"][0]["occasion_theme_label"],
             "اليوم الوطني السعودي",
         )
+
+    def test_occasion_and_announcement_can_target_one_screen(self):
+        starts_at = timezone.now().replace(second=0, microsecond=0)
+        response = self.client.post(
+            reverse("dashboard:ann_create"),
+            {
+                "title": "مناسبة في شاشة المدخل",
+                "body": "هذه المناسبة ليست لجميع الشاشات",
+                "level": "success",
+                "occasion_theme": "national_day",
+                "scope": "screens",
+                "screens": [self.screen.pk],
+                "starts_at": starts_at.strftime("%Y-%m-%dT%H:%M"),
+                "expires_at": (starts_at + timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M"),
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:ann_list"),
+            fetch_redirect_response=False,
+        )
+        announcement = Announcement.objects.get()
+        self.assertEqual(list(announcement.screens.all()), [self.screen])
+        snap = {}
+        _merge_real_data_into_snapshot(
+            RequestFactory().get("/api/display/snapshot/"),
+            snap,
+            self.settings,
+        )
+        self.assertEqual(snap["announcements"][0]["screen_ids"], [self.screen.pk])
+
+    def test_announcement_target_cannot_use_another_school_screen(self):
+        foreign_screen = DisplayScreen.objects.create(
+            name="شاشة مدرسة أخرى",
+            school=self.other_school,
+        )
+        starts_at = timezone.now().replace(second=0, microsecond=0)
+        response = self.client.post(
+            reverse("dashboard:ann_create"),
+            {
+                "title": "تنبيه غير مسموح",
+                "body": "اختبار العزل",
+                "level": "info",
+                "scope": "screens",
+                "screens": [foreign_screen.pk],
+                "starts_at": starts_at.strftime("%Y-%m-%dT%H:%M"),
+                "is_active": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Announcement.objects.exists())
+        self.assertTrue(response.context["form"].errors["screens"])
 
     def test_excel_template_preview_and_atomic_import_create_full_timetable(self):
         parsed = parse_workbook(BytesIO(build_template_bytes()))

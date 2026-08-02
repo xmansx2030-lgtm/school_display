@@ -3909,7 +3909,12 @@
   }
 
   function renderAnnouncements(arr) {
-    const sourceList = Array.isArray(arr) ? arr.slice() : [];
+    const screenId = parseInt(document.body.getAttribute("data-screen-id") || "0", 10);
+    const sourceList = (Array.isArray(arr) ? arr.slice() : []).filter((item) => {
+      item = item || {};
+      const targets = Array.isArray(item.screen_ids) ? item.screen_ids.map(Number) : [];
+      return !targets.length || targets.indexOf(screenId) >= 0;
+    });
     const showAnnouncements = screenFlag("screenShowAnnouncements", true);
     const sig = annSignature(sourceList) + "||" + (showAnnouncements ? "1" : "0");
     if (sig && sig === last.annSig) {

@@ -1357,7 +1357,7 @@ def ann_list(request):
     school, response = get_active_school_or_redirect(request)
     if response:
         return response
-    qs = Announcement.objects.filter(school=school).order_by("-starts_at", "-id")
+    qs = Announcement.objects.filter(school=school).prefetch_related("screens").order_by("-starts_at", "-id")
     now = timezone.now()
     active_q = (
         Q(is_active=True)
@@ -1409,11 +1409,12 @@ def ann_create(request):
     if response:
         return response
     if request.method == "POST":
-        form = AnnouncementForm(request.POST)
+        form = AnnouncementForm(request.POST, school=school)
         if form.is_valid():
             ann = form.save(commit=False)
             ann.school = school
             ann.save()
+            form.save_m2m()
             _invalidate_display_cache(school)
             messages.success(request, "تم إنشاء التنبيه.")
             return redirect("dashboard:ann_list")
@@ -1432,7 +1433,7 @@ def ann_create(request):
                 "starts_at": starts_at,
                 "expires_at": starts_at + timedelta(hours=template["duration_hours"]),
             }
-        form = AnnouncementForm(initial=initial)
+        form = AnnouncementForm(initial=initial, school=school)
     return render(
         request,
         "dashboard/ann_form.html",
@@ -1549,7 +1550,7 @@ def ann_edit(request, pk: int):
         return response
     obj = get_object_or_404(Announcement, pk=pk, school=school)
     if request.method == "POST":
-        form = AnnouncementForm(request.POST, instance=obj)
+        form = AnnouncementForm(request.POST, instance=obj, school=school)
         if form.is_valid():
             form.save()
             _invalidate_display_cache(school)
@@ -1557,7 +1558,7 @@ def ann_edit(request, pk: int):
             return redirect("dashboard:ann_list")
         messages.error(request, "الرجاء تصحيح الأخطاء.")
     else:
-        form = AnnouncementForm(instance=obj)
+        form = AnnouncementForm(instance=obj, school=school)
     return render(
         request,
         "dashboard/ann_form.html",

@@ -590,6 +590,16 @@ BreakFormSet = inlineformset_factory(
 # ========================
 
 class AnnouncementForm(forms.ModelForm):
+    scope = forms.ChoiceField(
+        label="نطاق العرض",
+        choices=[
+            ("all", "جميع شاشات المدرسة"),
+            ("screens", "شاشة محددة أو عدة شاشات"),
+        ],
+        initial="all",
+        required=False,
+    )
+
     class Meta:
         model = Announcement
         fields = [
@@ -597,11 +607,14 @@ class AnnouncementForm(forms.ModelForm):
             "body",
             "level",
             "occasion_theme",
+            "scope",
+            "screens",
             "starts_at",
             "expires_at",
             "is_active",
         ]
         widgets = {
+            "screens": forms.CheckboxSelectMultiple(),
             "starts_at": forms.DateTimeInput(
                 format="%Y-%m-%dT%H:%M",
                 attrs={"type": "datetime-local"},
@@ -612,8 +625,18 @@ class AnnouncementForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, school=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.school = school
+        if school is not None:
+            self.fields["screens"].queryset = DisplayScreen.objects.filter(
+                school=school,
+                is_active=True,
+            ).order_by("name")
+        else:
+            self.fields["screens"].queryset = DisplayScreen.objects.none()
+        if self.instance.pk and self.instance.screens.exists():
+            self.fields["scope"].initial = "screens"
         for name in ("starts_at", "expires_at"):
             if name in self.fields:
                 self.fields[name].input_formats = ["%Y-%m-%dT%H:%M"]
@@ -622,8 +645,16 @@ class AnnouncementForm(forms.ModelForm):
         cleaned = super().clean()
         starts_at = cleaned.get("starts_at")
         expires_at = cleaned.get("expires_at")
+        scope = cleaned.get("scope") or "all"
+        screens = cleaned.get("screens")
         if starts_at and expires_at and expires_at <= starts_at:
             raise ValidationError("وقت انتهاء التنبيه يجب أن يكون بعد وقت البداية.")
+        if screens:
+            # A concrete screen selection always wins, even if an older browser
+            # submits the stale default value `scope=all`.
+            cleaned["scope"] = "screens"
+        elif scope == "screens":
+            self.add_error("screens", "اختر شاشة واحدة على الأقل.")
         return cleaned
 
 
@@ -683,7 +714,11 @@ class EmergencyAlertForm(forms.ModelForm):
             self.add_error("screens", "اختر شاشة واحدة على الأقل.")
         if screens and any(screen.school_id not in {school.pk for school in schools} for screen in screens):
             self.add_error("screens", "إحدى الشاشات لا تتبع المدارس المحددة.")
-        if scope == "all":
+        # A selected screen is authoritative. This prevents a stale/default
+        # `scope=all` value from silently broadening an emergency alert.
+        if screens:
+            cleaned["scope"] = "screens"
+        elif scope == "all":
             cleaned["screens"] = DisplayScreen.objects.none()
         expires_at = cleaned.get("expires_at")
         if expires_at and expires_at <= timezone.now():

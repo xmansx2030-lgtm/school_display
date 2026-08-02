@@ -2865,7 +2865,7 @@ def _merge_real_data_into_snapshot(request, snap: dict, settings_obj: SchoolSett
         if _model_has_field(Announcement, "starts_at"):
             order.append("-starts_at")
         order.append("-id")
-        qs = qs.order_by(*order)[:10]
+        qs = qs.prefetch_related("screens").order_by(*order)[:10]
 
         items = []
         for a in qs:
