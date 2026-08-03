@@ -1064,6 +1064,20 @@
             display: none;
         }
 
+        .price-card[hidden] {
+            display: none;
+        }
+
+        .screen-count-switch {
+            margin-top: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .screen-count-switch button {
+            padding-inline: 18px;
+        }
+
         .pricing-footnotes {
             max-width: 920px;
             margin: 24px auto 0;
@@ -1098,8 +1112,9 @@
         }
 
         .pricing-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            max-width: 1160px;
+            grid-template-columns: minmax(0, 620px);
+            justify-content: center;
+            max-width: 760px;
             margin-inline: auto;
         }
 
@@ -3850,26 +3865,37 @@
             <div class="container">
                 <div class="pricing-head reveal">
                     <div class="eyebrow"><i class="fa-solid fa-tags"></i> الباقات</div>
-                    <h2>ثلاث باقات واضحة، وكل مزايا المنصة مشمولة</h2>
+                    <h2>اختر مدة الاشتراك وعدد الشاشات</h2>
                     <div class="pricing-note">
-                        اختر حجم التغطية ومستوى التهيئة والدعم. لا توجد نسخة أقل جودة أو وظائف أساسية مخفية في أي باقة.
+                        جميع مزايا المنصة مشمولة. السعر يتغير فقط بحسب مدة الاشتراك وعدد الشاشات التي تحتاجها المدرسة.
                     </div>
-                    {% if landing_semiannual_plans %}
+                    {% if landing_monthly_plans or landing_semiannual_plans %}
                     <div class="plan-switch" role="tablist" aria-label="مدة الاشتراك">
-                        <button type="button" class="active" role="tab" aria-selected="true" data-pricing-cycle="annual">سنوي — وفر قرابة 16%</button>
+                        <button type="button" class="active" role="tab" aria-selected="true" data-pricing-cycle="monthly">شهري</button>
                         <button type="button" role="tab" aria-selected="false" data-pricing-cycle="semiannual">6 أشهر</button>
+                        <button type="button" role="tab" aria-selected="false" data-pricing-cycle="annual">سنوي — وفر قرابة 16%</button>
                     </div>
                     {% endif %}
+                    <div class="plan-switch screen-count-switch" role="tablist" aria-label="عدد الشاشات">
+                        <button type="button" class="active" role="tab" aria-selected="true" data-screen-count-option="1">شاشة</button>
+                        <button type="button" role="tab" aria-selected="false" data-screen-count-option="2">شاشتين</button>
+                        <button type="button" role="tab" aria-selected="false" data-screen-count-option="3">3 شاشات</button>
+                        <button type="button" role="tab" aria-selected="false" data-screen-count-option="4">4 شاشات</button>
+                        <button type="button" role="tab" aria-selected="false" data-screen-count-option="5">5 شاشات</button>
+                    </div>
                 </div>
 
-                <div class="pricing-panel" data-pricing-panel="annual">
-                    {% include "website/_pricing_cards.html" with plans=landing_annual_plans %}
+                <div class="pricing-panel" data-pricing-panel="monthly">
+                    {% include "website/_pricing_cards.html" with plans=landing_monthly_plans selected_screen_count=1 %}
                 </div>
                 {% if landing_semiannual_plans %}
                 <div class="pricing-panel" data-pricing-panel="semiannual" hidden>
-                    {% include "website/_pricing_cards.html" with plans=landing_semiannual_plans %}
+                    {% include "website/_pricing_cards.html" with plans=landing_semiannual_plans selected_screen_count=1 %}
                 </div>
                 {% endif %}
+                <div class="pricing-panel" data-pricing-panel="annual" hidden>
+                    {% include "website/_pricing_cards.html" with plans=landing_annual_plans selected_screen_count=1 %}
+                </div>
 
                 <div class="pricing-footnotes reveal">
                     <p>الأسعار لا تشمل ضريبة القيمة المضافة إن كانت واجبة.</p>
@@ -3885,7 +3911,7 @@
                         <article class="benefit-card reveal">
                             <i class="fa-solid fa-file-import"></i>
                             <strong>تهيئة واستيراد — 490 ر.س</strong>
-                            <p>تنظيف الملفات، الاستيراد الأولي، وتجهيز الشاشة الأولى. مشمولة في المدرسة الذكية والتشغيل الموسّع.</p>
+                            <p>تنظيف الملفات، الاستيراد الأولي، وتجهيز الشاشة الأولى لأي باقة تختارها.</p>
                         </article>
                         <article class="benefit-card reveal">
                             <i class="fa-solid fa-pen-to-square"></i>
@@ -4223,6 +4249,16 @@
 
         const pricingCycleButtons = document.querySelectorAll('[data-pricing-cycle]');
         const pricingPanels = document.querySelectorAll('[data-pricing-panel]');
+        const screenCountButtons = document.querySelectorAll('[data-screen-count-option]');
+        const pricingCards = document.querySelectorAll('[data-screen-count]');
+        let selectedScreenCount = '1';
+
+        function updateVisiblePricingCard() {
+            pricingCards.forEach((card) => {
+                card.hidden = card.dataset.screenCount !== selectedScreenCount;
+            });
+        }
+
         pricingCycleButtons.forEach((button) => {
             button.addEventListener('click', () => {
                 const selectedCycle = button.dataset.pricingCycle;
@@ -4234,8 +4270,23 @@
                 pricingPanels.forEach((panel) => {
                     panel.hidden = panel.dataset.pricingPanel !== selectedCycle;
                 });
+                updateVisiblePricingCard();
             });
         });
+
+        screenCountButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                selectedScreenCount = button.dataset.screenCountOption;
+                screenCountButtons.forEach((item) => {
+                    const isSelected = item === button;
+                    item.classList.toggle('active', isSelected);
+                    item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+                });
+                updateVisiblePricingCard();
+            });
+        });
+
+        updateVisiblePricingCard();
 
         if ('IntersectionObserver' in window) {
             const observer = new IntersectionObserver((entries) => {

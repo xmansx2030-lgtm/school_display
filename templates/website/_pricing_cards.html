@@ -1,6 +1,9 @@
 <div class="pricing-grid">
     {% for plan in plans %}
-    <article class="price-card reveal{% if plan.is_featured %} popular{% endif %}" data-plan-code="{{ plan.code }}">
+    <article class="price-card reveal{% if plan.is_featured %} popular{% endif %}"
+             data-plan-code="{{ plan.code }}"
+             data-screen-count="{{ plan.max_screens }}"
+             {% if selected_screen_count and plan.max_screens != selected_screen_count %}hidden{% endif %}>
         {% if plan.badge_text %}
         <div class="plan-badge">{{ plan.badge_text }}</div>
         {% endif %}

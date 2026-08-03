@@ -178,7 +178,15 @@ class TrialSignupTests(TestCase):
         self.assertNotContains(response, "المدارس:")
         self.assertNotContains(response, "باقة مخفية من الهبوط")
 
-    def test_landing_pricing_groups_annual_and_semiannual_plans(self):
+    def test_landing_pricing_groups_all_cycles_and_exposes_screen_selector(self):
+        monthly = SubscriptionPlan.objects.create(
+            code="grouped-monthly",
+            name="باقة مجمعة شهرية",
+            price=240,
+            duration_days=30,
+            max_screens=3,
+            is_active=True,
+        )
         annual = SubscriptionPlan.objects.create(
             code="grouped-annual",
             name="باقة مجمعة سنوية",
@@ -198,12 +206,20 @@ class TrialSignupTests(TestCase):
 
         response = self.client.get(reverse("website:home"))
 
+        self.assertContains(response, 'data-pricing-cycle="monthly"')
         self.assertContains(response, 'data-pricing-cycle="annual"')
         self.assertContains(response, 'data-pricing-cycle="semiannual"')
+        self.assertContains(response, 'data-pricing-panel="monthly"')
         self.assertContains(response, 'data-pricing-panel="annual"')
         self.assertContains(response, 'data-pricing-panel="semiannual"')
+        self.assertContains(response, f'data-plan-code="{monthly.code}"')
         self.assertContains(response, f'data-plan-code="{annual.code}"')
         self.assertContains(response, f'data-plan-code="{semiannual.code}"')
+        for screen_count in range(1, 6):
+            self.assertContains(
+                response,
+                f'data-screen-count-option="{screen_count}"',
+            )
 
     def test_landing_pricing_reflects_dashboard_price_update_on_next_request(self):
         plan = SubscriptionPlan.objects.create(
