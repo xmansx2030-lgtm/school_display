@@ -55,7 +55,7 @@ class SchoolContactSettingsTests(TestCase):
         response = self.client.get(reverse("dashboard:settings"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "بيانات التواصل", count=2)
+        self.assertContains(response, "بيانات التواصل", count=3)
         self.assertNotContains(response, "التواصل والدفع")
         self.assertNotContains(response, "وسائل التواصل والدفع")
         self.assertContains(response, 'name="email"')

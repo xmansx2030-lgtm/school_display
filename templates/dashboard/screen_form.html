@@ -3,7 +3,7 @@
 
 {% block title %}{{ title }}{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
-{% block page_description %}{% if is_edit %}تحكم في هوية ومحتوى هذه الشاشة فقط{% else %}إضافة شاشة عرض جديدة وتحديد محتواها{% endif %}{% endblock %}
+{% block page_description %}أضف الشاشة أولًا، ثم خصص هويتها ومحتواها من أيقونة تخصيص الشاشة{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
@@ -12,8 +12,8 @@
         <div class="rounded-2xl border border-slate-200 bg-white p-4">
             <div class="text-sm font-semibold text-slate-800">مهم قبل استخدام الرابط على التلفاز</div>
             <div class="mt-1 text-sm text-slate-600">
-                بعد إنشاء الشاشة وفتح رابطها على التلفاز لأول مرة، سيتم ربطها بهذا الجهاز تلقائيًا.
-                لن يعمل نفس الرابط على تلفاز آخر إلا بعد اختيار “فصل الجهاز” من صفحة شاشات العرض.
+                بعد إنشاء الشاشة، استخدم زر “ربط تلفاز” من صفحة شاشات العرض وامسح QR الظاهر على التلفاز بالجوال.
+                ويمكنك فتح الرابط المباشر كطريقة احتياطية عند الحاجة.
             </div>
         </div>
     </div>
@@ -49,51 +49,16 @@
               </div>
             </section>
 
-            <section class="border-t border-slate-100 pt-7 space-y-4">
-              <div>
-                <h2 class="text-base font-bold text-slate-900">الهوية وقالب المناسبة</h2>
-                <p class="mt-1 text-sm text-slate-500">هذه الخيارات تطبق على هذه الشاشة فقط، ويمكن إبقاء الثيم والكرت المميز تابعين لإعداد المدرسة.</p>
-              </div>
-              <div class="grid gap-4 md:grid-cols-3">
-                {% for field in form %}
-                  {% if field.name == 'theme_override' or field.name == 'occasion_theme' or field.name == 'featured_panel_override' %}
-                    <div class="space-y-2">
-                      <label for="{{ field.id_for_label }}" class="block text-sm font-semibold text-slate-700">{{ field.label }}</label>
-                      {{ field }}
-                      {% if field.help_text %}<p class="text-xs leading-5 text-slate-500">{{ field.help_text }}</p>{% endif %}
-                      {% if field.errors %}<div class="text-sm text-red-600">{{ field.errors }}</div>{% endif %}
-                    </div>
-                  {% endif %}
-                {% endfor %}
-              </div>
-            </section>
-
-            <section class="border-t border-slate-100 pt-7 space-y-4">
-              <div>
-                <h2 class="text-base font-bold text-slate-900">المحتوى الظاهر</h2>
-                <p class="mt-1 text-sm text-slate-500">أوقف أي قسم لا يناسب موقع هذه الشاشة. تنبيهات الطوارئ الموجهة للشاشة ستظل ظاهرة.</p>
-              </div>
-              <div class="grid gap-3 sm:grid-cols-2">
-                {% for field in form %}
-                  {% if field.name == 'show_announcements' or field.name == 'show_period_classes' or field.name == 'show_standby' or field.name == 'show_duty' or field.name == 'show_excellence' %}
-                    <label for="{{ field.id_for_label }}" class="screen-visibility-option cursor-pointer rounded-xl border border-slate-200 bg-slate-50/70 p-4 transition hover:border-indigo-200 hover:bg-indigo-50/50">
-                      <span class="flex items-center gap-3">
-                        {{ field }}
-                        <span class="text-sm font-semibold text-slate-800">{{ field.label }}</span>
-                      </span>
-                      {% if field.errors %}<span class="mt-2 block text-sm text-red-600">{{ field.errors }}</span>{% endif %}
-                    </label>
-                  {% endif %}
-                {% endfor %}
-              </div>
-            </section>
+            <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 px-4 py-3 text-sm leading-7 text-cyan-900">
+              بعد الحفظ ستظهر الشاشة في القائمة، ومن زر <strong>تخصيص الشاشة</strong> يمكنك ضبط الشعار والألوان والرسائل والسرعة والمحتوى الخاص بها.
+            </div>
         </div>
 
         <!-- أزرار الإجراءات -->
         <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
             <button type="submit" 
                     class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm transition-all">
-                {% if is_edit %}حفظ التخصيص{% else %}حفظ الشاشة{% endif %}
+                حفظ الشاشة
             </button>
             
             <a href="{% url 'dashboard:screen_list' %}" 

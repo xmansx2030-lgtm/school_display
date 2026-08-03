@@ -1016,7 +1016,13 @@ def school_settings(request):
         preview_url = None
 
     if request.method == "POST":
-        form = SchoolSettingsForm(request.POST, request.FILES, instance=obj, user=request.user)
+        form = SchoolSettingsForm(
+            request.POST,
+            request.FILES,
+            instance=obj,
+            user=request.user,
+            mode="account",
+        )
         if form.is_valid():
             form.save()
             
@@ -1027,25 +1033,12 @@ def school_settings(request):
             return redirect("dashboard:settings")
         messages.error(request, "الرجاء تصحيح الأخطاء.")
     else:
-        form = SchoolSettingsForm(instance=obj, user=request.user)
+        form = SchoolSettingsForm(instance=obj, user=request.user, mode="account")
 
-    initial_settings_tab = "appearance"
+    initial_settings_tab = "runtime"
     if form.errors:
         error_fields = set(form.errors.keys())
-        copy_fields = {
-            "display_before_title",
-            "display_before_badge",
-            "display_after_title",
-            "display_after_badge",
-            "display_after_holiday_title",
-            "display_after_holiday_badge",
-            "display_holiday_title",
-            "display_holiday_badge",
-        }
         runtime_fields = {
-            "standby_scroll_speed",
-            "periods_scroll_speed",
-            "test_mode_weekday_override",
             "screen_offline_alerts_enabled",
             "screen_offline_threshold_minutes",
             "screen_offline_email_enabled",
@@ -1054,8 +1047,6 @@ def school_settings(request):
         contact_fields = {"email", "mobile"}
         if error_fields & contact_fields:
             initial_settings_tab = "contact"
-        elif error_fields & copy_fields:
-            initial_settings_tab = "copy"
         elif error_fields & runtime_fields:
             initial_settings_tab = "runtime"
 
@@ -1068,6 +1059,8 @@ def school_settings(request):
             "school": school,
             "two_factor_enabled": get_enabled_config(request.user) is not None,
             "initial_settings_tab": initial_settings_tab,
+            "show_display_settings": False,
+            "show_account_settings": True,
         },
     )
 
@@ -4667,7 +4660,11 @@ def my_subscription(request):
                 else:
                     op = payment_ops_by_sub_id.get(getattr(s, "pk", None))
                     if op is not None:
-                        payment_method_label = getattr(op, "get_method_display", lambda: "غير محددة")()
+                        payment_method_label = (
+                            "دفع إلكتروني"
+                            if getattr(op, "method", "") == "moyasar"
+                            else getattr(op, "get_method_display", lambda: "غير محددة")()
+                        )
             except Exception:
                 pass
 

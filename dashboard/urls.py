@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import auth_views, support_views, two_factor_views, views, views_screens
+from . import auth_views, support_views, two_factor_views, views, views_pairing, views_screens
  
 app_name = "dashboard"
 
@@ -109,6 +109,13 @@ urlpatterns = [
     # Screens
     # ==================
     path("screens/", views_screens.screen_list, name="screen_list"),
+    path("screens/pair/", views_pairing.screen_pairing, name="screen_pairing"),
+    path(
+        "screens/pair/<uuid:pairing_id>/",
+        views_pairing.screen_pairing_confirm,
+        name="screen_pairing_confirm",
+    ),
+    path("screens/customize-all/", views_screens.screens_customize_all, name="screens_customize_all"),
     path("screens/new/", views_screens.screen_create, name="screen_create"),
     path("screens/<int:pk>/edit/", views_screens.screen_edit, name="screen_edit"),
     path("screens/<int:pk>/refresh/", views_screens.screen_refresh_now, name="screen_refresh_now"),

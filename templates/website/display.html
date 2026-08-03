@@ -1,4 +1,4 @@
-{% load static %}
+{% load static l10n %}
 <!doctype html>
 <html lang="ar" dir="rtl" class="h-full">
 <head>
@@ -2436,6 +2436,389 @@
             50% { transform: translateY(-4px) rotate(4deg); opacity: 1; }
         }
 
+        /* Device-binding notice: a calm, purpose-built state for unattended TVs. */
+        .binding-blocker {
+            --blocker-accent: #fbbf24;
+            --blocker-accent-soft: rgba(251, 191, 36, 0.14);
+            background:
+                radial-gradient(circle at 84% 14%, rgba(37, 99, 235, 0.18), transparent 32%),
+                radial-gradient(circle at 12% 88%, rgba(14, 165, 233, 0.11), transparent 30%),
+                #020817;
+            overflow-y: auto;
+            isolation: isolate;
+        }
+
+        .binding-blocker::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+            opacity: 0.16;
+            background-image:
+                linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+            background-size: 52px 52px;
+            mask-image: linear-gradient(to bottom, black, transparent 88%);
+        }
+
+        .binding-blocker[data-kind="device"] {
+            --blocker-accent: #38bdf8;
+            --blocker-accent-soft: rgba(56, 189, 248, 0.13);
+        }
+
+        .binding-blocker[data-kind="access"] {
+            --blocker-accent: #fb7185;
+            --blocker-accent-soft: rgba(251, 113, 133, 0.13);
+        }
+
+        .binding-blocker__card {
+            position: relative;
+            width: min(1120px, 100%);
+            overflow: hidden;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 32px;
+            background: linear-gradient(145deg, rgba(15, 29, 52, 0.98), rgba(6, 17, 35, 0.98));
+            box-shadow: 0 38px 100px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        .binding-blocker__card::after {
+            content: "";
+            position: absolute;
+            inset-inline-start: -7rem;
+            top: -9rem;
+            width: 24rem;
+            height: 24rem;
+            border-radius: 999px;
+            background: var(--blocker-accent);
+            opacity: 0.055;
+            filter: blur(8px);
+            pointer-events: none;
+        }
+
+        .binding-blocker__header {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.1rem 1.35rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+            background: rgba(2, 8, 23, 0.28);
+        }
+
+        .binding-blocker__brand,
+        .binding-blocker__status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.65rem;
+        }
+
+        .binding-blocker__brand-mark {
+            display: grid;
+            width: 2.15rem;
+            height: 2.15rem;
+            place-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 0.7rem;
+            color: #dbeafe;
+            background: rgba(59, 130, 246, 0.15);
+        }
+
+        .binding-blocker__brand strong {
+            color: #f8fafc;
+            font-size: 0.95rem;
+        }
+
+        .binding-blocker__status {
+            padding: 0.48rem 0.75rem;
+            border: 1px solid color-mix(in srgb, var(--blocker-accent) 24%, transparent);
+            border-radius: 999px;
+            color: color-mix(in srgb, var(--blocker-accent) 78%, white);
+            background: var(--blocker-accent-soft);
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        .binding-blocker__status-dot {
+            width: 0.48rem;
+            height: 0.48rem;
+            border-radius: 999px;
+            background: var(--blocker-accent);
+            box-shadow: 0 0 0 5px var(--blocker-accent-soft);
+            animation: blocker-status-pulse 2.2s ease-in-out infinite;
+        }
+
+        .binding-blocker__body {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+            gap: clamp(1.8rem, 4vw, 4rem);
+            align-items: center;
+            padding: clamp(2rem, 4vw, 3.5rem);
+        }
+
+        .binding-blocker__visual {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            margin-bottom: 1.65rem;
+        }
+
+        .binding-blocker__device {
+            position: relative;
+            display: grid;
+            width: 4.7rem;
+            height: 3.35rem;
+            place-items: center;
+            border: 1px solid rgba(148, 163, 184, 0.27);
+            border-radius: 0.9rem;
+            color: #94a3b8;
+            background: rgba(2, 8, 23, 0.52);
+        }
+
+        .binding-blocker__device::after {
+            content: "";
+            position: absolute;
+            bottom: -0.42rem;
+            width: 1.45rem;
+            height: 0.18rem;
+            border-radius: 999px;
+            background: currentColor;
+            opacity: 0.58;
+        }
+
+        .binding-blocker__device--active {
+            border-color: rgba(52, 211, 153, 0.33);
+            color: #6ee7b7;
+            background: rgba(16, 185, 129, 0.1);
+            box-shadow: inset 0 0 24px rgba(16, 185, 129, 0.06);
+        }
+
+        .binding-blocker__device--current {
+            border-color: color-mix(in srgb, var(--blocker-accent) 42%, transparent);
+            color: var(--blocker-accent);
+            background: var(--blocker-accent-soft);
+        }
+
+        .binding-blocker__connection {
+            display: flex;
+            align-items: center;
+            gap: 0.28rem;
+            color: #475569;
+        }
+
+        .binding-blocker__connection span {
+            width: 0.3rem;
+            height: 0.3rem;
+            border-radius: 999px;
+            background: currentColor;
+        }
+
+        .binding-blocker__connection strong {
+            display: grid;
+            width: 1.8rem;
+            height: 1.8rem;
+            place-items: center;
+            margin-inline: 0.2rem;
+            border: 1px solid color-mix(in srgb, var(--blocker-accent) 34%, transparent);
+            border-radius: 999px;
+            color: var(--blocker-accent);
+            background: var(--blocker-accent-soft);
+            font-size: 1rem;
+        }
+
+        .binding-blocker__eyebrow {
+            display: block;
+            margin-bottom: 0.65rem;
+            color: color-mix(in srgb, var(--blocker-accent) 76%, white);
+            font-size: 0.82rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+        }
+
+        .binding-blocker__title {
+            max-width: 650px;
+            margin: 0;
+            color: #f8fafc;
+            font-size: clamp(2.25rem, 4.2vw, 4.25rem);
+            font-weight: 800;
+            line-height: 1.14;
+            letter-spacing: -0.035em;
+        }
+
+        .binding-blocker__details {
+            max-width: 650px;
+            margin: 1rem 0 0;
+            color: #aebdd1;
+            font-size: clamp(1rem, 1.45vw, 1.25rem);
+            line-height: 1.85;
+        }
+
+        .binding-blocker__reference {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.65rem;
+            margin-top: 1.5rem;
+            padding: 0.55rem 0.8rem;
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            border-radius: 0.75rem;
+            color: #94a3b8;
+            background: rgba(2, 8, 23, 0.42);
+            font-size: 0.78rem;
+        }
+
+        .binding-blocker__reference strong {
+            color: #dbeafe;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .binding-blocker__guide {
+            padding: clamp(1.35rem, 2.7vw, 2rem);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            border-radius: 1.45rem;
+            background: linear-gradient(155deg, rgba(30, 50, 78, 0.56), rgba(2, 8, 23, 0.42));
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        .binding-blocker__guide h3 {
+            margin: 0;
+            color: #f8fafc;
+            font-size: clamp(1.2rem, 1.8vw, 1.55rem);
+            font-weight: 800;
+        }
+
+        .binding-blocker__guide > p {
+            margin: 0.4rem 0 1.35rem;
+            color: #8fa2bb;
+            font-size: 0.88rem;
+            line-height: 1.65;
+        }
+
+        .binding-blocker__steps {
+            display: grid;
+            gap: 0.9rem;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .binding-blocker__step {
+            display: grid;
+            grid-template-columns: 2rem minmax(0, 1fr);
+            gap: 0.75rem;
+            align-items: start;
+            color: #cad5e3;
+            font-size: 0.9rem;
+            line-height: 1.65;
+        }
+
+        .binding-blocker__step span {
+            display: grid;
+            width: 2rem;
+            height: 2rem;
+            place-items: center;
+            border: 1px solid color-mix(in srgb, var(--blocker-accent) 28%, transparent);
+            border-radius: 0.65rem;
+            color: color-mix(in srgb, var(--blocker-accent) 80%, white);
+            background: var(--blocker-accent-soft);
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+
+        .binding-blocker__step b {
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .binding-blocker__retry {
+            display: inline-flex;
+            width: 100%;
+            min-height: 3.2rem;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            margin-top: 1.4rem;
+            border: 1px solid color-mix(in srgb, var(--blocker-accent) 36%, transparent);
+            border-radius: 0.9rem;
+            color: #fff;
+            background: color-mix(in srgb, var(--blocker-accent) 18%, rgba(15, 23, 42, 0.92));
+            font: inherit;
+            font-size: 0.9rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+        }
+
+        .binding-blocker__retry:hover,
+        .binding-blocker__retry:focus-visible {
+            border-color: color-mix(in srgb, var(--blocker-accent) 66%, transparent);
+            background: color-mix(in srgb, var(--blocker-accent) 25%, rgba(15, 23, 42, 0.9));
+            outline: none;
+            transform: translateY(-1px);
+        }
+
+        .binding-blocker__footnote {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            margin-top: 1rem;
+            color: #71849c;
+            font-size: 0.75rem;
+            line-height: 1.5;
+        }
+
+        .binding-blocker__footnote svg {
+            flex: none;
+            color: #60a5fa;
+        }
+
+        @keyframes blocker-status-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.62; transform: scale(0.82); }
+        }
+
+        @media (max-width: 850px) {
+            .binding-blocker__body {
+                grid-template-columns: 1fr;
+            }
+
+            .binding-blocker__visual {
+                margin-bottom: 1.35rem;
+            }
+        }
+
+        @media (max-height: 760px) and (min-width: 851px) {
+            .binding-blocker__body {
+                gap: 2rem;
+                padding: 1.6rem 2rem 1.8rem;
+            }
+
+            .binding-blocker__visual {
+                margin-bottom: 1.2rem;
+            }
+
+            .binding-blocker__details {
+                margin-top: 0.7rem;
+                line-height: 1.65;
+            }
+
+            .binding-blocker__reference {
+                margin-top: 1rem;
+            }
+
+            .binding-blocker__guide {
+                padding: 1.35rem;
+            }
+
+            .binding-blocker__steps {
+                gap: 0.65rem;
+            }
+        }
+
         @media (max-width: 1366px), (max-height: 768px) {
             .header-shell {
                 min-height: 104px !important;
@@ -2469,6 +2852,10 @@
             .honor-wrap,
             #alertContainer,
             .day-timeline-panel {
+                animation: none !important;
+            }
+
+            .binding-blocker__status-dot {
                 animation: none !important;
             }
 
@@ -2509,6 +2896,16 @@
   data-screen-theme="{{ screen_theme_override|default:'' }}"
   data-screen-occasion-theme="{{ screen_occasion_theme|default:'auto' }}"
   data-screen-featured-panel="{{ screen_featured_panel|default:'' }}"
+  data-screen-logo-url="{{ logo_url|default:'' }}"
+  data-screen-accent-color="{{ display_accent_color|default:'' }}"
+  data-screen-display-before-title="{{ screen_display_copy.before_title|default:'' }}"
+  data-screen-display-before-badge="{{ screen_display_copy.before_badge|default:'' }}"
+  data-screen-display-after-title="{{ screen_display_copy.after_title|default:'' }}"
+  data-screen-display-after-badge="{{ screen_display_copy.after_badge|default:'' }}"
+  data-screen-display-after-holiday-title="{{ screen_display_copy.after_holiday_title|default:'' }}"
+  data-screen-display-after-holiday-badge="{{ screen_display_copy.after_holiday_badge|default:'' }}"
+  data-screen-display-holiday-title="{{ screen_display_copy.holiday_title|default:'' }}"
+  data-screen-display-holiday-badge="{{ screen_display_copy.holiday_badge|default:'' }}"
   data-screen-show-announcements="{% if screen_show_announcements %}1{% else %}0{% endif %}"
   data-screen-show-period-classes="{% if screen_show_period_classes %}1{% else %}0{% endif %}"
   data-screen-show-standby="{% if screen_show_standby %}1{% else %}0{% endif %}"
@@ -2519,32 +2916,87 @@
   data-bell-sound-url="{% static 'sounds/bell.mp3' %}"
     data-refresh="{% if refresh_interval_sec %}{{ refresh_interval_sec }}{% else %}30{% endif %}"
   data-ws-live-status-check="{% if ws_live_status_check_sec %}{{ ws_live_status_check_sec }}{% else %}45{% endif %}"
-  data-standby="{% if standby_scroll_speed %}{{ standby_scroll_speed }}{% else %}0.8{% endif %}"
-  data-periods-speed="{% if periods_scroll_speed %}{{ periods_scroll_speed }}{% else %}0.5{% endif %}"
+  data-standby="{% if standby_scroll_speed %}{{ standby_scroll_speed|unlocalize }}{% else %}0.8{% endif %}"
+  data-periods-speed="{% if periods_scroll_speed %}{{ periods_scroll_speed|unlocalize }}{% else %}0.5{% endif %}"
     style="{% if display_accent_color %}--accent-main: {{ display_accent_color }};{% endif %}"
 >
   <div class="bg-mesh"></div>
 
-  <!-- Blocking overlay -->
-    <div id="blocker" class="u-hidden fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/90 backdrop-blur-xl p-6" role="alert" aria-live="assertive">
-    <div class="glass-panel w-full max-w-2xl rounded-3xl p-10 text-center border-red-500/30">
-        <div class="mx-auto w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center mb-6">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+  <!-- Device binding / access notice -->
+  <div id="blocker" class="binding-blocker u-hidden fixed inset-0 z-[9999] flex items-center justify-center p-6" data-kind="binding" role="alertdialog" aria-modal="true" aria-live="assertive" aria-labelledby="blockerTitle" aria-describedby="blockerDetails">
+    <section class="binding-blocker__card">
+      <header class="binding-blocker__header">
+        <div class="binding-blocker__brand">
+          <span class="binding-blocker__brand-mark" aria-hidden="true">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="13" rx="2"></rect>
+              <path d="M8 21h8M12 17v4"></path>
             </svg>
+          </span>
+          <strong>لوحة العرض الذكية</strong>
         </div>
-        <h2 id="blockerTitle" class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-rose-400 mb-4">هذه الشاشة مرتبطة بجهاز آخر</h2>
-        <p id="blockerDetails" class="text-xl text-slate-300 mb-6">لا يمكن استخدام نفس الرابط على أكثر من تلفاز في وقت واحد.</p>
-        
-        <div class="bg-slate-900/50 rounded-xl p-4 border border-white/5 inline-block w-full max-w-lg mb-6">
-            <div class="text-sm text-slate-500 mb-1">الرابط الحالي</div>
-            <div class="font-mono text-lg text-red-300 dir-ltr truncate px-2" id="blockerLink">—</div>
+        <div class="binding-blocker__status">
+          <span class="binding-blocker__status-dot" aria-hidden="true"></span>
+          <span id="blockerStatusText">الارتباط محمي</span>
+        </div>
+      </header>
+
+      <div class="binding-blocker__body">
+        <div class="binding-blocker__message">
+          <div class="binding-blocker__visual" aria-hidden="true">
+            <span class="binding-blocker__device binding-blocker__device--active">
+              <svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="13" rx="2"></rect>
+                <path d="m9 10 2 2 4-4M8 21h8M12 17v4"></path>
+              </svg>
+            </span>
+            <span class="binding-blocker__connection">
+              <span></span><span></span><strong>×</strong><span></span><span></span>
+            </span>
+            <span class="binding-blocker__device binding-blocker__device--current">
+              <svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="13" rx="2"></rect>
+                <path d="M8 21h8M12 17v4"></path>
+              </svg>
+            </span>
+          </div>
+          <span id="blockerEyebrow" class="binding-blocker__eyebrow">حماية ارتباط الشاشة</span>
+          <h2 id="blockerTitle" class="binding-blocker__title">هذه الشاشة مفعّلة على جهاز آخر</h2>
+          <p id="blockerDetails" class="binding-blocker__details">حرصًا على استقرار العرض وحماية بيانات المدرسة، يمكن تشغيل كل شاشة عرض على جهاز واحد فقط في الوقت نفسه.</p>
+          <div class="binding-blocker__reference">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path>
+              <path d="m9 12 2 2 4-4"></path>
+            </svg>
+            <span>مرجع الشاشة</span>
+            <strong id="blockerLink">شاشة العرض الحالية</strong>
+          </div>
         </div>
 
-        <div class="text-slate-400 text-base">
-            للنقل إلى تلفاز جديد: <span class="text-white font-medium">افصل الجهاز من لوحة التحكم</span> &larr; شاشات العرض.
-        </div>
-    </div>
+        <aside class="binding-blocker__guide" aria-label="خطوات تفعيل الشاشة على هذا الجهاز">
+          <h3 id="blockerGuideTitle">لتفعيلها على هذا الجهاز</h3>
+          <p id="blockerGuideIntro">نفّذ الخطوات التالية من حساب مسؤول المدرسة:</p>
+          <ol class="binding-blocker__steps">
+            <li class="binding-blocker__step"><span>١</span><div id="blockerStepOne">افتح <b>لوحة التحكم</b> من هاتف أو جهاز كمبيوتر.</div></li>
+            <li class="binding-blocker__step"><span>٢</span><div id="blockerStepTwo">انتقل إلى <b>شاشات العرض</b> واختر هذه الشاشة.</div></li>
+            <li class="binding-blocker__step"><span>٣</span><div id="blockerStepThree">اضغط <b>فك ارتباط الجهاز</b>، ثم أعد التحقق هنا.</div></li>
+          </ol>
+          <button id="blockerRetryBtn" class="binding-blocker__retry" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 12a8 8 0 1 1-2.34-5.66L20 8"></path>
+              <path d="M20 4v4h-4"></path>
+            </svg>
+            إعادة التحقق الآن
+          </button>
+          <div class="binding-blocker__footnote">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path>
+            </svg>
+            <span id="blockerFootnote">لن تحتاج إلى إنشاء رابط جديد بعد فك الارتباط.</span>
+          </div>
+        </aside>
+      </div>
+    </section>
   </div>
 
         <!-- Sound Enable Button (for TVs / no-interaction displays) -->
@@ -2894,7 +3346,7 @@
   </noscript>
 
     <script defer src="{% static 'js/display-controls.js' %}?v=2026-07-23-b4"></script>
-    <script defer src="{% static 'js/display.js' %}?v=2026-08-02-screen-targeting-b6"></script>
+    <script defer src="{% static 'js/display.js' %}?v=2026-08-03-binding-notice-c2"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {

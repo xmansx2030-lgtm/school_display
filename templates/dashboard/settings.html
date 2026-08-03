@@ -1,30 +1,31 @@
 {% extends "dashboard/_base.html" %}
 {% load static %}
 
-{% block title %}إعدادات المدرسة{% endblock %}
-{% block page_title %}إعدادات المدرسة{% endblock %}
-{% block page_description %}تخصيص هوية العرض، الأمان، وخيارات النظام{% endblock %}
+{% block title %}{{ display_scope_title|default:"إعدادات المدرسة" }}{% endblock %}
+{% block page_title %}{{ display_scope_title|default:"إعدادات المدرسة" }}{% endblock %}
+{% block page_description %}{% if show_display_settings %}تخصيص هوية ورسائل وسرعة شاشة العرض{% else %}بيانات الحساب، الأمان، ومراقبة التشغيل{% endif %}{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto pb-8 md:pb-12 dashboard-settings" data-initial-settings-tab="{{ initial_settings_tab|default:'appearance' }}">
     <section class="settings-hero" aria-labelledby="settingsHeroTitle">
         <div class="settings-hero-copy">
-            <span class="settings-eyebrow">مركز تخصيص العرض</span>
-            <h2 id="settingsHeroTitle">اضبط هوية شاشة {{ school.name }}</h2>
-            <p>غيّر الشعار والألوان والنصوص وسرعة العرض من مكان واحد. تنعكس التغييرات على شاشات المدرسة بعد الحفظ.</p>
+            <span class="settings-eyebrow">{% if show_display_settings %}مركز تخصيص العرض{% else %}إعدادات المدرسة{% endif %}</span>
+            <h2 id="settingsHeroTitle">{% if display_scope_title %}{{ display_scope_title }}{% else %}إدارة حساب {{ school.name }}{% endif %}</h2>
+            <p>{% if display_scope_description %}{{ display_scope_description }}{% else %}حدّث بيانات التواصل، الأمان، وتنبيهات مراقبة الشاشات من مكان واحد.{% endif %}</p>
         </div>
         <div class="settings-hero-actions">
-            {% if display_preview_url %}
+            {% if display_preview_url and show_display_settings %}
                 <a href="{{ display_preview_url }}" target="_blank" rel="noopener" class="settings-preview-btn">
                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
-                    <span>معاينة شاشة المدرسة</span>
+                    <span>معاينة العرض</span>
                 </a>
             {% endif %}
             <span class="settings-save-state" data-save-state aria-live="polite"><i></i> كل التغييرات محفوظة</span>
         </div>
     </section>
 
-    <div class="settings-tabs" role="tablist" aria-label="أقسام إعدادات المدرسة">
+    <div class="settings-tabs" role="tablist" aria-label="أقسام الإعدادات">
+        {% if show_display_settings %}
         <button type="button" id="settings-tab-appearance" class="settings-tab-btn is-active" data-settings-tab="appearance" role="tab" aria-selected="true" aria-controls="settings-panel-appearance">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3a9 9 0 1 0 0 18h1.4a1.6 1.6 0 0 0 .2-3.2h-.7a1.9 1.9 0 0 1-1.9-1.9v-.2a1.9 1.9 0 0 1 1.9-1.9H16A5 5 0 0 0 21 9c0-3.3-4-6-9-6Z"/><path stroke-linecap="round" d="M7.5 10h.01M9.5 6.8h.01M14 6.5h.01M17.2 9h.01"/></svg>
             <span>الهوية والمظهر</span>
@@ -33,10 +34,12 @@
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>
             <span>رسائل الشاشة</span>
         </button>
-        <button type="button" id="settings-tab-runtime" class="settings-tab-btn" data-settings-tab="runtime" role="tab" aria-selected="false" aria-controls="settings-panel-runtime">
+        {% endif %}
+        <button type="button" id="settings-tab-runtime" class="settings-tab-btn{% if not show_display_settings %} is-active{% endif %}" data-settings-tab="runtime" role="tab" aria-selected="{% if show_display_settings %}false{% else %}true{% endif %}" aria-controls="settings-panel-runtime">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 12h16M8 7v10M16 9v6"/></svg>
-            <span>سرعة العرض</span>
+            <span>{% if show_display_settings %}سرعة العرض{% else %}التشغيل والتنبيهات{% endif %}</span>
         </button>
+        {% if show_account_settings %}
         <button type="button" id="settings-tab-contact" class="settings-tab-btn" data-settings-tab="contact" role="tab" aria-selected="false" aria-controls="settings-panel-contact">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16v12H4zM4 7l8 6 8-6M8 18v-3m8 3v-3"/></svg>
             <span>بيانات التواصل</span>
@@ -45,9 +48,11 @@
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3 5 6v5c0 4.8 2.8 8.1 7 10 4.2-1.9 7-5.2 7-10V6l-7-3Z"/><path stroke-linecap="round" d="m9.5 12 1.6 1.6 3.6-3.8"/></svg>
             <span>الأمان</span>
         </button>
+        {% endif %}
     </div>
 
     <!-- Security Card -->
+    {% if show_account_settings %}
     <section id="settings-panel-security" class="settings-security-panel hidden" data-settings-tab-panel="security" role="tabpanel" aria-labelledby="settings-tab-security" tabindex="0">
         <div class="settings-section-heading">
             <div><span>حماية الحساب</span><h3>إعدادات الدخول والأمان</h3></div>
@@ -70,6 +75,7 @@
             </article>
         </div>
     </section>
+    {% endif %}
 
     <!-- Main Settings Form -->
     <div class="dashboard-form-shell settings-form-shell" data-settings-form-shell>
@@ -90,6 +96,7 @@
             {% endif %}
 
             <div class="space-y-6">
+                {% if show_display_settings %}
                 <section id="settings-panel-appearance" data-settings-tab-panel="appearance" class="settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-appearance" tabindex="0">
                     <div class="settings-section-heading">
                         <div><span>الهوية البصرية</span><h3>كيف تظهر مدرستك على الشاشة؟</h3></div>
@@ -98,8 +105,8 @@
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
                         <div class="settings-identity-card">
                             <div class="settings-logo-preview" data-logo-preview>
-                                {% if form.instance.logo %}
-                                    <img src="{{ form.instance.logo.url }}" alt="شعار {{ school.name }} الحالي">
+                                {% if current_logo_url %}
+                                    <img src="{{ current_logo_url }}" alt="شعار {{ school.name }} الحالي">
                                 {% else %}
                                     <span>{{ school.name|slice:':1' }}</span>
                                 {% endif %}
@@ -207,8 +214,30 @@
                             <p id="themeLabel" class="text-xs font-bold text-slate-400 mt-4 text-left transition-colors">اللون الحالي: <span class="text-slate-800">--</span></p>
                         </div>
                      </div>
-                </section>
 
+                    {% if is_screen_scope %}
+                    <div class="mt-6 grid gap-4 md:grid-cols-2">
+                        <div class="dashboard-control-surface rounded-xl border border-slate-200 bg-white p-4">
+                            <label for="{{ form.name.id_for_label }}" class="mb-2 block text-sm font-bold text-slate-700">{{ form.name.label }}</label>
+                            {{ form.name }}
+                            <p class="mt-2 text-xs text-slate-500">اسم داخلي يساعدك على معرفة موقع الشاشة.</p>
+                            {% if form.name.errors %}<div class="settings-field-error">{{ form.name.errors }}</div>{% endif %}
+                        </div>
+                        <div class="dashboard-control-surface rounded-xl border border-slate-200 bg-white p-4">
+                            <label for="{{ form.occasion_theme.id_for_label }}" class="mb-2 block text-sm font-bold text-slate-700">{{ form.occasion_theme.label }}</label>
+                            {{ form.occasion_theme }}
+                            {% if form.occasion_theme.errors %}<div class="settings-field-error">{{ form.occasion_theme.errors }}</div>{% endif %}
+                        </div>
+                        <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-2">
+                            {{ form.is_active }}
+                            <span><strong class="block text-sm text-slate-800">{{ form.is_active.label }}</strong><small class="text-xs text-slate-500">عند إيقافها يتوقف رابط هذه الشاشة عن عرض المحتوى.</small></span>
+                        </label>
+                    </div>
+                    {% endif %}
+                </section>
+                {% endif %}
+
+                {% if show_account_settings %}
                 <section id="settings-panel-contact" data-settings-tab-panel="contact" class="settings-tab-panel hidden" role="tabpanel" aria-labelledby="settings-tab-contact" tabindex="0">
                     <div class="settings-section-heading">
                         <div><span>بيانات مسؤول المدرسة</span><h3>بيانات التواصل</h3></div>
@@ -244,7 +273,9 @@
                         يجب حفظ بريد إلكتروني ورقم جوال سعودي صحيحين قبل بدء الدفع عبر تمارا.
                     </div>
                 </section>
+                {% endif %}
 
+                {% if show_display_settings %}
                 <section id="settings-panel-copy" data-settings-tab-panel="copy" class="settings-tab-panel hidden" role="tabpanel" aria-labelledby="settings-tab-copy" tabindex="0">
                     <div class="settings-section-heading">
                         <div><span>رسائل تلقائية</span><h3>ماذا تعرض الشاشة خارج وقت الحصص؟</h3></div>
@@ -273,13 +304,15 @@
                         </article>
                     </div>
                 </section>
+                {% endif %}
 
                 <section id="settings-panel-runtime" data-settings-tab-panel="runtime" class="settings-tab-panel hidden" role="tabpanel" aria-labelledby="settings-tab-runtime" tabindex="0">
                     <div class="settings-section-heading">
-                        <div><span>حركة المحتوى</span><h3>وازن بين السرعة وسهولة القراءة</h3></div>
-                        <p>ابدأ بالقيم المقترحة، ثم راقب النتيجة من شاشة المعاينة قبل اعتمادها.</p>
+                        <div><span>{% if show_display_settings %}حركة المحتوى{% else %}متابعة التشغيل{% endif %}</span><h3>{% if show_display_settings %}وازن بين السرعة وسهولة القراءة{% else %}تنبيهات اتصال الشاشات وتقاريرها{% endif %}</h3></div>
+                        <p>{% if show_display_settings %}ابدأ بالقيم المقترحة، ثم راقب النتيجة من شاشة المعاينة قبل اعتمادها.{% else %}تحكم في وقت اكتشاف انقطاع الشاشة وإرسال التنبيهات وتقارير التشغيل.{% endif %}</p>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+                        {% if show_display_settings %}
                         <!-- Standby Speed -->
                         <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group">
                              <label for="{{ form.standby_scroll_speed.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-3">{{ form.standby_scroll_speed.label }}</label>
@@ -303,7 +336,9 @@
                              <div id="periodsWarn" class="hidden mt-2 text-xs text-rose-600 font-bold bg-rose-50 p-2 rounded-lg">القيمة لا تقل عن 0.5</div>
                              {% if form.periods_scroll_speed.errors %}<div class="settings-field-error" role="alert">{% for error in form.periods_scroll_speed.errors %}{{ error }}{% endfor %}</div>{% endif %}
                         </div>
+                        {% endif %}
 
+                        {% if show_account_settings %}
                         {% if form.test_mode_weekday_override %}
                         <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group sm:col-span-2">
                             <label for="{{ form.test_mode_weekday_override.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-3">{{ form.test_mode_weekday_override.label }}</label>
@@ -338,15 +373,36 @@
                                 </label>
                             </div>
                         </div>
+                        {% endif %}
+
+                        {% if is_screen_scope %}
+                        <div class="dashboard-control-surface rounded-xl border border-slate-200 bg-white p-5 sm:col-span-2">
+                            <div class="mb-4">
+                                <h4 class="text-sm font-black text-slate-800">المحتوى الظاهر في هذه الشاشة</h4>
+                                <p class="mt-1 text-xs text-slate-500">يمكنك إخفاء الأقسام التي لا تناسب موقع الشاشة.</p>
+                            </div>
+                            <div class="grid gap-3 md:grid-cols-2">
+                                {% for field in form %}
+                                    {% if field.name == 'show_announcements' or field.name == 'show_period_classes' or field.name == 'show_standby' or field.name == 'show_duty' or field.name == 'show_excellence' %}
+                                    <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                        {{ field }}
+                                        <span class="text-sm font-bold text-slate-800">{{ field.label }}</span>
+                                    </label>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </section>
             </div>
 
               <div class="settings-actions">
-                  <div class="settings-actions-copy"><strong>جاهز لتطبيق التعديلات؟</strong><span>سيصل التحديث إلى الشاشات تلقائيًا بعد الحفظ.</span></div>
+                  <div class="settings-actions-copy"><strong>جاهز لتطبيق التعديلات؟</strong><span>{% if is_screen_scope %}سيصل التحديث إلى هذه الشاشة فقط.{% elif show_display_settings %}سيصل التحديث إلى جميع الشاشات التي تتبع الإعداد العام.{% else %}سيتم حفظ إعدادات الحساب والمدرسة.{% endif %}</span></div>
                   <div class="settings-actions-buttons">
                     {% if display_preview_url %}<a href="{{ display_preview_url }}" target="_blank" rel="noopener" class="settings-secondary-action">فتح المعاينة</a>{% endif %}
-                    <a href="{% url 'dashboard:index' %}" class="settings-cancel-action">إلغاء</a>
+                    {% if is_screen_scope %}<button type="submit" name="action" value="reset_display_customization" formnovalidate class="settings-cancel-action" data-reset-customization>استخدام الإعداد العام</button>{% endif %}
+                    <a href="{% if back_to_screens %}{% url 'dashboard:screen_list' %}{% else %}{% url 'dashboard:index' %}{% endif %}" class="settings-cancel-action">إلغاء</a>
                     <button type="submit" class="settings-submit-action" data-settings-submit>
                       <span>حفظ التغييرات</span>
                       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 12 4 4 10-10"/></svg>
@@ -586,6 +642,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Form Submit
     if(form) {
         form.addEventListener('submit', function(e) {
+            const submitter = e.submitter;
+            if (submitter && submitter.value === 'reset_display_customization') {
+                if (!window.confirm('سيتم حذف تخصيص هذه الشاشة والعودة إلى إعدادات جميع الشاشات. هل أنت متأكد؟')) {
+                    e.preventDefault();
+                }
+                return;
+            }
             const valid1 = validateInput(standbyEl, 0.5, null, standbyWarn);
             const valid2 = validateInput(periodsEl, 0.5, null, periodsWarn);
 
@@ -698,7 +761,7 @@ document.addEventListener('DOMContentLoaded', function() {
     top: 0.75rem;
     z-index: 20;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.45rem;
     margin-bottom: 1rem;
     padding: 0.42rem;

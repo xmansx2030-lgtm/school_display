@@ -27,6 +27,21 @@ urlpatterns = [
     # Health check
     path("health/", views.health, name="health"),
 
+    # ربط التلفاز بالجوال عبر رمز مؤقت وQR
+    path("tv/", views.tv_pairing, name="tv_pairing"),
+    path("tv/pair/start/", views.tv_pairing_start, name="tv_pairing_start"),
+    path(
+        "tv/pair/<uuid:pairing_id>/status/",
+        views.tv_pairing_status,
+        name="tv_pairing_status",
+    ),
+    path(
+        "tv/pair/<uuid:pairing_id>/qr/",
+        views.tv_pairing_qr,
+        name="tv_pairing_qr",
+    ),
+    path("connect/", views.pairing_connect, name="pairing_connect"),
+
     # ✅ رابط مختصر (يدعم مع وبدون slash لتفادي 404)
     path("s/<str:short_code>/", views.short_display_redirect, name="short_display"),
     path("s/<str:short_code>", views.short_display_redirect),

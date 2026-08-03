@@ -47,6 +47,19 @@ class DisplayClientTimingRegressionTests(SimpleTestCase):
         self.assertNotIn('id="heroSubtitle"', self.template)
         self.assertNotIn("متابعة مباشرة للحصة والنشاط الحالي", self.source)
 
+    def test_device_binding_notice_is_actionable_and_does_not_expose_the_url(self):
+        self.assertIn("هذه الشاشة مفعّلة على جهاز آخر", self.template)
+        self.assertIn('id="blockerRetryBtn"', self.template)
+        self.assertIn("فك ارتباط الجهاز", self.template)
+        blocker_source = self.source.split("function showBlocker", 1)[1].split("function stopPolling", 1)[0]
+        self.assertNotIn("window.location.pathname", blocker_source)
+        self.assertNotIn("window.location.search", blocker_source)
+
+    def test_device_binding_notice_supports_specific_blocker_states(self):
+        self.assertIn('data-kind="binding"', self.template)
+        self.assertIn('blockerKind === "device"', self.source)
+        self.assertIn('showBlocker(ui.title, ui.details, ui.kind);', self.source)
+
     def test_local_schedule_transitions_refresh_all_board_state_copy(self):
         day_block_source = self.source.split(
             "function dayEngineApplyBlock", 1

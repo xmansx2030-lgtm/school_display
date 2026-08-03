@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 import os
 import secrets
+import uuid
 
 from .system_access import ROLE_CHOICES
 
@@ -257,6 +258,39 @@ class DisplayScreen(models.Model):
         default="",
         help_text="يُستخدم عندما تكون لوحة الشرف والإشراف والمناوبة مفعّلتين معًا.",
     )
+    logo_override = models.ImageField(
+        "شعار هذه الشاشة",
+        upload_to="screens/logos/",
+        blank=True,
+        null=True,
+        validators=[_validate_image_extension],
+        help_text="اتركه فارغًا لاستخدام شعار المدرسة العام.",
+    )
+    display_accent_color_override = models.CharField(
+        "لون العرض الخاص بالشاشة",
+        max_length=7,
+        blank=True,
+        default="",
+        help_text="اتركه فارغًا لاستخدام لون جميع الشاشات.",
+    )
+    standby_scroll_speed_override = models.FloatField(
+        "سرعة تمرير الانتظار لهذه الشاشة",
+        null=True,
+        blank=True,
+    )
+    periods_scroll_speed_override = models.FloatField(
+        "سرعة تمرير جدول الحصص لهذه الشاشة",
+        null=True,
+        blank=True,
+    )
+    display_before_title_override = models.CharField(max_length=150, blank=True, default="")
+    display_before_badge_override = models.CharField(max_length=40, blank=True, default="")
+    display_after_title_override = models.CharField(max_length=150, blank=True, default="")
+    display_after_badge_override = models.CharField(max_length=40, blank=True, default="")
+    display_after_holiday_title_override = models.CharField(max_length=150, blank=True, default="")
+    display_after_holiday_badge_override = models.CharField(max_length=40, blank=True, default="")
+    display_holiday_title_override = models.CharField(max_length=150, blank=True, default="")
+    display_holiday_badge_override = models.CharField(max_length=40, blank=True, default="")
     show_announcements = models.BooleanField("إظهار التنبيهات المدرسية", default=True)
     show_period_classes = models.BooleanField("إظهار جدول الحصص الجارية", default=True)
     show_standby = models.BooleanField("إظهار حصص الانتظار", default=True)
@@ -318,6 +352,70 @@ class DisplayScreen(models.Model):
 
     def __str__(self):
         return f"{self.school.name} - {self.name}" if self.school else self.name
+
+
+class DisplayPairingSession(models.Model):
+    """Short-lived, one-time authorization initiated by a television."""
+
+    STATUS_PENDING = "pending"
+    STATUS_APPROVED = "approved"
+    STATUS_EXPIRED = "expired"
+    STATUS_CANCELLED = "cancelled"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "بانتظار الموافقة"),
+        (STATUS_APPROVED, "تم الربط"),
+        (STATUS_EXPIRED, "منتهي"),
+        (STATUS_CANCELLED, "ملغي"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user_code = models.CharField("رمز الربط", max_length=6, db_index=True)
+    device_id = models.CharField("معرّف جهاز التلفاز", max_length=64)
+    device_secret_hash = models.CharField("بصمة سر الجهاز", max_length=64)
+    status = models.CharField(
+        "الحالة",
+        max_length=12,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        db_index=True,
+    )
+    screen = models.ForeignKey(
+        DisplayScreen,
+        on_delete=models.SET_NULL,
+        related_name="pairing_sessions",
+        null=True,
+        blank=True,
+    )
+    approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="approved_display_pairings",
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    expires_at = models.DateTimeField(db_index=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "جلسة ربط تلفاز"
+        verbose_name_plural = "جلسات ربط التلفاز"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user_code"],
+                condition=models.Q(status="pending"),
+                name="unique_pending_display_pairing_code",
+            ),
+        ]
+
+    @property
+    def is_expired(self) -> bool:
+        return self.status == self.STATUS_EXPIRED or self.expires_at <= timezone.now()
+
+    def __str__(self):
+        return f"{self.user_code} ({self.get_status_display()})"
 
 
 class ScreenOutage(models.Model):

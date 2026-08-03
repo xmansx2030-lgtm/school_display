@@ -81,6 +81,31 @@ def _get_profile(user):
 # ========================
 
 class SchoolSettingsForm(forms.ModelForm):
+    DISPLAY_FIELDS = {
+        "logo",
+        "featured_panel",
+        "theme",
+        "display_accent_color",
+        "standby_scroll_speed",
+        "periods_scroll_speed",
+        "display_before_title",
+        "display_before_badge",
+        "display_after_title",
+        "display_after_badge",
+        "display_after_holiday_title",
+        "display_after_holiday_badge",
+        "display_holiday_title",
+        "display_holiday_badge",
+    }
+    ACCOUNT_FIELDS = {
+        "email",
+        "mobile",
+        "test_mode_weekday_override",
+        "screen_offline_alerts_enabled",
+        "screen_offline_threshold_minutes",
+        "screen_offline_email_enabled",
+        "weekly_uptime_report_enabled",
+    }
     email = forms.EmailField(
         label="البريد الإلكتروني",
         required=False,
@@ -182,6 +207,7 @@ class SchoolSettingsForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         # استخراج المستخدم إذا تم تمريره (من الـ view)
         self.request_user = kwargs.pop("user", None)
+        self.form_mode = kwargs.pop("mode", "all")
         super().__init__(*args, **kwargs)
 
         if self.request_user and getattr(self.request_user, "is_authenticated", False):
@@ -218,6 +244,13 @@ class SchoolSettingsForm(forms.ModelForm):
                 )
                 self.fields["test_mode_weekday_override"].label = "🧪 وضع الاختبار: محاكاة يوم"
                 self.fields["test_mode_weekday_override"].required = False
+
+        if self.form_mode == "account":
+            for field_name in self.DISPLAY_FIELDS:
+                self.fields.pop(field_name, None)
+        elif self.form_mode == "display":
+            for field_name in self.ACCOUNT_FIELDS:
+                self.fields.pop(field_name, None)
 
     # =========================
     # ✅ Server-side validation
@@ -269,11 +302,11 @@ class SchoolSettingsForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        theme = (cleaned.get("theme") or "indigo").strip().lower()
-        # The school dashboard exposes preset theme buttons, not a custom color
-        # picker. Keep the stored accent aligned so stale hidden values cannot
-        # override the selected theme on display.html.
-        cleaned["display_accent_color"] = self.THEME_ACCENTS.get(theme, "#6366F1")
+        if "theme" in self.fields:
+            theme = (cleaned.get("theme") or "indigo").strip().lower()
+            # The settings screen exposes preset theme buttons, not a custom
+            # color picker. Keep the stored accent aligned with that palette.
+            cleaned["display_accent_color"] = self.THEME_ACCENTS.get(theme, "#6366F1")
         return cleaned
 
     def clean_logo(self):
@@ -293,7 +326,7 @@ class SchoolSettingsForm(forms.ModelForm):
         نحفظ الإعدادات، ولو تم رفع شعار جديد نحدّث school.logo بأمان.
         """
         instance: SchoolSettings = super().save(commit=False)
-        logo_file = self.cleaned_data.get("logo")
+        logo_file = self.cleaned_data.get("logo") if "logo" in self.fields else None
 
         # اسم المدرسة يُدار من موديل School نفسه ولا يُسمح بتعديله من لوحة المدرسة.
         if getattr(instance, "school_id", None) and getattr(instance, "school", None):
@@ -314,6 +347,8 @@ class SchoolSettingsForm(forms.ModelForm):
             self.save_m2m()
 
             if self.request_user and getattr(self.request_user, "is_authenticated", False):
+                if "email" not in self.fields or "mobile" not in self.fields:
+                    return instance
                 email = self.cleaned_data.get("email", "")
                 if self.request_user.email != email:
                     self.request_user.email = email
@@ -326,6 +361,147 @@ class SchoolSettingsForm(forms.ModelForm):
                     profile.save(update_fields=["mobile"])
 
         return instance
+
+
+class ScreenDisplayCustomizationForm(forms.ModelForm):
+    """واجهة موحدة لتخصيص شاشة واحدة مع قيم إعداد العرض العام كمرجع."""
+
+    THEME_ACCENTS = SchoolSettingsForm.THEME_ACCENTS
+    MESSAGE_FIELD_MAP = {
+        "display_before_title": "display_before_title_override",
+        "display_before_badge": "display_before_badge_override",
+        "display_after_title": "display_after_title_override",
+        "display_after_badge": "display_after_badge_override",
+        "display_after_holiday_title": "display_after_holiday_title_override",
+        "display_after_holiday_badge": "display_after_holiday_badge_override",
+        "display_holiday_title": "display_holiday_title_override",
+        "display_holiday_badge": "display_holiday_badge_override",
+    }
+
+    logo = forms.ImageField(
+        label="شعار هذه الشاشة",
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"accept": "image/png,image/jpeg,image/webp"}),
+    )
+    featured_panel = forms.ChoiceField(label="الكرت المميز", choices=SchoolSettings.FEATURE_PANEL_CHOICES)
+    theme = forms.ChoiceField(label="لون الثيم", choices=SchoolSettings.THEME_CHOICES)
+    display_accent_color = forms.CharField(required=False, widget=forms.HiddenInput())
+    standby_scroll_speed = forms.FloatField(
+        label="سرعة تمرير الانتظار",
+        min_value=0.5,
+        max_value=5.0,
+        widget=forms.NumberInput(attrs={"min": "0.5", "max": "5", "step": "0.1"}),
+    )
+    periods_scroll_speed = forms.FloatField(
+        label="سرعة تمرير جدول الحصص",
+        min_value=0.5,
+        max_value=5.0,
+        widget=forms.NumberInput(attrs={"min": "0.5", "max": "5", "step": "0.1"}),
+    )
+    display_before_title = forms.CharField(max_length=150, label="عنوان ما قبل الدوام")
+    display_before_badge = forms.CharField(max_length=40, label="شارة ما قبل الدوام")
+    display_after_title = forms.CharField(max_length=150, label="عنوان ما بعد الدوام")
+    display_after_badge = forms.CharField(max_length=40, label="شارة ما بعد الدوام")
+    display_after_holiday_title = forms.CharField(max_length=150, label="عنوان ما قبل الإجازة")
+    display_after_holiday_badge = forms.CharField(max_length=40, label="شارة ما قبل الإجازة")
+    display_holiday_title = forms.CharField(max_length=150, label="عنوان يوم الإجازة")
+    display_holiday_badge = forms.CharField(max_length=40, label="شارة يوم الإجازة")
+
+    class Meta:
+        model = DisplayScreen
+        fields = [
+            "name",
+            "is_active",
+            "logo",
+            "featured_panel",
+            "theme",
+            "display_accent_color",
+            "standby_scroll_speed",
+            "periods_scroll_speed",
+            "display_before_title",
+            "display_before_badge",
+            "display_after_title",
+            "display_after_badge",
+            "display_after_holiday_title",
+            "display_after_holiday_badge",
+            "display_holiday_title",
+            "display_holiday_badge",
+            "occasion_theme",
+            "show_announcements",
+            "show_period_classes",
+            "show_standby",
+            "show_duty",
+            "show_excellence",
+        ]
+        widgets = {
+            "name": forms.TextInput(attrs={"maxlength": "100"}),
+            "occasion_theme": forms.Select(),
+        }
+
+    def __init__(self, *args, school_settings: SchoolSettings, **kwargs):
+        self.school_settings = school_settings
+        super().__init__(*args, **kwargs)
+        screen = self.instance
+
+        self.initial.update(
+            {
+                "theme": (getattr(screen, "theme_override", "") or school_settings.theme or "indigo"),
+                "featured_panel": (
+                    getattr(screen, "featured_panel_override", "")
+                    or school_settings.featured_panel
+                    or SchoolSettings.FEATURE_PANEL_EXCELLENCE
+                ),
+                "display_accent_color": (
+                    getattr(screen, "display_accent_color_override", "")
+                    or school_settings.display_accent_color
+                    or self.THEME_ACCENTS.get(school_settings.theme, "#6366F1")
+                ),
+                "standby_scroll_speed": (
+                    getattr(screen, "standby_scroll_speed_override", None)
+                    or school_settings.standby_scroll_speed
+                ),
+                "periods_scroll_speed": (
+                    getattr(screen, "periods_scroll_speed_override", None)
+                    or school_settings.periods_scroll_speed
+                ),
+            }
+        )
+        for public_name, model_name in self.MESSAGE_FIELD_MAP.items():
+            self.initial[public_name] = (
+                getattr(screen, model_name, "")
+                or getattr(school_settings, public_name, "")
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        theme = (cleaned.get("theme") or "indigo").strip().lower()
+        cleaned["display_accent_color"] = self.THEME_ACCENTS.get(theme, "#6366F1")
+        return cleaned
+
+    def clean_logo(self):
+        file_obj = self.cleaned_data.get("logo")
+        if not file_obj:
+            return file_obj
+        return optimize_uploaded_image(file_obj, max_width=1200, max_height=1200, quality=84)
+
+    @transaction.atomic
+    def save(self, commit=True):
+        screen: DisplayScreen = super().save(commit=False)
+        screen.theme_override = self.cleaned_data["theme"]
+        screen.featured_panel_override = self.cleaned_data["featured_panel"]
+        screen.display_accent_color_override = self.cleaned_data["display_accent_color"]
+        screen.standby_scroll_speed_override = self.cleaned_data["standby_scroll_speed"]
+        screen.periods_scroll_speed_override = self.cleaned_data["periods_scroll_speed"]
+        for public_name, model_name in self.MESSAGE_FIELD_MAP.items():
+            setattr(screen, model_name, self.cleaned_data[public_name])
+
+        logo_file = self.cleaned_data.get("logo")
+        if logo_file:
+            screen.logo_override = logo_file
+        if commit:
+            screen.save()
+            self.save_m2m()
+        return screen
 
 
 # ========================
@@ -951,23 +1127,9 @@ class DutyAssignmentForm(forms.ModelForm):
 class DisplayScreenForm(forms.ModelForm):
     class Meta:
         model = DisplayScreen
-        fields = [
-            "name",
-            "is_active",
-            "theme_override",
-            "occasion_theme",
-            "featured_panel_override",
-            "show_announcements",
-            "show_period_classes",
-            "show_standby",
-            "show_duty",
-            "show_excellence",
-        ]
+        fields = ["name", "is_active"]
         widgets = {
             "name": forms.TextInput(attrs={"maxlength": "100"}),
-            "theme_override": forms.Select(),
-            "occasion_theme": forms.Select(),
-            "featured_panel_override": forms.Select(),
         }
 
 

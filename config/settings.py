@@ -137,6 +137,11 @@ DISPLAY_WS_ENABLED = env_bool("DISPLAY_WS_ENABLED", "True")
 # Allow multiple devices per screen token (HTTP + WS must respect this)
 DISPLAY_ALLOW_MULTI_DEVICE = env_bool("DISPLAY_ALLOW_MULTI_DEVICE", "False")
 
+# Mobile-first TV pairing. Codes are one-time and deliberately short-lived.
+DISPLAY_PAIRING_TTL_SEC = env_int_clamped("DISPLAY_PAIRING_TTL_SEC", 600, 180, 1800)
+DISPLAY_PAIRING_START_LIMIT = env_int_clamped("DISPLAY_PAIRING_START_LIMIT", 20, 3, 100)
+DISPLAY_PAIRING_CODE_ATTEMPTS = env_int_clamped("DISPLAY_PAIRING_CODE_ATTEMPTS", 8, 3, 30)
+
 # A healthy WebSocket remains the primary update path. This sparse HTTP check
 # is only a safety net for missed cross-process events.
 DISPLAY_WS_LIVE_STATUS_CHECK_SEC = env_int_clamped(

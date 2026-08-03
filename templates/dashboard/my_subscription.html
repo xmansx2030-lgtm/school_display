@@ -262,31 +262,31 @@
           <span class="text-rose-500">💳</span>
           اختر طريقة الدفع المناسبة
         </h3>
-        <p class="text-sm leading-6 text-slate-500">راجع الخطة والمبلغ أولًا، ثم أكمل إلكترونيًا عبر ميسر أو تمارا، أو استخدم التحويل البنكي.</p>
+        <p class="text-sm leading-6 text-slate-500">راجع الخطة والمبلغ أولًا، ثم اختر الدفع الإلكتروني أو تمارا أو التحويل البنكي.</p>
       </div>
 
       {% if moyasar_available %}
       <div class="rounded-2xl border border-slate-300 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 text-white shadow-sm">
         <div class="flex items-start gap-4">
-          <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-xl font-black text-slate-950 shadow-sm">M</div>
+          <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-950 shadow-sm">{% include "dashboard/_electronic_payment_icon.html" %}</div>
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
-              <p class="font-black">الدفع بالبطاقة عبر ميسر</p>
+              <p class="font-black">الدفع الإلكتروني</p>
               <span class="rounded-full bg-emerald-400/20 px-2.5 py-1 text-[10px] font-black text-emerald-200">مدى · Visa · Mastercard</span>
               {% if not moyasar_live_mode %}
               <span class="rounded-full bg-amber-400/20 px-2.5 py-1 text-[10px] font-black text-amber-200">اختبار لمدير النظام</span>
               {% endif %}
             </div>
-            <p class="mt-2 text-xs leading-6 text-slate-300">دفع آمن داخل نموذج ميسر، ثم تحقق خلفي من الحالة والمبلغ والعملة قبل تفعيل الاشتراك.</p>
+            <p class="mt-2 text-xs leading-6 text-slate-300">دفع آمن بالبطاقة، ثم تحقق خلفي من الحالة والمبلغ والعملة قبل تفعيل الاشتراك.</p>
           </div>
         </div>
       </div>
       {% elif moyasar_pending_activation %}
       <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5">
         <div class="flex items-start gap-3">
-          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 font-black text-white">M</span>
+          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white">{% include "dashboard/_electronic_payment_icon.html" %}</span>
           <div>
-            <p class="font-black text-amber-950">الدفع عبر ميسر قيد التفعيل</p>
+            <p class="font-black text-amber-950">الدفع الإلكتروني قيد التفعيل</p>
             <p class="mt-1 text-xs leading-6 text-amber-800">اكتمل الربط التقني، وستظهر بطاقات مدى وVisa وMastercard تلقائيًا بعد اعتماد الحساب.</p>
           </div>
         </div>
@@ -461,9 +461,9 @@
             <div class="rounded-2xl border border-slate-300 bg-slate-50 p-5" data-payment-panel="renewal" data-payment-method="moyasar">
               <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-3">
-                  <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 font-black text-white">M</span>
+                  <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">{% include "dashboard/_electronic_payment_icon.html" %}</span>
                   <div>
-                    <p class="font-black text-slate-900">ادفع بالبطاقة عبر ميسر</p>
+                    <p class="font-black text-slate-900">الدفع الإلكتروني</p>
                     <p class="mt-0.5 text-xs text-slate-500">مدى وVisa وMastercard</p>
                   </div>
                 </div>
@@ -474,7 +474,7 @@
                 <input type="hidden" name="request_type" value="renewal">
                 <input type="hidden" name="plan_id" value="{{ subscription.plan_id }}">
                 <button type="submit" class="w-full rounded-xl bg-slate-900 px-5 py-4 font-black text-white transition hover:bg-slate-700 active:scale-[.99]">
-                  متابعة الدفع عبر ميسر <span aria-hidden="true">←</span>
+                  متابعة الدفع الإلكتروني <span aria-hidden="true">←</span>
                 </button>
               </form>
               {% if not moyasar_live_mode %}<p class="mt-3 text-center text-[11px] text-amber-700">بيئة اختبار؛ لن يُفعّل اشتراك حقيقي.</p>{% endif %}
@@ -678,7 +678,7 @@
         <div id="payment-plan-prompt" class="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/60 px-5 py-6 text-center">
           <span class="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-xl text-white">↓</span>
           <p class="mt-3 font-black text-indigo-950">اختر باقة لعرض وسائل الدفع</p>
-          <p class="mt-1 text-xs leading-6 text-indigo-700">بعد اختيار الباقة ستظهر ميسر وتمارا والتحويل البنكي في مكان واحد.</p>
+          <p class="mt-1 text-xs leading-6 text-indigo-700">بعد اختيار الباقة ستظهر خيارات الدفع الإلكتروني وتمارا والتحويل البنكي في مكان واحد.</p>
         </div>
 
         <section
@@ -703,9 +703,9 @@
         <div id="moyasar-new-card" class="rounded-2xl border border-slate-300 bg-slate-50 p-5" data-payment-panel="new" data-payment-method="moyasar">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-3">
-              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 font-black text-white">M</span>
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">{% include "dashboard/_electronic_payment_icon.html" %}</span>
               <div>
-                <p class="font-black text-slate-900">الدفع بالبطاقة عبر ميسر</p>
+                <p class="font-black text-slate-900">الدفع الإلكتروني</p>
                 <p id="moyasar-plan-copy" class="mt-1 text-xs text-slate-500">اختر باقة مدفوعة للمتابعة</p>
               </div>
             </div>
@@ -719,7 +719,7 @@
             <input type="hidden" name="request_type" value="new">
             <input type="hidden" name="plan_id" id="moyasar-plan-id" value="">
             <button type="submit" id="moyasar-new-submit" class="w-full rounded-xl bg-slate-900 px-5 py-4 font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[.99]" disabled>
-              متابعة الدفع عبر ميسر <span aria-hidden="true">←</span>
+              متابعة الدفع الإلكتروني <span aria-hidden="true">←</span>
             </button>
           </form>
           {% if not moyasar_live_mode %}<p class="mt-3 text-center text-[11px] text-amber-700">بيئة اختبار؛ لن يُفعّل اشتراك حقيقي.</p>{% endif %}
@@ -879,7 +879,7 @@
   <div class="dashboard-section-card mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
     <div class="flex flex-col gap-1 border-b border-slate-100 bg-slate-50 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h4 class="font-black text-slate-800">مدفوعات ميسر</h4>
+        <h4 class="font-black text-slate-800">المدفوعات الإلكترونية</h4>
         <p class="mt-1 text-xs text-slate-500">آخر محاولات الدفع بالبطاقة وحالة التحقق الخلفي.</p>
       </div>
       <span class="text-xs font-bold text-slate-500">آخر {{ moyasar_checkouts|length }} عمليات</span>
