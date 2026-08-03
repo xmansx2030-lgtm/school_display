@@ -396,6 +396,11 @@ class DisplayRuntimeConfigTests(TestCase):
             name="شاشة المدخل",
             school=school,
             theme_override="violet",
+            display_accent_color_override="#A855F7",
+            standby_scroll_speed_override=1.1,
+            periods_scroll_speed_override=0.9,
+            display_before_title_override="مرحبًا بكم في شاشة المدخل",
+            display_before_badge_override="أهلًا",
             occasion_theme="founding_day",
             featured_panel_override="duty",
             show_announcements=False,
@@ -410,6 +415,11 @@ class DisplayRuntimeConfigTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-theme="violet"')
         self.assertContains(response, 'data-screen-theme="violet"')
+        self.assertContains(response, 'data-screen-accent-color="#A855F7"')
+        self.assertContains(response, 'data-standby="1.1"')
+        self.assertContains(response, 'data-periods-speed="0.9"')
+        self.assertContains(response, 'data-screen-display-before-title="مرحبًا بكم في شاشة المدخل"')
+        self.assertContains(response, 'data-screen-display-before-badge="أهلًا"')
         self.assertContains(response, 'data-screen-occasion-theme="founding_day"')
         self.assertContains(response, 'data-screen-featured-panel="duty"')
         self.assertContains(response, 'data-screen-show-announcements="0"')

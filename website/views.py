@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from urllib.parse import urlencode
+import hashlib
+from io import BytesIO
+from urllib.parse import quote, urlencode
+
+import qrcode
 
 from django.contrib import messages
 from django.contrib.auth import login
@@ -8,16 +12,22 @@ from django.conf import settings as django_settings
 from django.core.cache import cache
 from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_sameorigin
-from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
-from core.models import DisplayScreen, SubscriptionPlan
+from core.models import DisplayPairingSession, DisplayScreen, SubscriptionPlan
 from dashboard.access import get_active_school_or_redirect
+from display.pairing import (
+    create_pairing_session,
+    format_user_code,
+    pairing_secret_matches,
+    refresh_expired_status,
+)
 from schedule.models import SchoolSettings
 from subscriptions.plan_catalog import plan_cards
 from .services import (
@@ -48,6 +58,160 @@ THEME_MAP = {
 
 def health(request):
     return HttpResponse("School Display is running.")
+
+
+def _pairing_rate_limited(key: str, *, limit: int, window_seconds: int) -> bool:
+    """Best-effort fixed-window limiter; cache failure must not strand a TV."""
+    cache_key = f"display:pairing:rate:{key}"
+    try:
+        if cache.add(cache_key, 1, timeout=window_seconds):
+            return False
+        return int(cache.incr(cache_key)) > int(limit)
+    except Exception:
+        return False
+
+
+def _no_store_json(payload: dict, *, status: int = 200) -> JsonResponse:
+    response = JsonResponse(payload, status=status)
+    response["Cache-Control"] = "no-store, max-age=0"
+    return response
+
+
+@never_cache
+@ensure_csrf_cookie
+def tv_pairing(request):
+    """A fixed, TV-friendly entry point that starts a one-time pairing flow."""
+    return render(
+        request,
+        "website/tv_pairing.html",
+        {
+            "connect_url": request.build_absolute_uri(reverse("website:pairing_connect")),
+        },
+    )
+
+
+@never_cache
+@require_POST
+def tv_pairing_start(request):
+    device_id = (request.POST.get("device_id") or "").strip()
+    remote_addr = (request.META.get("REMOTE_ADDR") or "unknown").strip()
+    device_key = hashlib.sha256(device_id.encode("utf-8", errors="ignore")).hexdigest()[:20]
+    start_limit = int(getattr(django_settings, "DISPLAY_PAIRING_START_LIMIT", 20) or 20)
+    if _pairing_rate_limited(
+        f"start:{remote_addr}:{device_key}",
+        limit=start_limit,
+        window_seconds=10 * 60,
+    ):
+        response = _no_store_json(
+            {
+                "error": "rate_limited",
+                "message": "تم طلب رموز كثيرة. انتظر قليلًا ثم حاول مجددًا.",
+            },
+            status=429,
+        )
+        response["Retry-After"] = "60"
+        return response
+
+    try:
+        pairing, device_secret = create_pairing_session(device_id)
+    except ValueError:
+        return _no_store_json(
+            {"error": "invalid_device", "message": "تعذر تهيئة هذا المتصفح للربط."},
+            status=400,
+        )
+    except RuntimeError:
+        return _no_store_json(
+            {"error": "unavailable", "message": "تعذر إنشاء رمز الربط الآن. حاول مجددًا."},
+            status=503,
+        )
+
+    return _no_store_json(
+        {
+            "pairing_id": str(pairing.pk),
+            "user_code": pairing.user_code,
+            "formatted_code": format_user_code(pairing.user_code),
+            "device_secret": device_secret,
+            "expires_in": max(0, int((pairing.expires_at - timezone.now()).total_seconds())),
+            "status_url": reverse("website:tv_pairing_status", args=[pairing.pk]),
+            "qr_url": reverse("website:tv_pairing_qr", args=[pairing.pk]),
+        }
+    )
+
+
+@never_cache
+@require_POST
+def tv_pairing_status(request, pairing_id):
+    pairing = get_object_or_404(
+        DisplayPairingSession.objects.select_related("screen"),
+        pk=pairing_id,
+    )
+    if not pairing_secret_matches(pairing, request.POST.get("device_secret")):
+        return _no_store_json(
+            {"error": "not_found", "message": "جلسة الربط غير متاحة."},
+            status=404,
+        )
+
+    refresh_expired_status(pairing)
+    payload = {
+        "status": pairing.status,
+        "expires_in": max(0, int((pairing.expires_at - timezone.now()).total_seconds())),
+    }
+    if pairing.status == DisplayPairingSession.STATUS_APPROVED and pairing.screen_id:
+        screen = pairing.screen
+        if screen and screen.is_active and screen.short_code:
+            display_path = reverse("website:short_display", args=[screen.short_code])
+            payload.update(
+                {
+                    "screen_name": screen.name,
+                    "display_url": f"{display_path}#pair={quote(pairing.device_id, safe='')}",
+                }
+            )
+        else:
+            payload.update(
+                {
+                    "status": DisplayPairingSession.STATUS_CANCELLED,
+                    "message": "الشاشة المختارة لم تعد متاحة.",
+                }
+            )
+    elif pairing.status == DisplayPairingSession.STATUS_EXPIRED:
+        payload["message"] = "انتهت صلاحية الرمز. أنشئ رمزًا جديدًا للمتابعة."
+    elif pairing.status == DisplayPairingSession.STATUS_CANCELLED:
+        payload["message"] = "أُلغيت جلسة الربط. أنشئ رمزًا جديدًا للمتابعة."
+    return _no_store_json(payload)
+
+
+@never_cache
+@require_GET
+def tv_pairing_qr(request, pairing_id):
+    pairing = get_object_or_404(DisplayPairingSession, pk=pairing_id)
+    pairing = refresh_expired_status(pairing)
+    if pairing.status != DisplayPairingSession.STATUS_PENDING:
+        raise Http404("Pairing session is no longer active.")
+
+    approval_url = request.build_absolute_uri(
+        reverse("dashboard:screen_pairing_confirm", args=[pairing.pk])
+    )
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=12,
+        border=3,
+    )
+    qr.add_data(approval_url)
+    qr.make(fit=True)
+    image = qr.make_image(fill_color="#0f172a", back_color="#ffffff")
+    output = BytesIO()
+    image.save(output, format="PNG")
+    response = HttpResponse(output.getvalue(), content_type="image/png")
+    response["Cache-Control"] = "no-store, max-age=0"
+    response["Content-Disposition"] = 'inline; filename="tv-pairing.png"'
+    return response
+
+
+@never_cache
+def pairing_connect(request):
+    """Short mobile entry point shown on the TV for manual code entry."""
+    return redirect("dashboard:screen_pairing")
 
 
 def _abs_media_url(request, maybe_url: str | None) -> str | None:
@@ -126,9 +290,18 @@ def _build_display_context(request, key: str | None) -> dict | None:
         if cached:
             return cached
 
+    def _screen_override(field_name: str, fallback):
+        value = getattr(screen, field_name, None)
+        return fallback if value in (None, "") else value
+
     # شعار
     logo_url = None
-    if settings_obj.school and getattr(settings_obj.school, "logo", None):
+    if getattr(screen, "logo_override", None):
+        try:
+            logo_url = screen.logo_override.url
+        except Exception:
+            logo_url = None
+    if not logo_url and settings_obj.school and getattr(settings_obj.school, "logo", None):
         try:
             logo_url = settings_obj.school.logo.url
         except Exception:
@@ -154,7 +327,10 @@ def _build_display_context(request, key: str | None) -> dict | None:
 
     school_name = getattr(settings_obj, "name", None) or getattr(settings_obj.school, "name", "مدرستنا")
     school_type = getattr(settings_obj.school, "school_type", "") if getattr(settings_obj, "school", None) else ""
-    display_accent_color = getattr(settings_obj, "display_accent_color", None)
+    display_accent_color = _screen_override(
+        "display_accent_color_override",
+        getattr(settings_obj, "display_accent_color", None),
+    )
     if preview_accent:
         display_accent_color = preview_accent
 
@@ -169,8 +345,14 @@ def _build_display_context(request, key: str | None) -> dict | None:
         "ws_live_status_check_sec": int(
             getattr(django_settings, "DISPLAY_WS_LIVE_STATUS_CHECK_SEC", 60) or 60
         ),
-        "standby_scroll_speed": getattr(settings_obj, "standby_scroll_speed", 0.8),
-        "periods_scroll_speed": getattr(settings_obj, "periods_scroll_speed", 0.5),
+        "standby_scroll_speed": _screen_override(
+            "standby_scroll_speed_override",
+            getattr(settings_obj, "standby_scroll_speed", 0.8),
+        ),
+        "periods_scroll_speed": _screen_override(
+            "periods_scroll_speed_override",
+            getattr(settings_obj, "periods_scroll_speed", 0.5),
+        ),
         "now_hour": timezone.localtime().hour,
         "theme": theme,
         "theme_key": raw_theme,
@@ -179,6 +361,16 @@ def _build_display_context(request, key: str | None) -> dict | None:
         "screen_featured_panel": (
             getattr(screen, "featured_panel_override", "") or ""
         ),
+        "screen_display_copy": {
+            "before_title": _screen_override("display_before_title_override", settings_obj.get_display_before_title()),
+            "before_badge": _screen_override("display_before_badge_override", settings_obj.get_display_before_badge()),
+            "after_title": _screen_override("display_after_title_override", settings_obj.get_display_after_title()),
+            "after_badge": _screen_override("display_after_badge_override", settings_obj.get_display_after_badge()),
+            "after_holiday_title": _screen_override("display_after_holiday_title_override", settings_obj.get_display_after_holiday_title()),
+            "after_holiday_badge": _screen_override("display_after_holiday_badge_override", settings_obj.get_display_after_holiday_badge()),
+            "holiday_title": _screen_override("display_holiday_title_override", settings_obj.get_display_holiday_title()),
+            "holiday_badge": _screen_override("display_holiday_badge_override", settings_obj.get_display_holiday_badge()),
+        },
         "screen_show_announcements": bool(getattr(screen, "show_announcements", True)),
         "screen_show_period_classes": bool(getattr(screen, "show_period_classes", True)),
         "screen_show_standby": bool(getattr(screen, "show_standby", True)),

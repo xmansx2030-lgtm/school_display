@@ -407,7 +407,7 @@ def display_snapshot(request: HttpRequest, token: str) -> HttpResponse:
             return JsonResponse(
                 {
                     "error": "screen_bound",
-                    "message": "هذه الشاشة مرتبطة بجهاز آخر. قم بفصل الجهاز من لوحة التحكم لتفعيلها على جهاز جديد.",
+                    "message": "هذه الشاشة مفعّلة حاليًا على جهاز آخر. لفك الارتباط وتفعيلها هنا، انتقل إلى لوحة التحكم ثم شاشات العرض.",
                 },
                 status=403,
             )

@@ -1,0 +1,220 @@
+{% extends "dashboard/_base.html" %}
+
+{% block title %}ربط تلفاز{% endblock %}
+{% block page_title %}ربط تلفاز جديد{% endblock %}
+{% block page_description %}أكمل الربط من جوالك دون كتابة رابط الشاشة على التلفاز{% endblock %}
+
+{% block content %}
+<div class="pair-mobile-wrap">
+  {% if pairing_success %}
+    <section class="pair-result-card pair-result-card--success">
+      <div class="pair-result-icon">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <span class="pair-eyebrow">اكتمل الربط</span>
+      <h2>التلفاز جاهز للعرض</h2>
+      <p>تم ربط التلفاز بـ <strong>{{ pairing.screen.name|default:"شاشة المدرسة" }}</strong>. ستنتقل شاشة التلفاز تلقائيًا خلال لحظات.</p>
+      <div class="pair-success-hint"><i></i> يمكنك إغلاق هذه الصفحة والعودة إلى التلفاز</div>
+      <div class="pair-result-actions">
+        <a href="{% url 'dashboard:screen_list' %}" class="pair-primary-link">إدارة الشاشات</a>
+        <a href="{% url 'dashboard:screen_pairing' %}" class="pair-secondary-link">ربط تلفاز آخر</a>
+      </div>
+    </section>
+
+  {% elif pairing and not pairing_error %}
+    <section class="pair-mobile-card">
+      <div class="pair-progress-row">
+        <span class="pair-step-pill">الخطوة 2 من 2</span>
+        <span class="pair-session-state"><i></i> جلسة آمنة ومؤقتة</span>
+      </div>
+
+      <div class="pair-code-check">
+        <div>
+          <span>تأكد أن هذا الرمز ظاهر على التلفاز</span>
+          <strong dir="ltr">{{ pairing_code }}</strong>
+        </div>
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 14.5v-8Z" stroke="currentColor" stroke-width="1.7"/><path d="m9 20 3-3 3 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      </div>
+
+      <form method="post" class="pair-screen-form">
+        {% csrf_token %}
+        <fieldset>
+          <legend>اختر الشاشة التي ستظهر على التلفاز</legend>
+          <p class="pair-field-help">يمكنك تغيير الشاشة أو فصل الجهاز لاحقًا من صفحة شاشات العرض.</p>
+
+          {% if screens %}
+            <div class="pair-screen-list">
+              {% for screen in screens %}
+                <label class="pair-screen-option">
+                  <input type="radio" name="screen_id" value="{{ screen.pk }}" {% if selected_screen_id == screen.pk|stringformat:"s" %}checked{% endif %} required>
+                  <span class="pair-radio-ui" aria-hidden="true"></span>
+                  <span class="pair-screen-icon">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 14.5v-8Z" stroke="currentColor" stroke-width="1.8"/><path d="m9 20 3-3 3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                  </span>
+                  <span class="pair-screen-copy">
+                    <strong>{{ screen.name }}</strong>
+                    {% if screen.bound_device_id %}
+                      <small class="is-bound">مرتبطة حاليًا بجهاز آخر</small>
+                    {% else %}
+                      <small>جاهزة للربط</small>
+                    {% endif %}
+                  </span>
+                  {% if screen.bound_device_id %}<span class="pair-bound-badge">نقل</span>{% endif %}
+                </label>
+              {% endfor %}
+            </div>
+
+            {% if has_bound_screens %}
+              <label class="pair-replace-confirm">
+                <input type="checkbox" name="replace_existing" value="1">
+                <span>
+                  <b>السماح بنقل شاشة مرتبطة</b>
+                  <small>إذا اخترت شاشة مرتبطة، سيتوقف الجهاز القديم ويصبح هذا التلفاز هو الجهاز المعتمد.</small>
+                </span>
+              </label>
+            {% endif %}
+
+            <button type="submit" class="pair-submit-button">
+              <span>ربط وبدء العرض</span>
+              <svg viewBox="0 0 24 24" fill="none"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          {% else %}
+            <div class="pair-empty-screens">
+              <strong>لا توجد شاشة فعالة للاختيار</strong>
+              <p>أنشئ شاشة أولًا، ثم أعد مسح رمز QR الظاهر على التلفاز.</p>
+              <a href="{% url 'dashboard:screen_create' %}">إنشاء شاشة جديدة</a>
+            </div>
+          {% endif %}
+        </fieldset>
+      </form>
+    </section>
+
+  {% else %}
+    <section class="pair-mobile-card pair-code-entry-card">
+      <div class="pair-progress-row">
+        <span class="pair-step-pill">الخطوة 1 من 2</span>
+        <a href="{% url 'dashboard:screen_list' %}" class="pair-back-link">العودة للشاشات</a>
+      </div>
+
+      <div class="pair-entry-heading">
+        <div class="pair-entry-icon">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 14.5v-8Z" stroke="currentColor" stroke-width="1.8"/><path d="m9 20 3-3 3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+        <h2>أدخل الرمز الظاهر على التلفاز</h2>
+        <p>افتح <b dir="ltr">school-display.com/tv</b> على التلفاز، ثم أدخل هنا الرمز المكوّن من 6 أرقام.</p>
+      </div>
+
+      {% if pairing_error %}
+        <div class="pair-inline-error" role="alert">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 8v4m0 4h.01M10.3 3.8 2.5 17.3A2 2 0 0 0 4.2 20h15.6a2 2 0 0 0 1.7-2.7L13.7 3.8a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span>{{ pairing_error }}</span>
+        </div>
+      {% endif %}
+
+      <form method="post" action="{% url 'dashboard:screen_pairing' %}" class="pair-code-form">
+        {% csrf_token %}
+        <label for="pairing-user-code">رمز الربط</label>
+        <input
+          id="pairing-user-code"
+          type="text"
+          name="user_code"
+          value="{{ entered_code|default:'' }}"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          maxlength="9"
+          placeholder="000 000"
+          dir="ltr"
+          autofocus
+          required
+        >
+        <button type="submit" class="pair-submit-button">
+          <span>متابعة واختيار الشاشة</span>
+          <svg viewBox="0 0 24 24" fill="none"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </form>
+
+      <div class="pair-qr-tip">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M8 3H3v5h5V3Zm13 0h-5v5h5V3ZM8 16H3v5h5v-5Zm8 0h2m3 0h-1m-4 4h5M12 3v3m0 3v3m-3 0h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        <span><b>الأسهل:</b> امسح QR الظاهر على التلفاز بالكاميرا لفتح صفحة الاختيار مباشرة.</span>
+      </div>
+    </section>
+  {% endif %}
+</div>
+
+<style>
+.pair-mobile-wrap { max-width: 680px; margin: 0 auto; padding-bottom: 2rem; }
+.pair-mobile-card, .pair-result-card { overflow: hidden; border: 1px solid #dfe8e6; border-radius: 24px; background: #fff; box-shadow: 0 18px 55px rgba(15, 49, 55, .08); }
+.pair-mobile-card { padding: clamp(1.1rem, 4vw, 2rem); }
+.pair-progress-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.35rem; }
+.pair-step-pill { display: inline-flex; padding: .42rem .75rem; border-radius: 999px; color: #155e63; background: #eaf8f6; font-size: .73rem; font-weight: 800; }
+.pair-session-state { display: flex; align-items: center; gap: .45rem; color: #64748b; font-size: .72rem; font-weight: 700; }
+.pair-session-state i { width: .48rem; height: .48rem; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 4px #dcfce7; }
+.pair-back-link { color: #64748b; font-size: .78rem; font-weight: 700; text-decoration: none; }
+.pair-code-check { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.1rem; border: 1px solid #bfe3df; border-radius: 18px; background: linear-gradient(135deg, #f0fbfa, #f9fcfb); }
+.pair-code-check span { display: block; color: #56716e; font-size: .76rem; font-weight: 700; }
+.pair-code-check strong { display: block; margin-top: .3rem; color: #0d555b; font-family: Consolas, monospace; font-size: clamp(1.55rem, 8vw, 2.2rem); letter-spacing: .12em; }
+.pair-code-check svg { width: 2.5rem; color: #238b8a; flex: 0 0 auto; }
+.pair-screen-form { margin-top: 1.6rem; }
+.pair-screen-form fieldset { margin: 0; padding: 0; border: 0; }
+.pair-screen-form legend { color: #172b31; font-size: 1.05rem; font-weight: 900; }
+.pair-field-help { margin: .3rem 0 1rem; color: #71827f; font-size: .78rem; line-height: 1.75; }
+.pair-screen-list { display: grid; gap: .7rem; }
+.pair-screen-option { position: relative; display: flex; align-items: center; gap: .8rem; min-height: 74px; padding: .8rem .9rem; border: 1.5px solid #e2e8f0; border-radius: 17px; background: #fff; cursor: pointer; transition: border-color .18s, background .18s, transform .18s; }
+.pair-screen-option:active { transform: scale(.99); }
+.pair-screen-option:has(input:checked) { border-color: #288c8b; background: #f0fbfa; box-shadow: 0 0 0 3px rgba(40,140,139,.09); }
+.pair-screen-option input { position: absolute; opacity: 0; pointer-events: none; }
+.pair-radio-ui { width: 1.25rem; height: 1.25rem; border: 2px solid #bdcbc9; border-radius: 50%; box-shadow: inset 0 0 0 4px #fff; flex: 0 0 auto; }
+.pair-screen-option input:checked + .pair-radio-ui { border-color: #288c8b; background: #288c8b; }
+.pair-screen-icon { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; border-radius: 13px; color: #287c7d; background: #eaf7f6; flex: 0 0 auto; }
+.pair-screen-icon svg { width: 1.45rem; }
+.pair-screen-copy { min-width: 0; flex: 1; }
+.pair-screen-copy strong { display: block; overflow: hidden; color: #17353a; font-size: .9rem; text-overflow: ellipsis; white-space: nowrap; }
+.pair-screen-copy small { display: block; margin-top: .18rem; color: #2f8b69; font-size: .69rem; font-weight: 700; }
+.pair-screen-copy small.is-bound { color: #b7791f; }
+.pair-bound-badge { padding: .28rem .48rem; border-radius: 8px; color: #9a620f; background: #fff5dc; font-size: .65rem; font-weight: 900; }
+.pair-replace-confirm { display: flex; align-items: flex-start; gap: .7rem; margin-top: 1rem; padding: .9rem; border: 1px solid #f1dfb5; border-radius: 15px; background: #fffaf0; cursor: pointer; }
+.pair-replace-confirm input { width: 1.15rem; height: 1.15rem; margin-top: .15rem; accent-color: #1f7d7d; flex: 0 0 auto; }
+.pair-replace-confirm b, .pair-replace-confirm small { display: block; }
+.pair-replace-confirm b { color: #7c5415; font-size: .78rem; }
+.pair-replace-confirm small { margin-top: .18rem; color: #926d33; font-size: .68rem; line-height: 1.6; }
+.pair-submit-button { display: flex; align-items: center; justify-content: center; gap: .5rem; width: 100%; min-height: 54px; margin-top: 1.15rem; padding: .8rem 1rem; border: 0; border-radius: 16px; color: #fff; background: linear-gradient(135deg, #176b70, #2b8f8c); box-shadow: 0 12px 28px rgba(23,107,112,.22); font-family: inherit; font-size: .9rem; font-weight: 900; cursor: pointer; }
+.pair-submit-button svg { width: 1.2rem; transform: rotate(180deg); }
+.pair-entry-heading { text-align: center; }
+.pair-entry-icon { display: grid; place-items: center; width: 4.2rem; height: 4.2rem; margin: .2rem auto 1rem; border-radius: 22px; color: #257f80; background: linear-gradient(145deg, #e6f7f5, #f7fbfa); box-shadow: inset 0 0 0 1px #d9efec; }
+.pair-entry-icon svg { width: 2.2rem; }
+.pair-entry-heading h2 { margin: 0; color: #17363b; font-size: 1.25rem; font-weight: 900; }
+.pair-entry-heading p { margin: .55rem auto 0; max-width: 480px; color: #687d7b; font-size: .8rem; line-height: 1.8; }
+.pair-entry-heading b { color: #1c696d; }
+.pair-code-form { margin-top: 1.5rem; }
+.pair-code-form label { display: block; margin-bottom: .45rem; color: #364f53; font-size: .76rem; font-weight: 800; }
+.pair-code-form input { width: 100%; min-height: 66px; border: 2px solid #cfe1df !important; border-radius: 17px !important; color: #164e55; font-family: Consolas, monospace !important; font-size: clamp(1.7rem, 9vw, 2.25rem) !important; font-weight: 800; letter-spacing: .18em; text-align: center; }
+.pair-inline-error { display: flex; align-items: flex-start; gap: .6rem; margin-top: 1rem; padding: .85rem; border: 1px solid #fecdd3; border-radius: 14px; color: #9f1239; background: #fff1f2; font-size: .75rem; font-weight: 700; line-height: 1.65; }
+.pair-inline-error svg { width: 1.15rem; flex: 0 0 auto; margin-top: .1rem; }
+.pair-qr-tip { display: flex; align-items: flex-start; gap: .65rem; margin-top: 1.15rem; padding-top: 1.15rem; border-top: 1px solid #edf2f1; color: #647a78; font-size: .72rem; line-height: 1.7; }
+.pair-qr-tip svg { width: 1.35rem; color: #278485; flex: 0 0 auto; }
+.pair-qr-tip b { color: #285e62; }
+.pair-empty-screens { padding: 1.5rem; border: 1px dashed #cbdad8; border-radius: 17px; text-align: center; background: #f8fbfa; }
+.pair-empty-screens strong { color: #27464a; }
+.pair-empty-screens p { color: #71827f; font-size: .78rem; }
+.pair-empty-screens a { display: inline-flex; padding: .65rem 1rem; border-radius: 12px; color: #fff; background: #277f80; font-size: .78rem; font-weight: 800; text-decoration: none; }
+.pair-result-card { padding: clamp(2rem, 7vw, 3.3rem) clamp(1.2rem, 6vw, 3rem); text-align: center; }
+.pair-result-icon { display: grid; place-items: center; width: 5.3rem; height: 5.3rem; margin: 0 auto 1.2rem; border-radius: 50%; color: #148358; background: #e8faf2; box-shadow: 0 0 0 10px #f3fcf8; }
+.pair-result-icon svg { width: 2.8rem; }
+.pair-eyebrow { color: #148358; font-size: .72rem; font-weight: 900; }
+.pair-result-card h2 { margin: .45rem 0 .55rem; color: #17363b; font-size: 1.5rem; font-weight: 900; }
+.pair-result-card p { max-width: 480px; margin: 0 auto; color: #617572; font-size: .85rem; line-height: 1.85; }
+.pair-result-card p strong { color: #245f62; }
+.pair-success-hint { display: inline-flex; align-items: center; gap: .5rem; margin-top: 1.1rem; padding: .55rem .8rem; border-radius: 999px; color: #327158; background: #effaf5; font-size: .7rem; font-weight: 800; }
+.pair-success-hint i { width: .45rem; height: .45rem; border-radius: 50%; background: #22c55e; }
+.pair-result-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: .65rem; margin-top: 1.5rem; }
+.pair-result-actions a { min-height: 44px; padding: .7rem 1rem; border-radius: 13px; font-size: .76rem; font-weight: 900; text-decoration: none; }
+.pair-primary-link { color: #fff; background: #217a7c; }
+.pair-secondary-link { color: #326568; background: #edf6f5; }
+@media (max-width: 520px) {
+  .pair-mobile-wrap { margin: 0 -.15rem; }
+  .pair-mobile-card, .pair-result-card { border-radius: 20px; }
+  .pair-progress-row { margin-bottom: 1rem; }
+  .pair-code-check { padding: .9rem; }
+}
+</style>
+{% endblock %}

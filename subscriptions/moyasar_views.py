@@ -80,7 +80,7 @@ def _renewal_start(school, plan) -> date:
 @require_POST
 def moyasar_start(request):
     if not _user_may_checkout(request.user):
-        messages.error(request, "الدفع عبر ميسر بانتظار تفعيل الحساب حاليًا.")
+        messages.error(request, "الدفع الإلكتروني بانتظار التفعيل حاليًا.")
         return redirect("dashboard:my_subscription")
 
     school = _active_school(request)
@@ -141,7 +141,7 @@ def moyasar_start(request):
 @require_GET
 def moyasar_checkout(request, reference: str):
     if not _user_may_checkout(request.user):
-        messages.error(request, "الدفع عبر ميسر بانتظار تفعيل الحساب حاليًا.")
+        messages.error(request, "الدفع الإلكتروني بانتظار التفعيل حاليًا.")
         return redirect("dashboard:my_subscription")
     school = _active_school(request)
     checkout = get_object_or_404(
@@ -193,7 +193,7 @@ def moyasar_return(request):
         created_by=request.user,
     ).first()
     if checkout is None or not _PAYMENT_ID_RE.fullmatch(payment_id):
-        messages.error(request, "تعذر العثور على عملية ميسر المرتبطة بالحساب.")
+        messages.error(request, "تعذر العثور على عملية الدفع الإلكتروني المرتبطة بالحساب.")
         return redirect("dashboard:my_subscription")
 
     try:
@@ -201,18 +201,18 @@ def moyasar_return(request):
         checkout = apply_payment_details(checkout.pk, details, event_type="return")
     except (MoyasarConfigurationError, MoyasarAPIError, MoyasarVerificationError):
         logger.warning("moyasar_return_verification_failed reference=%s", reference)
-        messages.error(request, "تعذر تأكيد دفعة ميسر. لم يتم تفعيل الاشتراك.")
+        messages.error(request, "تعذر تأكيد عملية الدفع الإلكتروني. لم يتم تفعيل الاشتراك.")
         return redirect("dashboard:my_subscription")
 
     if checkout.status in {"paid", "captured"}:
         if checkout.payment_operation_id:
-            messages.success(request, "اكتمل الدفع عبر ميسر وتم تفعيل الاشتراك.")
+            messages.success(request, "اكتمل الدفع الإلكتروني وتم تفعيل الاشتراك.")
         else:
-            messages.success(request, "نجحت دفعة الاختبار في ميسر، ولم يُفعّل اشتراك حقيقي.")
+            messages.success(request, "نجحت عملية الدفع التجريبية، ولم يُفعّل اشتراك حقيقي.")
     elif checkout.status == "initiated":
-        messages.info(request, "عملية ميسر ما زالت قيد التحقق. سنحدّث حالتها تلقائيًا.")
+        messages.info(request, "عملية الدفع الإلكتروني ما زالت قيد التحقق. سنحدّث حالتها تلقائيًا.")
     else:
-        messages.error(request, "لم تكتمل عملية ميسر، ولم يتم تفعيل الاشتراك.")
+        messages.error(request, "لم تكتمل عملية الدفع الإلكتروني، ولم يتم تفعيل الاشتراك.")
     return redirect("dashboard:my_subscription")
 
 

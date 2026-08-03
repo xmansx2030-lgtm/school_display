@@ -42,7 +42,7 @@ class MoyasarClient:
                 timeout=self.timeout,
             )
         except requests.RequestException as exc:
-            raise MoyasarAPIError("تعذر الاتصال بميسر حاليًا.") from exc
+            raise MoyasarAPIError("تعذر الاتصال بمزود الدفع الإلكتروني حاليًا.") from exc
 
         if response.status_code < 200 or response.status_code >= 300:
             logger.warning(
@@ -50,16 +50,16 @@ class MoyasarClient:
                 response.status_code,
             )
             raise MoyasarAPIError(
-                "تعذر التحقق من عملية ميسر. حاول مرة أخرى بعد قليل.",
+                "تعذر التحقق من عملية الدفع الإلكتروني. حاول مرة أخرى بعد قليل.",
                 status_code=response.status_code,
             )
         try:
             data = response.json()
         except ValueError as exc:
             raise MoyasarAPIError(
-                "أعادت ميسر استجابة غير صالحة.",
+                "أعاد مزود الدفع استجابة غير صالحة.",
                 status_code=response.status_code,
             ) from exc
         if not isinstance(data, dict):
-            raise MoyasarAPIError("أعادت ميسر استجابة غير صالحة.", status_code=response.status_code)
+            raise MoyasarAPIError("أعاد مزود الدفع استجابة غير صالحة.", status_code=response.status_code)
         return data

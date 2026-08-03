@@ -263,6 +263,26 @@
     dom.blockerTitle = $("blockerTitle");
     dom.blockerDetails = $("blockerDetails");
     dom.blockerLink = $("blockerLink");
+    dom.blockerStatusText = $("blockerStatusText");
+    dom.blockerEyebrow = $("blockerEyebrow");
+    dom.blockerGuideTitle = $("blockerGuideTitle");
+    dom.blockerGuideIntro = $("blockerGuideIntro");
+    dom.blockerStepOne = $("blockerStepOne");
+    dom.blockerStepTwo = $("blockerStepTwo");
+    dom.blockerStepThree = $("blockerStepThree");
+    dom.blockerFootnote = $("blockerFootnote");
+    dom.blockerRetryBtn = $("blockerRetryBtn");
+
+    if (dom.blockerRetryBtn && !dom.blockerRetryBtn.dataset.bound) {
+      dom.blockerRetryBtn.dataset.bound = "1";
+      dom.blockerRetryBtn.addEventListener("click", function () {
+        try {
+          window.location.reload();
+        } catch (e) {
+          window.location.href = window.location.href;
+        }
+      });
+    }
 
     // Robust logo fallback (in case a provided logo URL 404s)
     if (dom.schoolLogo && !dom.schoolLogo.dataset._fallbackBound) {
@@ -286,19 +306,62 @@
 
   // ===== Blocking overlay helpers =====
   let isBlocked = false;
-  function showBlocker(title, details) {
+  function showBlocker(title, details, kind) {
     isBlocked = true;
+    var blockerKind = safeText(kind || "").toLowerCase();
+    if (blockerKind !== "binding" && blockerKind !== "device" && blockerKind !== "access") {
+      var blockerText = (safeText(title) + " " + safeText(details)).toLowerCase();
+      blockerKind = /جهاز آخر|مربوط|مرتبطة|مفعّلة/.test(blockerText) ? "binding" : "access";
+    }
+    if (dom.blocker) dom.blocker.setAttribute("data-kind", blockerKind);
     if (dom.blockerTitle) dom.blockerTitle.textContent = safeText(title);
     if (dom.blockerDetails) dom.blockerDetails.textContent = safeText(details);
     if (dom.blockerLink) {
-      try {
-        const p = safeText(window.location && window.location.pathname ? window.location.pathname : "");
-        const q = safeText(window.location && window.location.search ? window.location.search : "");
-        const shown = (p + q).trim() || "—";
-        dom.blockerLink.textContent = shown;
-      } catch (e) {
-        dom.blockerLink.textContent = "—";
-      }
+      var screenId = safeText(document.body && document.body.dataset ? document.body.dataset.screenId : "");
+      dom.blockerLink.textContent = screenId ? "شاشة رقم " + screenId : "شاشة العرض الحالية";
+    }
+
+    var copy = blockerKind === "binding" ? {
+      status: "الارتباط محمي",
+      eyebrow: "حماية ارتباط الشاشة",
+      guideTitle: "لتفعيلها على هذا الجهاز",
+      guideIntro: "نفّذ الخطوات التالية من حساب مسؤول المدرسة:",
+      stepOne: "افتح لوحة التحكم من هاتف أو جهاز كمبيوتر.",
+      stepTwo: "انتقل إلى شاشات العرض واختر هذه الشاشة.",
+      stepThree: "اضغط فك ارتباط الجهاز، ثم أعد التحقق هنا.",
+      footnote: "لن تحتاج إلى إنشاء رابط جديد بعد فك الارتباط.",
+    } : blockerKind === "device" ? {
+      status: "الجهاز غير معرّف",
+      eyebrow: "إعداد جهاز العرض",
+      guideTitle: "لإكمال إعداد هذا الجهاز",
+      guideIntro: "تحقق من إعداد الشاشة بهذه الخطوات:",
+      stepOne: "أعد فتح رابط الشاشة الأساسي على هذا الجهاز.",
+      stepTwo: "تأكد من استخدام نافذة متصفح عادية وليست خاصة.",
+      stepThree: "إذا استمرت المشكلة، أعد ربط الشاشة من لوحة التحكم.",
+      footnote: "سيبدأ العرض تلقائيًا بعد التحقق من الجهاز.",
+    } : {
+      status: "العرض متوقف مؤقتًا",
+      eyebrow: "تنبيه شاشة العرض",
+      guideTitle: "للتحقق من إعداد الشاشة",
+      guideIntro: "يمكن لمسؤول المدرسة مراجعة ما يلي:",
+      stepOne: "تحقق من فتح رابط شاشة العرض الصحيح.",
+      stepTwo: "راجع حالة الشاشة من قسم شاشات العرض.",
+      stepThree: "أعد تحميل الصفحة بعد تحديث الإعدادات.",
+      footnote: "لن تتأثر بيانات الجدول أو محتوى المدرسة.",
+    };
+    if (dom.blockerStatusText) dom.blockerStatusText.textContent = copy.status;
+    if (dom.blockerEyebrow) dom.blockerEyebrow.textContent = copy.eyebrow;
+    if (dom.blockerGuideTitle) dom.blockerGuideTitle.textContent = copy.guideTitle;
+    if (dom.blockerGuideIntro) dom.blockerGuideIntro.textContent = copy.guideIntro;
+    if (dom.blockerStepOne) dom.blockerStepOne.textContent = copy.stepOne;
+    if (dom.blockerStepTwo) dom.blockerStepTwo.textContent = copy.stepTwo;
+    if (dom.blockerStepThree) dom.blockerStepThree.textContent = copy.stepThree;
+    if (dom.blockerFootnote) dom.blockerFootnote.textContent = copy.footnote;
+
+    if (blockerKind === "binding") {
+      if (dom.blockerStepOne) dom.blockerStepOne.innerHTML = "افتح <b>لوحة التحكم</b> من هاتف أو جهاز كمبيوتر.";
+      if (dom.blockerStepTwo) dom.blockerStepTwo.innerHTML = "انتقل إلى <b>شاشات العرض</b> واختر هذه الشاشة.";
+      if (dom.blockerStepThree) dom.blockerStepThree.innerHTML = "اضغط <b>فك ارتباط الجهاز</b>، ثم أعد التحقق هنا.";
     }
     toggleHidden(dom.blocker, false);
   }
@@ -608,14 +671,14 @@
   const DISPLAY_COPY = { ...DEFAULT_DISPLAY_COPY };
 
   function applyDisplayCopySettings(settings) {
-    const nextBeforeBadge = safeText(settings.display_before_badge || DEFAULT_DISPLAY_COPY.beforeBadge);
-    const nextBeforeTitle = safeText(settings.display_before_title || DEFAULT_DISPLAY_COPY.beforeTitle);
-    const nextAfterBadge = safeText(settings.display_after_badge || DEFAULT_DISPLAY_COPY.afterBadge);
-    const nextAfterTitle = safeText(settings.display_after_title || DEFAULT_DISPLAY_COPY.afterTitle);
-    const nextAfterHolidayBadge = safeText(settings.display_after_holiday_badge || DEFAULT_DISPLAY_COPY.afterHolidayBadge);
-    const nextAfterHolidayTitle = safeText(settings.display_after_holiday_title || DEFAULT_DISPLAY_COPY.afterHolidayTitle);
-    const nextHolidayBadge = safeText(settings.display_holiday_badge || DEFAULT_DISPLAY_COPY.holidayBadge);
-    const nextHolidayTitle = safeText(settings.display_holiday_title || DEFAULT_DISPLAY_COPY.holidayTitle);
+    const nextBeforeBadge = safeText(screenSetting("screenDisplayBeforeBadge", settings.display_before_badge || DEFAULT_DISPLAY_COPY.beforeBadge));
+    const nextBeforeTitle = safeText(screenSetting("screenDisplayBeforeTitle", settings.display_before_title || DEFAULT_DISPLAY_COPY.beforeTitle));
+    const nextAfterBadge = safeText(screenSetting("screenDisplayAfterBadge", settings.display_after_badge || DEFAULT_DISPLAY_COPY.afterBadge));
+    const nextAfterTitle = safeText(screenSetting("screenDisplayAfterTitle", settings.display_after_title || DEFAULT_DISPLAY_COPY.afterTitle));
+    const nextAfterHolidayBadge = safeText(screenSetting("screenDisplayAfterHolidayBadge", settings.display_after_holiday_badge || DEFAULT_DISPLAY_COPY.afterHolidayBadge));
+    const nextAfterHolidayTitle = safeText(screenSetting("screenDisplayAfterHolidayTitle", settings.display_after_holiday_title || DEFAULT_DISPLAY_COPY.afterHolidayTitle));
+    const nextHolidayBadge = safeText(screenSetting("screenDisplayHolidayBadge", settings.display_holiday_badge || DEFAULT_DISPLAY_COPY.holidayBadge));
+    const nextHolidayTitle = safeText(screenSetting("screenDisplayHolidayTitle", settings.display_holiday_title || DEFAULT_DISPLAY_COPY.holidayTitle));
 
     DISPLAY_COPY.beforeBadge = nextBeforeBadge || DEFAULT_DISPLAY_COPY.beforeBadge;
     DISPLAY_COPY.beforeTitle = nextBeforeTitle || DEFAULT_DISPLAY_COPY.beforeTitle;
@@ -1003,13 +1066,15 @@
       return {
         title: "تعذر تعريف الجهاز",
         details: msg || "لا يمكن متابعة العرض حتى يتم تعريف هذا الجهاز وربطه بالشاشة من لوحة التحكم.",
+        kind: "device",
       };
     }
     return {
-      title: "هذه الشاشة مربوطة الآن بجهاز آخر",
+      title: "هذه الشاشة مفعّلة على جهاز آخر",
       details:
         msg ||
-        "تم سحب صلاحية هذا الجهاز لأن شاشة أخرى أصبحت نشطة. أعد الربط من لوحة التحكم إذا أردت استخدام هذا الجهاز.",
+        "حرصًا على استقرار العرض وحماية بيانات المدرسة، يمكن تشغيل كل شاشة عرض على جهاز واحد فقط في الوقت نفسه.",
+      kind: "binding",
     };
   }
 
@@ -1209,7 +1274,7 @@
     }));
 
     var ui = _bindingUiPayload(info);
-    showBlocker(ui.title, ui.details);
+    showBlocker(ui.title, ui.details, ui.kind);
     setNamedTimer("blocked_recovery_reload", function () {
       var now = Date.now();
       var reloadCooldownKey = "display_blocked_recovery_reload_ts";
@@ -3034,10 +3099,10 @@
   function hydrateBrand(payload) {
     const settings = (payload && payload.settings) || {};
     const name = safeText(settings.name || payload.school_name || "");
-    const logo = resolveImageURL(settings.logo_url || payload.logo_url || "");
+    const logo = resolveImageURL(screenSetting("screenLogoUrl", "") || settings.logo_url || payload.logo_url || "");
     const theme = safeText(screenSetting("screenTheme", "") || settings.theme || "");
     const schoolType = safeText(settings.school_type || "");
-    const accent = safeText(settings.display_accent_color || "");
+    const accent = safeText(screenSetting("screenAccentColor", "") || settings.display_accent_color || "");
 
     const previewLock = (document.body && document.body.dataset && document.body.dataset.previewLock === '1');
 
@@ -5116,11 +5181,15 @@
       if (!rt.statusEverySec || rt.statusEverySec < 1) rt.statusEverySec = cfg.REFRESH_EVERY;
     }
 
-    if (typeof settings.standby_scroll_speed === "number" && settings.standby_scroll_speed > 0) {
-      cfg.STANDBY_SPEED = normSpeed(settings.standby_scroll_speed, cfg.STANDBY_SPEED);
+    const screenStandbySpeed = Number(screenSetting("standby", ""));
+    const effectiveStandbySpeed = screenStandbySpeed > 0 ? screenStandbySpeed : settings.standby_scroll_speed;
+    if (typeof effectiveStandbySpeed === "number" && effectiveStandbySpeed > 0) {
+      cfg.STANDBY_SPEED = normSpeed(effectiveStandbySpeed, cfg.STANDBY_SPEED);
     }
-    if (typeof settings.periods_scroll_speed === "number" && settings.periods_scroll_speed > 0) {
-      cfg.PERIODS_SPEED = normSpeed(settings.periods_scroll_speed, cfg.PERIODS_SPEED);
+    const screenPeriodsSpeed = Number(screenSetting("periodsSpeed", ""));
+    const effectivePeriodsSpeed = screenPeriodsSpeed > 0 ? screenPeriodsSpeed : settings.periods_scroll_speed;
+    if (typeof effectivePeriodsSpeed === "number" && effectivePeriodsSpeed > 0) {
+      cfg.PERIODS_SPEED = normSpeed(effectivePeriodsSpeed, cfg.PERIODS_SPEED);
     }
 
     if (periodsScroller) periodsScroller.recalc();
@@ -5242,21 +5311,22 @@
       badge = "استراحة";
       title = safeText(s.label || "استراحة");
     } else if (stType === "before") {
-      badge = stateBadge || DISPLAY_COPY.beforeBadge;
-      title = safeText(s.label || DISPLAY_COPY.beforeTitle);
+      badge = DISPLAY_COPY.beforeBadge;
+      title = DISPLAY_COPY.beforeTitle;
     } else if (stType === "after") {
-      badge = stateBadge || DISPLAY_COPY.afterBadge;
-      title = safeText(s.label || DISPLAY_COPY.afterTitle);
+      const afterCopy = getAfterDayOverCopy();
+      badge = afterCopy.badge;
+      title = afterCopy.title;
     } else if (stType === "holiday") {
-      badge = stateBadge || DISPLAY_COPY.holidayBadge;
-      title = safeText(s.label || DISPLAY_COPY.holidayTitle);
+      badge = DISPLAY_COPY.holidayBadge;
+      title = DISPLAY_COPY.holidayTitle;
       range = "--:--";
     } else if (stType === "day") {
       badge = "اليوم الدراسي";
       title = safeText(s.label || "اليوم الدراسي");
     } else if (stType === "off") {
-      badge = stateBadge || (stateReason === "after_hours" ? DISPLAY_COPY.afterHolidayBadge : "عطلة");
-      title = safeText(s.label || (stateReason === "after_hours" ? DISPLAY_COPY.afterHolidayTitle : DISPLAY_COPY.holidayTitle));
+      badge = stateReason === "after_hours" ? DISPLAY_COPY.afterHolidayBadge : DISPLAY_COPY.holidayBadge;
+      title = stateReason === "after_hours" ? DISPLAY_COPY.afterHolidayTitle : DISPLAY_COPY.holidayTitle;
       range = "--:--";
     }
 
@@ -5448,16 +5518,50 @@
   }
   let memDeviceId = "";
 
+  function _consumePairingDeviceId() {
+    var hash = "";
+    try { hash = (window.location.hash || "").replace(/^#/, ""); } catch (e) {}
+    if (!hash) return "";
+
+    var pieces = hash.split("&");
+    var paired = "";
+    for (var i = 0; i < pieces.length; i += 1) {
+      var part = pieces[i].split("=");
+      if (part[0] === "pair") {
+        try { paired = decodeURIComponent(part.slice(1).join("=")); } catch (e) { paired = ""; }
+        break;
+      }
+    }
+    if (!/^[A-Za-z0-9._:-]{16,64}$/.test(paired)) return "";
+
+    try {
+      if (window.history && typeof window.history.replaceState === "function") {
+        window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
+      }
+    } catch (e) {}
+    return paired;
+  }
+
   // migrate legacy global key → scoped key (one-time)
   function _migrateDeviceId() {
+    var scopedKey = _deviceIdKey();
+    if (scopedKey === "school_display_device_id") return ""; // no token yet
+    var paired = _consumePairingDeviceId();
+    if (paired) {
+      memDeviceId = paired;
+      try {
+        localStorage.setItem(scopedKey, paired);
+        localStorage.removeItem("school_display_pairing_device_id");
+      } catch (e) {}
+      return paired;
+    }
     try {
-      var scopedKey = _deviceIdKey();
-      if (scopedKey === "school_display_device_id") return; // no token yet
       var existing = (localStorage.getItem(scopedKey) || "").trim();
       if (existing) return; // already migrated
       var legacy = (localStorage.getItem("school_display_device_id") || "").trim();
       if (legacy) localStorage.setItem(scopedKey, legacy);
     } catch (e) {}
+    return "";
   }
 
   function fallbackDeviceId() {
@@ -5485,7 +5589,8 @@
   function getOrCreateDeviceId() {
     if (memDeviceId) return memDeviceId;
     try {
-      _migrateDeviceId();
+      var pairingDeviceId = _migrateDeviceId();
+      if (pairingDeviceId) return pairingDeviceId;
       var key = _deviceIdKey();
       const existing = (localStorage.getItem(key) || "").trim();
       if (existing) {
@@ -5727,8 +5832,9 @@
 
           if (err === "screen_bound") {
             showBlocker(
-              "هذه الشاشة مرتبطة بجهاز آخر",
-              msg || "لا يمكن استخدام نفس الرابط على أكثر من تلفاز. افصل الجهاز من لوحة التحكم لتفعيلها على جهاز جديد."
+              "هذه الشاشة مفعّلة على جهاز آخر",
+              msg || "حرصًا على استقرار العرض وحماية بيانات المدرسة، يمكن تشغيل كل شاشة عرض على جهاز واحد فقط في الوقت نفسه.",
+              "binding"
             );
             stopPolling();
             return null;
@@ -5737,7 +5843,8 @@
           if (err === "missing_device_id" || err === "device_required") {
             showBlocker(
               "تعذر تعريف الجهاز",
-              msg || "أعد فتح رابط الشاشة من المتصفح ثم انتظر ثوانٍ ليتم تفعيل العرض."
+              msg || "أعد فتح رابط الشاشة من المتصفح ثم انتظر ثوانٍ ليتم تفعيل العرض.",
+              "device"
             );
             stopPolling();
             return null;
@@ -5745,8 +5852,9 @@
 
           if (err === "device_mismatch") {
             showBlocker(
-              "هذه الشاشة مرتبطة بجهاز آخر",
-              msg || "لا يمكن استخدام نفس الرابط على أكثر من جهاز. افتح الشاشة من الجهاز الأصلي أو أعد ربطها من لوحة التحكم."
+              "هذه الشاشة مفعّلة على جهاز آخر",
+              msg || "هذه الشاشة تعمل حاليًا على الجهاز المرتبط بها. لفك الارتباط وتفعيلها هنا، استخدم لوحة التحكم.",
+              "binding"
             );
             stopPolling();
             return null;
@@ -5755,7 +5863,8 @@
           // 403 أخرى
           showBlocker(
             "لا يمكن عرض الشاشة",
-            msg || "تم رفض الوصول. تحقق من الرابط أو راجع إدارة النظام."
+            msg || "تم رفض الوصول. تحقق من الرابط أو راجع إدارة النظام.",
+            "access"
           );
           stopPolling();
           return null;

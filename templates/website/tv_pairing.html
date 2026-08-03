@@ -1,0 +1,88 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#071a1f">
+  <title>ربط شاشة التلفاز — لوحة العرض الذكية</title>
+  <link rel="icon" type="image/png" href="/favicon.png?v=20260723-logo1">
+  <link rel="stylesheet" href="{% static 'css/tv-pairing.css' %}?v=2026-08-03-a1">
+</head>
+<body
+  data-pairing-start-url="{% url 'website:tv_pairing_start' %}"
+  data-connect-url="{{ connect_url }}"
+>
+  <main class="tv-pairing-shell">
+    <div class="tv-pairing-orb tv-pairing-orb--one" aria-hidden="true"></div>
+    <div class="tv-pairing-orb tv-pairing-orb--two" aria-hidden="true"></div>
+
+    <header class="tv-pairing-header">
+      <div class="tv-brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 14.5v-8Z" stroke="currentColor" stroke-width="1.8"/><path d="m9 20 3-3 3 3M8 9.5l2.1 2.1L16 7.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div>
+        <strong>لوحة العرض الذكية</strong>
+        <span>إعداد آمن وسريع من الجوال</span>
+      </div>
+    </header>
+
+    <section class="tv-pairing-card" aria-labelledby="pairing-title">
+      <div class="tv-pairing-copy">
+        <div class="tv-kicker"><span></span> ربط تلفاز جديد</div>
+        <h1 id="pairing-title">امسح الرمز من جوالك</h1>
+        <p class="tv-pairing-lead">افتح كاميرا الجوال، امسح رمز QR، ثم اختر شاشة المدرسة التي تريد عرضها هنا.</p>
+
+        <div class="tv-manual-code" id="manualCodeWrap">
+          <span>أو أدخل رمز الربط من لوحة التحكم</span>
+          <strong id="pairingCode" dir="ltr" aria-live="polite">— — —</strong>
+          <small id="pairingTimer">جارٍ إنشاء رمز آمن…</small>
+        </div>
+
+        <div class="tv-mobile-path">
+          <span>على الجوال</span>
+          <b dir="ltr">{{ connect_url }}</b>
+        </div>
+
+        <div class="tv-pairing-status" id="pairingStatus" role="status" aria-live="polite">
+          <i aria-hidden="true"></i>
+          <span>جارٍ تجهيز الربط…</span>
+        </div>
+
+        <button class="tv-retry-button" id="retryButton" type="button" hidden>
+          إنشاء رمز جديد
+        </button>
+      </div>
+
+      <div class="tv-qr-side">
+        <div class="tv-qr-frame" id="qrFrame" aria-label="رمز QR لربط التلفاز">
+          <div class="tv-qr-placeholder" id="qrPlaceholder">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <img id="pairingQr" alt="امسح هذا الرمز باستخدام كاميرا الجوال" hidden>
+          <div class="tv-qr-success" id="pairingSuccess" hidden>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="tv-qr-caption">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.3" stroke="currentColor" stroke-width="1.7"/><path d="M10.5 18.5h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          <span>لا تحتاج إلى كتابة الرابط بالريموت</span>
+        </div>
+      </div>
+    </section>
+
+    <footer class="tv-pairing-steps" aria-label="خطوات ربط التلفاز">
+      <div><b>1</b><span>امسح QR بالجوال</span></div>
+      <i aria-hidden="true"></i>
+      <div><b>2</b><span>اختر شاشة المدرسة</span></div>
+      <i aria-hidden="true"></i>
+      <div><b>3</b><span>يبدأ العرض تلقائيًا</span></div>
+    </footer>
+  </main>
+
+  <form id="csrfForm" hidden>{% csrf_token %}</form>
+  <noscript><div class="tv-noscript">يلزم تفعيل JavaScript لإكمال ربط التلفاز.</div></noscript>
+  <script defer src="{% static 'js/tv-pairing.js' %}?v=2026-08-03-a1"></script>
+</body>
+</html>

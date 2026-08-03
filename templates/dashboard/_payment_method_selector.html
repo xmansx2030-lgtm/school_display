@@ -7,10 +7,12 @@
     aria-pressed="false"
     {% if not moyasar_available %}disabled aria-disabled="true"{% endif %}
   >
-    <span class="payment-method-logo payment-method-logo-moyasar">M</span>
+    <span class="payment-method-logo payment-method-logo-moyasar">
+      {% include "dashboard/_electronic_payment_icon.html" %}
+    </span>
     <span class="min-w-0 flex-1 text-right">
-      <strong class="block text-sm text-slate-900">ميسر</strong>
-      <small class="mt-1 block text-[10px] leading-5 text-slate-500">بطاقة، مدى ووسائل الدفع الإلكترونية</small>
+      <strong class="block text-sm text-slate-900">الدفع الإلكتروني</strong>
+      <small class="mt-1 block text-[10px] leading-5 text-slate-500">مدى، Visa وMastercard</small>
     </span>
     {% if moyasar_available %}
       <span class="payment-method-status is-ready">متاح</span>

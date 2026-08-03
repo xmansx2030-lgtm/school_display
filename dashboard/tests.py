@@ -449,22 +449,41 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(response, "الأكثر طلباً")
         self.assertNotContains(response, "المدارس:")
 
-    def test_school_settings_exposes_clear_sections_and_display_preview(self):
+    def test_display_customization_lives_with_screens_not_school_settings(self):
         screen = DisplayScreen.objects.create(
             name="الشاشة الرئيسية",
             school=self.school,
             is_active=True,
         )
 
-        response = self.client.get(reverse("dashboard:settings"))
+        settings_response = self.client.get(reverse("dashboard:settings"))
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "الهوية والمظهر")
-        self.assertContains(response, "رسائل الشاشة")
-        self.assertContains(response, "سرعة العرض")
-        self.assertContains(response, "معاينة شاشة المدرسة")
-        self.assertContains(response, f"/s/{screen.short_code}/")
-        self.assertContains(response, "كل التغييرات محفوظة")
+        self.assertEqual(settings_response.status_code, 200)
+        self.assertNotContains(settings_response, "الهوية والمظهر")
+        self.assertNotContains(settings_response, "رسائل الشاشة")
+        self.assertNotContains(settings_response, "سرعة العرض")
+        self.assertContains(settings_response, "التشغيل والتنبيهات")
+        self.assertContains(settings_response, "بيانات التواصل")
+        self.assertContains(settings_response, "الأمان")
+
+        list_response = self.client.get(reverse("dashboard:screen_list"))
+        self.assertContains(list_response, "تخصيص جميع الشاشات")
+        self.assertContains(list_response, "تخصيص الشاشة")
+
+        all_response = self.client.get(reverse("dashboard:screens_customize_all"))
+        self.assertEqual(all_response.status_code, 200)
+        self.assertContains(all_response, "الهوية والمظهر")
+        self.assertContains(all_response, "رسائل الشاشة")
+        self.assertContains(all_response, "سرعة العرض")
+        self.assertContains(all_response, "تخصيص جميع الشاشات")
+        self.assertContains(all_response, f"/s/{screen.short_code}/")
+
+        screen_response = self.client.get(reverse("dashboard:screen_edit", args=[screen.pk]))
+        self.assertEqual(screen_response.status_code, 200)
+        self.assertContains(screen_response, f"تخصيص شاشة: {screen.name}")
+        self.assertContains(screen_response, "المحتوى الظاهر في هذه الشاشة")
+        self.assertContains(screen_response, "استخدام الإعداد العام")
+        self.assertContains(screen_response, "كل التغييرات محفوظة")
 
     @override_settings(
         TAMARA_ENABLED=True,
@@ -568,21 +587,33 @@ class CustomerExperienceRegressionTests(TestCase):
 
         form_response = self.client.get(reverse("dashboard:screen_edit", args=[first.pk]))
         self.assertEqual(form_response.status_code, 200)
-        self.assertContains(form_response, "الثيم الخاص بالشاشة")
-        self.assertContains(form_response, "قالب المناسبة")
-        self.assertContains(form_response, "إظهار جدول الحصص الجارية")
-        self.assertContains(form_response, "إظهار حصص الانتظار")
-        self.assertContains(form_response, "إظهار الإشراف والمناوبة")
-        self.assertContains(form_response, "إظهار لوحة الشرف")
+        self.assertContains(form_response, "تخصيص شاشة: شاشة المدخل")
+        self.assertContains(form_response, "لون الثيم")
+        self.assertContains(form_response, "رسائل الشاشة")
+        self.assertContains(form_response, "سرعة العرض")
+        self.assertContains(form_response, "استخدام الإعداد العام")
+
+        settings_obj = SchoolSettings.objects.get(school=self.school)
 
         response = self.client.post(
             reverse("dashboard:screen_edit", args=[first.pk]),
             {
                 "name": first.name,
                 "is_active": "on",
-                "theme_override": "rose",
+                "theme": "rose",
+                "display_accent_color": "#EC4899",
                 "occasion_theme": "graduation",
-                "featured_panel_override": "duty",
+                "featured_panel": "duty",
+                "standby_scroll_speed": "1.1",
+                "periods_scroll_speed": "0.9",
+                "display_before_title": settings_obj.get_display_before_title(),
+                "display_before_badge": settings_obj.get_display_before_badge(),
+                "display_after_title": settings_obj.get_display_after_title(),
+                "display_after_badge": settings_obj.get_display_after_badge(),
+                "display_after_holiday_title": settings_obj.get_display_after_holiday_title(),
+                "display_after_holiday_badge": settings_obj.get_display_after_holiday_badge(),
+                "display_holiday_title": settings_obj.get_display_holiday_title(),
+                "display_holiday_badge": settings_obj.get_display_holiday_badge(),
                 "show_announcements": "on",
                 "show_period_classes": "on",
                 "show_duty": "on",
@@ -597,6 +628,9 @@ class CustomerExperienceRegressionTests(TestCase):
         first.refresh_from_db()
         second.refresh_from_db()
         self.assertEqual(first.theme_override, "rose")
+        self.assertEqual(first.display_accent_color_override, "#EC4899")
+        self.assertEqual(first.standby_scroll_speed_override, 1.1)
+        self.assertEqual(first.periods_scroll_speed_override, 0.9)
         self.assertEqual(first.occasion_theme, "graduation")
         self.assertEqual(first.featured_panel_override, "duty")
         self.assertTrue(first.show_announcements)
@@ -608,6 +642,24 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertEqual(second.occasion_theme, "auto")
         self.assertTrue(second.show_standby)
         self.assertTrue(second.show_excellence)
+
+        reset_response = self.client.post(
+            reverse("dashboard:screen_edit", args=[first.pk]),
+            {"action": "reset_display_customization"},
+        )
+        self.assertRedirects(
+            reset_response,
+            reverse("dashboard:screen_edit", args=[first.pk]),
+            fetch_redirect_response=False,
+        )
+        first.refresh_from_db()
+        self.assertEqual(first.theme_override, "")
+        self.assertEqual(first.display_accent_color_override, "")
+        self.assertIsNone(first.standby_scroll_speed_override)
+        self.assertIsNone(first.periods_scroll_speed_override)
+        self.assertEqual(first.occasion_theme, "auto")
+        self.assertTrue(first.show_standby)
+        self.assertTrue(first.show_excellence)
 
     def test_screen_customization_is_scoped_to_active_school(self):
         other_school = School.objects.create(name="مدرسة أخرى", slug="other-screen-school")

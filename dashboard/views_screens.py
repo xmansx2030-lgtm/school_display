@@ -20,9 +20,36 @@ from display.ws_groups import school_group_name
 from core.display_presence import display_live_threshold_seconds, latest_display_presence
 from .access import get_active_school_or_redirect
 from .decorators import manager_required
-from .forms import DisplayScreenForm
+from .forms import DisplayScreenForm, SchoolSettingsForm, ScreenDisplayCustomizationForm
 
 logger = logging.getLogger(__name__)
+
+
+def _school_settings_model():
+    return apps.get_model("schedule", "SchoolSettings")
+
+
+def _refresh_school_displays(school, *, target_screen=None) -> None:
+    """Bump the shared revision and reload the affected display pages."""
+    school_id = int(getattr(school, "pk", 0) or 0)
+    if not school_id:
+        return
+    try:
+        from schedule.cache_utils import (
+            bump_schedule_revision_for_school_id,
+            invalidate_display_snapshot_cache_for_school_id,
+        )
+
+        bump_schedule_revision_for_school_id(school_id)
+        invalidate_display_snapshot_cache_for_school_id(school_id)
+    except Exception:
+        logger.exception("screen_customization_cache_invalidation_failed school_id=%s", school_id)
+
+    screens = [target_screen] if target_screen is not None else list(
+        _display_screen_model().objects.filter(school_id=school_id, is_active=True)
+    )
+    for screen in screens:
+        _queue_screen_reload(screen, school_id=school_id)
 
 
 def _display_screen_model():
@@ -359,6 +386,14 @@ def screen_list(request):
         screen.dashboard_bound_device = bound_device
         screen.dashboard_has_customization = bool(
             (getattr(screen, "theme_override", "") or "").strip()
+            or bool(getattr(screen, "logo_override", None))
+            or (getattr(screen, "display_accent_color_override", "") or "").strip()
+            or getattr(screen, "standby_scroll_speed_override", None) is not None
+            or getattr(screen, "periods_scroll_speed_override", None) is not None
+            or any(
+                (getattr(screen, field_name, "") or "").strip()
+                for field_name in ScreenDisplayCustomizationForm.MESSAGE_FIELD_MAP.values()
+            )
             or (getattr(screen, "occasion_theme", "auto") or "auto") != "auto"
             or (getattr(screen, "featured_panel_override", "") or "").strip()
             or not bool(getattr(screen, "show_announcements", True))
@@ -448,6 +483,65 @@ def screen_create(request):
 
 
 @manager_required
+def screens_customize_all(request):
+    school, response = get_active_school_or_redirect(request)
+    if response:
+        return response
+
+    settings_obj, _ = _school_settings_model().objects.get_or_create(
+        school=school,
+        defaults={"name": school.name},
+    )
+    if request.method == "POST":
+        form = SchoolSettingsForm(
+            request.POST,
+            request.FILES,
+            instance=settings_obj,
+            user=request.user,
+            mode="display",
+        )
+        if form.is_valid():
+            form.save()
+            _refresh_school_displays(school)
+            messages.success(request, "تم حفظ إعدادات العرض العامة لجميع الشاشات.")
+            return redirect("dashboard:screens_customize_all")
+        messages.error(request, "الرجاء تصحيح الأخطاء.")
+    else:
+        form = SchoolSettingsForm(
+            instance=settings_obj,
+            user=request.user,
+            mode="display",
+        )
+
+    preview_screen = (
+        _display_screen_model().objects.filter(school=school, is_active=True).order_by("id").first()
+    )
+    preview_url = f"/s/{preview_screen.short_code}/" if preview_screen and preview_screen.short_code else None
+    logo_url = None
+    try:
+        logo_url = school.logo.url if school.logo else None
+    except Exception:
+        pass
+
+    return render(
+        request,
+        "dashboard/settings.html",
+        {
+            "form": form,
+            "school": school,
+            "display_preview_url": preview_url,
+            "initial_settings_tab": "appearance",
+            "show_display_settings": True,
+            "show_account_settings": False,
+            "display_scope_title": "تخصيص جميع الشاشات",
+            "display_scope_description": "هذه القيم هي الإعداد الافتراضي لكل شاشات المدرسة، ويمكن تجاوزها من أي شاشة بشكل مستقل.",
+            "current_logo_url": logo_url,
+            "back_to_screens": True,
+        },
+    )
+
+
+@manager_required
 def screen_edit(request, pk: int):
     display_screen = _display_screen_model()
     school, response = get_active_school_or_redirect(request)
@@ -455,11 +549,43 @@ def screen_edit(request, pk: int):
         return response
 
     screen = get_object_or_404(display_screen, pk=pk, school=school)
+    settings_obj, _ = _school_settings_model().objects.get_or_create(
+        school=school,
+        defaults={"name": school.name},
+    )
+
+    if request.method == "POST" and request.POST.get("action") == "reset_display_customization":
+        if getattr(screen, "logo_override", None):
+            screen.logo_override.delete(save=False)
+        screen.logo_override = None
+        screen.theme_override = ""
+        screen.featured_panel_override = ""
+        screen.display_accent_color_override = ""
+        screen.standby_scroll_speed_override = None
+        screen.periods_scroll_speed_override = None
+        for model_name in ScreenDisplayCustomizationForm.MESSAGE_FIELD_MAP.values():
+            setattr(screen, model_name, "")
+        screen.occasion_theme = "auto"
+        screen.show_announcements = True
+        screen.show_period_classes = True
+        screen.show_standby = True
+        screen.show_duty = True
+        screen.show_excellence = True
+        screen.save()
+        _refresh_school_displays(school, target_screen=screen)
+        messages.success(request, f"عادت شاشة ({screen.name}) إلى إعدادات جميع الشاشات.")
+        return redirect("dashboard:screen_edit", pk=screen.pk)
+
     if request.method == "POST":
-        form = DisplayScreenForm(request.POST, instance=screen)
+        form = ScreenDisplayCustomizationForm(
+            request.POST,
+            request.FILES,
+            instance=screen,
+            school_settings=settings_obj,
+        )
         if form.is_valid():
             screen = form.save()
-            _queue_screen_reload(screen, school_id=int(school.pk))
+            _refresh_school_displays(school, target_screen=screen)
             messages.success(
                 request,
                 f"تم حفظ تخصيص الشاشة ({screen.name}) وإرسال أمر تحديث لها.",
@@ -467,16 +593,35 @@ def screen_edit(request, pk: int):
             return redirect("dashboard:screen_list")
         messages.error(request, "الرجاء تصحيح الأخطاء.")
     else:
-        form = DisplayScreenForm(instance=screen)
+        form = ScreenDisplayCustomizationForm(instance=screen, school_settings=settings_obj)
+
+    logo_url = None
+    try:
+        if screen.logo_override:
+            logo_url = screen.logo_override.url
+        elif school.logo:
+            logo_url = school.logo.url
+    except Exception:
+        pass
+
+    preview_url = f"/s/{screen.short_code}/" if screen.short_code else None
 
     return render(
         request,
-        "dashboard/screen_form.html",
+        "dashboard/settings.html",
         {
             "form": form,
             "screen": screen,
-            "title": f"تخصيص شاشة: {screen.name}",
-            "is_edit": True,
+            "school": school,
+            "display_preview_url": preview_url,
+            "initial_settings_tab": "appearance",
+            "show_display_settings": True,
+            "show_account_settings": False,
+            "is_screen_scope": True,
+            "display_scope_title": f"تخصيص شاشة: {screen.name}",
+            "display_scope_description": "التعديلات هنا تخص هذه الشاشة فقط، ويمكن إعادتها إلى إعدادات جميع الشاشات في أي وقت.",
+            "current_logo_url": logo_url,
+            "back_to_screens": True,
         },
     )
 
