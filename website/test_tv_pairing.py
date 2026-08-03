@@ -1,10 +1,12 @@
 from datetime import timedelta
+from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from PIL import Image
 
 from core.models import DisplayPairingSession, DisplayScreen, School, SubscriptionPlan, UserProfile
 from display.pairing import create_pairing_session
@@ -72,6 +74,8 @@ class TvPairingFlowTests(TestCase):
         self.assertEqual(qr_response.status_code, 200)
         self.assertEqual(qr_response["Content-Type"], "image/png")
         self.assertGreater(len(qr_response.content), 500)
+        with Image.open(BytesIO(qr_response.content)) as qr_image:
+            self.assertEqual(qr_image.mode, "RGB")
 
     def test_start_rejects_malformed_device_identifier(self):
         response = self.client.post(

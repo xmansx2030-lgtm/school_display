@@ -199,7 +199,7 @@ def tv_pairing_qr(request, pairing_id):
     )
     qr.add_data(approval_url)
     qr.make(fit=True)
-    image = qr.make_image(fill_color="#0f172a", back_color="#ffffff")
+    image = qr.make_image(fill_color="#0f172a", back_color="#ffffff").convert("RGB")
     output = BytesIO()
     image.save(output, format="PNG")
     response = HttpResponse(output.getvalue(), content_type="image/png")

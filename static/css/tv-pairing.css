@@ -204,7 +204,9 @@ body {
   display: grid;
   place-items: center;
   width: min(29vw, 390px);
+  height: min(29vw, 390px);
   min-width: 275px;
+  min-height: 275px;
   aspect-ratio: 1;
   padding: clamp(16px, 1.7vw, 24px);
   border-radius: clamp(25px, 2.5vw, 38px);
@@ -256,7 +258,7 @@ body {
   .tv-pairing-shell { padding: 20px 28px; }
   .tv-pairing-header { margin-bottom: 18px; }
   .tv-pairing-card { grid-template-columns: minmax(0, 1fr) minmax(245px, .6fr); gap: 28px; padding: 28px; }
-  .tv-qr-frame { min-width: 230px; width: min(28vw, 290px); }
+  .tv-qr-frame { min-width: 230px; min-height: 230px; width: min(28vw, 290px); height: min(28vw, 290px); }
   .tv-pairing-copy h1 { margin-top: 8px; }
   .tv-pairing-lead { line-height: 1.55; }
   .tv-manual-code { margin-top: 18px; }
@@ -270,7 +272,7 @@ body {
   .tv-manual-code { grid-template-columns: 1fr; justify-items: center; }
   .tv-manual-code strong { grid-row: auto; }
   .tv-qr-side { grid-row: 1; }
-  .tv-qr-frame { width: min(74vw, 320px); min-width: 0; }
+  .tv-qr-frame { width: min(74vw, 320px); height: min(74vw, 320px); min-width: 0; min-height: 0; }
   .tv-pairing-steps { flex-direction: column; align-items: stretch; max-width: 340px; }
   .tv-pairing-steps div { justify-content: flex-start; }
   .tv-pairing-steps > i { width: 1px; height: 15px; margin-right: 14px; }
