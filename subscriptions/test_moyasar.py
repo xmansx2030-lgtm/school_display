@@ -113,6 +113,40 @@ class MoyasarCheckoutTests(TestCase):
         self.assertIsNone(result.subscription_id)
         self.assertIsNone(result.payment_operation_id)
 
+    def test_cancel_marks_own_initiated_checkout_as_voided(self):
+        checkout = self._checkout(created_by=self.manager)
+        self.client.force_login(self.manager)
+
+        response = self.client.post(
+            reverse(
+                "subscriptions:moyasar_cancel",
+                kwargs={"reference": checkout.merchant_reference},
+            )
+        )
+
+        self.assertRedirects(response, reverse("dashboard:my_subscription"))
+        checkout.refresh_from_db()
+        self.assertEqual(checkout.status, "voided")
+        self.assertEqual(checkout.last_event, "customer_canceled")
+        self.assertIsNotNone(checkout.processed_at)
+        self.assertIsNone(checkout.payment_id)
+        self.assertIsNone(checkout.payment_operation_id)
+
+    def test_cancel_cannot_change_another_users_checkout(self):
+        checkout = self._checkout(created_by=self.owner)
+        self.client.force_login(self.manager)
+
+        response = self.client.post(
+            reverse(
+                "subscriptions:moyasar_cancel",
+                kwargs={"reference": checkout.merchant_reference},
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)
+        checkout.refresh_from_db()
+        self.assertEqual(checkout.status, "initiated")
+
     @override_settings(
         MOYASAR_LIVE_MODE=True,
         MOYASAR_PUBLISHABLE_KEY="pk_live_publishable",

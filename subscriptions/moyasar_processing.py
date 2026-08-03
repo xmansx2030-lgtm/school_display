@@ -105,7 +105,9 @@ def apply_payment_details(checkout_id: int, details: dict, *, event_type: str) -
     """Verify amount, currency, reference and environment before changing access."""
     with transaction.atomic():
         checkout = (
-            MoyasarCheckout.objects.select_for_update()
+            # Lock only the checkout row. ``payment_operation`` is nullable, so
+            # PostgreSQL rejects a blanket FOR UPDATE across its outer join.
+            MoyasarCheckout.objects.select_for_update(of=("self",))
             .select_related("school", "plan", "created_by", "payment_operation")
             .get(pk=checkout_id)
         )

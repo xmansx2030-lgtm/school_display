@@ -7,6 +7,32 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/moyasar-payment-form@2.2.10/dist/moyasar.css">
+<style>
+  /* The dashboard card normalizer turns every bordered rounded card white.
+     Keep the checkout summary intentionally dark with readable contrast. */
+  .dashboard-main aside.moyasar-order-summary.rounded-3xl.border {
+    background: #0f172a !important;
+    border-color: #1e293b !important;
+    color: #fff !important;
+  }
+  .dashboard-main .moyasar-order-summary .text-slate-400 {
+    color: #94a3b8 !important;
+  }
+  .dashboard-main .moyasar-order-summary .text-slate-300 {
+    color: #cbd5e1 !important;
+  }
+  .dashboard-main .moyasar-order-summary .moyasar-summary-note {
+    background: rgba(255, 255, 255, 0.1) !important;
+  }
+  .dashboard-main .moyasar-order-summary .moyasar-summary-back {
+    background: transparent !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: #fff !important;
+  }
+  .dashboard-main .moyasar-order-summary .moyasar-summary-back:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+  }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -33,7 +59,7 @@
       </p>
     </section>
 
-    <aside class="h-fit rounded-3xl border border-slate-200 bg-slate-900 p-6 text-white shadow-sm">
+    <aside class="moyasar-order-summary h-fit rounded-3xl border border-slate-200 bg-slate-900 p-6 text-white shadow-sm">
       <p class="text-xs font-bold text-slate-400">ملخص الطلب</p>
       <h3 class="mt-2 text-xl font-black">{{ checkout.plan.name }}</h3>
       <dl class="mt-6 space-y-4 text-sm">
@@ -50,10 +76,13 @@
           <dd class="text-2xl font-black">{{ checkout.amount }} <span class="text-xs text-slate-400">ر.س</span></dd>
         </div>
       </dl>
-      <div class="mt-6 rounded-2xl bg-white/10 px-4 py-3 text-xs leading-6 text-slate-300">
+      <div class="moyasar-summary-note mt-6 rounded-2xl bg-white/10 px-4 py-3 text-xs leading-6 text-slate-300">
         لن يُفعّل الاشتراك إلا بعد أن يتحقق الخادم من حالة الدفع والمبلغ والعملة والمرجع مباشرة من مزود الدفع.
       </div>
-      <a href="{% url 'dashboard:my_subscription' %}" class="mt-5 block rounded-xl border border-white/20 px-4 py-3 text-center text-sm font-black text-white transition hover:bg-white/10">إلغاء والعودة</a>
+      <form method="post" action="{% url 'subscriptions:moyasar_cancel' reference=checkout.merchant_reference %}" class="mt-5">
+        {% csrf_token %}
+        <button type="submit" class="moyasar-summary-back block w-full rounded-xl border border-white/20 px-4 py-3 text-center text-sm font-black text-white transition hover:bg-white/10">إلغاء والعودة</button>
+      </form>
     </aside>
   </div>
 </div>

@@ -182,6 +182,33 @@ def moyasar_checkout(request, reference: str):
 
 
 @login_required(login_url="dashboard:login")
+@require_POST
+def moyasar_cancel(request, reference: str):
+    school = _active_school(request)
+    checkout = get_object_or_404(
+        MoyasarCheckout,
+        merchant_reference=reference,
+        school=school,
+        created_by=request.user,
+    )
+    canceled = MoyasarCheckout.objects.filter(
+        pk=checkout.pk,
+        status="initiated",
+    ).update(
+        status="voided",
+        last_event="customer_canceled",
+        processed_at=timezone.now(),
+        error_message="",
+        updated_at=timezone.now(),
+    )
+    if canceled:
+        messages.info(request, "تم إلغاء محاولة الدفع، ويمكنك بدء محاولة جديدة متى شئت.")
+    else:
+        messages.info(request, "تعذّر إلغاء المحاولة لأنها عولجت مسبقًا.")
+    return redirect("dashboard:my_subscription")
+
+
+@login_required(login_url="dashboard:login")
 @require_GET
 def moyasar_return(request):
     school = _active_school(request)

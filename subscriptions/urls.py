@@ -12,6 +12,11 @@ urlpatterns = [
         moyasar_views.moyasar_checkout,
         name="moyasar_checkout",
     ),
+    path(
+        "moyasar/checkout/<str:reference>/cancel/",
+        moyasar_views.moyasar_cancel,
+        name="moyasar_cancel",
+    ),
     path("moyasar/return/", moyasar_views.moyasar_return, name="moyasar_return"),
     path("moyasar/webhook/", moyasar_views.moyasar_webhook, name="moyasar_webhook"),
     path("tamara/start/", tamara_views.tamara_start, name="tamara_start"),

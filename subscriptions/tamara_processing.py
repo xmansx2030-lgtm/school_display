@@ -53,7 +53,9 @@ def activate_checkout(checkout_id: int, *, status: str, event_type: str) -> Tama
     """Activate exactly once after Tamara confirms an authorised/captured order."""
     with transaction.atomic():
         checkout = (
-            TamaraCheckout.objects.select_for_update()
+            # Lock only the checkout row. ``payment_operation`` is nullable, so
+            # PostgreSQL rejects a blanket FOR UPDATE across its outer join.
+            TamaraCheckout.objects.select_for_update(of=("self",))
             .select_related("school", "plan", "created_by", "payment_operation")
             .get(pk=checkout_id)
         )

@@ -438,8 +438,8 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(response, 'id="plan-filter-screens"')
         self.assertContains(response, 'data-payment-hub="new"')
         self.assertContains(response, 'data-payment-hub="renewal"')
-        self.assertContains(response, 'data-payment-choice="new"', count=3)
-        self.assertContains(response, 'data-payment-choice="renewal"', count=3)
+        self.assertContains(response, 'data-payment-choice="new"', count=2)
+        self.assertContains(response, 'data-payment-choice="renewal"', count=2)
         self.assertContains(response, "خطوة واحدة واضحة")
         self.assertContains(response, "ربط شاشة الآن")
         self.assertContains(response, reverse("dashboard:screen_list"))
@@ -507,12 +507,26 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(response, "مراجعة قبل الانتقال")
         self.assertContains(response, "لن يتم الخصم من هذه الصفحة")
         self.assertContains(response, "data-tamara-form")
+        self.assertContains(response, "document.body.appendChild(tamaraModal)")
+        self.assertContains(response, "body.dashboard-shell > .tamara-modal")
+        self.assertContains(response, "position: fixed !important")
+        self.assertContains(response, "body.dashboard-shell > .tamara-modal.hidden")
+        self.assertContains(response, "display: none !important")
+        self.assertContains(response, "max-height: calc(100dvh - 2rem)")
+        self.assertContains(response, 'class="tamara-modal-body"')
+        self.assertContains(response, 'class="tamara-modal-actions"')
+        self.assertContains(response, "if (tamaraModalBody) tamaraModalBody.scrollTop = 0")
         self.assertContains(response, "تعذر الاتصال بتمارا حاليًا.")
         self.assertContains(response, "إعادة المحاولة")
         self.assertContains(response, "التحويل البنكي بدلًا من ذلك")
         self.assertContains(response, 'data-tamara-history')
         self.assertContains(response, 'data-default-expanded="false"')
 
+    @override_settings(
+        TAMARA_ENABLED=True,
+        TAMARA_API_TOKEN="test-token",
+        TAMARA_API_BASE_URL="https://api-sandbox.tamara.co",
+    )
     def test_tamara_history_expands_when_payment_can_be_continued(self):
         current_plan = SchoolSubscription.objects.get(school=self.school).plan
         TamaraCheckout.objects.create(
@@ -529,6 +543,28 @@ class CustomerExperienceRegressionTests(TestCase):
 
         self.assertContains(response, 'data-default-expanded="true"')
         self.assertContains(response, "متابعة الدفع")
+
+    @override_settings(TAMARA_ENABLED=False)
+    def test_disabled_tamara_is_hidden_even_with_existing_checkout(self):
+        current_plan = SchoolSubscription.objects.get(school=self.school).plan
+        checkout_url = "https://checkout.tamara.test/disabled-session"
+        TamaraCheckout.objects.create(
+            school=self.school,
+            created_by=self.user,
+            plan=current_plan,
+            request_type="renewal",
+            amount=current_plan.price,
+            status="new",
+            checkout_url=checkout_url,
+        )
+
+        response = self.client.get(reverse("dashboard:my_subscription"))
+
+        self.assertFalse(response.context["tamara_available"])
+        self.assertNotContains(response, 'data-payment-method="tamara"')
+        self.assertNotContains(response, 'data-tamara-history')
+        self.assertNotContains(response, checkout_url)
+        self.assertNotContains(response, reverse("subscriptions:tamara_start"))
 
     def test_free_plan_needs_no_receipt_but_paid_bank_transfer_does(self):
         free_plan = SubscriptionPlan.objects.create(
