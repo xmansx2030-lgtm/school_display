@@ -121,9 +121,10 @@ class TrialSignupTests(TestCase):
         self.assertContains(response, "استيراد الجدول من Excel")
         self.assertContains(response, "آخر بيانات محفوظة")
         self.assertContains(response, "كل مسؤول يرى فائدة مباشرة في يومه")
-        self.assertContains(response, "تشغيل المحتوى — 299 ر.س شهريًا")
+        self.assertContains(response, "إدارة المحتوى — 299 ر.س شهريًا")
         self.assertContains(response, "مجمع تعليمي: حتى 3 مدارس و15 شاشة")
-        self.assertContains(response, "الشاشة الإضافية: 60 ر.س شهريًا")
+        self.assertContains(response, "عام دراسي — شهر مجانًا")
+        self.assertContains(response, "كل شاشة لها محتواها")
         self.assertContains(response, 'data-form-step="1"')
         self.assertContains(response, 'data-form-step="2"')
         self.assertNotContains(response, "<iframe")
@@ -225,7 +226,7 @@ class TrialSignupTests(TestCase):
         plan = SubscriptionPlan.objects.create(
             code="landing-live-price",
             name="باقة السعر اللحظي",
-            price=8765,
+            price=8642,
             duration_days=90,
             max_schools=1,
             max_users=6,
@@ -233,7 +234,7 @@ class TrialSignupTests(TestCase):
             is_active=True,
         )
         first_response = self.client.get(reverse("website:home"))
-        self.assertContains(first_response, "8765")
+        self.assertContains(first_response, "8642")
 
         plan.price = 7654
         plan.duration_days = 120
@@ -242,7 +243,7 @@ class TrialSignupTests(TestCase):
         second_response = self.client.get(reverse("website:home"))
         self.assertContains(second_response, "7654")
         self.assertContains(second_response, "120 يوماً")
-        self.assertNotContains(second_response, "8765")
+        self.assertNotContains(second_response, "8642")
         self.assertIn("no-cache", second_response.headers.get("Cache-Control", ""))
 
     def test_trial_signup_rejects_duplicate_mobile(self):

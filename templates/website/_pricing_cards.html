@@ -13,6 +13,9 @@
         <div class="price-val">{{ plan.price|floatformat:"-2" }}</div>
         <span class="price-period">{{ plan.price_caption }}</span>
         {% if plan.monthly_text %}<span class="price-period">{{ plan.monthly_text }}</span>{% endif %}
+        {% if plan.savings_text %}
+        <div class="plan-savings"><i class="fa-solid fa-piggy-bank"></i> {{ plan.savings_text }}</div>
+        {% endif %}
         <ul class="feature-list">
             {% for feature in plan.features %}
             <li><i class="fa-solid fa-check"></i> {{ feature }}</li>

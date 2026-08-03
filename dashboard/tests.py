@@ -1074,6 +1074,43 @@ class SystemAdminExperienceTests(TestCase):
         self.assertContains(response, "2")
         self.assertContains(response, "7")
 
+    def test_admin_plan_update_syncs_landing_and_school_manager_catalog(self):
+        response = self.client.post(
+            reverse("dashboard:system_plan_edit", args=[self.plan.pk]),
+            {
+                "name": "باقة متزامنة",
+                "description": "وصف موحد من لوحة إدارة المنصة",
+                "code": self.plan.code,
+                "price": "1777.00",
+                "duration_days": "365",
+                "max_screens": "2",
+                "card_badge_text": "الأوفر للمدارس",
+                "card_duration_text": "عام دراسي — صلاحية 12 شهرًا",
+                "card_price_caption": "ريال سعودي / عام دراسي",
+                "card_monthly_text": "سعر موحد في جميع الواجهات",
+                "card_features": "ميزة موحدة أولى\nميزة موحدة ثانية",
+                "card_screen_text": "تشغيل شاشتين",
+                "card_cta_text": "اختر الباقة المتزامنة",
+                "show_card_badge": "on",
+                "show_card_duration": "on",
+                "show_monthly_equivalent": "on",
+                "show_screen_limit": "on",
+                "sort_order": "10",
+                "is_active": "on",
+            },
+        )
+        self.assertRedirects(response, reverse("dashboard:system_plans_list"))
+
+        landing_response = self.client.get(reverse("website:home"))
+        self.client.force_login(self.manager)
+        manager_response = self.client.get(reverse("dashboard:my_subscription"))
+
+        for catalog_response in (landing_response, manager_response):
+            self.assertContains(catalog_response, "باقة متزامنة")
+            self.assertContains(catalog_response, "1777")
+            self.assertContains(catalog_response, "عام دراسي — صلاحية 12 شهرًا")
+            self.assertContains(catalog_response, "سعر موحد في جميع الواجهات")
+
 
     def test_superuser_in_support_group_keeps_plan_management_navigation(self):
         self.admin.groups.add(Group.objects.get_or_create(name="Support")[0])

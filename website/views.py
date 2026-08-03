@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from decimal import Decimal
 from io import BytesIO
 from urllib.parse import quote, urlencode
 
@@ -417,6 +418,29 @@ def home(request):
         landing_semiannual_plans = [
             plan for plan in paid_plans if 150 <= plan["duration_days"] <= 200
         ]
+
+        monthly_by_screens = {
+            plan["max_screens"]: Decimal(plan["price"])
+            for plan in landing_monthly_plans
+            if plan["max_screens"] is not None
+            and plan["code"].startswith("school-screen-")
+            and plan["code"].endswith("-monthly")
+        }
+        for plans, comparison_months in (
+            (landing_semiannual_plans, 6),
+            (landing_annual_plans, 10),
+        ):
+            for plan in plans:
+                if not plan["code"].startswith("school-screen-"):
+                    continue
+                monthly_price = monthly_by_screens.get(plan["max_screens"])
+                if monthly_price is None:
+                    continue
+                savings = (monthly_price * comparison_months) - Decimal(plan["price"])
+                if savings > 0:
+                    plan["savings_text"] = (
+                        f"توفر {savings:,.0f} ر.س مقارنة بـ{comparison_months} دفعات شهرية"
+                    )
         known_cycle_ids = {
             plan["id"]
             for plan in landing_monthly_plans + landing_annual_plans + landing_semiannual_plans

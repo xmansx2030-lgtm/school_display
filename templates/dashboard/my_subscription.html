@@ -591,9 +591,9 @@
             </div>
             <select id="plan-filter-duration" class="plan-filter-select" aria-label="تصفية حسب المدة">
               <option value="all">كل المدد</option>
-              <option value="short">حتى 3 أشهر</option>
-              <option value="half">حتى 6 أشهر</option>
-              <option value="annual">سنوية</option>
+              <option value="short">شهري</option>
+              <option value="half">6 أشهر</option>
+              <option value="annual">عام دراسي</option>
               <option value="other">مدد أخرى</option>
             </select>
             <select id="plan-filter-screens" class="plan-filter-select" aria-label="تصفية حسب عدد الشاشات">
@@ -629,6 +629,8 @@
                 <div class="pl-20">
                   <p class="font-black text-slate-900">{{ plan.name }}</p>
                   {% if plan.description %}<p class="mt-1 text-xs leading-5 text-slate-500">{{ plan.description }}</p>{% endif %}
+                  {% if plan.duration_text %}<p class="mt-2 text-[11px] font-black text-indigo-700">{{ plan.duration_text }}</p>{% endif %}
+                  {% if plan.monthly_text %}<p class="mt-1 text-[10px] font-bold leading-5 text-emerald-700">{{ plan.monthly_text }}</p>{% endif %}
                 </div>
                 <div class="mt-4 flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
                   <div>
