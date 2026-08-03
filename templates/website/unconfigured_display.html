@@ -1079,52 +1079,434 @@
         }
 
         .pricing-selector-shell {
-            width: min(100%, 920px);
-            display: grid;
-            gap: 12px;
-            padding: 14px;
-            border-radius: 26px;
-            background: rgba(255, 255, 255, 0.7);
-            border: 1px solid rgba(13, 28, 50, 0.07);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .pricing-selector-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-        }
-
-        .pricing-selector-copy {
-            display: flex;
-            align-items: center;
-            gap: 11px;
+            position: relative;
+            isolation: isolate;
+            width: min(100%, 1160px);
+            overflow: hidden;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 32px;
+            background:
+                radial-gradient(circle at 12% 8%, rgba(201, 154, 72, 0.22), transparent 28%),
+                radial-gradient(circle at 92% 92%, rgba(24, 160, 125, 0.15), transparent 32%),
+                linear-gradient(145deg, #071523 0%, #0d2539 56%, #0b1c2c 100%);
+            box-shadow: 0 34px 80px rgba(13, 28, 50, 0.24);
+            color: white;
             text-align: right;
         }
 
-        .pricing-selector-copy > span {
-            width: 34px;
-            height: 34px;
-            flex: 0 0 auto;
+        .pricing-selector-shell::before {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            inset: 0;
+            pointer-events: none;
+            background-image: linear-gradient(rgba(255, 255, 255, 0.024) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.024) 1px, transparent 1px);
+            background-size: 36px 36px;
+            mask-image: linear-gradient(to bottom, black, transparent 80%);
+        }
+
+        .pricing-builder-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            margin-bottom: 22px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+        }
+
+        .pricing-builder-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .pricing-builder-title > i {
+            width: 42px;
+            height: 42px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border-radius: 11px;
-            background: var(--ink-950);
-            color: white;
-            font-weight: 900;
+            flex: 0 0 auto;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--gold-400), var(--gold-500));
+            color: #071523;
+            box-shadow: 0 12px 24px rgba(201, 154, 72, 0.24);
         }
 
-        .pricing-selector-copy strong,
-        .pricing-selector-copy small {
+        .pricing-builder-title strong,
+        .pricing-builder-title small {
             display: block;
         }
 
-        .pricing-selector-copy small {
-            margin-top: 2px;
-            color: var(--text-faint);
+        .pricing-builder-title strong {
+            font-size: 1.08rem;
+        }
+
+        .pricing-builder-title small {
+            margin-top: 3px;
+            color: rgba(255, 255, 255, 0.58);
             font-weight: 700;
+        }
+
+        .pricing-builder-progress {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(255, 255, 255, 0.62);
+            font-size: 0.8rem;
+            font-weight: 800;
+        }
+
+        .pricing-builder-progress span {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .pricing-builder-progress span.active {
+            width: 26px;
+            background: linear-gradient(90deg, var(--gold-400), var(--gold-500));
+        }
+
+        .pricing-builder-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 292px;
+            gap: 20px;
+            align-items: stretch;
+        }
+
+        .pricing-builder-controls {
+            display: grid;
+            gap: 20px;
+            min-width: 0;
+        }
+
+        .pricing-choice-group {
+            display: grid;
+            gap: 12px;
+        }
+
+        .pricing-choice-heading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .pricing-choice-heading > span {
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #f5d394;
+            font-size: 0.84rem;
+            font-weight: 900;
+        }
+
+        .pricing-choice-heading strong,
+        .pricing-choice-heading small {
+            display: block;
+        }
+
+        .pricing-choice-heading small {
+            margin-top: 1px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+
+        .pricing-cycle-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .pricing-cycle-option {
+            position: relative;
+            min-width: 0;
+            padding: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.055);
+            color: white;
+            cursor: pointer;
+            text-align: right;
+            transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .pricing-cycle-option:hover {
+            transform: translateY(-2px);
+            border-color: rgba(201, 154, 72, 0.38);
+            background: rgba(255, 255, 255, 0.09);
+        }
+
+        .pricing-cycle-option.active {
+            border-color: rgba(245, 211, 148, 0.72);
+            background: linear-gradient(145deg, rgba(201, 154, 72, 0.22), rgba(201, 154, 72, 0.08));
+            box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18), inset 0 0 0 1px rgba(245, 211, 148, 0.12);
+        }
+
+        .pricing-cycle-icon {
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.74);
+        }
+
+        .pricing-cycle-option.active .pricing-cycle-icon {
+            background: #f5d394;
+            color: #071523;
+        }
+
+        .pricing-cycle-option strong,
+        .pricing-cycle-option small,
+        .pricing-cycle-option em {
+            display: block;
+        }
+
+        .pricing-cycle-option strong {
+            font-size: 0.93rem;
+        }
+
+        .pricing-cycle-option small {
+            min-height: 38px;
+            margin-top: 5px;
+            color: rgba(255, 255, 255, 0.52);
+            font-size: 0.74rem;
+            font-weight: 700;
+            line-height: 1.65;
+        }
+
+        .pricing-cycle-option em {
+            width: fit-content;
+            margin-top: 9px;
+            padding: 5px 8px;
+            border-radius: 999px;
+            background: rgba(24, 160, 125, 0.16);
+            color: #89efd1;
+            font-size: 0.7rem;
+            font-style: normal;
+            font-weight: 900;
+        }
+
+        .pricing-cycle-option[data-pricing-cycle="monthly"] em {
+            background: rgba(255, 255, 255, 0.09);
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .pricing-selection-check {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 21px;
+            height: 21px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 999px;
+            color: transparent;
+            font-size: 0.65rem;
+        }
+
+        .pricing-cycle-option.active .pricing-selection-check {
+            border-color: #f5d394;
+            background: #f5d394;
+            color: #071523;
+        }
+
+        .pricing-screen-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .pricing-screen-option {
+            min-width: 0;
+            padding: 12px 8px;
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.68);
+            cursor: pointer;
+            text-align: center;
+            transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease, color 0.22s ease;
+        }
+
+        .pricing-screen-option:hover {
+            transform: translateY(-2px);
+            color: white;
+        }
+
+        .pricing-screen-option i,
+        .pricing-screen-option strong,
+        .pricing-screen-option small {
+            display: block;
+        }
+
+        .pricing-screen-option i {
+            margin-bottom: 7px;
+            font-size: 1rem;
+        }
+
+        .pricing-screen-option strong {
+            color: inherit;
+            font-family: 'Changa', sans-serif;
+            font-size: 1.05rem;
+            line-height: 1;
+        }
+
+        .pricing-screen-option small {
+            margin-top: 4px;
+            color: inherit;
+            font-size: 0.68rem;
+            font-weight: 800;
+        }
+
+        .pricing-screen-option.active {
+            border-color: #f5d394;
+            background: #f5d394;
+            color: #071523;
+            box-shadow: 0 12px 25px rgba(201, 154, 72, 0.2);
+        }
+
+        .pricing-live-summary {
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-width: 0;
+            padding: 21px;
+            border-radius: 24px;
+            background: linear-gradient(155deg, #ffffff 0%, #f5f1e9 100%);
+            color: var(--ink-950);
+            box-shadow: 0 22px 48px rgba(0, 0, 0, 0.18);
+        }
+
+        .pricing-live-summary::after {
+            content: "";
+            position: absolute;
+            top: -54px;
+            left: -46px;
+            width: 150px;
+            height: 150px;
+            border-radius: 999px;
+            background: rgba(201, 154, 72, 0.14);
+        }
+
+        .pricing-live-kicker {
+            position: relative;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            width: fit-content;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: rgba(24, 160, 125, 0.1);
+            color: #08765b;
+            font-size: 0.72rem;
+            font-weight: 900;
+        }
+
+        .pricing-live-summary h3 {
+            margin-top: 16px;
+            font-size: 1rem;
+        }
+
+        .pricing-live-price-wrap {
+            display: flex;
+            align-items: end;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .pricing-live-price {
+            font-family: 'Changa', sans-serif;
+            font-size: 2.75rem;
+            line-height: 1;
+            letter-spacing: -1px;
+        }
+
+        .pricing-live-currency {
+            padding-bottom: 6px;
+            color: var(--text-soft);
+            font-size: 0.76rem;
+            font-weight: 900;
+        }
+
+        .pricing-live-period {
+            display: block;
+            margin-top: 7px;
+            color: var(--text-faint);
+            font-size: 0.75rem;
+            font-weight: 800;
+        }
+
+        .pricing-live-screens {
+            display: flex;
+            gap: 5px;
+            margin-top: 18px;
+            direction: ltr;
+        }
+
+        .pricing-live-screens i {
+            width: 29px;
+            height: 25px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 7px;
+            background: rgba(13, 28, 50, 0.08);
+            color: rgba(13, 28, 50, 0.22);
+            font-size: 0.7rem;
+            transition: transform 0.22s ease, background 0.22s ease, color 0.22s ease;
+        }
+
+        .pricing-live-screens i.active {
+            transform: translateY(-2px);
+            background: var(--ink-950);
+            color: #f5d394;
+        }
+
+        .pricing-live-benefit {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-top: 18px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(13, 28, 50, 0.08);
+            color: var(--text-soft);
+            font-size: 0.74rem;
+            font-weight: 800;
+            line-height: 1.7;
+        }
+
+        .pricing-live-benefit i {
+            margin-top: 4px;
+            color: var(--mint-500);
+        }
+
+        .pricing-live-summary.is-updating .pricing-live-price,
+        .pricing-live-summary.is-updating h3 {
+            animation: pricing-value-pop 0.38s ease;
+        }
+
+        @keyframes pricing-value-pop {
+            0% { opacity: 0.28; transform: translateY(6px); }
+            100% { opacity: 1; transform: translateY(0); }
         }
 
         .pricing-assurances {
@@ -1823,13 +2205,12 @@
                 grid-template-columns: 1fr;
             }
 
-            .pricing-selector-row {
-                align-items: stretch;
-                flex-direction: column;
+            .pricing-builder-layout {
+                grid-template-columns: 1fr;
             }
 
-            .pricing-selector-row .plan-switch {
-                align-self: center;
+            .pricing-live-summary {
+                min-height: 250px;
             }
 
             .hero-visual {
@@ -1900,18 +2281,61 @@
                 grid-template-columns: 1fr;
             }
 
-            .pricing-selector-row .plan-switch {
-                width: 100%;
-                display: grid;
+            .pricing-selector-shell {
+                padding: 16px;
+                border-radius: 24px;
+            }
+
+            .pricing-builder-topbar {
+                align-items: flex-start;
+                margin-bottom: 18px;
+                padding-bottom: 15px;
+            }
+
+            .pricing-builder-progress {
+                display: none;
+            }
+
+            .pricing-cycle-grid {
                 grid-template-columns: 1fr;
             }
 
-            .pricing-selector-row .screen-count-switch {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
+            .pricing-cycle-option {
+                display: grid;
+                grid-template-columns: 40px minmax(0, 1fr) auto;
+                align-items: center;
+                gap: 2px 12px;
+                padding: 13px;
             }
 
-            .plan-switch button {
-                white-space: normal;
+            .pricing-cycle-icon {
+                grid-row: 1 / 3;
+                margin-bottom: 0;
+            }
+
+            .pricing-cycle-option strong,
+            .pricing-cycle-option small {
+                grid-column: 2;
+            }
+
+            .pricing-cycle-option small {
+                min-height: 0;
+                margin-top: 1px;
+            }
+
+            .pricing-cycle-option em {
+                grid-column: 3;
+                grid-row: 1 / 3;
+                margin-top: 0;
+                white-space: nowrap;
+            }
+
+            .pricing-selection-check {
+                display: none;
+            }
+
+            .pricing-live-summary {
+                min-height: 230px;
             }
 
             .section {
@@ -2441,6 +2865,50 @@
             .plan-switch button {
                 padding: 8px 12px;
                 font-size: 0.85rem;
+            }
+
+            .pricing-builder-title > i {
+                width: 38px;
+                height: 38px;
+            }
+
+            .pricing-builder-title strong {
+                font-size: 0.96rem;
+            }
+
+            .pricing-builder-title small {
+                font-size: 0.72rem;
+            }
+
+            .pricing-cycle-option {
+                grid-template-columns: 36px minmax(0, 1fr);
+            }
+
+            .pricing-cycle-option em {
+                grid-column: 2;
+                grid-row: auto;
+                margin-top: 5px;
+            }
+
+            .pricing-screen-grid {
+                gap: 5px;
+            }
+
+            .pricing-screen-option {
+                padding: 10px 3px;
+                border-radius: 13px;
+            }
+
+            .pricing-screen-option small {
+                font-size: 0.6rem;
+            }
+
+            .pricing-live-summary {
+                padding: 18px;
+            }
+
+            .pricing-live-price {
+                font-size: 2.35rem;
             }
 
             .pricing-assurances,
@@ -4034,32 +4502,89 @@
                         <div class="pricing-assurance"><i class="fa-solid fa-credit-card"></i> بدون بطاقة عند التجربة</div>
                     </div>
 
-                    <div class="pricing-selector-shell">
-                        {% if landing_monthly_plans or landing_semiannual_plans %}
-                        <div class="pricing-selector-row">
-                            <div class="pricing-selector-copy">
-                                <span>1</span>
-                                <div><strong>اختر طريقة السداد</strong><small>العام الدراسي هو الأوفر</small></div>
+                    <div class="pricing-selector-shell" data-pricing-builder>
+                        <div class="pricing-builder-topbar">
+                            <div class="pricing-builder-title">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                <div>
+                                    <strong>صمّم باقة مدرستك</strong>
+                                    <small>اختياران فقط، والسعر يتحدّث أمامك مباشرة</small>
+                                </div>
                             </div>
-                            <div class="plan-switch" role="tablist" aria-label="مدة الاشتراك">
-                                <button type="button" class="active" role="tab" aria-selected="true" data-pricing-cycle="monthly">شهري مرن</button>
-                                <button type="button" role="tab" aria-selected="false" data-pricing-cycle="semiannual">6 أشهر — وفر 5%</button>
-                                <button type="button" role="tab" aria-selected="false" data-pricing-cycle="annual">عام دراسي — شهر مجانًا</button>
+                            <div class="pricing-builder-progress" aria-hidden="true">
+                                <span class="active"></span><span></span>
+                                جاهزة خلال لحظات
                             </div>
                         </div>
-                        {% endif %}
-                        <div class="pricing-selector-row">
-                            <div class="pricing-selector-copy">
-                                <span>2</span>
-                                <div><strong>اختر عدد الشاشات</strong><small>يمكن تخصيص محتوى كل شاشة بشكل مستقل</small></div>
+
+                        <div class="pricing-builder-layout">
+                            <div class="pricing-builder-controls">
+                                {% if landing_monthly_plans or landing_semiannual_plans %}
+                                <div class="pricing-choice-group">
+                                    <div class="pricing-choice-heading">
+                                        <span>1</span>
+                                        <div><strong>كيف تفضّل السداد؟</strong><small>غيّر المدة وشاهد الوفر فورًا</small></div>
+                                    </div>
+                                    <div class="pricing-cycle-grid" role="tablist" aria-label="مدة الاشتراك">
+                                        <button type="button" class="pricing-cycle-option active" role="tab" aria-selected="true" data-pricing-cycle="monthly" data-cycle-title="شهري مرن" data-cycle-benefit="مرونة كاملة؛ أوقف التجديد خلال الإجازة متى احتجت.">
+                                            <span class="pricing-selection-check"><i class="fa-solid fa-check"></i></span>
+                                            <span class="pricing-cycle-icon"><i class="fa-solid fa-calendar-day"></i></span>
+                                            <strong>شهري مرن</strong>
+                                            <small>أقل التزام وأعلى مرونة للتجربة والتشغيل.</small>
+                                            <em>دفع كل 30 يومًا</em>
+                                        </button>
+                                        <button type="button" class="pricing-cycle-option" role="tab" aria-selected="false" data-pricing-cycle="semiannual" data-cycle-title="6 أشهر" data-cycle-benefit="دفعة واحدة لستة أشهر مع توفير يقارب 5% عن الشهري.">
+                                            <span class="pricing-selection-check"><i class="fa-solid fa-check"></i></span>
+                                            <span class="pricing-cycle-icon"><i class="fa-solid fa-calendar-week"></i></span>
+                                            <strong>6 أشهر</strong>
+                                            <small>توازن مناسب بين المرونة والتوفير.</small>
+                                            <em>وفّر نحو 5%</em>
+                                        </button>
+                                        <button type="button" class="pricing-cycle-option" role="tab" aria-selected="false" data-pricing-cycle="annual" data-cycle-title="عام دراسي" data-cycle-benefit="الخيار الأوفر: صلاحية 12 شهرًا بسعر يقارب 9 أشهر تشغيل.">
+                                            <span class="pricing-selection-check"><i class="fa-solid fa-check"></i></span>
+                                            <span class="pricing-cycle-icon"><i class="fa-solid fa-crown"></i></span>
+                                            <strong>عام دراسي</strong>
+                                            <small>راحة طوال العام دون تجديدات متكررة.</small>
+                                            <em>شهر مجانًا</em>
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <div class="pricing-choice-group">
+                                    <div class="pricing-choice-heading">
+                                        <span>2</span>
+                                        <div><strong>كم شاشة ستشغّل؟</strong><small>لكل شاشة محتواها المستقل من اللوحة نفسها</small></div>
+                                    </div>
+                                    <div class="pricing-screen-grid" role="tablist" aria-label="عدد الشاشات">
+                                        <button type="button" class="pricing-screen-option active" role="tab" aria-selected="true" aria-label="شاشة واحدة" data-screen-label="شاشة واحدة" data-screen-count-option="1"><i class="fa-solid fa-display"></i><strong>1</strong><small>شاشة</small></button>
+                                        <button type="button" class="pricing-screen-option" role="tab" aria-selected="false" aria-label="شاشتان" data-screen-label="شاشتان" data-screen-count-option="2"><i class="fa-solid fa-display"></i><strong>2</strong><small>شاشتان</small></button>
+                                        <button type="button" class="pricing-screen-option" role="tab" aria-selected="false" aria-label="3 شاشات" data-screen-label="3 شاشات" data-screen-count-option="3"><i class="fa-solid fa-display"></i><strong>3</strong><small>شاشات</small></button>
+                                        <button type="button" class="pricing-screen-option" role="tab" aria-selected="false" aria-label="4 شاشات" data-screen-label="4 شاشات" data-screen-count-option="4"><i class="fa-solid fa-display"></i><strong>4</strong><small>شاشات</small></button>
+                                        <button type="button" class="pricing-screen-option" role="tab" aria-selected="false" aria-label="5 شاشات" data-screen-label="5 شاشات" data-screen-count-option="5"><i class="fa-solid fa-display"></i><strong>5</strong><small>شاشات</small></button>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="plan-switch screen-count-switch" role="tablist" aria-label="عدد الشاشات">
-                                <button type="button" class="active" role="tab" aria-selected="true" data-screen-count-option="1">شاشة</button>
-                                <button type="button" role="tab" aria-selected="false" data-screen-count-option="2">شاشتين</button>
-                                <button type="button" role="tab" aria-selected="false" data-screen-count-option="3">3 شاشات</button>
-                                <button type="button" role="tab" aria-selected="false" data-screen-count-option="4">4 شاشات</button>
-                                <button type="button" role="tab" aria-selected="false" data-screen-count-option="5">5 شاشات</button>
-                            </div>
+
+                            <aside class="pricing-live-summary" aria-live="polite" aria-atomic="true" data-pricing-live-summary>
+                                <div>
+                                    <span class="pricing-live-kicker"><i class="fa-solid fa-bolt"></i> اختيارك الآن</span>
+                                    <h3 data-pricing-summary-title>شاشة واحدة · شهري مرن</h3>
+                                    <div class="pricing-live-price-wrap">
+                                        <strong class="pricing-live-price" data-pricing-summary-price>119</strong>
+                                        <span class="pricing-live-currency">ر.س</span>
+                                    </div>
+                                    <span class="pricing-live-period" data-pricing-summary-period>ريال سعودي / شهري</span>
+                                    <div class="pricing-live-screens" aria-hidden="true">
+                                        <i class="fa-solid fa-display active" data-summary-screen="1"></i>
+                                        <i class="fa-solid fa-display" data-summary-screen="2"></i>
+                                        <i class="fa-solid fa-display" data-summary-screen="3"></i>
+                                        <i class="fa-solid fa-display" data-summary-screen="4"></i>
+                                        <i class="fa-solid fa-display" data-summary-screen="5"></i>
+                                    </div>
+                                </div>
+                                <p class="pricing-live-benefit"><i class="fa-solid fa-circle-check"></i><span data-pricing-summary-benefit>مرونة كاملة؛ أوقف التجديد خلال الإجازة متى احتجت.</span></p>
+                            </aside>
                         </div>
                     </div>
                 </div>
@@ -4453,17 +4978,49 @@
         const pricingPanels = document.querySelectorAll('[data-pricing-panel]');
         const screenCountButtons = document.querySelectorAll('[data-screen-count-option]');
         const pricingCards = document.querySelectorAll('[data-screen-count]');
+        const pricingLiveSummary = document.querySelector('[data-pricing-live-summary]');
+        const pricingSummaryTitle = document.querySelector('[data-pricing-summary-title]');
+        const pricingSummaryPrice = document.querySelector('[data-pricing-summary-price]');
+        const pricingSummaryPeriod = document.querySelector('[data-pricing-summary-period]');
+        const pricingSummaryBenefit = document.querySelector('[data-pricing-summary-benefit]');
+        const pricingSummaryScreens = document.querySelectorAll('[data-summary-screen]');
         let selectedScreenCount = '1';
+        let selectedPricingCycle = 'monthly';
+
+        function updatePricingSummary() {
+            const selectedCycleButton = document.querySelector(`[data-pricing-cycle="${selectedPricingCycle}"]`);
+            const selectedScreenButton = document.querySelector(`[data-screen-count-option="${selectedScreenCount}"]`);
+            const selectedCard = document.querySelector(`[data-pricing-panel="${selectedPricingCycle}"] [data-screen-count="${selectedScreenCount}"]`);
+            const selectedPlanButton = selectedCard ? selectedCard.querySelector('[data-price]') : null;
+            const selectedPeriod = selectedCard ? selectedCard.querySelector('.price-period') : null;
+
+            if (!pricingLiveSummary || !selectedCycleButton || !selectedScreenButton || !selectedPlanButton) {
+                return;
+            }
+
+            pricingSummaryTitle.textContent = `${selectedScreenButton.dataset.screenLabel} · ${selectedCycleButton.dataset.cycleTitle}`;
+            pricingSummaryPrice.textContent = selectedPlanButton.dataset.price.replace(/\.00$/, '');
+            pricingSummaryPeriod.textContent = selectedPeriod ? selectedPeriod.textContent.trim() : '';
+            pricingSummaryBenefit.textContent = selectedCycleButton.dataset.cycleBenefit;
+            pricingSummaryScreens.forEach((screenIcon) => {
+                screenIcon.classList.toggle('active', Number(screenIcon.dataset.summaryScreen) <= Number(selectedScreenCount));
+            });
+
+            pricingLiveSummary.classList.remove('is-updating');
+            window.requestAnimationFrame(() => pricingLiveSummary.classList.add('is-updating'));
+        }
 
         function updateVisiblePricingCard() {
             pricingCards.forEach((card) => {
                 card.hidden = card.dataset.screenCount !== selectedScreenCount;
             });
+            updatePricingSummary();
         }
 
         pricingCycleButtons.forEach((button) => {
             button.addEventListener('click', () => {
                 const selectedCycle = button.dataset.pricingCycle;
+                selectedPricingCycle = selectedCycle;
                 pricingCycleButtons.forEach((item) => {
                     const isSelected = item === button;
                     item.classList.toggle('active', isSelected);
