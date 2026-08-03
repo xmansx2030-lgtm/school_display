@@ -159,11 +159,17 @@
       deadline = Date.now() + (Number(data.expires_in || 600) * 1000);
       if (codeEl) codeEl.textContent = data.formatted_code || data.user_code;
       if (qrEl) {
+        // Some Smart TV browsers fetch the image successfully but do not fire
+        // a reliable `load` event for dynamically assigned PNGs. Reveal the
+        // image before assigning src so rendering does not depend on that event.
+        if (placeholderEl) placeholderEl.hidden = true;
+        qrEl.hidden = false;
         qrEl.onload = function () {
           if (placeholderEl) placeholderEl.hidden = true;
-          qrEl.hidden = false;
         };
         qrEl.onerror = function () {
+          qrEl.hidden = true;
+          if (placeholderEl) placeholderEl.hidden = false;
           setStatus("استخدم رمز الأرقام من لوحة التحكم لإكمال الربط", "");
         };
         qrEl.src = data.qr_url;

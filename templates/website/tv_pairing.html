@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#071a1f">
   <title>ربط شاشة التلفاز — لوحة العرض الذكية</title>
   <link rel="icon" type="image/png" href="/favicon.png?v=20260723-logo1">
-  <link rel="stylesheet" href="{% static 'css/tv-pairing.css' %}?v=2026-08-03-a1">
+  <link rel="stylesheet" href="{% static 'css/tv-pairing.css' %}?v=2026-08-03-a2">
 </head>
 <body
   data-pairing-start-url="{% url 'website:tv_pairing_start' %}"
@@ -83,6 +83,6 @@
 
   <form id="csrfForm" hidden>{% csrf_token %}</form>
   <noscript><div class="tv-noscript">يلزم تفعيل JavaScript لإكمال ربط التلفاز.</div></noscript>
-  <script defer src="{% static 'js/tv-pairing.js' %}?v=2026-08-03-a1"></script>
+  <script defer src="{% static 'js/tv-pairing.js' %}?v=2026-08-03-a2"></script>
 </body>
 </html>
