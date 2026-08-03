@@ -195,6 +195,22 @@ class PasswordResetTests(TestCase):
         )
         self.assertEqual(len(mail.outbox), 0)
 
+    def test_inactive_account_does_not_receive_password_reset_email(self):
+        self.user.is_active = False
+        self.user.save(update_fields=("is_active",))
+
+        response = self.client.post(
+            reverse("dashboard:password_reset"),
+            {"email": "reset@example.com"},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:password_reset_done"),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(len(mail.outbox), 0)
+
 
 class TenantIsolationTests(TestCase):
     def setUp(self):
@@ -448,6 +464,20 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(response, "الخيار المناسب لتشغيل شاشات المدرسة")
         self.assertContains(response, "الأكثر طلباً")
         self.assertNotContains(response, "المدارس:")
+
+    def test_inactive_legacy_plan_keeps_access_but_requires_new_plan_for_renewal(self):
+        subscription = SchoolSubscription.objects.select_related("plan").get(school=self.school)
+        subscription.plan.is_active = False
+        subscription.plan.save(update_fields=["is_active"])
+
+        response = self.client.get(reverse("dashboard:my_subscription"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["active_request_tab"], "new")
+        self.assertTrue(response.context["renewal_requires_new_plan"])
+        self.assertContains(response, "يبقى اشتراكك الحالي فعالًا حتى نهايته")
+        self.assertContains(response, "اختيار باقة التجديد")
+        self.assertNotContains(response, 'data-payment-hub="renewal"')
 
     def test_display_customization_lives_with_screens_not_school_settings(self):
         screen = DisplayScreen.objects.create(

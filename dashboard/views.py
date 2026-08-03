@@ -1042,7 +1042,6 @@ def school_settings(request):
             "screen_offline_alerts_enabled",
             "screen_offline_threshold_minutes",
             "screen_offline_email_enabled",
-            "weekly_uptime_report_enabled",
         }
         contact_fields = {"email", "mobile"}
         if error_fields & contact_fields:
@@ -4439,13 +4438,19 @@ def my_subscription(request):
         if requested_plan is not None:
             new_form.initial["plan"] = requested_plan.pk
 
-    renewal_plan_obj = None
+    renewal_source_plan = None
     if current_subscription is not None:
-        renewal_plan_obj = getattr(current_subscription, "plan", None)
+        renewal_source_plan = getattr(current_subscription, "plan", None)
     elif upcoming_subscription is not None:
-        renewal_plan_obj = getattr(upcoming_subscription, "plan", None)
+        renewal_source_plan = getattr(upcoming_subscription, "plan", None)
     elif primary_subscription is not None:
-        renewal_plan_obj = getattr(primary_subscription, "plan", None)
+        renewal_source_plan = getattr(primary_subscription, "plan", None)
+
+    renewal_requires_new_plan = bool(
+        renewal_source_plan is not None
+        and not bool(getattr(renewal_source_plan, "is_active", False))
+    )
+    renewal_plan_obj = None if renewal_requires_new_plan else renewal_source_plan
 
     active_request_tab = (
         "new"
@@ -4477,16 +4482,13 @@ def my_subscription(request):
         if action == "renewal":
             renew_form = SubscriptionRenewalRequestForm(request.POST, request.FILES, prefix="renew")
             if renew_form.is_valid():
-                plan_obj = None
-                if current_subscription is not None:
-                    plan_obj = getattr(current_subscription, "plan", None)
-                elif upcoming_subscription is not None:
-                    plan_obj = getattr(upcoming_subscription, "plan", None)
-                elif primary_subscription is not None:
-                    plan_obj = getattr(primary_subscription, "plan", None)
-
+                plan_obj = renewal_plan_obj
                 if plan_obj is None:
-                    messages.error(request, "لا توجد خطة حالية يمكن تجديدها. استخدم طلب اشتراك جديد.")
+                    messages.error(
+                        request,
+                        "الخطة الحالية لم تعد معروضة للتجديد. اختر إحدى الباقات الجديدة.",
+                    )
+                    active_request_tab = "new"
                 else:
                     RequestModel.objects.create(
                         school=school,
@@ -4775,6 +4777,7 @@ def my_subscription(request):
 
             "active_request_tab": active_request_tab,
             "renewal_plan_details": _plan_details(renewal_plan_obj),
+            "renewal_requires_new_plan": renewal_requires_new_plan,
             "plans_map": plans_map,
             "available_plan_cards": available_plan_cards,
             "requested_plan": requested_plan,

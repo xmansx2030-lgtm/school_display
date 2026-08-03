@@ -104,7 +104,6 @@ class SchoolSettingsForm(forms.ModelForm):
         "screen_offline_alerts_enabled",
         "screen_offline_threshold_minutes",
         "screen_offline_email_enabled",
-        "weekly_uptime_report_enabled",
     }
     email = forms.EmailField(
         label="البريد الإلكتروني",
@@ -176,7 +175,6 @@ class SchoolSettingsForm(forms.ModelForm):
             "screen_offline_alerts_enabled",
             "screen_offline_threshold_minutes",
             "screen_offline_email_enabled",
-            "weekly_uptime_report_enabled",
         ]
         widgets = {
             "featured_panel": forms.Select(),

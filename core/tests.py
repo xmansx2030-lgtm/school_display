@@ -15,6 +15,7 @@ from core.display_presence import display_is_live, latest_display_presence, touc
 from core.models import DisplayScreen, School, ScreenOutage, ScreenWeeklyUptimeReport, UserProfile
 from core.screen_monitoring import scan_screens, send_weekly_uptime_reports
 from schedule.models import SchoolSettings
+from telegram_alerts.models import TelegramAlert
 from django.contrib.auth import get_user_model
 
 
@@ -75,6 +76,17 @@ class ScreenMonitoringTests(TestCase):
         )
         profile = UserProfile.objects.create(user=self.manager, active_school=self.school)
         profile.schools.add(self.school)
+        self.inactive_manager = get_user_model().objects.create_user(
+            username="inactive_monitor_manager",
+            email="inactive-manager@example.com",
+            password="StrongPass123!",
+            is_active=False,
+        )
+        inactive_profile = UserProfile.objects.create(
+            user=self.inactive_manager,
+            active_school=self.school,
+        )
+        inactive_profile.schools.add(self.school)
         self.screen = DisplayScreen.objects.create(
             school=self.school,
             name="شاشة المدخل",
@@ -92,6 +104,7 @@ class ScreenMonitoringTests(TestCase):
         self.assertEqual(first["alerted"], 1)
         self.assertEqual(second["opened"], 0)
         self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["manager@example.com"])
         outage = ScreenOutage.objects.get(screen=self.screen)
         self.assertIsNotNone(outage.alert_sent_at)
 
@@ -115,7 +128,8 @@ class ScreenMonitoringTests(TestCase):
         self.assertEqual(late["opened"], 1)
         self.assertEqual(late["alerted"], 1)
 
-    def test_weekly_report_calculates_and_persists_per_screen_uptime(self):
+    @override_settings(TELEGRAM_ALERTS_ENABLED=True)
+    def test_weekly_report_is_one_admin_alert_and_sends_no_manager_email(self):
         week_start = timezone.localdate() - timedelta(days=14)
         tz = timezone.get_current_timezone()
         start = timezone.make_aware(datetime.combine(week_start, datetime.min.time()), tz)
@@ -124,16 +138,45 @@ class ScreenMonitoringTests(TestCase):
             detected_at=start + timedelta(days=1),
             resolved_at=start + timedelta(days=2),
         )
+        second_school = School.objects.create(
+            name="مدرسة النور",
+            slug="alnoor-school",
+        )
+        SchoolSettings.objects.create(
+            school=second_school,
+            name=second_school.name,
+            weekly_uptime_report_enabled=False,
+        )
+        second_screen = DisplayScreen.objects.create(
+            school=second_school,
+            name="شاشة الساحة",
+            is_active=True,
+            bound_device_id="second-monitor-device",
+        )
 
         result = send_weekly_uptime_reports(week_start=week_start)
+        repeated = send_weekly_uptime_reports(week_start=week_start)
 
-        self.assertEqual(result["schools_sent"], 1)
+        self.assertEqual(result["schools_sent"], 2)
+        self.assertEqual(repeated["schools_sent"], 0)
         report = ScreenWeeklyUptimeReport.objects.get(screen=self.screen, week_start=week_start)
         self.assertEqual(report.offline_seconds, 24 * 60 * 60)
         self.assertAlmostEqual(float(report.uptime_percent), 85.71, places=2)
         self.assertIsNotNone(report.sent_at)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertIsNotNone(
+            ScreenWeeklyUptimeReport.objects.get(
+                screen=second_screen,
+                week_start=week_start,
+            ).sent_at
+        )
+        self.assertEqual(len(mail.outbox), 0)
+        alert = TelegramAlert.objects.get(event_type="screen_uptime_weekly")
+        self.assertIn(self.school.name, alert.message)
+        self.assertIn(second_school.name, alert.message)
+        self.assertIn(self.screen.name, alert.message)
+        self.assertIn(second_screen.name, alert.message)
 
+    @override_settings(TELEGRAM_ALERTS_ENABLED=True)
     def test_weekly_report_counts_offline_time_from_last_seen(self):
         week_start = timezone.localdate() - timedelta(days=21)
         tz = timezone.get_current_timezone()
@@ -149,6 +192,20 @@ class ScreenMonitoringTests(TestCase):
 
         report = ScreenWeeklyUptimeReport.objects.get(screen=self.screen, week_start=week_start)
         self.assertEqual(report.offline_seconds, 60 * 60)
+
+    def test_weekly_report_waits_for_admin_telegram_without_emailing_manager(self):
+        week_start = timezone.localdate() - timedelta(days=28)
+
+        result = send_weekly_uptime_reports(week_start=week_start)
+
+        report = ScreenWeeklyUptimeReport.objects.get(
+            screen=self.screen,
+            week_start=week_start,
+        )
+        self.assertEqual(result["schools_sent"], 0)
+        self.assertIsNone(report.sent_at)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(TelegramAlert.objects.exists())
 
 
 class DisplayTokenMiddlewareTests(SimpleTestCase):

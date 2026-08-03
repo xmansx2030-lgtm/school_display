@@ -221,7 +221,10 @@ class SubscriptionScreenAddon(models.Model):
         choices=PRICING_STRATEGY_CHOICES,
         default="auto_bundle",
         verbose_name="طريقة التسعير",
-        help_text="التلقائي: 1=25،2=40،3=55 وفوق 3 +15 لكل شاشة. السنوي×10، نصف سنوي×5.",
+        help_text=(
+            "التلقائي: 60 ر.س شهريًا لكل شاشة إضافية. "
+            "نصف السنوي ×6، والسنوي ×10 (شهران مجانًا)."
+        ),
     )
 
     bundle_price = models.DecimalField(
@@ -349,7 +352,7 @@ class SubscriptionScreenAddon(models.Model):
         if days >= 330:
             return Decimal("10")
         if days >= 150:
-            return Decimal("5")
+            return Decimal("6")
         return Decimal("1")
 
     def _cycle_multiplier(self) -> Decimal:
@@ -358,26 +361,17 @@ class SubscriptionScreenAddon(models.Model):
         if c == "annual":
             return Decimal("10")
         if c == "semiannual":
-            return Decimal("5")
+            return Decimal("6")
         if c == "monthly":
             return Decimal("1")
         return self._infer_subscription_cycle_multiplier()
 
     def _calc_auto_monthly_bundle_price(self) -> Decimal:
-        """تسعير الشرائح الشهري حسب العدد.
-
-        1=25، 2=40، 3=55، وفوق 3: 55 + (n-3)*15
-        """
+        """سعر شهري واضح وثابت لكل شاشة إضافية."""
         n = int(self.screens_added or 0)
         if n <= 0:
             return Decimal("0")
-        if n == 1:
-            return Decimal("25")
-        if n == 2:
-            return Decimal("40")
-        if n == 3:
-            return Decimal("55")
-        return Decimal("55") + (Decimal(n - 3) * Decimal("15"))
+        return Decimal(n) * Decimal("60")
 
     def _calc_auto_bundle_price_for_cycle(self) -> Decimal:
         monthly = self._calc_auto_monthly_bundle_price()
@@ -932,6 +926,7 @@ class SubscriptionEmailNotification(models.Model):
         PENDING = "pending", "بانتظار الإرسال"
         PROCESSING = "processing", "جارٍ الإرسال"
         SENT = "sent", "تم الإرسال"
+        SKIPPED = "skipped", "تم التجاوز"
         FAILED = "failed", "فشل نهائي"
 
     event_type = models.CharField(max_length=20, choices=EventType.choices)

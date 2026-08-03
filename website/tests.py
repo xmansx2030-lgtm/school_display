@@ -120,6 +120,10 @@ class TrialSignupTests(TestCase):
         self.assertContains(response, "هل يمكن تخصيص محتوى كل شاشة بشكل مستقل؟")
         self.assertContains(response, "استيراد الجدول من Excel")
         self.assertContains(response, "آخر بيانات محفوظة")
+        self.assertContains(response, "كل مسؤول يرى فائدة مباشرة في يومه")
+        self.assertContains(response, "تشغيل المحتوى — 299 ر.س شهريًا")
+        self.assertContains(response, "مجمع تعليمي: حتى 3 مدارس و15 شاشة")
+        self.assertContains(response, "الشاشة الإضافية: 60 ر.س شهريًا")
         self.assertContains(response, 'data-form-step="1"')
         self.assertContains(response, 'data-form-step="2"')
         self.assertNotContains(response, "<iframe")
@@ -173,6 +177,33 @@ class TrialSignupTests(TestCase):
         self.assertNotContains(response, "المستخدمون:")
         self.assertNotContains(response, "المدارس:")
         self.assertNotContains(response, "باقة مخفية من الهبوط")
+
+    def test_landing_pricing_groups_annual_and_semiannual_plans(self):
+        annual = SubscriptionPlan.objects.create(
+            code="grouped-annual",
+            name="باقة مجمعة سنوية",
+            price=2200,
+            duration_days=365,
+            max_screens=3,
+            is_active=True,
+        )
+        semiannual = SubscriptionPlan.objects.create(
+            code="grouped-semiannual",
+            name="باقة مجمعة نصف سنوية",
+            price=1300,
+            duration_days=182,
+            max_screens=3,
+            is_active=True,
+        )
+
+        response = self.client.get(reverse("website:home"))
+
+        self.assertContains(response, 'data-pricing-cycle="annual"')
+        self.assertContains(response, 'data-pricing-cycle="semiannual"')
+        self.assertContains(response, 'data-pricing-panel="annual"')
+        self.assertContains(response, 'data-pricing-panel="semiannual"')
+        self.assertContains(response, f'data-plan-code="{annual.code}"')
+        self.assertContains(response, f'data-plan-code="{semiannual.code}"')
 
     def test_landing_pricing_reflects_dashboard_price_update_on_next_request(self):
         plan = SubscriptionPlan.objects.create(

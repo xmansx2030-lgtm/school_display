@@ -407,6 +407,22 @@ def home(request):
         )
         landing_plans = plan_cards(active_plans)
 
+        paid_plans = [plan for plan in landing_plans if not plan["is_trial"] and not plan["is_free"]]
+        landing_annual_plans = [
+            plan for plan in paid_plans if 330 <= plan["duration_days"] <= 370
+        ]
+        landing_semiannual_plans = [
+            plan for plan in paid_plans if 150 <= plan["duration_days"] <= 200
+        ]
+        known_cycle_ids = {
+            plan["id"] for plan in landing_annual_plans + landing_semiannual_plans
+        }
+        # Keep unusual dashboard-created durations visible instead of silently
+        # dropping them from the public catalog.
+        landing_annual_plans.extend(
+            plan for plan in paid_plans if plan["id"] not in known_cycle_ids
+        )
+
         landing_trial = next(
             (plan for plan in landing_plans if plan["is_trial"]),
             {
@@ -428,6 +444,8 @@ def home(request):
                 "plan_order_url": reverse("website:plan_order"),
                 "dashboard_url": reverse("dashboard:index"),
                 "landing_plans": landing_plans,
+                "landing_annual_plans": landing_annual_plans,
+                "landing_semiannual_plans": landing_semiannual_plans,
                 "landing_trial": landing_trial,
             },
         )

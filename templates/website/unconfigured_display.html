@@ -1054,6 +1054,49 @@
             transition: background 0.2s ease, color 0.2s ease;
         }
 
+        .plan-switch button.active {
+            background: var(--ink-950);
+            color: white;
+            box-shadow: 0 10px 24px rgba(13, 28, 50, 0.18);
+        }
+
+        .pricing-panel[hidden] {
+            display: none;
+        }
+
+        .pricing-footnotes {
+            max-width: 920px;
+            margin: 24px auto 0;
+            display: grid;
+            gap: 8px;
+            text-align: center;
+            color: var(--text-soft);
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .commercial-extras {
+            margin-top: 46px;
+        }
+
+        .enterprise-offer {
+            margin-top: 22px;
+            padding: 22px 24px;
+            border-radius: 22px;
+            background: linear-gradient(135deg, rgba(13, 28, 50, 0.97), rgba(18, 48, 79, 0.94));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            flex-wrap: wrap;
+            box-shadow: var(--shadow-md);
+        }
+
+        .enterprise-offer p {
+            color: rgba(255, 255, 255, 0.72);
+        }
+
         .pricing-grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));
             max-width: 1160px;
@@ -3722,10 +3765,47 @@
                         <div class="assurance-stats">
                             <div class="assurance-stat"><i class="fa-solid fa-display"></i><strong>حالة كل شاشة</strong><small>آخر اتصال وحالة التشغيل من لوحة الإدارة.</small></div>
                             <div class="assurance-stat"><i class="fa-solid fa-envelope-open-text"></i><strong>تنبيهات الانقطاع</strong><small>إشعار بعد تجاوز المدة التي تحددها المدرسة.</small></div>
-                            <div class="assurance-stat"><i class="fa-solid fa-chart-line"></i><strong>تقرير أسبوعي</strong><small>ملخص جاهزية الشاشة وفترات الانقطاع.</small></div>
+                            <div class="assurance-stat"><i class="fa-solid fa-shield-halved"></i><strong>حماية ونسخ احتياطي</strong><small>مصادقة ثنائية ونسخ مشفرة لحماية استمرارية الخدمة.</small></div>
                             <div class="assurance-stat"><i class="fa-solid fa-cloud-arrow-down"></i><strong>عرض دون اتصال</strong><small>استمرار آخر محتوى محفوظ حتى عودة الشبكة.</small></div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section section-soft" id="school-value">
+            <div class="container">
+                <div class="section-header reveal">
+                    <div class="eyebrow"><i class="fa-solid fa-people-group"></i> قيمة لكل فريق المدرسة</div>
+                    <h2>كل مسؤول يرى فائدة مباشرة في يومه</h2>
+                    <p>ليست شاشة إعلانات فقط؛ إنها قناة تشغيل مدرسية تقلل التحديث اليدوي وتوصل المعلومة إلى مكانها الصحيح.</p>
+                </div>
+                <div class="benefit-grid">
+                    <article class="benefit-card reveal">
+                        <i class="fa-solid fa-user-tie"></i>
+                        <strong>مدير المدرسة</strong>
+                        <p>رؤية موحدة لما يُعرض وتقليل المقاطعات والمتابعة اليومية بين المكاتب.</p>
+                    </article>
+                    <article class="benefit-card reveal">
+                        <i class="fa-solid fa-list-check"></i>
+                        <strong>الوكيل</strong>
+                        <p>نشر حصص الانتظار والمناوبات فورًا لتقليل النسيان والرسائل المتكررة.</p>
+                    </article>
+                    <article class="benefit-card reveal">
+                        <i class="fa-solid fa-bullhorn"></i>
+                        <strong>النشاط والإعلام</strong>
+                        <p>نشر إعلان أو تكريم أو مناسبة مرة واحدة على الشاشات المستهدفة.</p>
+                    </article>
+                    <article class="benefit-card reveal">
+                        <i class="fa-solid fa-laptop-code"></i>
+                        <strong>مسؤول التقنية</strong>
+                        <p>ربط سريع، حالة اتصال واضحة، واستمرار آخر محتوى عند ضعف الشبكة.</p>
+                    </article>
+                    <article class="benefit-card reveal">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <strong>السلامة المدرسية</strong>
+                        <p>إظهار تنبيه طارئ بكامل الشاشة على شاشة واحدة أو جميع الشاشات خلال ثوانٍ.</p>
+                    </article>
                 </div>
             </div>
         </section>
@@ -3770,62 +3850,62 @@
             <div class="container">
                 <div class="pricing-head reveal">
                     <div class="eyebrow"><i class="fa-solid fa-tags"></i> الباقات</div>
-                    <h2>اختر عدد الشاشات المناسب للمدرسة</h2>
+                    <h2>ثلاث باقات واضحة، وكل مزايا المنصة مشمولة</h2>
                     <div class="pricing-note">
-                        لا توجد مزايا مخفية أو نسخة أقل جودة في الباقات الأقل. المدرسة تحصل على كامل المنصة، ثم تحدد فقط حجم التوسع الذي تحتاجه.
+                        اختر حجم التغطية ومستوى التهيئة والدعم. لا توجد نسخة أقل جودة أو وظائف أساسية مخفية في أي باقة.
                     </div>
-
+                    {% if landing_semiannual_plans %}
+                    <div class="plan-switch" role="tablist" aria-label="مدة الاشتراك">
+                        <button type="button" class="active" role="tab" aria-selected="true" data-pricing-cycle="annual">سنوي — وفر قرابة 16%</button>
+                        <button type="button" role="tab" aria-selected="false" data-pricing-cycle="semiannual">6 أشهر</button>
+                    </div>
+                    {% endif %}
                 </div>
 
-                <div class="pricing-grid">
-                    {% for plan in landing_plans %}
-                    <article class="price-card reveal{% if plan.is_trial or plan.is_featured %} popular{% endif %}" data-plan-code="{{ plan.code }}">
-                        {% if plan.badge_text %}
-                        <div class="plan-badge">
-                            {{ plan.badge_text }}
-                        </div>
-                        {% endif %}
-                        <h3>{{ plan.name }}</h3>
-                        {% if plan.description %}<p class="plan-meta">{{ plan.description }}</p>{% endif %}
-                        {% if plan.duration_text %}<p class="plan-meta">{{ plan.duration_text }}</p>{% endif %}
-                        <div class="{% if plan.is_free %}price-val-static{% else %}price-val{% endif %}">{{ plan.price|floatformat:"-2" }}</div>
-                        <span class="price-period">{{ plan.price_caption }}</span>
-                        {% if plan.monthly_text %}<span class="price-period">{{ plan.monthly_text }}</span>{% endif %}
-                        <ul class="feature-list">
-                            {% for feature in plan.features %}
-                              <li><i class="fa-solid fa-check"></i> {{ feature }}</li>
-                            {% endfor %}
-                            {% if plan.screen_text %}<li>
-                                <i class="fa-solid fa-display"></i>
-                                {{ plan.screen_text }}
-                            </li>{% endif %}
-                        </ul>
-                        <button
-                            type="button"
-                            class="{% if plan.is_trial %}btn{% else %}btn-outline{% endif %} btn-block"
-                            data-plan="{{ plan.name }}"
-                            data-plan-code="{{ plan.code }}"
-                            data-period="{{ plan.duration_label }}"
-                            data-price="{{ plan.price|floatformat:'-2' }}"
-                            data-is-trial="{{ plan.is_trial|yesno:'true,false' }}"
-                            data-order-url="{{ plan_order_url }}?plan={{ plan.code|urlencode }}"
-                            data-user-authenticated="{{ request.user.is_authenticated|yesno:'true,false' }}"
-                            onclick="openPlanFromButton(this)">
-                            {{ plan.cta_text }}
-                        </button>
-                    </article>
-                    {% empty %}
-                    <div class="pricing-empty reveal">
-                        <i class="fa-solid fa-tags"></i>
-                        <h3>سيتم نشر الباقات قريباً</h3>
-                        <p>لا توجد باقات مفعلة حالياً. يمكنك التواصل معنا للحصول على عرض مناسب.</p>
-                        <a class="btn-outline" href="https://wa.me/966537720207" target="_blank" rel="noreferrer">تواصل عبر واتساب</a>
-                    </div>
-                    {% endfor %}
+                <div class="pricing-panel" data-pricing-panel="annual">
+                    {% include "website/_pricing_cards.html" with plans=landing_annual_plans %}
+                </div>
+                {% if landing_semiannual_plans %}
+                <div class="pricing-panel" data-pricing-panel="semiannual" hidden>
+                    {% include "website/_pricing_cards.html" with plans=landing_semiannual_plans %}
+                </div>
+                {% endif %}
+
+                <div class="pricing-footnotes reveal">
+                    <p>الأسعار لا تشمل ضريبة القيمة المضافة إن كانت واجبة.</p>
+                    <p>الشاشة الإضافية: 60 ر.س شهريًا، 360 ر.س لستة أشهر، أو 600 ر.س سنويًا، وتُحتسب المدة المتبقية عند الترقية.</p>
                 </div>
 
-                <div class="section-header" style="margin-top: 26px; margin-bottom: 0;">
-                    <p><i class="fa-brands fa-whatsapp"></i> تحتاج أكثر من 5 شاشات؟ نوفر عرضاً مخصصاً بنفس المزايا الكاملة وفق احتياج المدرسة.</p>
+                <div class="commercial-extras">
+                    <div class="section-header reveal">
+                        <div class="eyebrow"><i class="fa-solid fa-handshake-angle"></i> خدمات اختيارية</div>
+                        <h2>اختر مستوى المساندة الذي يناسب فريقك</h2>
+                    </div>
+                    <div class="benefit-grid">
+                        <article class="benefit-card reveal">
+                            <i class="fa-solid fa-file-import"></i>
+                            <strong>تهيئة واستيراد — 490 ر.س</strong>
+                            <p>تنظيف الملفات، الاستيراد الأولي، وتجهيز الشاشة الأولى. مشمولة في المدرسة الذكية والتشغيل الموسّع.</p>
+                        </article>
+                        <article class="benefit-card reveal">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                            <strong>تشغيل المحتوى — 299 ر.س شهريًا</strong>
+                            <p>حتى 12 طلب تحديث شهريًا للإعلانات والتكريم والمناسبات.</p>
+                        </article>
+                        <article class="benefit-card reveal">
+                            <i class="fa-solid fa-screwdriver-wrench"></i>
+                            <strong>التركيب والأجهزة</strong>
+                            <p>عرض مستقل حسب المدينة ونوع الشاشة أو جهاز التشغيل المطلوب.</p>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="enterprise-offer reveal">
+                    <div>
+                        <strong>مجمع تعليمي: حتى 3 مدارس و15 شاشة — يبدأ من 8,990 ر.س سنويًا</strong>
+                        <p>عقد موحد وتفعيل مستقل لكل مدرسة، مع تهيئة ودعم بأولوية. يُعتمد بعد مراجعة الاحتياج.</p>
+                    </div>
+                    <a class="btn" href="https://wa.me/966537720207" target="_blank" rel="noreferrer">اطلب عرض المجمع</a>
                 </div>
             </div>
         </section>
@@ -3849,7 +3929,7 @@
                     </details>
                     <details class="faq-item reveal">
                         <summary><i class="fa-solid fa-layer-group"></i>هل تختلف المزايا بين الباقات؟</summary>
-                        <p>لا. جميع الباقات تمنح نفس مزايا النظام بالكامل. الاختلاف الوحيد هو عدد الشاشات التي تعمل عليها المدرسة.</p>
+                        <p>جميع الباقات تمنح مزايا النظام الأساسية كاملة. الاختلاف في عدد الشاشات ومستوى التهيئة والدعم المرافق للمدرسة.</p>
                     </details>
                     <details class="faq-item reveal">
                         <summary><i class="fa-solid fa-arrow-up-right-dots"></i>هل يمكن زيادة عدد الشاشات لاحقاً؟</summary>
@@ -4138,6 +4218,22 @@
                 if (target) {
                     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
+            });
+        });
+
+        const pricingCycleButtons = document.querySelectorAll('[data-pricing-cycle]');
+        const pricingPanels = document.querySelectorAll('[data-pricing-panel]');
+        pricingCycleButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const selectedCycle = button.dataset.pricingCycle;
+                pricingCycleButtons.forEach((item) => {
+                    const isSelected = item === button;
+                    item.classList.toggle('active', isSelected);
+                    item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+                });
+                pricingPanels.forEach((panel) => {
+                    panel.hidden = panel.dataset.pricingPanel !== selectedCycle;
+                });
             });
         });
 

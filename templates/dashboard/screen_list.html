@@ -13,7 +13,7 @@
       <p>تابع حالة كل شاشة، انسخ رابط التشغيل، ونفذ إجراءات التشغيل من مكان واحد.</p>
     </div>
     <div class="screen-command-actions">
-      <a href="{% url 'dashboard:screen_pairing' %}" class="screen-primary-action screen-pair-action">
+      <a href="{% url 'dashboard:screen_pairing' %}" class="screen-primary-action screen-pair-action" data-pairing-guide-open>
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 14.5v-8ZM9 20l3-3 3 3M8.5 9.5l2 2L15.5 7"/></svg>
         <span>ربط تلفاز</span>
       </a>
@@ -202,8 +202,113 @@
   </section>
 </div>
 
+<dialog class="pairing-guide-dialog" id="pairingGuideDialog" aria-labelledby="pairingGuideTitle" aria-describedby="pairingGuideDescription">
+  <div class="pairing-guide-card">
+    <button type="button" class="pairing-guide-close" data-pairing-guide-close aria-label="إغلاق النافذة">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 6 12 12M18 6 6 18"/></svg>
+    </button>
+
+    <div class="pairing-guide-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 14.5v-8ZM9 20l3-3 3 3"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M8 8h2v2H8zM14 8h2v2h-2zM8 12h2v2H8zM14 12h2v2h-2z"/></svg>
+    </div>
+
+    <div class="pairing-guide-heading">
+      <span>ربط التلفاز بخطوتين</span>
+      <h2 id="pairingGuideTitle">شغّل شاشة المدرسة بسهولة</h2>
+      <p id="pairingGuideDescription">ابدأ بإنشاء الشاشة في لوحة التحكم، ثم اربط التلفاز بها.</p>
+    </div>
+
+    <ol class="pairing-guide-steps">
+      <li class="{% if screens_count %}is-complete{% endif %}">
+        <span class="pairing-guide-number">{% if screens_count %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="m5 12 4 4L19 6"/></svg>{% else %}1{% endif %}</span>
+        <div>
+          <strong>أنشئ شاشة جديدة أولًا</strong>
+          {% if screens_count %}
+            <p>لديك شاشة منشأة وجاهزة للاختيار أثناء الربط.</p>
+          {% else %}
+            <p>يجب إنشاء شاشة جديدة في لوحة التحكم قبل ربط التلفاز.</p>
+          {% endif %}
+        </div>
+      </li>
+      <li>
+        <span class="pairing-guide-number">2</span>
+        <div>
+          <strong>الطريقة الأسهل:</strong>
+          <p><b>افتح</b> <code dir="ltr">school-display.com/tv</code> على التلفاز، ثم امسح QR بالجوال واختر الشاشة. سيبدأ العرض تلقائيًا.</p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="pairing-guide-actions">
+      {% if screens_count %}
+        <a href="{% url 'dashboard:screen_pairing' %}" class="pairing-guide-primary">
+          <span>متابعة إلى الربط</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6"/></svg>
+        </a>
+      {% elif can_create_screen %}
+        <a href="{% url 'dashboard:screen_create' %}" class="pairing-guide-primary">
+          <span>إنشاء شاشة جديدة</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
+        </a>
+      {% else %}
+        <a href="{% url 'dashboard:request_screen_addon' %}" class="pairing-guide-primary">زيادة باقة الشاشات</a>
+      {% endif %}
+      <button type="button" class="pairing-guide-secondary" data-pairing-guide-close>لاحقًا</button>
+    </div>
+  </div>
+</dialog>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  const pairingGuide = document.getElementById('pairingGuideDialog');
+  const pairingGuideStorageKey = 'screenPairingGuideSeen';
+
+  function openPairingGuide() {
+    if (!pairingGuide || pairingGuide.open) return;
+    if (typeof pairingGuide.showModal === 'function') {
+      pairingGuide.showModal();
+    } else {
+      pairingGuide.setAttribute('open', '');
+    }
+    document.body.classList.add('pairing-guide-open');
+  }
+
+  function closePairingGuide() {
+    if (!pairingGuide) return;
+    if (typeof pairingGuide.close === 'function' && pairingGuide.open) {
+      pairingGuide.close();
+    } else {
+      pairingGuide.removeAttribute('open');
+    }
+    document.body.classList.remove('pairing-guide-open');
+    try { window.sessionStorage.setItem(pairingGuideStorageKey, '1'); } catch (error) {}
+  }
+
+  document.querySelectorAll('[data-pairing-guide-open]').forEach(function(trigger) {
+    trigger.addEventListener('click', function(event) {
+      event.preventDefault();
+      openPairingGuide();
+    });
+  });
+
+  document.querySelectorAll('[data-pairing-guide-close]').forEach(function(trigger) {
+    trigger.addEventListener('click', closePairingGuide);
+  });
+
+  if (pairingGuide) {
+    pairingGuide.addEventListener('click', function(event) {
+      if (event.target === pairingGuide) closePairingGuide();
+    });
+    pairingGuide.addEventListener('close', function() {
+      document.body.classList.remove('pairing-guide-open');
+      try { window.sessionStorage.setItem(pairingGuideStorageKey, '1'); } catch (error) {}
+    });
+
+    let guideWasSeen = false;
+    try { guideWasSeen = window.sessionStorage.getItem(pairingGuideStorageKey) === '1'; } catch (error) {}
+    if (!guideWasSeen) window.setTimeout(openPairingGuide, 450);
+  }
+
   window.showToast = function() {
     if (window.showDashboardToast) {
       window.showDashboardToast('تم النسخ', 'تم نسخ رابط الشاشة للحافظة بنجاح');
@@ -228,6 +333,227 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
+.pairing-guide-open {
+  overflow: hidden;
+}
+
+.pairing-guide-dialog {
+  width: min(34rem, calc(100% - 2rem));
+  max-width: none;
+  max-height: calc(100vh - 2rem);
+  margin: auto;
+  padding: 0;
+  overflow: visible;
+  color: #0f172a;
+  background: transparent;
+  border: 0;
+}
+
+.pairing-guide-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(5px);
+}
+
+.pairing-guide-card {
+  position: relative;
+  overflow: hidden;
+  padding: 1.7rem;
+  background: linear-gradient(150deg, #ffffff 0%, #ffffff 62%, #effcf9 100%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 1.5rem;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+}
+
+.pairing-guide-card::before {
+  position: absolute;
+  width: 10rem;
+  height: 10rem;
+  inset: -5rem auto auto -4rem;
+  content: "";
+  border-radius: 999px;
+  background: rgba(45, 212, 191, 0.13);
+}
+
+.pairing-guide-close {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: 1rem;
+  inset-inline-end: 1rem;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.84);
+  transition: color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.pairing-guide-close:hover {
+  color: #0f172a;
+  background: #ffffff;
+  transform: rotate(6deg);
+}
+
+.pairing-guide-close svg,
+.pairing-guide-actions svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.pairing-guide-icon {
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  margin-bottom: 1rem;
+  border-radius: 1rem;
+  color: #ffffff;
+  background: linear-gradient(135deg, #176b70, #2b8f8c);
+  box-shadow: 0 12px 26px rgba(23, 107, 112, 0.24);
+}
+
+.pairing-guide-icon svg {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.pairing-guide-heading > span {
+  color: #23817f;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.pairing-guide-heading h2 {
+  margin: 0.25rem 0 0;
+  color: #0f172a;
+  font-size: 1.35rem;
+  font-weight: 950;
+}
+
+.pairing-guide-heading p {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.7;
+}
+
+.pairing-guide-steps {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pairing-guide-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  padding: 0.9rem;
+  border: 1px solid #dce7e6;
+  border-radius: 1rem;
+  background: rgba(248, 250, 252, 0.82);
+}
+
+.pairing-guide-steps li.is-complete {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.pairing-guide-number {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.65rem;
+  color: #ffffff;
+  background: #176b70;
+  font-size: 0.82rem;
+  font-weight: 950;
+}
+
+.is-complete .pairing-guide-number {
+  background: #16a34a;
+}
+
+.pairing-guide-number svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.pairing-guide-steps strong {
+  display: block;
+  color: #0f172a;
+  font-size: 0.85rem;
+  font-weight: 950;
+}
+
+.pairing-guide-steps p {
+  margin: 0.25rem 0 0;
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.75;
+}
+
+.pairing-guide-steps code {
+  display: inline-block;
+  margin-inline: 0.15rem;
+  padding: 0.08rem 0.42rem;
+  color: #115e59;
+  background: #ccfbf1;
+  border: 1px solid #99f6e4;
+  border-radius: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.pairing-guide-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.pairing-guide-primary,
+.pairing-guide-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 1.05rem;
+  border-radius: 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 950;
+  text-decoration: none;
+}
+
+.pairing-guide-primary {
+  color: #ffffff;
+  background: linear-gradient(135deg, #176b70, #2b8f8c);
+  box-shadow: 0 9px 20px rgba(23, 107, 112, 0.2);
+}
+
+.pairing-guide-primary:hover {
+  color: #ffffff;
+  background: linear-gradient(135deg, #125a5f, #237c7a);
+}
+
+.pairing-guide-secondary {
+  color: #475569;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.pairing-guide-secondary:hover {
+  color: #0f172a;
+  background: #f8fafc;
+}
+
 .screen-command-panel,
 .screen-summary-strip,
 .screen-help-panel {
@@ -767,6 +1093,26 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 @media (max-width: 560px) {
+  .pairing-guide-dialog {
+    width: calc(100% - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
+
+  .pairing-guide-card {
+    padding: 1.25rem;
+    border-radius: 1.2rem;
+  }
+
+  .pairing-guide-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pairing-guide-primary,
+  .pairing-guide-secondary {
+    width: 100%;
+  }
+
   .screen-summary-strip {
     grid-template-columns: 1fr;
   }

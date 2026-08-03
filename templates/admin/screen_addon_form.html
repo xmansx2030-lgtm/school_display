@@ -253,20 +253,15 @@
   const previewVal  = $('auto_price_value');
   const endsBadge   = $('ends_at_auto_badge');
 
-  /* ── Tiered auto-pricing (mirrors Python model logic) ── */
+  /* ── Flat per-screen auto-pricing (mirrors Python model logic) ── */
   function calcAutoBundle(screens, cycle) {
     screens = parseInt(screens, 10);
     if (!screens || screens <= 0) return null;
 
-    // Monthly slab prices
-    let monthlyPrice;
-    if (screens === 1)      monthlyPrice = 25;
-    else if (screens === 2) monthlyPrice = 40;
-    else if (screens === 3) monthlyPrice = 55;
-    else                    monthlyPrice = 55 + (screens - 3) * 15;
+    const monthlyPrice = screens * 60;
 
     // Cycle multiplier
-    const multipliers = { inherit: 1, monthly: 1, semiannual: 5, annual: 10 };
+    const multipliers = { inherit: 1, monthly: 1, semiannual: 6, annual: 10 };
     const mult = multipliers[cycle] ?? 1;
     return monthlyPrice * mult;
   }

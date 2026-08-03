@@ -113,6 +113,34 @@ class SubscriptionBusinessRulesTests(TestCase):
 
         self.assertEqual(school_effective_max_screens(self.school.pk, on_date=self.today), 3)
 
+    def test_auto_screen_addon_uses_flat_commercial_price_per_screen(self):
+        monthly = SubscriptionScreenAddon.objects.create(
+            subscription=self.subscription,
+            screens_added=2,
+            pricing_strategy="auto_bundle",
+            pricing_cycle="monthly",
+            starts_at=self.today,
+        )
+        semiannual = SubscriptionScreenAddon.objects.create(
+            subscription=self.subscription,
+            screens_added=2,
+            pricing_strategy="auto_bundle",
+            pricing_cycle="semiannual",
+            starts_at=self.today,
+        )
+        annual = SubscriptionScreenAddon.objects.create(
+            subscription=self.subscription,
+            screens_added=2,
+            pricing_strategy="auto_bundle",
+            pricing_cycle="annual",
+            starts_at=self.today,
+        )
+
+        self.assertEqual(monthly.bundle_price, Decimal("120.00"))
+        self.assertEqual(semiannual.bundle_price, Decimal("720.00"))
+        self.assertEqual(annual.bundle_price, Decimal("1200.00"))
+        self.assertEqual(annual.total_price, Decimal("1200.00"))
+
     def test_payment_operation_creates_an_immutable_invoice_snapshot(self):
         operation = SubscriptionPaymentOperation.objects.create(
             school=self.school,
@@ -213,6 +241,17 @@ class SubscriptionEmailNotificationTests(TestCase):
         )
         profile = UserProfile.objects.create(user=self.user, active_school=self.school)
         profile.schools.add(self.school)
+        inactive_user = get_user_model().objects.create_user(
+            username="inactive_email_manager",
+            email="inactive-manager@example.com",
+            password="StrongPass123!",
+            is_active=False,
+        )
+        inactive_profile = UserProfile.objects.create(
+            user=inactive_user,
+            active_school=self.school,
+        )
+        inactive_profile.schools.add(self.school)
 
     def test_new_invoice_is_queued_and_delivered_with_attachment(self):
         operation = SubscriptionPaymentOperation.objects.create(
@@ -243,6 +282,31 @@ class SubscriptionEmailNotificationTests(TestCase):
         )
         notification.refresh_from_db()
         self.assertEqual(notification.status, SubscriptionEmailNotification.Status.SENT)
+
+    def test_queued_email_is_skipped_if_account_becomes_inactive(self):
+        operation = SubscriptionPaymentOperation.objects.create(
+            school=self.school,
+            subscription=self.subscription,
+            plan=self.plan,
+            amount=Decimal("500.00"),
+            method="bank_transfer",
+        )
+        notification = SubscriptionEmailNotification.objects.get(
+            invoice=operation.invoice,
+        )
+        self.user.is_active = False
+        self.user.save(update_fields=("is_active",))
+
+        result = process_pending_email_notifications()
+
+        notification.refresh_from_db()
+        self.assertEqual(result.sent, 0)
+        self.assertEqual(result.skipped, 1)
+        self.assertEqual(
+            notification.status,
+            SubscriptionEmailNotification.Status.SKIPPED,
+        )
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_worker_reconciles_a_paid_operation_created_without_an_invoice(self):
         operations = SubscriptionPaymentOperation.objects.bulk_create(

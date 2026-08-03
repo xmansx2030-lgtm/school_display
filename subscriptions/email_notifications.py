@@ -27,6 +27,7 @@ WORKER_HEARTBEAT_TTL_SECONDS = 180
 @dataclass(frozen=True)
 class DeliveryResult:
     sent: int = 0
+    skipped: int = 0
     retried: int = 0
     failed: int = 0
 
@@ -50,6 +51,14 @@ def _school_recipient_emails(subscription: SchoolSubscription) -> list[str]:
             seen.add(email)
             recipients.append(email)
     return recipients
+
+
+def _recipient_account_is_active(notification: SubscriptionEmailNotification) -> bool:
+    return notification.subscription.school.users.filter(
+        user__is_active=True,
+        user__is_superuser=False,
+        user__email__iexact=notification.recipient,
+    ).exists()
 
 
 def queue_invoice_email(invoice: SubscriptionInvoice) -> int:
@@ -196,6 +205,16 @@ def _deliver_claimed(notification_id: int) -> str:
     notification = SubscriptionEmailNotification.objects.select_related(
         "subscription__school", "subscription__plan", "invoice"
     ).get(pk=notification_id)
+    if not _recipient_account_is_active(notification):
+        SubscriptionEmailNotification.objects.filter(
+            pk=notification.pk,
+            status=SubscriptionEmailNotification.Status.PROCESSING,
+        ).update(
+            status=SubscriptionEmailNotification.Status.SKIPPED,
+            locked_at=None,
+            last_error="Recipient account is inactive or no longer linked to the school.",
+        )
+        return "skipped"
     try:
         sent_count = _build_message(notification).send(fail_silently=False)
         if sent_count != 1:
@@ -254,16 +273,22 @@ def process_pending_email_notifications(*, limit: int | None = None) -> Delivery
     if not email_notifications_enabled():
         return DeliveryResult()
     batch_size = max(1, min(100, int(limit or settings.EMAIL_NOTIFICATION_BATCH_SIZE)))
-    sent = retried = failed = 0
+    sent = skipped = retried = failed = 0
     for _ in range(batch_size):
         notification_id = _claim_next_notification()
         if notification_id is None:
             break
         outcome = _deliver_claimed(notification_id)
         sent += int(outcome == "sent")
+        skipped += int(outcome == "skipped")
         retried += int(outcome == "retried")
         failed += int(outcome == "failed")
-    return DeliveryResult(sent=sent, retried=retried, failed=failed)
+    return DeliveryResult(
+        sent=sent,
+        skipped=skipped,
+        retried=retried,
+        failed=failed,
+    )
 
 
 def touch_worker_heartbeat(*, state: str = "running") -> None:

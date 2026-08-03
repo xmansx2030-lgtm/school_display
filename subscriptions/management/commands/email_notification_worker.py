@@ -65,10 +65,11 @@ class Command(BaseCommand):
                         )
                     reset_stale_processing()
                     result = process_pending_email_notifications()
-                    if result.sent or result.retried or result.failed:
+                    if result.sent or result.skipped or result.retried or result.failed:
                         self.stdout.write(
                             "email_delivery "
-                            f"sent={result.sent} retried={result.retried} failed={result.failed}"
+                            f"sent={result.sent} skipped={result.skipped} "
+                            f"retried={result.retried} failed={result.failed}"
                         )
             except Exception:
                 logger.exception("email_notification_worker_cycle_failed")
