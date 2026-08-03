@@ -485,6 +485,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "dashboard.context_processors.admin_support_ticket_badges",
+                "dashboard.context_processors.school_whatsapp_contact",
             ],
         },
     },
