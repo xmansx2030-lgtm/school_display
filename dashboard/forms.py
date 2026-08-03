@@ -30,7 +30,14 @@ from schedule.models import (
 from notices.models import Announcement, EmergencyAlert, Excellence
 from standby.models import StandbyAssignment
 from core.image_uploads import optimize_uploaded_image
-from core.models import DisplayScreen, School, SystemEmployeeProfile, UserProfile, SubscriptionPlan
+from core.models import (
+    DisplayScreen,
+    School,
+    SchoolType,
+    SubscriptionPlan,
+    SystemEmployeeProfile,
+    UserProfile,
+)
 from core.system_access import (
     PERMISSION_DEFINITIONS,
     ROLE_CHOICES,
@@ -1192,6 +1199,119 @@ class SchoolForm(forms.ModelForm):
             max_height=1200,
             quality=84,
         )
+
+
+class SelfServiceSchoolCreateForm(forms.Form):
+    """Create an additional school and select its first paid plan.
+
+    The plan is not activated here.  The selected plan is carried to the
+    existing checkout page after the school has been created.
+    """
+
+    name = forms.CharField(
+        label="اسم المدرسة",
+        max_length=150,
+        min_length=3,
+        widget=forms.TextInput(
+            attrs={
+                "autocomplete": "organization",
+                "placeholder": "مثال: مدارس الرواد الأهلية",
+            }
+        ),
+    )
+    school_type = forms.ChoiceField(
+        label="نوع المدرسة",
+        choices=(("", "اختر نوع المدرسة"), *SchoolType.choices),
+        widget=forms.Select(),
+    )
+    logo = forms.ImageField(
+        label="شعار المدرسة (اختياري)",
+        required=False,
+        widget=forms.ClearableFileInput(
+            attrs={"accept": ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"}
+        ),
+    )
+    screen_count = forms.ChoiceField(
+        label="عدد شاشات العرض",
+        choices=(),
+        help_text="سنُظهر الباقات المتاحة لهذا العدد فقط.",
+        widget=forms.Select(),
+    )
+    plan = forms.ModelChoiceField(
+        label="الباقة",
+        queryset=SubscriptionPlan.objects.none(),
+        empty_label=None,
+        widget=forms.RadioSelect(),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        paid_plans = SubscriptionPlan.objects.filter(
+            is_active=True,
+            price__gt=0,
+        ).order_by("sort_order", "price", "id")
+        self.fields["plan"].queryset = paid_plans
+
+        screen_limits = []
+        has_unlimited = False
+        for max_screens in paid_plans.values_list("max_screens", flat=True).distinct():
+            if max_screens is None:
+                has_unlimited = True
+            else:
+                screen_limits.append(int(max_screens))
+
+        choices = [(str(count), f"{count} شاشة" if count == 1 else f"{count} شاشات") for count in sorted(set(screen_limits))]
+        if has_unlimited:
+            choices.append(("unlimited", "عدد غير محدود"))
+        self.fields["screen_count"].choices = choices
+
+        if not self.is_bound and choices:
+            selected_count = choices[0][0]
+            self.initial.setdefault("screen_count", selected_count)
+            matching_plans = [
+                plan
+                for plan in paid_plans
+                if self._screen_value(plan) == selected_count
+            ]
+            featured = next((plan for plan in matching_plans if plan.is_featured), None)
+            selected_plan = featured or (matching_plans[0] if matching_plans else None)
+            if selected_plan is not None:
+                self.initial.setdefault("plan", selected_plan.pk)
+
+    @staticmethod
+    def _screen_value(plan) -> str:
+        max_screens = getattr(plan, "max_screens", None)
+        return "unlimited" if max_screens is None else str(int(max_screens))
+
+    def clean_name(self):
+        name = re.sub(r"\s+", " ", (self.cleaned_data.get("name") or "").strip())
+        if self.user is not None:
+            try:
+                if self.user.profile.schools.filter(name__iexact=name).exists():
+                    raise ValidationError("هذه المدرسة مرتبطة بحسابك بالفعل.")
+            except UserProfile.DoesNotExist:
+                pass
+        return name
+
+    def clean_logo(self):
+        file_obj = self.cleaned_data.get("logo")
+        if not file_obj:
+            return file_obj
+        return optimize_uploaded_image(
+            file_obj,
+            max_width=1200,
+            max_height=1200,
+            quality=84,
+        )
+
+    def clean(self):
+        cleaned = super().clean()
+        plan = cleaned.get("plan")
+        screen_count = cleaned.get("screen_count")
+        if plan is not None and screen_count and self._screen_value(plan) != screen_count:
+            self.add_error("plan", "الباقة المختارة لا تطابق عدد الشاشات المحدد.")
+        return cleaned
 
 
 class SchoolSubscriptionForm(forms.ModelForm):

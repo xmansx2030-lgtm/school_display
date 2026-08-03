@@ -59,6 +59,7 @@ class SubscriptionRequiredMiddleware:
         "dashboard:demo_login",
         "dashboard:my_subscription",
         "dashboard:switch_school",
+        "dashboard:add_school",
     }
 
     def __init__(self, get_response):

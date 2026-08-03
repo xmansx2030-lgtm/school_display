@@ -122,7 +122,7 @@ class TrialSignupTests(TestCase):
         self.assertContains(response, "آخر بيانات محفوظة")
         self.assertContains(response, "كل مسؤول يرى فائدة مباشرة في يومه")
         self.assertContains(response, "إدارة المحتوى — 299 ر.س شهريًا")
-        self.assertContains(response, "مجمع تعليمي: حتى 3 مدارس و15 شاشة")
+        self.assertNotContains(response, "مجمع تعليمي: حتى 3 مدارس و15 شاشة")
         self.assertContains(response, "عام دراسي")
         self.assertContains(response, "شهر مجانًا")
         self.assertContains(response, "صمّم باقة مدرستك")

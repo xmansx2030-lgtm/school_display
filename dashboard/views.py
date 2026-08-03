@@ -8,6 +8,7 @@ import math
 import logging
 import os
 import re
+from urllib.parse import urlencode
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
@@ -75,6 +76,7 @@ from .views_screens import (
 )
 from .forms import (
     SchoolSettingsForm,
+    SelfServiceSchoolCreateForm,
     DayScheduleForm,
     LessonForm,
     AnnouncementForm,
@@ -976,6 +978,100 @@ def select_school(request):
         request,
         "dashboard/select_school.html",
         {"schools": schools, "active_school_id": getattr(profile, "active_school_id", None)},
+    )
+
+
+def _make_self_service_school_slug(school_name: str) -> str:
+    School = SchoolModel()
+    ascii_words = re.findall(r"[a-zA-Z0-9]+", (school_name or "").lower())
+    base = "school"
+    if ascii_words:
+        base = "-".join(ascii_words[:4])[:38].strip("-") or "school"
+
+    for _attempt in range(40):
+        slug = f"{base}-{get_random_string(6).lower()}"
+        if not School.objects.filter(slug=slug).exists():
+            return slug
+    return f"school-{get_random_string(16).lower()}"
+
+
+@manager_required
+def add_school(request):
+    """Let a school manager create and pay for an additional tenant."""
+
+    form = SelfServiceSchoolCreateForm(
+        request.POST or None,
+        request.FILES or None,
+        user=request.user,
+    )
+
+    if request.method == "POST" and form.is_valid():
+        School = SchoolModel()
+        UserProfile = UserProfileModel()
+        SchoolSettings = SchoolSettingsModel()
+        plan = form.cleaned_data["plan"]
+
+        with transaction.atomic():
+            profile = UserProfile.objects.select_for_update().get(user=request.user)
+            school = School.objects.create(
+                name=form.cleaned_data["name"],
+                slug=_make_self_service_school_slug(form.cleaned_data["name"]),
+                logo=form.cleaned_data.get("logo"),
+                school_type=form.cleaned_data["school_type"],
+                is_active=False,
+            )
+            profile.schools.add(school)
+            profile.active_school = school
+            profile.save(update_fields=["active_school"])
+
+            theme = "emerald" if school.school_type == "boys" else "rose"
+            SchoolSettings.objects.create(
+                school=school,
+                name=school.name,
+                theme=theme,
+                timezone_name="Asia/Riyadh",
+                refresh_interval_sec=30,
+            )
+
+        request.school = school
+        request.session.pop("sub_blocked_once", None)
+        messages.success(
+            request,
+            f"تمت إضافة {school.name} وربطها بحسابك. أكمل دفع الباقة لتفعيلها.",
+        )
+        checkout_url = reverse("dashboard:my_subscription")
+        checkout_url += "?" + urlencode(
+            {"plan": plan.code, "source": "new_school"}
+        )
+        return redirect(f"{checkout_url}#renewal-section")
+
+    available_plan_cards = plan_cards(form.fields["plan"].queryset)
+    selected_screen_count = str(
+        form["screen_count"].value()
+        or form.initial.get("screen_count")
+        or ""
+    )
+    selected_plan_id = str(
+        form["plan"].value()
+        or form.initial.get("plan")
+        or ""
+    )
+    for details in available_plan_cards:
+        details["selected"] = str(details.get("id") or "") == selected_plan_id
+        details["screen_value"] = (
+            "unlimited"
+            if details.get("max_screens") is None
+            else str(details["max_screens"])
+        )
+
+    return render(
+        request,
+        "dashboard/add_school.html",
+        {
+            "form": form,
+            "available_plan_cards": available_plan_cards,
+            "selected_screen_count": selected_screen_count,
+        },
     )
 
 

@@ -1774,3 +1774,125 @@ class EmergencyAlertsAndExcelImportTests(TestCase):
         with self.assertRaises(ValueError):
             apply_import(school=self.school, parsed=parsed)
         self.assertFalse(ClassLesson.objects.filter(settings=self.settings).exists())
+
+
+class SelfServiceSchoolCreationTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="multi_school_manager",
+            password="StrongPass123!",
+        )
+        self.current_school = School.objects.create(
+            name="المدرسة الحالية",
+            slug="current-self-service-school",
+        )
+        self.profile = UserProfile.objects.create(
+            user=self.user,
+            active_school=self.current_school,
+        )
+        self.profile.schools.add(self.current_school)
+        self.one_screen_plan = SubscriptionPlan.objects.create(
+            code="self-service-one-screen",
+            name="سنوية - شاشة واحدة",
+            price=500,
+            duration_days=365,
+            max_screens=1,
+            is_active=True,
+            sort_order=1,
+        )
+        self.three_screen_plan = SubscriptionPlan.objects.create(
+            code="self-service-three-screens",
+            name="سنوية - ثلاث شاشات",
+            price=900,
+            duration_days=365,
+            max_screens=3,
+            is_active=True,
+            sort_order=2,
+        )
+        self.client.force_login(self.user)
+
+    def test_manager_can_open_add_school_without_an_active_subscription(self):
+        response = self.client.get(reverse("dashboard:add_school"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "إضافة مدرسة جديدة")
+        self.assertContains(response, self.one_screen_plan.name)
+        self.assertContains(response, self.three_screen_plan.name)
+
+    def test_manager_creates_linked_inactive_school_then_continues_to_checkout(self):
+        response = self.client.post(
+            reverse("dashboard:add_school"),
+            {
+                "name": "مدرسة المستقبل",
+                "school_type": "girls",
+                "screen_count": "3",
+                "plan": self.three_screen_plan.pk,
+            },
+        )
+
+        school = School.objects.get(name="مدرسة المستقبل")
+        self.profile.refresh_from_db()
+        self.assertFalse(school.is_active)
+        self.assertEqual(school.school_type, "girls")
+        self.assertTrue(self.profile.schools.filter(pk=school.pk).exists())
+        self.assertEqual(self.profile.active_school_id, school.pk)
+        self.assertTrue(
+            SchoolSettings.objects.filter(
+                school=school,
+                name=school.name,
+                theme="rose",
+            ).exists()
+        )
+        self.assertFalse(SchoolSubscription.objects.filter(school=school).exists())
+        expected = (
+            reverse("dashboard:my_subscription")
+            + "?plan=self-service-three-screens&source=new_school#renewal-section"
+        )
+        self.assertRedirects(response, expected, fetch_redirect_response=False)
+
+        checkout_response = self.client.get(expected.split("#", 1)[0])
+        self.assertEqual(checkout_response.status_code, 200)
+        self.assertEqual(checkout_response.context["school"], school)
+        self.assertEqual(
+            checkout_response.context["requested_plan"],
+            self.three_screen_plan,
+        )
+        self.assertEqual(checkout_response.context["active_request_tab"], "new")
+
+    def test_plan_must_match_selected_screen_count(self):
+        response = self.client.post(
+            reverse("dashboard:add_school"),
+            {
+                "name": "مدرسة باقة غير مطابقة",
+                "school_type": "boys",
+                "screen_count": "1",
+                "plan": self.three_screen_plan.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "الباقة المختارة لا تطابق عدد الشاشات المحدد")
+        self.assertFalse(School.objects.filter(name="مدرسة باقة غير مطابقة").exists())
+
+    def test_free_plan_cannot_be_used_for_paid_school_creation(self):
+        free_plan = SubscriptionPlan.objects.create(
+            code="self-service-free",
+            name="مجانية",
+            price=0,
+            duration_days=14,
+            max_screens=1,
+            is_active=True,
+        )
+
+        response = self.client.post(
+            reverse("dashboard:add_school"),
+            {
+                "name": "مدرسة مجانية غير مسموحة",
+                "school_type": "boys",
+                "screen_count": "1",
+                "plan": free_plan.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(School.objects.filter(name="مدرسة مجانية غير مسموحة").exists())

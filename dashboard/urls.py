@@ -32,6 +32,7 @@ urlpatterns = [
     path("switch-school/<int:school_id>/", views.switch_school, name="switch_school"),
     path("", views.index, name="index"),
     path("select-school/", views.select_school, name="select_school"),
+    path("schools/add/", views.add_school, name="add_school"),
     path("help/getting-started/", views.help_getting_started, name="help_getting_started"),
 
     # ==================

@@ -299,6 +299,15 @@
       </form>
       {% endif %}
 
+      {% if request.user.is_authenticated and not is_system_staff %}
+      <a href="{% url 'dashboard:add_school' %}"
+         class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-indigo-700 hover:shadow-md"
+         title="إضافة مدرسة جديدة">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M12 5v14M5 12h14"/></svg>
+        <span class="hidden md:inline">إضافة مدرسة</span>
+      </a>
+      {% endif %}
+
       <div class="hidden sm:flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
         <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
           <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
@@ -386,6 +395,14 @@
         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
         <span>اشتراكي</span>
       </a>
+
+      {% if request.user.is_authenticated and not is_system_staff %}
+      <a href="{% url 'dashboard:add_school' %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'add_school' %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14M5 12h14M4 21h16M7 21V9h10v12"/></svg>
+        <span>إضافة مدرسة جديدة</span>
+      </a>
+      {% endif %}
 
       <a href="{% url 'dashboard:settings' %}"
          class="sidebar-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
