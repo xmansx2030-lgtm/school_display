@@ -10,7 +10,7 @@ charset-normalizer==3.4.4
 click==8.3.3
 cloudinary==1.44.1
 colorama==0.4.6
-cryptography==48.0.1
+cryptography==50.0.0
 daphne==4.2.3
 dj-database-url==3.0.1
 Django==5.2.16
