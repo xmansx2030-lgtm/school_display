@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import re
+from pathlib import Path
+from django.conf import settings
 from datetime import date, time, timedelta
 from io import BytesIO
 from types import SimpleNamespace
@@ -11,7 +14,7 @@ from django.core.cache import cache
 from django.core import mail
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.test.client import RequestFactory
 from django.urls import resolve, reverse
 from django.utils import timezone
@@ -2855,3 +2858,130 @@ class OccasionSuggestionViewTests(TestCase):
         response = self.client.get(reverse("dashboard:index"))
 
         self.assertEqual(response.status_code, 200)
+
+
+class TemplateCommentSyntaxTests(SimpleTestCase):
+    """`{# ... #}` في Django تعليق سطر واحد فقط.
+
+    تعليق يمتد لسطرين لا يُحذف عند التصيير — يُطبع حرفيًا في الصفحة فيقرأه
+    المستخدم. هذا الاختبار يمنع عودة الخطأ في أي قالب.
+    """
+
+    def test_no_template_uses_a_multiline_hash_comment(self):
+        offenders = []
+        for path in sorted(Path(settings.BASE_DIR).joinpath("templates").rglob("*.html")):
+            text = path.read_text(encoding="utf-8")
+            for match in re.finditer(r"\{#(.*?)#\}", text, re.S):
+                if "\n" in match.group(1):
+                    line = text[: match.start()].count("\n") + 1
+                    offenders.append(f"{path.relative_to(settings.BASE_DIR)}:{line}")
+
+        self.assertEqual(
+            offenders,
+            [],
+            msg=(
+                "تعليقات متعددة الأسطر تُعرض كنص للمستخدم. "
+                "استخدم {% comment %}...{% endcomment %} بدلًا منها: "
+                + ", ".join(offenders)
+            ),
+        )
+
+    def test_django_really_does_render_multiline_hash_comments(self):
+        # يوثّق سبب الاختبار أعلاه بدل الاعتماد على الحفظ.
+        from django.template import Context, Template
+
+        rendered = Template("A{# سطر\nسطر آخر #}B").render(Context({}))
+
+        self.assertIn("سطر", rendered)
+
+
+class OccasionCardRenderTests(TestCase):
+    """أخطاء تظهر فقط عند التصيير الفعلي لصفحة القوالب."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="card_render_manager",
+            password="StrongPass123!",
+        )
+        self.school = School.objects.create(name="مدرسة العرض", slug="card-render-school")
+        profile = UserProfile.objects.create(user=self.user, active_school=self.school)
+        profile.schools.add(self.school)
+        SchoolSettings.objects.create(school=self.school, name=self.school.name)
+        plan = SubscriptionPlan.objects.create(
+            code="card-render-plan",
+            name="باقة العرض",
+            price=100,
+            duration_days=365,
+            max_screens=2,
+            is_active=True,
+        )
+        SchoolSubscription.objects.create(
+            school=self.school,
+            plan=plan,
+            starts_at=timezone.localdate() - timedelta(days=1),
+            ends_at=timezone.localdate() + timedelta(days=120),
+            status="active",
+        )
+        self.client.force_login(self.user)
+
+    def _page(self):
+        response = self.client.get(reverse("dashboard:occasion_templates"))
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode()
+
+    def test_page_renders_no_template_syntax_to_the_user(self):
+        html = self._page()
+
+        self.assertNotIn("{#", html)
+        self.assertNotIn("{%", html)
+
+    def test_every_mark_renders_monochrome_so_the_grid_stays_coherent(self):
+        # الإيموجي الملوّن يتجاهل لون الثيم ويظهر بثقل بصري مختلف، فتبدو
+        # الشبكة مفكّكة رغم أن باقي الرموز أنيقة وأحادية.
+        html = self._page()
+
+        coloured = sorted({char for char in html if ord(char) >= 0x1F300})
+
+        self.assertEqual(coloured, [], msg=f"رموز ملوّنة في الصفحة: {coloured}")
+
+    def test_action_button_rule_is_declared_once_so_cards_align(self):
+        # قاعدتان بنفس المحدِّد كانتا تلغيان margin-top:auto، فتتفاوت مواضع
+        # الأزرار بحسب طول نص كل بطاقة.
+        html = self._page()
+
+        self.assertEqual(html.count(".occasion-card-body > a {"), 1)
+        self.assertIn("margin-top: auto", html)
+
+    def test_masked_pattern_carries_the_webkit_prefix(self):
+        html = self._page()
+
+        self.assertIn("-webkit-mask-image", html)
+
+    def test_card_count_matches_the_registry(self):
+        html = self._page()
+
+        self.assertEqual(html.count('<article class="occasion-card"'), len(occasions.all_occasions()))
+
+
+class ArabicCountdownLabelTests(SimpleTestCase):
+    """تمييز العدد في العربية: ٣–١٠ جمع، و١١ فأكثر مفرد منصوب."""
+
+    def _label(self, days_left):
+        occasion = occasions.OCCASIONS["national_day"]
+        return occasions.UpcomingOccasion(occasion, date(2026, 9, 23), days_left).countdown_label
+
+    def test_small_counts_use_the_plural_form(self):
+        self.assertEqual(self._label(0), "اليوم")
+        self.assertEqual(self._label(1), "غدًا")
+        self.assertEqual(self._label(2), "بعد يومين")
+        self.assertEqual(self._label(3), "بعد 3 أيام")
+        self.assertEqual(self._label(10), "بعد 10 أيام")
+
+    def test_eleven_and_above_use_the_singular_accusative(self):
+        self.assertEqual(self._label(11), "بعد 11 يومًا")
+        self.assertEqual(self._label(49), "بعد 49 يومًا")
+
+    def test_no_count_ever_produces_the_ungrammatical_plural(self):
+        for days in range(11, 61):
+            with self.subTest(days=days):
+                self.assertNotIn("أيام", self._label(days))

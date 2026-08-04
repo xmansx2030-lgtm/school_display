@@ -32,8 +32,8 @@
       <article class="occasion-card"
                style="--occasion-deep:{{ item.deep }};--occasion-accent:{{ item.accent }};--occasion-highlight:{{ item.highlight }};--occasion-soft:{{ item.soft }}">
 
-        {# المعاينة تستخدم ألوان الشاشة ورمزها ونمطها الزخرفي — نفس المصدر
-           الذي يقرأ منه التلفاز، فما يراه المدير هنا هو ما سيظهر هناك. #}
+        {% comment %} المعاينة تستخدم ألوان الشاشة ورمزها ونمطها الزخرفي — نفس المصدر
+           الذي يقرأ منه التلفاز، فما يراه المدير هنا هو ما سيظهر هناك. {% endcomment %}
         <div class="occasion-preview">
           <span class="occasion-preview-pattern" aria-hidden="true"
                 style="background-image: {{ item.pattern_css|safe }}"></span>
@@ -163,6 +163,9 @@
   inset: 0;
   opacity: .14;
   background-size: 48px 48px;
+  /* البادئة مطلوبة لمتصفحات WebKit الأقدم، وبدونها يظهر النمط بحوافّ حادة
+     تملأ المستطيل كله بدل التلاشي نحو الأطراف. */
+  -webkit-mask-image: radial-gradient(circle at center, #000 10%, transparent 82%);
   mask-image: radial-gradient(circle at center, #000 10%, transparent 82%);
 }
 .occasion-preview > *:not(.occasion-preview-pattern) { position: relative; z-index: 1; }
@@ -211,22 +214,21 @@
   font-size: .65rem;
   font-weight: 800;
 }
+/* margin-top:auto يدفع الزر إلى أسفل البطاقة، فتتحاذى أزرار البطاقات كلها
+   مهما اختلف طول النص فوقها. */
 .occasion-card-body > a {
   display: flex;
   justify-content: center;
   margin-top: auto;
-  padding-top: 1rem;
-}
-.occasion-card-body > a {
-  margin-top: 1rem;
+  padding: .7rem 1rem;
   border-radius: .75rem;
   background: var(--occasion-accent);
   color: #fff;
-  padding: .7rem 1rem;
   font-size: .78rem;
   font-weight: 950;
   transition: filter .16s ease;
 }
+.occasion-features { margin-bottom: 1rem; }
 .occasion-card-body > a:hover { filter: brightness(1.12); }
 .occasion-card-body > a:focus-visible,
 .occasion-upcoming li > a:focus-visible { outline: 3px solid rgba(99, 102, 241, .3); outline-offset: 2px; }

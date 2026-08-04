@@ -1538,8 +1538,8 @@
     // Initialize Tab
     setActiveTab('{% if active_request_tab == "new" %}new{% else %}renewal{% endif %}');
 
-    {# Tamara is hidden, so its modal markup is never rendered and this
-       controller would only bind to elements that do not exist. #}
+    {% comment %} Tamara is hidden, so its modal markup is never rendered and this
+       controller would only bind to elements that do not exist. {% endcomment %}
     {% if tamara_available %}
     // --- Review step before creating a Tamara checkout session ---
     var tamaraModal = document.getElementById('tamara-confirm-modal');

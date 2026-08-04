@@ -29,6 +29,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# محدّد التنويع U+FE0E يفرض العرض النصّي الأحادي على الرموز التي يملك بعضها
+# نسخة إيموجي ملوّنة. بدونه قد يظهر ⚔ رماديًا على ويندوز وملوّنًا على أندرويد،
+# فتختلف هوية المناسبة باختلاف الجهاز.
+_TEXT_PRESENTATION = "︎"
+
+
+def _glyph(symbol: str) -> str:
+    """رمز أحادي اللون يرث لون الثيم على كل الأجهزة."""
+    return symbol + _TEXT_PRESENTATION
+
+
 # نافذة الاقتراح: كم يومًا قبل المناسبة نذكّر المدير بها في لوحة التحكم.
 SUGGESTION_LEAD_DAYS = 10
 
@@ -183,9 +194,9 @@ _OCCASION_LIST: tuple[Occasion, ...] = (
         body="نحتفي اليوم بوطننا الغالي، ونسأل الله أن يديم على المملكة أمنها وعزها وازدهارها.",
         level="success",
         duration_hours=24,
-        mark="⚔",
-        badge_icon="⚔",
-        symbols=("⚔", "✦"),
+        mark=_glyph("⚔"),
+        badge_icon=_glyph("⚔"),
+        symbols=(_glyph("⚔"), _glyph("✦")),
         tagline="هوية وطن • فخر وانتماء",
         deep="#001d16",
         accent="#009b4d",
@@ -206,8 +217,8 @@ _OCCASION_LIST: tuple[Occasion, ...] = (
         level="success",
         duration_hours=24,
         mark="١٧٢٧",
-        badge_icon="◈",
-        symbols=("◈", "١٧٢٧"),
+        badge_icon=_glyph("◈"),
+        symbols=(_glyph("◈"), "١٧٢٧"),
         tagline="جذور راسخة • إرث ممتد",
         deep="#28170f",
         accent="#9a623b",
@@ -226,9 +237,9 @@ _OCCASION_LIST: tuple[Occasion, ...] = (
         body="نستذكر اليوم رمز وحدتنا ومصدر اعتزازنا، علمًا لا يُنكّس ولا يُطأطأ.",
         level="success",
         duration_hours=24,
-        mark="⚑",
-        badge_icon="⚑",
-        symbols=("⚑", "✦"),
+        mark=_glyph("⚑"),
+        badge_icon=_glyph("⚑"),
+        symbols=(_glyph("⚑"), _glyph("✦")),
         tagline="عهد وميثاق • راية لا تُنكّس",
         deep="#00251c",
         accent="#00794a",
@@ -248,9 +259,9 @@ _OCCASION_LIST: tuple[Occasion, ...] = (
         body="تقبّل الله صيامكم وقيامكم، وجعله شهر خير وبركة على مدرستنا وطلابها.",
         level="info",
         duration_hours=24,
-        mark="☾",
-        badge_icon="☾",
-        symbols=("☾", "✦"),
+        mark=_glyph("☾"),
+        badge_icon=_glyph("☾"),
+        symbols=(_glyph("☾"), _glyph("✦")),
         tagline="شهر الخير • صيام وقيام",
         deep="#101033",
         accent="#4c3f91",
@@ -268,9 +279,9 @@ _OCCASION_LIST: tuple[Occasion, ...] = (
         body="كل عام وأنتم بخير. تقبّل الله منا ومنكم صالح الأعمال.",
         level="success",
         duration_hours=24,
-        mark="✦",
-        badge_icon="✦",
-        symbols=("✦", "☾"),
+        mark=_glyph("✦"),
+        badge_icon=_glyph("✦"),
+        symbols=(_glyph("✦"), _glyph("☾")),
         tagline="فرحة وتهاني • كل عام وأنتم بخير",
         deep="#0d2b2b",
         accent="#0f8a8a",
@@ -290,9 +301,9 @@ _OCCASION_LIST: tuple[Occasion, ...] = (
         body="تقبّل الله طاعتكم، وأعاده عليكم وعلى وطننا بالخير واليمن والبركات.",
         level="success",
         duration_hours=24,
-        mark="✧",
-        badge_icon="✧",
-        symbols=("✧", "◈"),
+        mark=_glyph("✧"),
+        badge_icon=_glyph("✧"),
+        symbols=(_glyph("✧"), _glyph("◈")),
         tagline="تقبّل الله • أيام مباركة",
         deep="#2a1a0d",
         accent="#a8641f",
@@ -310,9 +321,9 @@ _OCCASION_LIST: tuple[Occasion, ...] = (
         body="بكم تُبنى الأجيال وتزدهر المعرفة. شكرًا لعطائكم المتواصل.",
         level="success",
         duration_hours=24,
-        mark="📚",
-        badge_icon="📚",
-        symbols=("📖", "✎"),
+        mark=_glyph("✎"),
+        badge_icon=_glyph("✎"),
+        symbols=(_glyph("✎"), _glyph("❖")),
         tagline="شكر وعرفان • صُنّاع الأجيال",
         deep="#071b31",
         accent="#2563a6",
@@ -334,9 +345,9 @@ _OCCASION_LIST: tuple[Occasion, ...] = (
         body="عام دراسي جديد مليء بالإنجاز والتعلم. نتمنى للجميع بداية موفقة.",
         level="info",
         duration_hours=24,
-        mark="🎒",
-        badge_icon="🎒",
-        symbols=("✏️", "📐"),
+        mark=_glyph("❖"),
+        badge_icon=_glyph("❖"),
+        symbols=(_glyph("❖"), _glyph("✦")),
         tagline="بداية مشرقة • طموح جديد",
         deep="#05243c",
         accent="#0e91b7",
@@ -358,9 +369,9 @@ _OCCASION_LIST: tuple[Occasion, ...] = (
         body="نبارك لطلابنا وطالباتنا تخرجهم، ونتمنى لهم مستقبلًا حافلًا بالنجاح.",
         level="success",
         duration_hours=12,
-        mark="🎓",
-        badge_icon="🎓",
-        symbols=("🎓", "✦"),
+        mark=_glyph("★"),
+        badge_icon=_glyph("★"),
+        symbols=(_glyph("★"), _glyph("✦")),
         tagline="حصاد الإنجاز • بداية المستقبل",
         deep="#1d1135",
         accent="#7c3bbd",
@@ -432,13 +443,21 @@ class UpcomingOccasion:
 
     @property
     def countdown_label(self) -> str:
-        if self.days_left == 0:
+        """عبارة العد التنازلي وفق تمييز العدد في العربية.
+
+        القاعدة: ٣–١٠ يُميَّز بجمع القلة (أيام)، و١١ فأكثر بالمفرد المنصوب
+        (يومًا). قول «بعد 49 أيام» خطأ نحوي ظاهر لكل قارئ عربي.
+        """
+        days = self.days_left
+        if days == 0:
             return "اليوم"
-        if self.days_left == 1:
+        if days == 1:
             return "غدًا"
-        if self.days_left == 2:
+        if days == 2:
             return "بعد يومين"
-        return f"بعد {self.days_left} أيام"
+        if 3 <= days <= 10:
+            return f"بعد {days} أيام"
+        return f"بعد {days} يومًا"
 
 
 def upcoming(

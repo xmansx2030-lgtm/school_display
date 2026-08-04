@@ -7,8 +7,8 @@
     <meta name="robots" content="noindex,nofollow">
     <title>الاشتراك غير نشط | لوحة العرض الذكية</title>
 
-    {# Deliberately self-contained: no external fonts, no display.js. This page
-       must render on a low-end TV browser even when everything else is down. #}
+    {% comment %} Deliberately self-contained: no external fonts, no display.js. This page
+       must render on a low-end TV browser even when everything else is down. {% endcomment %}
     <style>
         *, *::before, *::after { box-sizing: border-box; }
 
@@ -151,9 +151,9 @@
         </div>
     </main>
 
-    {# The TV is unattended: recheck periodically so the display comes back by
+    {% comment %} The TV is unattended: recheck periodically so the display comes back by
        itself once the subscription is renewed. External file keeps this page
-       compliant with the 'self'-only script-src policy. #}
+       compliant with the 'self'-only script-src policy. {% endcomment %}
     <script src="{% static 'js/display-subscription-recheck.js' %}" defer></script>
 </body>
 </html>

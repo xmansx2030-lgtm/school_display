@@ -16,9 +16,9 @@
   {% if form.instance.pk %}
     {% with last_invoice=form.instance.invoices.last %}
       {% if last_invoice %}
-        {# Must be the admin invoice route: the school-facing one resolves the
+        {% comment %} Must be the admin invoice route: the school-facing one resolves the
            invoice through the viewer's own active school, which a platform
-           employee does not have. #}
+           employee does not have. {% endcomment %}
         <a href="{% url 'dashboard:system_subscription_invoice_view' pk=last_invoice.pk %}" target="_blank"
            class="admin-btn admin-btn-secondary" title="عرض/طباعة الفاتورة">
           <i class="fas fa-print"></i> الفاتورة

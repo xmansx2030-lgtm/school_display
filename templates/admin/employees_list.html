@@ -106,8 +106,8 @@
                   {% for permission_label in u.platform_permission_labels|slice:":3" %}
                     <span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-600">{{ permission_label }}</span>
                   {% endfor %}
-                  {# Count the hidden chips, not the permission total: an owner has one
-                     "وصول كامل" chip standing for all of them, so there is no overflow. #}
+                  {% comment %} Count the hidden chips, not the permission total: an owner has one
+                     "وصول كامل" chip standing for all of them, so there is no overflow. {% endcomment %}
                   {% with shown=u.platform_permission_labels|length %}
                     {% if shown > 3 %}
                       <span class="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700">+{{ shown|add:"-3" }}</span>
