@@ -1,4 +1,5 @@
 {% extends "admin/admin_base.html" %}
+{% load humanize %}
 
 {% block title %}إدارة الباقات والأسعار{% endblock %}
 {% block page_icon %}tags{% endblock %}
@@ -123,7 +124,7 @@
           </div>{% endif %}
 
           <div class="mt-5 flex items-end gap-2">
-            <strong class="text-3xl font-black text-slate-900">{{ plan.price }}</strong>
+            <strong class="text-3xl font-black text-slate-900">{{ plan.price|floatformat:0|intcomma:False }}</strong>
             <span class="mb-1 text-xs font-bold text-slate-500">ر.س</span>
           </div>
           <p class="mt-1 text-[11px] text-slate-400">

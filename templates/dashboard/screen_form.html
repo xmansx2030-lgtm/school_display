@@ -69,7 +69,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const inputs = document.querySelectorAll('input[type="text"]');
     inputs.forEach(input => {

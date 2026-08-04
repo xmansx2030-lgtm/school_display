@@ -4002,7 +4002,7 @@
                         <span>دخول النظام</span>
                     </a>
                     {% endif %}
-                    <button type="button" class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">
+                    <button type="button" class="btn" data-role="open-trial" data-plan="{{ landing_trial.name }}" data-period="{{ landing_trial.duration_label }}" data-price="{{ landing_trial.price|floatformat:'-2' }}">
                         ابدأ التجربة
                         <i class="fa-solid fa-arrow-left"></i>
                     </button>
@@ -4033,7 +4033,7 @@
                             </p>
 
                             <div class="hero-actions">
-                                <button type="button" class="btn" id="heroTrialCta" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">
+                                <button type="button" class="btn" id="heroTrialCta" data-role="open-trial" data-plan="{{ landing_trial.name }}" data-period="{{ landing_trial.duration_label }}" data-price="{{ landing_trial.price|floatformat:'-2' }}">
                                     ابدأ التجربة المجانية
                                 </button>
                                 <button type="button" class="btn-outline" data-scroll="#demo-video">
@@ -4464,7 +4464,7 @@
                         <strong>التجربة هي المنصة الحقيقية</strong>
                         <p>كل المزايا مشمولة لمدة {{ landing_trial.duration_days }} يوماً. وبعدها تختار فقط عدد الشاشات المناسب.</p>
                     </div>
-                    <button type="button" class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">أنشئ التجربة الآن</button>
+                    <button type="button" class="btn" data-role="open-trial" data-plan="{{ landing_trial.name }}" data-period="{{ landing_trial.duration_label }}" data-price="{{ landing_trial.price|floatformat:'-2' }}">أنشئ التجربة الآن</button>
                 </div>
             </div>
         </section>
@@ -4695,7 +4695,7 @@
                         <p>أنشئ حساب التجربة، خصّص أول شاشة خلال دقائق، ثم أضف شاشات أخرى بمحتوى يناسب كل موقع عندما تحتاج.</p>
                     </div>
                     <div style="display:flex; gap:12px; flex-wrap:wrap;">
-                        <button type="button" class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">أنشئ تجربتك المجانية</button>
+                        <button type="button" class="btn" data-role="open-trial" data-plan="{{ landing_trial.name }}" data-period="{{ landing_trial.duration_label }}" data-price="{{ landing_trial.price|floatformat:'-2' }}">أنشئ تجربتك المجانية</button>
                         <a class="btn-outline" href="https://wa.me/966537720207" target="_blank" rel="noreferrer">تواصل واتساب</a>
                     </div>
                 </div>
@@ -4705,14 +4705,14 @@
 
     <div class="modal-overlay" id="orderModal" aria-hidden="true" inert>
         <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalSubtitle" tabindex="-1">
-            <button type="button" class="modal-close" onclick="closeOrderModal()" aria-label="إغلاق النموذج"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="modal-close" data-role="close-order-modal" aria-label="إغلاق النموذج"><i class="fa-solid fa-xmark"></i></button>
 
             <div class="modal-header">
                 <h2 id="modalTitle">طلب تجربة أو اشتراك</h2>
                 <p id="modalSubtitle">املأ البيانات وسنخدمك مباشرة عبر واتساب</p>
             </div>
 
-            <form id="orderForm" method="post" action="{{ trial_signup_url }}" onsubmit="submitOrder(event)" novalidate>
+            <form id="orderForm" method="post" action="{{ trial_signup_url }}" novalidate>
                 {% csrf_token %}
                 <input type="hidden" id="p_plan_code" name="plan_code">
                 <input type="hidden" id="p_plan" name="plan_label">
@@ -4880,10 +4880,10 @@
             <strong>{{ landing_trial.name }} {{ landing_trial.duration_days }} يوم</strong>
             <small>ابدأ الآن بكل المزايا</small>
         </div>
-        <button type="button" class="btn" onclick="openOrderModal('{{ landing_trial.name|escapejs }}', '{{ landing_trial.duration_label|escapejs }}', '{{ landing_trial.price|floatformat:"-2" }}', true)">ابدأ</button>
+        <button type="button" class="btn" data-role="open-trial" data-plan="{{ landing_trial.name }}" data-period="{{ landing_trial.duration_label }}" data-price="{{ landing_trial.price|floatformat:'-2' }}">ابدأ</button>
     </div>
 
-    <script>
+    <script nonce="{{ csp_nonce }}">
         let activeOrderIsTrial = false;
         let activeOrderUrl = '';
         let lastModalTrigger = null;
@@ -5338,6 +5338,32 @@
 
             submitTrialSignup();
         }
-    </script>
+    
+        // Bound here rather than with inline handlers so the page satisfies a
+        // `script-src 'self'` Content-Security-Policy.
+        document.addEventListener('click', function (event) {
+            var planBtn = event.target.closest('[data-role="open-plan"]');
+            if (planBtn) { openPlanFromButton(planBtn); return; }
+
+            var trialBtn = event.target.closest('[data-role="open-trial"]');
+            if (trialBtn) {
+                openOrderModal(
+                    trialBtn.dataset.plan || '',
+                    trialBtn.dataset.period || '',
+                    trialBtn.dataset.price || '',
+                    true
+                );
+                return;
+            }
+
+            if (event.target.closest('[data-role="close-order-modal"]')) {
+                closeOrderModal();
+            }
+        });
+
+        if (orderForm) {
+            orderForm.addEventListener('submit', submitOrder);
+        }
+</script>
 </body>
 </html>

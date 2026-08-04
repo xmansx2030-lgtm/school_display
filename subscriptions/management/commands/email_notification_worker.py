@@ -15,6 +15,7 @@ from subscriptions.email_notifications import (
     touch_worker_heartbeat,
     worker_is_alive,
 )
+from subscriptions.expiry import expire_due_subscriptions
 from subscriptions.invoicing import reconcile_missing_invoices
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ class Command(BaseCommand):
             ),
         )
         last_expiry_scan_date = None
+        last_subscription_expiry_date = None
 
         while True:
             state = "running" if email_notifications_enabled() else "disabled"
@@ -55,6 +57,19 @@ class Command(BaseCommand):
                 reconciled = reconcile_missing_invoices()
                 if reconciled:
                     self.stdout.write(f"invoice_reconciliation created={reconciled}")
+
+                # Billing state must settle even when email delivery is off,
+                # so this runs outside the transactional-email guard below.
+                if last_subscription_expiry_date != timezone.localdate():
+                    expiry = expire_due_subscriptions()
+                    last_subscription_expiry_date = timezone.localdate()
+                    if expiry.expired:
+                        self.stdout.write(
+                            "subscription_expiry "
+                            f"expired={expiry.expired} schools_synced={expiry.schools_synced} "
+                            f"screens_disabled={expiry.screens_disabled}"
+                        )
+
                 if email_notifications_enabled():
                     today = timezone.localdate()
                     if last_expiry_scan_date != today:

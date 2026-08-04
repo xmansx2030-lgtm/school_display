@@ -222,8 +222,8 @@ class SubscriptionScreenAddon(models.Model):
         default="auto_bundle",
         verbose_name="طريقة التسعير",
         help_text=(
-            "التلقائي: 60 ر.س شهريًا لكل شاشة إضافية. "
-            "نصف السنوي ×6، والسنوي ×10 (شهران مجانًا)."
+            "التلقائي: يعتمد السعر الشهري المعتمد لكل شاشة إضافية، "
+            "ويُضرب في معامل الدورة (نصف سنوي/سنوي) حسب إعدادات المنصة."
         ),
     )
 
@@ -340,6 +340,14 @@ class SubscriptionScreenAddon(models.Model):
             return Decimal("1")
         return factor
 
+    @staticmethod
+    def _annual_multiplier() -> Decimal:
+        return Decimal(str(getattr(settings, "SCREEN_ADDON_ANNUAL_MULTIPLIER", 10)))
+
+    @staticmethod
+    def _semiannual_multiplier() -> Decimal:
+        return Decimal(str(getattr(settings, "SCREEN_ADDON_SEMIANNUAL_MULTIPLIER", 6)))
+
     def _infer_subscription_cycle_multiplier(self) -> Decimal:
         """استنتاج معامل مدة الاشتراك من طول الاشتراك (fallback عند اختيار inherit)."""
         sub_start = getattr(self.subscription, "starts_at", None)
@@ -350,18 +358,18 @@ class SubscriptionScreenAddon(models.Model):
         days = (sub_end - sub_start).days + 1
         # حدود مرنة لتغطية اختلاف الأشهر/السنة
         if days >= 330:
-            return Decimal("10")
+            return self._annual_multiplier()
         if days >= 150:
-            return Decimal("6")
+            return self._semiannual_multiplier()
         return Decimal("1")
 
     def _cycle_multiplier(self) -> Decimal:
         """معامل دورة تسعير الإضافة."""
         c = (self.pricing_cycle or "inherit").strip().lower()
         if c == "annual":
-            return Decimal("10")
+            return self._annual_multiplier()
         if c == "semiannual":
-            return Decimal("6")
+            return self._semiannual_multiplier()
         if c == "monthly":
             return Decimal("1")
         return self._infer_subscription_cycle_multiplier()
@@ -371,7 +379,8 @@ class SubscriptionScreenAddon(models.Model):
         n = int(self.screens_added or 0)
         if n <= 0:
             return Decimal("0")
-        return Decimal(n) * Decimal("60")
+        unit = Decimal(str(getattr(settings, "SCREEN_ADDON_MONTHLY_PRICE", 60)))
+        return Decimal(n) * unit
 
     def _calc_auto_bundle_price_for_cycle(self) -> Decimal:
         monthly = self._calc_auto_monthly_bundle_price()
@@ -722,7 +731,12 @@ class TamaraCheckout(models.Model):
 class MoyasarCheckout(models.Model):
     """Local order used to verify Moyasar payments before activating access."""
 
-    REQUEST_TYPE_CHOICES = SubscriptionRequest.REQUEST_TYPE_CHOICES
+    # "screens" has no SubscriptionRequest equivalent: it tops up an existing
+    # term rather than starting or renewing one.
+    REQUEST_TYPE_CHOICES = [
+        *SubscriptionRequest.REQUEST_TYPE_CHOICES,
+        ("screens", "شراء شاشات إضافية"),
+    ]
     STATUS_CHOICES = [
         ("initiated", "بانتظار الدفع"),
         ("paid", "مدفوعة"),
@@ -770,6 +784,11 @@ class MoyasarCheckout(models.Model):
     )
     request_type = models.CharField(max_length=20, choices=REQUEST_TYPE_CHOICES)
     starts_at = models.DateField("بداية الاشتراك المطلوبة", default=timezone.localdate)
+    extra_screens = models.PositiveIntegerField(
+        "شاشات إضافية",
+        default=0,
+        help_text="عدد الشاشات المشتراة فوق حد الباقة ضمن هذه العملية.",
+    )
     amount = models.DecimalField("المبلغ", max_digits=10, decimal_places=2)
     currency = models.CharField("العملة", max_length=3, default="SAR")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="initiated")
@@ -915,12 +934,202 @@ class SubscriptionInvoice(models.Model):
         super().save(*args, **kwargs)
 
 
+class SubscriptionRefund(models.Model):
+    """A recorded refund against a payment operation.
+
+    Refunds are tracked locally even when the money movement happens in the
+    gateway dashboard, so the platform's own books stay authoritative.
+    """
+
+    STATUS_CHOICES = [
+        ("pending", "قيد التنفيذ"),
+        ("completed", "منفذ"),
+        ("failed", "فشل"),
+    ]
+
+    REASON_CHOICES = [
+        ("duplicate", "دفعة مكررة"),
+        ("service_issue", "مشكلة في الخدمة"),
+        ("cancelled_early", "إلغاء مبكر"),
+        ("billing_error", "خطأ في الفوترة"),
+        ("goodwill", "بادرة حسن نية"),
+        ("other", "سبب آخر"),
+    ]
+
+    operation = models.ForeignKey(
+        SubscriptionPaymentOperation,
+        on_delete=models.PROTECT,
+        related_name="refunds",
+        verbose_name="عملية الدفع",
+    )
+    school = models.ForeignKey(
+        School,
+        on_delete=models.PROTECT,
+        related_name="subscription_refunds",
+        verbose_name="المدرسة",
+    )
+    subscription = models.ForeignKey(
+        SchoolSubscription,
+        on_delete=models.PROTECT,
+        related_name="refunds",
+        verbose_name="الاشتراك",
+        null=True,
+        blank=True,
+    )
+
+    amount = models.DecimalField(
+        "المبلغ المسترد (ر.س)",
+        max_digits=10,
+        decimal_places=2,
+    )
+    reason = models.CharField(
+        "سبب الاسترداد",
+        max_length=30,
+        choices=REASON_CHOICES,
+        default="other",
+    )
+    status = models.CharField(
+        "الحالة",
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending",
+    )
+    notes = models.TextField("ملاحظات", blank=True, default="")
+    gateway_reference = models.CharField(
+        "مرجع الاسترداد لدى المزود",
+        max_length=120,
+        blank=True,
+        default="",
+    )
+    revokes_access = models.BooleanField(
+        "إيقاف الاشتراك المرتبط",
+        default=False,
+        help_text="عند التفعيل يتم إلغاء الاشتراك المرتبط بهذه العملية.",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_subscription_refunds",
+        verbose_name="سُجل بواسطة",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ التسجيل")
+    completed_at = models.DateTimeField("تاريخ التنفيذ", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "استرداد اشتراك"
+        verbose_name_plural = "استردادات الاشتراكات"
+        ordering = ("-created_at", "-id")
+        indexes = [
+            models.Index(fields=["school", "status"], name="refund_school_status_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.school} - {self.amount} ر.س ({self.get_status_display()})"
+
+    def clean(self):
+        super().clean()
+        if self.amount is not None and self.amount <= 0:
+            raise ValidationError({"amount": "مبلغ الاسترداد يجب أن يكون أكبر من صفر."})
+
+        operation = getattr(self, "operation", None)
+        if operation is not None and self.amount is not None:
+            already = (
+                SubscriptionRefund.objects.filter(operation=operation)
+                .exclude(pk=self.pk)
+                .exclude(status="failed")
+                .aggregate(total=models.Sum("amount"))
+                .get("total")
+                or Decimal("0")
+            )
+            if already + self.amount > operation.amount:
+                raise ValidationError(
+                    {"amount": "إجمالي المبالغ المستردة يتجاوز قيمة عملية الدفع."}
+                )
+
+    def save(self, *args, **kwargs):
+        if self.status == "completed" and not self.completed_at:
+            self.completed_at = timezone.now()
+        elif self.status != "completed":
+            self.completed_at = None
+        super().save(*args, **kwargs)
+
+
+class SubscriptionAuditLog(models.Model):
+    """Append-only record of who changed billing state and when."""
+
+    ACTION_CHOICES = [
+        ("subscription_created", "إنشاء اشتراك"),
+        ("subscription_updated", "تعديل اشتراك"),
+        ("subscription_cancelled", "إلغاء اشتراك"),
+        ("subscription_expired", "انتهاء اشتراك"),
+        ("payment_recorded", "تسجيل دفعة"),
+        ("payment_reconciled", "تسوية دفعة"),
+        ("refund_recorded", "تسجيل استرداد"),
+        ("refund_completed", "تنفيذ استرداد"),
+        ("screens_added", "إضافة شاشات"),
+    ]
+
+    action = models.CharField("الإجراء", max_length=40, choices=ACTION_CHOICES, db_index=True)
+    school = models.ForeignKey(
+        School,
+        on_delete=models.SET_NULL,
+        related_name="subscription_audit_logs",
+        verbose_name="المدرسة",
+        null=True,
+        blank=True,
+    )
+    subscription = models.ForeignKey(
+        SchoolSubscription,
+        on_delete=models.SET_NULL,
+        related_name="audit_logs",
+        verbose_name="الاشتراك",
+        null=True,
+        blank=True,
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="subscription_audit_logs",
+        verbose_name="المنفّذ",
+        null=True,
+        blank=True,
+    )
+    # Kept denormalised so the trail survives account deletion.
+    actor_label = models.CharField("اسم المنفّذ", max_length=150, blank=True, default="")
+    amount = models.DecimalField(
+        "المبلغ",
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    summary = models.CharField("الوصف", max_length=500, blank=True, default="")
+    context = models.JSONField("تفاصيل", default=dict, blank=True)
+    ip_address = models.CharField("عنوان IP", max_length=45, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "سجل تدقيق اشتراك"
+        verbose_name_plural = "سجلات تدقيق الاشتراكات"
+        ordering = ("-created_at", "-id")
+        indexes = [
+            models.Index(fields=["school", "-created_at"], name="audit_school_created_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_action_display()} - {self.school} - {self.created_at:%Y-%m-%d %H:%M}"
+
+
 class SubscriptionEmailNotification(models.Model):
     """Durable outbox for customer invoice and subscription email messages."""
 
     class EventType(models.TextChoices):
         INVOICE = "invoice", "فاتورة اشتراك"
         EXPIRY = "expiry", "تنبيه قرب انتهاء الاشتراك"
+        VERIFY_EMAIL = "verify_email", "توثيق البريد الإلكتروني"
 
     class Status(models.TextChoices):
         PENDING = "pending", "بانتظار الإرسال"

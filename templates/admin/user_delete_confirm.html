@@ -1,7 +1,13 @@
 {% extends "admin/admin_base.html" %}
 
 {% block title %}حذف مستخدم{% endblock %}
+{% block page_icon %}user-xmark{% endblock %}
 {% block page_title %}تأكيد حذف مستخدم{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:system_users_list' %}" class="hover:text-blue-600">الحسابات</a>
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">حذف</span>
+{% endblock %}
 {% block page_description %}
   هل أنت متأكد من رغبتك في حذف هذا المستخدم؟ هذا الإجراء لا يمكن التراجع عنه.
 {% endblock %}

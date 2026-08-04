@@ -4,6 +4,8 @@
   {% if is_create %}إضافة مستخدم{% else %}تعديل مستخدم{% endif %}
 {% endblock %}
 
+{% block page_icon %}user-pen{% endblock %}
+
 {% block page_title %}
   {% if is_create %}إضافة مستخدم جديد{% else %}تعديل بيانات المستخدم{% endif %}
 {% endblock %}
@@ -16,46 +18,30 @@
   {% endif %}
 {% endblock %}
 
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:system_users_list' %}" class="hover:text-blue-600">الحسابات</a>
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <span class="text-slate-500">{% if is_create %}إضافة{% else %}تعديل{% endif %}</span>
+{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'dashboard:system_users_list' %}" class="admin-btn admin-btn-secondary">
+    <i class="fas fa-arrow-right"></i> العودة للقائمة
+  </a>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-4xl space-y-6">
 
-  <!-- Header Card -->
-  <div class="rounded-3xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-      <div class="flex items-start gap-4">
-        <div class="h-12 w-12 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-2xl">
-          👤
-        </div>
-        <div>
-          <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
-            {% if is_create %}إضافة مستخدم جديد{% else %}تعديل بيانات المستخدم{% endif %}
-          </h1>
-          <p class="text-slate-600 mt-1 text-sm md:text-base leading-relaxed">
-            {% if is_create %}
-              أنشئ مستخدمًا جديدًا وحدد المدارس المسموح له الوصول إليها عبر قائمة اختيار متعددة.
-            {% else %}
-              حدّث بيانات المستخدم وحدد المدارس المسموح له الوصول إليها.
-            {% endif %}
-          </p>
-
-          <div class="mt-3 flex flex-wrap gap-2">
-            <span class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-extrabold bg-slate-100 text-slate-700">
-              ✅ اختيار مدارس متعدد بدون Ctrl
-            </span>
-            <span class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
-              🔎 بحث سريع داخل المدارس
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <a href="{% url 'dashboard:system_users_list' %}"
-         class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-extrabold
-                bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm">
-        <span class="text-base">↩</span>
-        <span>العودة للقائمة</span>
-      </a>
-    </div>
+  <div class="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4">
+    <p class="text-sm leading-7 text-indigo-900">
+      {% if is_create %}
+        أنشئ مستخدمًا جديدًا وحدد المدارس المسموح له الوصول إليها — الاختيار المتعدد يعمل بالنقر مباشرة دون Ctrl.
+      {% else %}
+        حدّث بيانات المستخدم وحدد المدارس المسموح له الوصول إليها — الاختيار المتعدد يعمل بالنقر مباشرة دون Ctrl.
+      {% endif %}
+    </p>
   </div>
 
   <!-- Form -->
@@ -316,7 +302,7 @@
       }
     </style>
 
-    <script>
+    <script nonce="{{ csp_nonce }}">
       (function () {
         "use strict";
 

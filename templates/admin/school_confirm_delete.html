@@ -1,21 +1,24 @@
 {% extends "admin/admin_base.html" %}
 
 {% block title %}حذف مدرسة{% endblock %}
+{% block page_icon %}trash{% endblock %}
 {% block page_title %}حذف مدرسة{% endblock %}
 {% block page_description %}
 تأكيد حذف المدرسة من النظام مع مراعاة البيانات المرتبطة.
 {% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:system_schools_list' %}" class="hover:text-blue-600">المدارس</a>
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">حذف</span>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-xl mx-auto space-y-6">
+<div class="max-w-xl space-y-6">
 
-  <div>
-    <h1 class="text-2xl md:text-3xl font-bold text-slate-900">حذف مدرسة</h1>
-    <p class="text-slate-500 mt-1 text-sm md:text-base">
-      هل أنت متأكد من رغبتك في حذف المدرسة
-      <span class="font-semibold text-rose-600">«{{ school.name }}»</span>؟
-    </p>
-  </div>
+  <p class="text-sm text-slate-600">
+    هل أنت متأكد من رغبتك في حذف المدرسة
+    <span class="font-black text-rose-600">«{{ school.name }}»</span>؟
+  </p>
 
   <div class="bg-white rounded-2xl shadow-lg border border-rose-100 overflow-hidden">
     <div class="px-5 py-4 border-b border-rose-100 bg-rose-50 flex items-center gap-3">

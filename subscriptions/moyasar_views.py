@@ -17,11 +17,17 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
+from core.email_verification import user_email_is_verified
 from core.models import SubscriptionPlan
 from core.tenant_access import authorized_active_school
 
 from .models import MoyasarCheckout, SchoolSubscription
 from .moyasar import MoyasarAPIError, MoyasarClient, MoyasarConfigurationError
+from .pricing import (
+    checkout_total,
+    normalize_extra_screens,
+    prorated_screen_addon_price,
+)
 from .moyasar_processing import (
     MoyasarVerificationError,
     amount_to_minor_units,
@@ -59,6 +65,24 @@ def _user_may_checkout(user) -> bool:
     )
 
 
+def _active_subscription(school):
+    """The running subscription a screens-only purchase attaches to."""
+    from django.db.models import Q
+
+    today = timezone.localdate()
+    return (
+        SchoolSubscription.objects.filter(
+            school=school,
+            status="active",
+            starts_at__lte=today,
+        )
+        .filter(Q(ends_at__isnull=True) | Q(ends_at__gte=today))
+        .select_related("plan")
+        .order_by("-ends_at", "-starts_at", "-id")
+        .first()
+    )
+
+
 def _renewal_start(school, plan) -> date:
     today = timezone.localdate()
     current = (
@@ -88,27 +112,60 @@ def moyasar_start(request):
         messages.error(request, "اختر مدرسة صالحة قبل بدء الدفع.")
         return redirect("dashboard:my_subscription")
 
+    # An unverified address means the invoice we are about to issue may never
+    # reach the customer. Prove it works before taking money, not after.
+    if not user_email_is_verified(request.user):
+        messages.error(
+            request,
+            "الرجاء تأكيد بريدك الإلكتروني قبل الدفع لضمان وصول الفاتورة. "
+            "أرسلنا لك رابط التأكيد، ويمكنك طلب رابط جديد من صفحة اشتراكي.",
+        )
+        return redirect("dashboard:my_subscription")
+
     request_type = (request.POST.get("request_type") or "").strip()
-    if request_type not in {"new", "renewal"}:
+    if request_type not in {"new", "renewal", "screens"}:
         messages.error(request, "نوع الاشتراك غير صالح.")
         return redirect("dashboard:my_subscription")
 
-    plan = get_object_or_404(
-        SubscriptionPlan.objects.filter(is_active=True),
-        pk=request.POST.get("plan_id"),
-    )
-    amount = getattr(plan, "price", 0) or 0
-    if amount <= 0:
-        messages.error(request, "هذه الخطة مجانية ولا تحتاج إلى بوابة دفع.")
-        return redirect("dashboard:my_subscription")
+    extra_screens = normalize_extra_screens(request.POST.get("extra_screens"))
 
-    if request_type == "renewal":
-        if not SchoolSubscription.objects.filter(school=school, plan=plan).exists():
-            messages.error(request, "لا يمكن تجديد خطة غير مرتبطة بمدرستك.")
+    if request_type == "screens":
+        current = _active_subscription(school)
+        if current is None:
+            messages.error(request, "لا يوجد اشتراك ساري لإضافة شاشات إليه.")
             return redirect("dashboard:my_subscription")
-        starts_at = _renewal_start(school, plan)
-    else:
+        if extra_screens <= 0:
+            messages.error(request, "حدد عدد الشاشات الإضافية المطلوبة.")
+            return redirect("dashboard:my_subscription")
+
+        plan = current.plan
         starts_at = timezone.localdate()
+        amount = prorated_screen_addon_price(
+            extra_screens,
+            plan=plan,
+            starts_at=starts_at,
+            ends_at=current.ends_at,
+        )
+        if amount <= 0:
+            messages.error(request, "تعذر احتساب قيمة الشاشات الإضافية لهذه المدة.")
+            return redirect("dashboard:my_subscription")
+    else:
+        plan = get_object_or_404(
+            SubscriptionPlan.objects.filter(is_active=True),
+            pk=request.POST.get("plan_id"),
+        )
+        amount = checkout_total(plan, extra_screens)
+        if amount <= 0:
+            messages.error(request, "هذه الخطة مجانية ولا تحتاج إلى بوابة دفع.")
+            return redirect("dashboard:my_subscription")
+
+        if request_type == "renewal":
+            if not SchoolSubscription.objects.filter(school=school, plan=plan).exists():
+                messages.error(request, "لا يمكن تجديد خطة غير مرتبطة بمدرستك.")
+                return redirect("dashboard:my_subscription")
+            starts_at = _renewal_start(school, plan)
+        else:
+            starts_at = timezone.localdate()
 
     live_mode = bool(getattr(settings, "MOYASAR_LIVE_MODE", False))
     recent = (
@@ -117,6 +174,8 @@ def moyasar_start(request):
             created_by=request.user,
             plan=plan,
             request_type=request_type,
+            extra_screens=extra_screens,
+            amount=amount,
             status="initiated",
             live_mode=live_mode,
             created_at__gte=timezone.now() - timedelta(minutes=20),
@@ -130,6 +189,7 @@ def moyasar_start(request):
         plan=plan,
         request_type=request_type,
         starts_at=starts_at,
+        extra_screens=extra_screens,
         amount=amount,
         currency="SAR",
         live_mode=live_mode,
@@ -165,8 +225,10 @@ def moyasar_checkout(request, reference: str):
         "description": f"School Display - {checkout.plan.name} - {checkout.merchant_reference}",
         "publishable_api_key": str(settings.MOYASAR_PUBLISHABLE_KEY),
         "callback_url": callback_url,
-        "supported_networks": ["mada", "visa", "mastercard"],
-        "methods": ["creditcard"],
+        "supported_networks": list(
+            getattr(settings, "MOYASAR_SUPPORTED_NETWORKS", ["mada", "visa", "mastercard"])
+        ),
+        "methods": list(getattr(settings, "MOYASAR_PAYMENT_METHODS", ["creditcard"])),
         "fixed_width": False,
         "metadata": {
             "merchant_reference": checkout.merchant_reference,
@@ -235,7 +297,11 @@ def moyasar_return(request):
         if checkout.payment_operation_id:
             messages.success(request, "اكتمل الدفع الإلكتروني وتم تفعيل الاشتراك.")
         else:
-            messages.success(request, "نجحت عملية الدفع التجريبية، ولم يُفعّل اشتراك حقيقي.")
+            # Only reachable in test mode, which is restricted to staff accounts.
+            messages.warning(
+                request,
+                "وضع اختبار: نجحت عملية الدفع التجريبية ولم يُفعَّل اشتراك حقيقي.",
+            )
     elif checkout.status == "initiated":
         messages.info(request, "عملية الدفع الإلكتروني ما زالت قيد التحقق. سنحدّث حالتها تلقائيًا.")
     else:

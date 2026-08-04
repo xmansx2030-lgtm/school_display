@@ -54,7 +54,9 @@ class SchoolWhatsAppContactTests(TestCase):
         message = parse_qs(urlparse(whatsapp_url).query)["text"][0]
         self.assertTrue(
             message.startswith(
-                "اسم المدرسة: مدرسة واتساب النموذجية\nحالة الاشتراك: ساري"
+                "المنصة: منصة لوحة العرض الذكية\n"
+                "اسم المدرسة: مدرسة واتساب النموذجية\n"
+                "حالة الاشتراك: ساري"
             )
         )
         self.assertIn("الباقة: الباقة السنوية", message)
@@ -67,7 +69,9 @@ class SchoolWhatsAppContactTests(TestCase):
         message = parse_qs(urlparse(whatsapp_url).query)["text"][0]
         self.assertTrue(
             message.startswith(
-                "اسم المدرسة: مدرسة واتساب النموذجية\nحالة الاشتراك: بدون اشتراك"
+                "المنصة: منصة لوحة العرض الذكية\n"
+                "اسم المدرسة: مدرسة واتساب النموذجية\n"
+                "حالة الاشتراك: بدون اشتراك"
             )
         )
 

@@ -1,8 +1,14 @@
-{% extends "dashboard/_base.html" %}
+{% extends base_template|default:"dashboard/_base.html" %}
 
 {% block title %}إرسال تنبيه طارئ{% endblock %}
+{% block page_icon %}tower-broadcast{% endblock %}
 {% block page_title %}إرسال تنبيه طارئ{% endblock %}
 {% block page_description %}رسالة بملء الشاشة مع سجل المرسل ووقت الإلغاء{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:emergency_alert_list' %}" class="hover:text-blue-600">التنبيهات الطارئة</a>
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">تنبيه جديد</span>
+{% endblock %}
 
 {% block content %}
 <div class="max-w-5xl mx-auto pb-12">
@@ -53,13 +59,13 @@
       </div>
     </div>
     <div class="flex flex-wrap gap-3 border-t border-slate-100 pt-5">
-      <button type="submit" class="rounded-xl bg-red-600 px-6 py-3 text-sm font-black text-white hover:bg-red-700" onclick="return confirm('تأكيد إرسال التنبيه الطارئ الآن؟')">إرسال التنبيه الآن</button>
+      <button type="submit" class="rounded-xl bg-red-600 px-6 py-3 text-sm font-black text-white hover:bg-red-700" data-confirm="تأكيد إرسال التنبيه الطارئ الآن؟">إرسال التنبيه الآن</button>
       <a href="{% url 'dashboard:emergency_alert_list' %}" class="rounded-xl border border-slate-200 px-6 py-3 text-sm font-black text-slate-700">إلغاء</a>
     </div>
   </form>
 </div>
 {{ emergency_templates|json_script:"emergencyTemplates" }}
-<script>
+<script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('input[type=text], input[type=datetime-local], select, textarea').forEach(function (el) {
     el.classList.add('w-full', 'rounded-xl', 'border', 'border-slate-300', 'px-3', 'py-2.5', 'text-sm');

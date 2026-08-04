@@ -6,7 +6,9 @@ omit = ["*/migrations/*", "*/tests.py", "manage.py"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
-fail_under = 20
+# Raised from 20 once the billing, access-control and verification paths were
+# covered. Treat this as a ratchet: raise it, never lower it.
+fail_under = 40
 
 [tool.ruff]
 target-version = "py312"

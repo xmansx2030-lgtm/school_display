@@ -12,6 +12,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.forms import BaseInlineFormSet, inlineformset_factory
 from django.utils import timezone
 
@@ -369,7 +370,13 @@ class SchoolSettingsForm(forms.ModelForm):
 
 
 class ScreenDisplayCustomizationForm(forms.ModelForm):
-    """واجهة موحدة لتخصيص شاشة واحدة مع قيم إعداد العرض العام كمرجع."""
+    """واجهة موحدة لتخصيص شاشة واحدة مع قيم إعداد العرض العام كمرجع.
+
+    كل مجموعة إعدادات تملك مفتاح "اتباع إعداد جميع الشاشات". عند تفعيله تُفرَّغ
+    حقول ``*_override`` الخاصة بالمجموعة، فتبقى الشاشة وارثة للإعداد العام وتصلها
+    أي تعديلات لاحقة عليه. هذا هو السلوك الذي يفترضه ``website.views`` عند تحويل
+    الشاشة إلى سياق عرض: القيمة الفارغة تعني "خذها من إعدادات المدرسة".
+    """
 
     THEME_ACCENTS = SchoolSettingsForm.THEME_ACCENTS
     MESSAGE_FIELD_MAP = {
@@ -383,40 +390,91 @@ class ScreenDisplayCustomizationForm(forms.ModelForm):
         "display_holiday_badge": "display_holiday_badge_override",
     }
 
+    INHERIT_APPEARANCE = "appearance"
+    INHERIT_MESSAGES = "messages"
+    INHERIT_MOTION = "motion"
+    INHERIT_GROUP_CHOICES = [
+        (INHERIT_APPEARANCE, "الهوية البصرية (اللون والكرت المميز)"),
+        (INHERIT_MESSAGES, "رسائل خارج وقت الحصص"),
+        (INHERIT_MOTION, "سرعات التمرير"),
+    ]
+    # كل مجموعة ← حقول الـ override التي تُفرَّغ عند اختيار الوراثة.
+    INHERIT_GROUP_FIELDS = {
+        INHERIT_APPEARANCE: (
+            "theme_override",
+            "display_accent_color_override",
+            "featured_panel_override",
+        ),
+        INHERIT_MESSAGES: tuple(MESSAGE_FIELD_MAP.values()),
+        INHERIT_MOTION: (
+            "standby_scroll_speed_override",
+            "periods_scroll_speed_override",
+        ),
+    }
+    # الحقول المعروضة التي تصبح إلزامية فقط عندما لا ترث مجموعتها.
+    INHERIT_GROUP_INPUTS = {
+        INHERIT_APPEARANCE: ("theme", "featured_panel"),
+        INHERIT_MESSAGES: tuple(MESSAGE_FIELD_MAP.keys()),
+        INHERIT_MOTION: ("standby_scroll_speed", "periods_scroll_speed"),
+    }
+
+    inherit_groups = forms.MultipleChoiceField(
+        label="اتباع إعداد جميع الشاشات",
+        choices=INHERIT_GROUP_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(),
+    )
+    use_school_logo = forms.BooleanField(
+        label="استخدام شعار المدرسة",
+        required=False,
+        help_text="عند تفعيله يُحذف الشعار الخاص بهذه الشاشة وتعود إلى شعار المدرسة.",
+    )
     logo = forms.ImageField(
         label="شعار هذه الشاشة",
         required=False,
         widget=forms.ClearableFileInput(attrs={"accept": "image/png,image/jpeg,image/webp"}),
     )
-    featured_panel = forms.ChoiceField(label="الكرت المميز", choices=SchoolSettings.FEATURE_PANEL_CHOICES)
-    theme = forms.ChoiceField(label="لون الثيم", choices=SchoolSettings.THEME_CHOICES)
+    featured_panel = forms.ChoiceField(
+        label="الكرت المميز",
+        choices=SchoolSettings.FEATURE_PANEL_CHOICES,
+        required=False,
+    )
+    theme = forms.ChoiceField(
+        label="لون الثيم",
+        choices=SchoolSettings.THEME_CHOICES,
+        required=False,
+    )
     display_accent_color = forms.CharField(required=False, widget=forms.HiddenInput())
     standby_scroll_speed = forms.FloatField(
         label="سرعة تمرير الانتظار",
+        required=False,
         min_value=0.5,
         max_value=5.0,
         widget=forms.NumberInput(attrs={"min": "0.5", "max": "5", "step": "0.1"}),
     )
     periods_scroll_speed = forms.FloatField(
         label="سرعة تمرير جدول الحصص",
+        required=False,
         min_value=0.5,
         max_value=5.0,
         widget=forms.NumberInput(attrs={"min": "0.5", "max": "5", "step": "0.1"}),
     )
-    display_before_title = forms.CharField(max_length=150, label="عنوان ما قبل الدوام")
-    display_before_badge = forms.CharField(max_length=40, label="شارة ما قبل الدوام")
-    display_after_title = forms.CharField(max_length=150, label="عنوان ما بعد الدوام")
-    display_after_badge = forms.CharField(max_length=40, label="شارة ما بعد الدوام")
-    display_after_holiday_title = forms.CharField(max_length=150, label="عنوان ما قبل الإجازة")
-    display_after_holiday_badge = forms.CharField(max_length=40, label="شارة ما قبل الإجازة")
-    display_holiday_title = forms.CharField(max_length=150, label="عنوان يوم الإجازة")
-    display_holiday_badge = forms.CharField(max_length=40, label="شارة يوم الإجازة")
+    display_before_title = forms.CharField(max_length=150, required=False, label="عنوان ما قبل الدوام")
+    display_before_badge = forms.CharField(max_length=40, required=False, label="شارة ما قبل الدوام")
+    display_after_title = forms.CharField(max_length=150, required=False, label="عنوان ما بعد الدوام")
+    display_after_badge = forms.CharField(max_length=40, required=False, label="شارة ما بعد الدوام")
+    display_after_holiday_title = forms.CharField(max_length=150, required=False, label="عنوان ما قبل الإجازة")
+    display_after_holiday_badge = forms.CharField(max_length=40, required=False, label="شارة ما قبل الإجازة")
+    display_holiday_title = forms.CharField(max_length=150, required=False, label="عنوان يوم الإجازة")
+    display_holiday_badge = forms.CharField(max_length=40, required=False, label="شارة يوم الإجازة")
 
     class Meta:
         model = DisplayScreen
         fields = [
             "name",
             "is_active",
+            "inherit_groups",
+            "use_school_logo",
             "logo",
             "featured_panel",
             "theme",
@@ -443,11 +501,26 @@ class ScreenDisplayCustomizationForm(forms.ModelForm):
             "occasion_theme": forms.Select(),
         }
 
+    @classmethod
+    def inherited_groups_for(cls, screen) -> list[str]:
+        """المجموعات التي ما زالت هذه الشاشة ترث إعدادها العام بالكامل."""
+        inherited = []
+        for group, override_names in cls.INHERIT_GROUP_FIELDS.items():
+            if all(
+                getattr(screen, name, None) in (None, "")
+                for name in override_names
+            ):
+                inherited.append(group)
+        return inherited
+
     def __init__(self, *args, school_settings: SchoolSettings, **kwargs):
         self.school_settings = school_settings
         super().__init__(*args, **kwargs)
         screen = self.instance
 
+        # القيم المعروضة دائمًا هي القيمة السارية فعليًا على الشاشة: تخصيصها
+        # الخاص إن وُجد، وإلا الإعداد العام. هكذا يرى المدير النتيجة النهائية
+        # سواء كانت موروثة أو مخصصة.
         self.initial.update(
             {
                 "theme": (getattr(screen, "theme_override", "") or school_settings.theme or "indigo"),
@@ -477,8 +550,28 @@ class ScreenDisplayCustomizationForm(forms.ModelForm):
                 or getattr(school_settings, public_name, "")
             )
 
+        # شاشة جديدة (بلا أي override) ترث كل شيء افتراضيًا.
+        self.initial["inherit_groups"] = self.inherited_groups_for(screen)
+        self.initial["use_school_logo"] = not bool(getattr(screen, "logo_override", None))
+
     def clean(self):
         cleaned = super().clean()
+        inherited = set(cleaned.get("inherit_groups") or ())
+
+        # الحقول إلزامية فقط عندما تكون مجموعتها مخصصة. عند الوراثة نتجاهل ما
+        # أُرسل حتى لا يمنع إدخال ناقص حفظَ اختيارٍ لا يستعمله أصلًا.
+        for group, input_names in self.INHERIT_GROUP_INPUTS.items():
+            if group in inherited:
+                for name in input_names:
+                    self.errors.pop(name, None)
+                continue
+            for name in input_names:
+                if name in self.errors:
+                    continue
+                value = cleaned.get(name)
+                if value is None or (isinstance(value, str) and not value.strip()):
+                    self.add_error(name, "هذا الحقل مطلوب عند تخصيص هذه الشاشة.")
+
         theme = (cleaned.get("theme") or "indigo").strip().lower()
         cleaned["display_accent_color"] = self.THEME_ACCENTS.get(theme, "#6366F1")
         return cleaned
@@ -492,17 +585,40 @@ class ScreenDisplayCustomizationForm(forms.ModelForm):
     @transaction.atomic
     def save(self, commit=True):
         screen: DisplayScreen = super().save(commit=False)
-        screen.theme_override = self.cleaned_data["theme"]
-        screen.featured_panel_override = self.cleaned_data["featured_panel"]
-        screen.display_accent_color_override = self.cleaned_data["display_accent_color"]
-        screen.standby_scroll_speed_override = self.cleaned_data["standby_scroll_speed"]
-        screen.periods_scroll_speed_override = self.cleaned_data["periods_scroll_speed"]
+        inherited = set(self.cleaned_data.get("inherit_groups") or ())
+
+        if self.INHERIT_APPEARANCE in inherited:
+            screen.theme_override = ""
+            screen.display_accent_color_override = ""
+            screen.featured_panel_override = ""
+        else:
+            screen.theme_override = self.cleaned_data["theme"]
+            screen.display_accent_color_override = self.cleaned_data["display_accent_color"]
+            screen.featured_panel_override = self.cleaned_data["featured_panel"]
+
+        if self.INHERIT_MOTION in inherited:
+            screen.standby_scroll_speed_override = None
+            screen.periods_scroll_speed_override = None
+        else:
+            screen.standby_scroll_speed_override = self.cleaned_data["standby_scroll_speed"]
+            screen.periods_scroll_speed_override = self.cleaned_data["periods_scroll_speed"]
+
+        messages_inherited = self.INHERIT_MESSAGES in inherited
         for public_name, model_name in self.MESSAGE_FIELD_MAP.items():
-            setattr(screen, model_name, self.cleaned_data[public_name])
+            setattr(
+                screen,
+                model_name,
+                "" if messages_inherited else self.cleaned_data[public_name],
+            )
 
         logo_file = self.cleaned_data.get("logo")
-        if logo_file:
+        if self.cleaned_data.get("use_school_logo") and not logo_file:
+            if getattr(screen, "logo_override", None):
+                screen.logo_override.delete(save=False)
+            screen.logo_override = None
+        elif logo_file:
             screen.logo_override = logo_file
+
         if commit:
             screen.save()
             self.save_m2m()
@@ -817,10 +933,19 @@ class AnnouncementForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.school = school
         if school is not None:
-            self.fields["screens"].queryset = DisplayScreen.objects.filter(
-                school=school,
-                is_active=True,
-            ).order_by("name")
+            # الشاشات المعطلة (يدويًا أو تلقائيًا عند تجاوز حد الباقة) تبقى
+            # معروضة إن كان التنبيه يستهدفها بالفعل. بدون ذلك يختفي استهدافها
+            # من النموذج ويُحذف بصمت عند أول حفظ، فلا يعود عند إعادة التفعيل.
+            targeted_ids = (
+                set(self.instance.screens.values_list("id", flat=True))
+                if self.instance.pk
+                else set()
+            )
+            self.fields["screens"].queryset = (
+                DisplayScreen.objects.filter(school=school)
+                .filter(Q(is_active=True) | Q(pk__in=targeted_ids))
+                .order_by("name")
+            )
         else:
             self.fields["screens"].queryset = DisplayScreen.objects.none()
         if self.instance.pk and self.instance.screens.exists():
@@ -881,10 +1006,19 @@ class EmergencyAlertForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         allowed_schools = allowed_schools if allowed_schools is not None else School.objects.none()
         self.fields["schools"].queryset = allowed_schools.order_by("name")
-        self.fields["screens"].queryset = DisplayScreen.objects.filter(
-            school__in=allowed_schools,
-            is_active=True,
-        ).select_related("school").order_by("school__name", "name")
+        # كما في التنبيهات العادية: شاشة مستهدفة بالفعل تبقى معروضة حتى لو
+        # عُطّلت، حتى لا يُمحى استهدافها بصمت عند أول حفظ.
+        targeted_ids = (
+            set(self.instance.screens.values_list("id", flat=True))
+            if self.instance.pk
+            else set()
+        )
+        self.fields["screens"].queryset = (
+            DisplayScreen.objects.filter(school__in=allowed_schools)
+            .filter(Q(is_active=True) | Q(pk__in=targeted_ids))
+            .select_related("school")
+            .order_by("school__name", "name")
+        )
         self.fields["expires_at"].input_formats = ["%Y-%m-%dT%H:%M"]
         if allowed_schools.count() == 1:
             school = allowed_schools.first()
@@ -2086,8 +2220,6 @@ class SubscriptionPlanForm(forms.ModelForm):
 
     def save(self, commit=True):
         plan = super().save(commit=False)
-        # الباقة تخص مدرسة واحدة دائماً؛ الحقل داخلي ولا يحتاج أن يظهر للمدير.
-        plan.max_schools = 1
         if commit:
             plan.save()
             if plan.is_featured:

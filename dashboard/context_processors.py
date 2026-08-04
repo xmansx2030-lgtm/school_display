@@ -19,6 +19,7 @@ from .access import (
 
 
 WHATSAPP_SUPPORT_NUMBER = "966537720207"
+WHATSAPP_PLATFORM_NAME = "منصة لوحة العرض الذكية"
 
 
 def school_whatsapp_contact(request):
@@ -63,6 +64,7 @@ def school_whatsapp_contact(request):
         status_text = subscription.get_status_display()
 
     message_lines = [
+        f"المنصة: {WHATSAPP_PLATFORM_NAME}",
         f"اسم المدرسة: {school.name}",
         f"حالة الاشتراك: {status_text}",
     ]
@@ -76,6 +78,7 @@ def school_whatsapp_contact(request):
             f"https://wa.me/{WHATSAPP_SUPPORT_NUMBER}?text={quote(message, safe='')}"
         ),
         "school_whatsapp_status": status_text,
+        "school_whatsapp_platform_name": WHATSAPP_PLATFORM_NAME,
     }
 
 

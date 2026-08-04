@@ -54,3 +54,35 @@ fulfilment point.
 
 Never copy either token into Git, templates, browser JavaScript, logs, or a
 support ticket.
+
+---
+
+## ⛔ الحالة الآن: تمارا مخفية مؤقتًا
+
+`TAMARA_TEMPORARILY_HIDDEN=True` (الافتراضي) يجبر `TAMARA_ENABLED` على `False`
+مهما كانت قيمة متغير البيئة. النتيجة:
+
+- لا تظهر تمارا في صفحة «اشتراكي» ولا في صفحة الأسعار العامة.
+- `tamara/start/` يعيد التحويل برسالة، و`tamara/webhook/` يرد `503`.
+- عامل التسوية `tamara-reconciliation-worker` خارج التشغيل (profile: `tamara`).
+- ملف `tamara-checkout.css` لم يعد يُحمّل على صفحات لوحة التحكم.
+
+**لم يُحذف شيء**: الكود والنماذج والبيانات المحفوظة والاختبارات كلها في مكانها،
+واختبارات تمارا ما زالت تعمل عبر `override_settings(TAMARA_ENABLED=True)`.
+
+### إعادة التفعيل
+
+```bash
+# 1) ارفع الإخفاء واضبط المفاتيح في .env
+TAMARA_TEMPORARILY_HIDDEN=False
+TAMARA_ENABLED=True
+TAMARA_API_TOKEN=...
+TAMARA_NOTIFICATION_TOKEN=...
+
+# 2) أعد تشغيل عامل التسوية
+docker compose -f compose.production.yaml --profile tamara up -d \
+  tamara-reconciliation-worker
+```
+
+يحرس هذا الإخفاءَ صفٌّ من الاختبارات في
+`subscriptions.tests.TamaraIsHiddenTests`؛ إذا عادت تمارا للظهور دون قصد فسيسقط.

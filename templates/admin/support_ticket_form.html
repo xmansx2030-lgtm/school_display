@@ -1,39 +1,49 @@
 {% extends "admin/admin_base.html" %}
 
 {% block title %}فتح تذكرة جديدة{% endblock %}
+{% block page_icon %}ticket{% endblock %}
 {% block page_title %}فتح تذكرة جديدة{% endblock %}
-{% block page_description %}أدخل تفاصيل المشكلة أو الطلب{% endblock %}
+{% block page_description %}سجّل مشكلة أو طلبًا داخليًا لمتابعته ضمن سجل الدعم.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:system_support_tickets' %}" class="hover:text-blue-600">تذاكر الدعم</a>
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">تذكرة جديدة</span>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto">
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-    <form method="post" class="space-y-6">
-      {% csrf_token %}
-      
-      {% for field in form %}
+<div class="max-w-2xl">
+  <section class="admin-panel">
+    <div class="admin-panel-header">
       <div>
-        <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1">
-          {{ field.label }}
-        </label>
-        {{ field }}
-        {% if field.help_text %}
-        <p class="text-xs text-slate-500 mt-1">{{ field.help_text }}</p>
-        {% endif %}
-        {% if field.errors %}
-        <p class="text-xs text-red-500 mt-1">{{ field.errors.0 }}</p>
-        {% endif %}
+        <h2 class="text-base font-black text-slate-900">تفاصيل التذكرة</h2>
+        <p class="mt-1 text-xs text-slate-500">تُسجَّل التذكرة باسمك ويمكن متابعتها والرد عليها من سجل الدعم.</p>
       </div>
-      {% endfor %}
+    </div>
+    <form method="post" class="space-y-5 p-4 md:p-5">
+      {% csrf_token %}
 
-      <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
-        <a href="{% url 'dashboard:system_support_tickets' %}" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition">
-          إلغاء
-        </a>
-        <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">
-          إرسال التذكرة
+      {% if form.non_field_errors %}
+        <div class="admin-form-alert">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="admin-form-grid">
+        {% for field in form %}
+          <div class="admin-form-field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<p class="admin-field-help">{{ field.help_text }}</p>{% endif %}
+            {% if field.errors %}<p class="admin-field-error">{{ field.errors.0 }}</p>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
+        <a href="{% url 'dashboard:system_support_tickets' %}" class="admin-btn admin-btn-secondary">إلغاء</a>
+        <button type="submit" class="admin-btn admin-btn-primary">
+          <i class="fas fa-paper-plane"></i> إرسال التذكرة
         </button>
       </div>
     </form>
-  </div>
+  </section>
 </div>
 {% endblock %}

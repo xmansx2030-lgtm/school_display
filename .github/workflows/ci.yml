@@ -21,6 +21,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -61,7 +65,19 @@ jobs:
           coverage report
 
       - name: Validate JavaScript syntax
-        run: node --check static/js/display.js
+        run: |
+          for file in static/js/*.js; do
+            echo "checking $file"
+            node --check "$file"
+          done
+
+      - name: Verify the minified display bundle is current
+        run: |
+          # package-lock.json is not tracked, so plain install is the only option.
+          npm install --no-audit --no-fund
+          npm run build:display
+          git diff --exit-code -- static/js/display.min.js \
+            || (echo "static/js/display.min.js is stale. Run: npm run build:display" && exit 1)
 
       - name: Build production image
         run: docker build --tag school-display:ci .

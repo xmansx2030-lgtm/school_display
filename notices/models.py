@@ -11,6 +11,7 @@ from django.db import models
 from django.utils import timezone
 
 from core.models import DisplayScreen, School
+from core.occasions import announcement_choices as occasion_announcement_choices
 
 
 ANNOUNCEMENT_LEVELS = (
@@ -116,15 +117,8 @@ class AnnouncementQuerySet(models.QuerySet):
 
 
 class Announcement(models.Model):
-    OCCASION_THEME_CHOICES = [
-        ("", "بدون ثيم مناسبة"),
-        ("national_day", "اليوم الوطني السعودي"),
-        ("founding_day", "يوم التأسيس"),
-        ("teachers_day", "يوم المعلم"),
-        ("back_to_school", "العودة للدراسة"),
-        ("graduation", "حفل التخرج"),
-        ("weather", "حالة جوية"),
-    ]
+    # مشتقة من سجل المناسبات الموحّد. انظر :mod:`core.occasions`.
+    OCCASION_THEME_CHOICES = occasion_announcement_choices()
 
     school = models.ForeignKey(
         School,

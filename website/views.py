@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import logging
 from decimal import Decimal
 from io import BytesIO
 from urllib.parse import quote, urlencode
@@ -21,6 +23,8 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
+from core import occasions
+from core.email_verification import EmailVerificationError, mark_verified, verify_token
 from core.models import DisplayPairingSession, DisplayScreen, SubscriptionPlan
 from dashboard.access import get_active_school_or_redirect
 from display.pairing import (
@@ -30,6 +34,7 @@ from display.pairing import (
     refresh_expired_status,
 )
 from schedule.models import SchoolSettings
+from subscriptions.email_notifications import queue_email_verification
 from subscriptions.plan_catalog import plan_cards
 from .services import (
     TrialSignupError,
@@ -38,6 +43,9 @@ from .services import (
     create_trial_signup,
     normalize_mobile,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 THEME_MAP = {
@@ -265,6 +273,24 @@ def _resolve_screen_and_settings(
     return screen, settings_obj, screen.token
 
 
+def _display_subscription_active(school_id) -> bool:
+    """Whether this school may still be served display content.
+
+    Mirrors the API-side gate in ``core.middleware.DisplayTokenMiddleware`` so
+    the page and the data it fetches always agree.
+    """
+    if not getattr(django_settings, "DISPLAY_REQUIRE_ACTIVE_SUBSCRIPTION", True):
+        return True
+    try:
+        from subscriptions.access import school_subscription_is_active
+
+        return school_subscription_is_active(school_id)
+    except Exception:
+        # Never black out a paying customer because billing lookup failed.
+        logger.exception("display_page_subscription_gate_failed school_id=%s", school_id)
+        return True
+
+
 def _build_display_context(request, key: str | None) -> dict | None:
     if not key:
         return None
@@ -387,6 +413,17 @@ def _build_display_context(request, key: str | None) -> dict | None:
         "schedule_revision": schedule_revision,
         # مهم: هذا هو المسار الذي يستدعيه display.js
         "snapshot_url": f"/api/display/snapshot/{effective_token}/",
+        "display_use_minified_js": bool(
+            getattr(django_settings, "DISPLAY_USE_MINIFIED_JS", False)
+        ),
+        # الهوية البصرية للمناسبات تُولَّد من سجل واحد بدل تكرارها في CSS
+        # وJavaScript. إدراجها في الصفحة (لا في الـ snapshot) يجعلها متاحة
+        # لحظة الإقلاع ومحفوظة ضمن الصفحة في ذاكرة Service Worker، فتعمل
+        # المناسبات بلا اتصال أيضًا.
+        "occasion_themes": occasions.all_occasions(),
+        "occasion_theme_meta_json": json.dumps(
+            occasions.theme_map(), ensure_ascii=False, separators=(",", ":")
+        ),
     }
 
     cache.set(cache_key, ctx, 60)
@@ -529,6 +566,32 @@ def plan_order(request):
     )
 
 
+@require_GET
+def verify_email(request, token: str):
+    """Confirm ownership of the address used at signup."""
+    try:
+        user = verify_token(token)
+    except EmailVerificationError as exc:
+        return render(
+            request,
+            "website/verify_email_result.html",
+            {"ok": False, "message": str(exc)},
+            status=400,
+        )
+
+    newly_verified = mark_verified(user)
+    return render(
+        request,
+        "website/verify_email_result.html",
+        {
+            "ok": True,
+            "already_verified": not newly_verified,
+            "email": user.email,
+            "login_url": reverse("dashboard:login"),
+        },
+    )
+
+
 @require_POST
 @csrf_protect
 def trial_signup(request):
@@ -549,6 +612,13 @@ def trial_signup(request):
             },
             status=500,
         )
+
+    # Prove the address works so invoices and password resets can reach them.
+    # Queued, never sent inline: SMTP latency must not slow down signup.
+    try:
+        queue_email_verification(result.subscription, result.user)
+    except Exception:
+        logger.exception("trial_signup_verification_queue_failed user_id=%s", result.user.pk)
 
     login(request, result.user, backend="django.contrib.auth.backends.ModelBackend")
 
@@ -600,6 +670,19 @@ def display_view(request, screen_key: str):
     ctx = _build_display_context(request, screen_key)
     if not ctx:
         raise Http404("Display is not configured or found.")
+
+    # A lapsed school gets a dignified renewal notice on the TV rather than a
+    # display shell that silently fails against a 402 from the snapshot API.
+    if not _display_subscription_active(ctx.get("school_id")):
+        return render(
+            request,
+            "website/display_subscription_inactive.html",
+            {
+                "school_name": ctx.get("school_name") or "",
+                "logo_url": ctx.get("logo_url") or "",
+            },
+            status=402,
+        )
 
     return render(request, "website/display.html", ctx)
 

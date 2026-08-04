@@ -1,77 +1,44 @@
 {% extends "admin/admin_base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
+{% block page_icon %}file-invoice-dollar{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_description %}
 إنشاء أو تعديل اشتراك مدرسة وتحديد الخطة وفترة الاشتراك.
 {% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:system_subscriptions_list' %}" class="hover:text-blue-600">الاشتراكات</a>
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <span class="text-slate-500">{% if edit %}تعديل{% else %}إضافة{% endif %}</span>
+{% endblock %}
+{% block page_actions %}
+  {% if form.instance.pk %}
+    {% with last_invoice=form.instance.invoices.last %}
+      {% if last_invoice %}
+        {# Must be the admin invoice route: the school-facing one resolves the
+           invoice through the viewer's own active school, which a platform
+           employee does not have. #}
+        <a href="{% url 'dashboard:system_subscription_invoice_view' pk=last_invoice.pk %}" target="_blank"
+           class="admin-btn admin-btn-secondary" title="عرض/طباعة الفاتورة">
+          <i class="fas fa-print"></i> الفاتورة
+        </a>
+      {% endif %}
+    {% endwith %}
+  {% endif %}
+  <a href="{% url 'dashboard:system_subscriptions_list' %}" class="admin-btn admin-btn-secondary">
+    <i class="fas fa-arrow-right"></i> العودة للقائمة
+  </a>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-4xl space-y-6">
 
-  <!-- Header -->
-  <div class="rounded-3xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-      <div class="flex items-start gap-4">
-        <div class="h-12 w-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl">
-          💳
-        </div>
-        <div>
-          <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">{{ title }}</h1>
-          <p class="text-slate-600 mt-1 text-sm md:text-base leading-relaxed">
-            اختر المدرسة والخطة وحدّد فترة الاشتراك. يمكنك إيقاف الاشتراك مؤقتًا بإلغاء تفعيل خيار <span class="font-bold">نشط</span>.
-          </p>
-
-          <div class="mt-3 flex flex-wrap gap-2">
-            <span class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-extrabold bg-slate-100 text-slate-700">
-              ✅ حفظ آمن
-            </span>
-            <span class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
-              🔎 بحث داخل المدارس
-            </span>
-            <span class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-extrabold bg-amber-50 text-amber-800 border border-amber-100">
-              📅 معاينة الفترة تلقائيًا
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-2">
-        {% if form.instance.pk %}
-          {% with last_invoice=form.instance.invoices.last %}
-            {% if last_invoice %}
-              <a href="{% url 'dashboard:subscription_invoice_view' pk=last_invoice.pk %}" target="_blank"
-                 class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-extrabold
-                        bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm"
-                 title="طباعة الفاتورة">
-                <span class="text-base">🖨️</span>
-                <span class="hidden sm:inline">طباعة الفاتورة</span>
-              </a>
-            {% endif %}
-          {% endwith %}
-        {% endif %}
-
-        <a href="{% url 'dashboard:system_subscriptions_list' %}"
-           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-extrabold
-                  bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm">
-          <span class="text-base">↩</span>
-          <span>العودة للقائمة</span>
-        </a>
-      </div>
-    </div>
-  </div>
-
-  <!-- Tips -->
-  <div class="rounded-3xl border border-slate-200 bg-white p-5">
-    <div class="flex items-start gap-3">
-      <div class="h-10 w-10 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center">💡</div>
-      <div class="space-y-1">
-        <div class="text-sm font-extrabold text-slate-900">معلومة مهمة</div>
-        <div class="text-sm text-slate-600 leading-relaxed">
-          يمكنك البحث عن المدرسة بالاسم بدل التمرير الطويل. وستظهر لك معاينة واضحة لفترة الاشتراك قبل الحفظ.
-        </div>
-      </div>
-    </div>
+  <div class="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+    <p class="text-sm leading-7 text-sky-900">
+      اختر المدرسة والخطة وحدّد فترة الاشتراك. يمكنك إيقاف الاشتراك مؤقتًا بإلغاء تفعيل خيار <span class="font-black">نشط</span>،
+      وستظهر معاينة الفترة تلقائيًا قبل الحفظ.
+    </p>
   </div>
 
   <!-- Form Card -->
@@ -407,7 +374,7 @@
       {% if plan_prices %}
         {{ plan_prices|json_script:"planPrices" }}
       {% endif %}
-      <script>
+      <script nonce="{{ csp_nonce }}">
         (function () {
           "use strict";
 
@@ -567,7 +534,7 @@
       </script>
 
       <!-- School search combobox JS -->
-      <script>
+      <script nonce="{{ csp_nonce }}">
         (function () {
           "use strict";
 

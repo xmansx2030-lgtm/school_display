@@ -1,65 +1,164 @@
 {% extends "admin/admin_base.html" %}
 
-{% block title %}الدعم الفني{% endblock %}
+{% block title %}تذاكر الدعم الفني{% endblock %}
+{% block page_icon %}headset{% endblock %}
 {% block page_title %}تذاكر الدعم الفني{% endblock %}
-{% block page_description %}متابعة طلبات الدعم والمشاكل الفنية{% endblock %}
+{% block page_description %}متابعة طلبات الدعم والمشاكل الفنية الواردة من المدارس والرد عليها.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">تذاكر الدعم</span>
+{% endblock %}
+{% block page_actions %}
+  {% if can_support_manage %}
+    <a href="{% url 'dashboard:system_support_ticket_create' %}" class="admin-btn admin-btn-primary">
+      <i class="fas fa-plus"></i> فتح تذكرة جديدة
+    </a>
+  {% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-  <div class="flex justify-between items-center">
-    <h2 class="text-2xl font-bold text-slate-800">التذاكر</h2>
-    {% if can_support_manage %}<a href="{% url 'dashboard:system_support_ticket_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-      <i class="fas fa-plus ml-2"></i> فتح تذكرة جديدة
-    </a>{% endif %}
-  </div>
+<div class="space-y-5">
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <a href="?status=open" class="admin-metric-card" style="--metric-color:#2563eb">
+      <span class="admin-metric-icon"><i class="fas fa-inbox"></i></span>
+      <p class="admin-metric-value">{{ open_count }}</p>
+      <p class="admin-metric-label">تذكرة مفتوحة</p>
+    </a>
+    <a href="?status=in_progress" class="admin-metric-card" style="--metric-color:#d97706">
+      <span class="admin-metric-icon"><i class="fas fa-spinner"></i></span>
+      <p class="admin-metric-value">{{ in_progress_count }}</p>
+      <p class="admin-metric-label">قيد المعالجة</p>
+    </a>
+    <a href="?priority=urgent" class="admin-metric-card" style="--metric-color:#e11d48">
+      <span class="admin-metric-icon"><i class="fas fa-fire"></i></span>
+      <p class="admin-metric-value">{{ urgent_count }}</p>
+      <p class="admin-metric-label">أولوية عالية/عاجلة</p>
+      <p class="admin-metric-note">غير مغلقة بعد</p>
+    </a>
+    <a href="?status=closed" class="admin-metric-card" style="--metric-color:#059669">
+      <span class="admin-metric-icon"><i class="fas fa-circle-check"></i></span>
+      <p class="admin-metric-value">{{ closed_count }}</p>
+      <p class="admin-metric-label">تذكرة مغلقة</p>
+    </a>
+  </section>
 
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-    <table class="w-full text-right">
-      <thead class="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
-        <tr>
-          <th class="p-4">الموضوع</th>
-          <th class="p-4">المستخدم</th>
-          <th class="p-4">المدرسة</th>
-          <th class="p-4">الحالة</th>
-          <th class="p-4">الأولوية</th>
-          <th class="p-4">تاريخ الإنشاء</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">
-        {% for ticket in tickets %}
-        <tr class="hover:bg-slate-50 transition">
-          <td class="p-4 font-medium text-slate-800">
-            <a href="{% url 'dashboard:system_support_ticket_detail' ticket.pk %}" class="text-blue-600 hover:underline">
-              {{ ticket.subject }}
-            </a>
-          </td>
-          <td class="p-4 text-slate-600">{{ ticket.user.username }}</td>
-          <td class="p-4 text-slate-600">{{ ticket.school.name|default:"-" }}</td>
-          <td class="p-4">
-            {% if ticket.status == 'open' %}
-            <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium">مفتوحة</span>
-            {% elif ticket.status == 'in_progress' %}
-            <span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-medium">قيد المعالجة</span>
-            {% else %}
-            <span class="bg-slate-100 text-slate-700 px-2 py-1 rounded-full text-xs font-medium">مغلقة</span>
-            {% endif %}
-          </td>
-          <td class="p-4">
-            {% if ticket.priority == 'high' or ticket.priority == 'urgent' %}
-            <span class="text-red-600 font-medium">{{ ticket.get_priority_display }}</span>
-            {% else %}
-            <span class="text-slate-600">{{ ticket.get_priority_display }}</span>
-            {% endif %}
-          </td>
-          <td class="p-4 text-slate-500 text-sm">{{ ticket.created_at|date:"Y-m-d H:i" }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="6" class="p-8 text-center text-slate-500">لا توجد تذاكر حالياً.</td>
-        </tr>
+  <form method="get" class="admin-filter-bar admin-no-print">
+    <div class="admin-filter-field is-search">
+      <label for="ticketSearch">بحث</label>
+      <input id="ticketSearch" type="search" name="q" value="{{ q }}" placeholder="الموضوع، نص الرسالة، المستخدم أو المدرسة...">
+    </div>
+    <div class="admin-filter-field">
+      <label for="ticketStatus">الحالة</label>
+      <select id="ticketStatus" name="status">
+        <option value="">كل الحالات</option>
+        {% for code, label in status_choices %}
+          <option value="{{ code }}" {% if status == code %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
-      </tbody>
-    </table>
-  </div>
+      </select>
+    </div>
+    <div class="admin-filter-field">
+      <label for="ticketPriority">الأولوية</label>
+      <select id="ticketPriority" name="priority">
+        <option value="">كل الأولويات</option>
+        {% for code, label in priority_choices %}
+          <option value="{{ code }}" {% if priority == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="admin-btn admin-btn-primary"><i class="fas fa-filter"></i> تطبيق</button>
+    {% if q or status or priority %}
+      <a href="{% url 'dashboard:system_support_tickets' %}" class="admin-btn admin-btn-secondary"><i class="fas fa-xmark"></i> مسح</a>
+    {% endif %}
+  </form>
+
+  <section class="admin-panel">
+    <div class="admin-panel-header">
+      <div>
+        <h2 class="text-base font-black text-slate-900">سجل التذاكر</h2>
+        <p class="mt-1 text-xs text-slate-500">مرتبة من الأحدث إلى الأقدم — افتح التذكرة للرد وتغيير الحالة.</p>
+      </div>
+      <span class="text-xs font-bold text-slate-500">{{ filtered_count }} تذكرة</span>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table has-actions" style="min-width:52rem">
+        <thead>
+          <tr>
+            <th>الموضوع</th>
+            <th>المستخدم</th>
+            <th>المدرسة</th>
+            <th>الحالة</th>
+            <th>الأولوية</th>
+            <th>تاريخ الإنشاء</th>
+            <th class="admin-no-print">الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ticket in tickets %}
+            <tr>
+              <td>
+                <a href="{% url 'dashboard:system_support_ticket_detail' ticket.pk %}" class="block max-w-xs">
+                  <strong class="block truncate text-sm text-slate-900">{{ ticket.subject }}</strong>
+                  <span class="text-[10px] text-slate-400">#{{ ticket.pk }}</span>
+                </a>
+              </td>
+              <td>
+                <span class="block text-xs text-slate-700">{{ ticket.user.get_full_name|default:ticket.user.username }}</span>
+                <span class="admin-ltr text-[10px] text-slate-400">@{{ ticket.user.username }}</span>
+              </td>
+              <td class="text-xs text-slate-600">{{ ticket.school.name|default:"—" }}</td>
+              <td>
+                {% if ticket.status == 'open' %}
+                  <span class="admin-status admin-status-info">مفتوحة</span>
+                {% elif ticket.status == 'in_progress' %}
+                  <span class="admin-status admin-status-warning">قيد المعالجة</span>
+                {% else %}
+                  <span class="admin-status admin-status-muted">مغلقة</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if ticket.priority == 'urgent' or ticket.priority == 'high' %}
+                  <span class="admin-status admin-status-danger">{{ ticket.get_priority_display }}</span>
+                {% else %}
+                  <span class="admin-status admin-status-muted">{{ ticket.get_priority_display }}</span>
+                {% endif %}
+              </td>
+              <td class="whitespace-nowrap">
+                <strong class="block text-xs text-slate-700">{{ ticket.created_at|date:"Y-m-d" }}</strong>
+                <span class="text-[10px] text-slate-400">{{ ticket.created_at|date:"H:i" }}</span>
+              </td>
+              <td>
+                <a href="{% url 'dashboard:system_support_ticket_detail' ticket.pk %}" class="admin-btn admin-btn-secondary" style="min-height:2.15rem;padding:.35rem .65rem">
+                  <i class="fas fa-eye"></i> فتح
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7">
+                <div class="admin-empty">
+                  <i class="fas fa-headset mb-3 text-3xl text-slate-300"></i>
+                  <h3 class="font-black text-slate-700">لا توجد تذاكر مطابقة</h3>
+                  <p class="mt-1 text-xs">غيّر الفلاتر أو انتظر ورود طلب دعم جديد.</p>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+      <div class="flex items-center justify-between gap-3 border-t border-slate-100 p-4 admin-no-print">
+        <span class="text-xs text-slate-500">عرض {{ page_obj.start_index }}–{{ page_obj.end_index }} من {{ page_obj.paginator.count }}</span>
+        <div class="flex gap-2">
+          {% if page_obj.has_previous %}
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.previous_page_number }}&q={{ q|urlencode }}&status={{ status }}&priority={{ priority }}">السابقة</a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.next_page_number }}&q={{ q|urlencode }}&status={{ status }}&priority={{ priority }}">التالية</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </section>
 </div>
 {% endblock %}

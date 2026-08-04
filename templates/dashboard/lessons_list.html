@@ -52,7 +52,7 @@
                 <a href="{% url 'dashboard:edit_lesson' lesson.id %}" class="px-3 py-1 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition">تعديل</a>
                 <form method="post" action="{% url 'dashboard:delete_lesson' lesson.id %}" style="display:inline;">
                   {% csrf_token %}
-                  <button type="submit" class="px-3 py-1 rounded-lg text-xs font-medium bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition" onclick="return confirm('هل أنت متأكد من حذف الحصة؟');">حذف</button>
+                  <button type="submit" class="px-3 py-1 rounded-lg text-xs font-medium bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition" data-confirm="هل أنت متأكد من حذف الحصة؟">حذف</button>
                 </form>
               </div>
             </td>

@@ -90,7 +90,7 @@
             </div>
 
             <div class="standby-card-actions">
-              <form method="post" action="{% url 'dashboard:standby_delete' s.pk %}" onsubmit="return confirmDelete('{{ s.teacher_name|escapejs }}', '{{ s.date|date:'Y-m-d' }}', '{{ s.period_index }}');">
+              <form method="post" action="{% url 'dashboard:standby_delete' s.pk %}" data-confirm="هل تريد حذف حصة الانتظار؟&#10;&#10;المعلم/ـة: {{ s.teacher_name }}&#10;التاريخ: {{ s.date|date:'Y-m-d' }}&#10;الحصة: {{ s.period_index }}&#10;&#10;لا يمكن التراجع عن هذا الإجراء.">
                 {% csrf_token %}
                 <button type="submit" class="standby-danger-action">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -135,11 +135,6 @@
   {% endif %}
 </div>
 
-<script>
-function confirmDelete(teacherName, date, period) {
-  return confirm(`هل تريد حذف حصة الانتظار؟\n\nالمعلم/ـة: ${teacherName}\nالتاريخ: ${date}\nالحصة: ${period}\n\nلا يمكن التراجع عن هذا الإجراء.`);
-}
-</script>
 
 <style>
 .standby-command-panel,

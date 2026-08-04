@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<body style="margin:0;padding:24px;background:#f1f5f9;color:#1e293b;font-family:Arial,Tahoma,sans-serif;direction:rtl;text-align:right">
+  <div style="max-width:620px;margin:0 auto;padding:32px;border-radius:20px;background:#ffffff">
+    <p style="margin:0 0 8px;color:#0d9488;font-size:13px;font-weight:bold">تأكيد الحساب</p>
+    <h1 style="margin:0 0 20px;font-size:24px">أكّد بريدك الإلكتروني</h1>
+
+    <p style="font-size:15px;line-height:1.9">
+      مرحبًا{% if user.first_name %} <strong>{{ user.first_name }}</strong>{% endif %}،
+      شكرًا لتسجيلك في لوحة العرض الذكية لمدرسة <strong>{{ school.name }}</strong>.
+    </p>
+
+    <p style="margin:26px 0;text-align:center">
+      <a href="{{ verify_url }}" style="display:inline-block;padding:14px 28px;border-radius:12px;background:#0d9488;color:#ffffff;text-decoration:none;font-weight:bold">تأكيد البريد الإلكتروني</a>
+    </p>
+
+    <div style="margin:22px 0;padding:18px;border:1px solid #ccfbf1;border-radius:14px;background:#f0fdfa;line-height:1.9;font-size:14px">
+      <div style="margin-bottom:6px;font-weight:bold">لماذا التأكيد مهم؟</div>
+      <div>• لضمان وصول فواتير الاشتراك إليك.</div>
+      <div>• لتتمكن من استعادة كلمة المرور عند الحاجة.</div>
+    </div>
+
+    <p style="font-size:13px;line-height:1.9;color:#64748b">
+      الرابط صالح لمدة {{ valid_days }} يومًا. إذا لم يعمل الزر، انسخ هذا العنوان في المتصفح:
+      <br>
+      <span style="word-break:break-all;color:#0f766e">{{ verify_url }}</span>
+    </p>
+
+    <p style="font-size:13px;line-height:1.9;color:#64748b">
+      إذا لم تقم بإنشاء هذا الحساب، تجاهل هذه الرسالة.
+    </p>
+  </div>
+</body>
+</html>

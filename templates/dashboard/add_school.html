@@ -156,7 +156,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ csp_nonce }}">
   (function () {
     var screenSelect = document.getElementById('{{ form.screen_count.id_for_label }}');
     var cards = Array.prototype.slice.call(document.querySelectorAll('[data-school-plan-card]'));

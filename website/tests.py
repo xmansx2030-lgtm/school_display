@@ -1,3 +1,4 @@
+from decimal import Decimal
 from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model
@@ -5,6 +6,7 @@ from django.contrib.auth import get_user
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from core.models import DisplayScreen, School, SubscriptionPlan, UserProfile
 from schedule.models import SchoolSettings
@@ -139,7 +141,6 @@ class TrialSignupTests(TestCase):
             description="وصف موحد يظهر في جميع واجهات الباقات",
             price=9876,
             duration_days=365,
-            max_schools=2,
             max_users=12,
             max_screens=4,
             sort_order=3,
@@ -158,7 +159,6 @@ class TrialSignupTests(TestCase):
             name="باقة مخفية من الهبوط",
             price=4321,
             duration_days=180,
-            max_schools=1,
             max_users=5,
             max_screens=1,
             is_active=False,
@@ -231,7 +231,6 @@ class TrialSignupTests(TestCase):
             name="باقة السعر اللحظي",
             price=8642,
             duration_days=90,
-            max_schools=1,
             max_users=6,
             max_screens=2,
             is_active=True,
@@ -430,10 +429,28 @@ class PaidPlanJourneyTests(TestCase):
 
 @override_settings(DISPLAY_WS_LIVE_STATUS_CHECK_SEC=60)
 class DisplayRuntimeConfigTests(TestCase):
+    @staticmethod
+    def _activate(school):
+        """Give the school a live subscription so the display gate lets it through."""
+        plan = SubscriptionPlan.objects.create(
+            code=f"display-plan-{school.slug}",
+            name="خطة العرض",
+            price=Decimal("100.00"),
+            duration_days=365,
+            max_screens=5,
+        )
+        return SchoolSubscription.objects.create(
+            school=school,
+            plan=plan,
+            starts_at=timezone.localdate(),
+            status="active",
+        )
+
     def test_display_page_receives_the_configured_ws_safety_interval(self):
         school = School.objects.create(name="مدرسة العرض", slug="display-school")
         SchoolSettings.objects.create(name=school.name, school=school)
         screen = DisplayScreen.objects.create(name="الشاشة الرئيسية", school=school)
+        self._activate(school)
 
         response = self.client.get(reverse("website:short_display", args=[screen.short_code]))
 
@@ -460,6 +477,7 @@ class DisplayRuntimeConfigTests(TestCase):
             show_duty=True,
             show_excellence=False,
         )
+        self._activate(school)
 
         response = self.client.get(reverse("website:short_display", args=[screen.short_code]))
 

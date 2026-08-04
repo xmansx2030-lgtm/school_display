@@ -1,0 +1,159 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="robots" content="noindex,nofollow">
+    <title>الاشتراك غير نشط | لوحة العرض الذكية</title>
+
+    {# Deliberately self-contained: no external fonts, no display.js. This page
+       must render on a low-end TV browser even when everything else is down. #}
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: #07111f;
+            color: #e8eef7;
+            font-family: "Segoe UI", Tahoma, "Noto Naskh Arabic", sans-serif;
+            overflow: hidden;
+        }
+
+        .stage {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 4vh 4vw;
+            text-align: center;
+        }
+
+        /* Soft ambient glow keeps the screen from looking like a crash page. */
+        .stage::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(60vw 60vh at 50% 22%, rgba(56, 130, 246, 0.20), transparent 65%),
+                radial-gradient(50vw 50vh at 50% 100%, rgba(14, 165, 165, 0.14), transparent 60%);
+            pointer-events: none;
+        }
+
+        .card {
+            position: relative;
+            width: min(1100px, 92vw);
+            padding: clamp(28px, 5vh, 64px) clamp(24px, 5vw, 72px);
+            border-radius: 28px;
+            background: rgba(13, 25, 43, 0.78);
+            border: 1px solid rgba(148, 178, 222, 0.20);
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+        }
+
+        .logo {
+            max-height: clamp(56px, 9vh, 104px);
+            max-width: 60%;
+            margin: 0 auto clamp(16px, 3vh, 32px);
+            display: block;
+            object-fit: contain;
+        }
+
+        .school {
+            font-size: clamp(20px, 2.6vh, 34px);
+            font-weight: 600;
+            color: #9fb6d4;
+            margin: 0 0 clamp(10px, 2vh, 20px);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.45em 1.35em;
+            margin-bottom: clamp(14px, 2.6vh, 28px);
+            border-radius: 999px;
+            font-size: clamp(15px, 1.9vh, 23px);
+            font-weight: 700;
+            color: #ffd7a8;
+            background: rgba(245, 158, 11, 0.14);
+            border: 1px solid rgba(245, 158, 11, 0.38);
+        }
+
+        h1 {
+            margin: 0 0 clamp(14px, 2.6vh, 26px);
+            font-size: clamp(32px, 6.4vh, 76px);
+            font-weight: 800;
+            line-height: 1.25;
+            color: #f4f8ff;
+        }
+
+        .lede {
+            margin: 0 auto;
+            max-width: 46ch;
+            font-size: clamp(17px, 2.5vh, 31px);
+            line-height: 1.75;
+            color: #b9c9e0;
+        }
+
+        .divider {
+            height: 1px;
+            margin: clamp(20px, 4vh, 40px) auto clamp(16px, 3vh, 28px);
+            max-width: 70%;
+            background: linear-gradient(90deg, transparent, rgba(148, 178, 222, 0.35), transparent);
+        }
+
+        .contact {
+            font-size: clamp(15px, 2vh, 25px);
+            color: #8ea6c6;
+            line-height: 1.85;
+        }
+
+        .contact strong { color: #dce7f7; font-weight: 700; }
+
+        @media (prefers-reduced-motion: no-preference) {
+            .badge { animation: pulse 3.4s ease-in-out infinite; }
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50%      { opacity: 0.62; }
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="stage">
+        <div class="card">
+            {% if logo_url %}
+                <img class="logo" src="{{ logo_url }}" alt="">
+            {% endif %}
+
+            {% if school_name %}
+                <p class="school">{{ school_name }}</p>
+            {% endif %}
+
+            <span class="badge">الاشتراك غير نشط</span>
+
+            <h1>تم إيقاف العرض مؤقتاً</h1>
+
+            <p class="lede">
+                انتهى اشتراك المدرسة في المنصة. يستأنف العرض تلقائياً
+                خلال دقائق بعد تجديد الاشتراك.
+            </p>
+
+            <div class="divider"></div>
+
+            <p class="contact">
+                للتجديد، يرجى الدخول إلى لوحة التحكم عبر
+                <strong>school-display.com</strong>
+                <br>
+                ثم فتح صفحة <strong>اشتراكي</strong>.
+            </p>
+        </div>
+    </main>
+
+    {# The TV is unattended: recheck periodically so the display comes back by
+       itself once the subscription is renewed. External file keeps this page
+       compliant with the 'self'-only script-src policy. #}
+    <script src="{% static 'js/display-subscription-recheck.js' %}" defer></script>
+</body>
+</html>

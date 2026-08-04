@@ -136,7 +136,6 @@ def get_or_create_trial_plan() -> SubscriptionPlan:
         "duration_days": TRIAL_DAYS,
         "max_users": 1,
         "max_screens": TRIAL_MAX_SCREENS,
-        "max_schools": 1,
         "card_cta_text": "ابدأ التجربة",
         "is_active": True,
         "sort_order": 0,

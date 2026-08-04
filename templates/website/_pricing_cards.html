@@ -34,7 +34,7 @@
             data-is-trial="false"
             data-order-url="{{ plan_order_url }}?plan={{ plan.code|urlencode }}"
             data-user-authenticated="{{ request.user.is_authenticated|yesno:'true,false' }}"
-            onclick="openPlanFromButton(this)">
+            data-role="open-plan">
             {{ plan.cta_text }}
         </button>
     </article>

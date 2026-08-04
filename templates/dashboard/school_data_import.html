@@ -31,7 +31,7 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="import">
             <input type="hidden" name="import_token" value="{{ import_token }}">
-            <button class="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black text-white" onclick="return confirm('تنفيذ استيراد البيانات الآن؟')">تنفيذ الاستيراد</button>
+            <button class="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black text-white" data-confirm="تنفيذ استيراد البيانات الآن؟">تنفيذ الاستيراد</button>
           </form>
         {% endif %}
       </div>

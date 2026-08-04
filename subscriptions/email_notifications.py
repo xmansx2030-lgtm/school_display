@@ -12,6 +12,8 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 
+from core.email_verification import max_age_seconds
+
 from .models import (
     SchoolSubscription,
     SubscriptionEmailNotification,
@@ -77,6 +79,47 @@ def queue_invoice_email(invoice: SubscriptionInvoice) -> int:
     return queued
 
 
+def queue_email_verification(subscription: SchoolSubscription, user) -> bool:
+    """Queue an ownership-proof email for a newly registered account.
+
+    Uses the same durable outbox as invoices so a slow or unavailable SMTP
+    server can never block or fail the signup request itself.
+    """
+    recipient = (getattr(user, "email", "") or "").strip().casefold()
+    if not recipient:
+        return False
+
+    _, created = SubscriptionEmailNotification.objects.get_or_create(
+        dedupe_key=f"verify_email:{user.pk}:{recipient}"[:255],
+        defaults={
+            "event_type": SubscriptionEmailNotification.EventType.VERIFY_EMAIL,
+            "subscription": subscription,
+            "recipient": recipient,
+        },
+    )
+    return created
+
+
+def requeue_email_verification(subscription: SchoolSubscription, user) -> bool:
+    """Let a customer ask for the verification email again."""
+    recipient = (getattr(user, "email", "") or "").strip().casefold()
+    if not recipient:
+        return False
+
+    updated = SubscriptionEmailNotification.objects.filter(
+        dedupe_key=f"verify_email:{user.pk}:{recipient}"[:255],
+    ).update(
+        status=SubscriptionEmailNotification.Status.PENDING,
+        available_at=timezone.now(),
+        locked_at=None,
+        attempts=0,
+        last_error="",
+    )
+    if updated:
+        return True
+    return queue_email_verification(subscription, user)
+
+
 def enqueue_expiry_email_reminders(*, on_date: date | None = None) -> int:
     if not email_notifications_enabled():
         return 0
@@ -120,6 +163,17 @@ def _absolute_url(path: str) -> str:
     return f"{base}{path}"
 
 
+def _verification_recipient_user(notification: SubscriptionEmailNotification):
+    """The account whose address this verification message proves."""
+    profile = (
+        notification.subscription.school.users.select_related("user")
+        .filter(user__is_active=True, user__email__iexact=notification.recipient)
+        .order_by("id")
+        .first()
+    )
+    return getattr(profile, "user", None)
+
+
 def _build_message(notification: SubscriptionEmailNotification) -> EmailMultiAlternatives:
     subscription = notification.subscription
     context = {
@@ -145,6 +199,28 @@ def _build_message(notification: SubscriptionEmailNotification) -> EmailMultiAlt
         subject = f"فاتورة اشتراك {invoice.invoice_number} | لوحة العرض الذكية"
         text_body = render_to_string("emails/subscription_invoice.txt", context)
         html_body = render_to_string("emails/subscription_invoice.html", context)
+    elif notification.event_type == SubscriptionEmailNotification.EventType.VERIFY_EMAIL:
+        from core.email_verification import make_token
+
+        user = _verification_recipient_user(notification)
+        if user is None:
+            raise ValueError("Verification notification has no matching account")
+
+        context.update(
+            {
+                "user": user,
+                "verify_url": _absolute_url(
+                    reverse(
+                        "website:verify_email",
+                        kwargs={"token": make_token(user)},
+                    )
+                ),
+                "valid_days": max(1, max_age_seconds() // 86400),
+            }
+        )
+        subject = "تأكيد بريدك الإلكتروني | لوحة العرض الذكية"
+        text_body = render_to_string("emails/verify_email.txt", context)
+        html_body = render_to_string("emails/verify_email.html", context)
     else:
         days_left = int(notification.reminder_days or 0)
         context["days_left"] = days_left

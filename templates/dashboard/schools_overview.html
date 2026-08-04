@@ -1,0 +1,290 @@
+{% extends "dashboard/_base.html" %}
+
+{% block title %}كل مدارسي{% endblock %}
+{% block page_title %}كل مدارسي{% endblock %}
+{% block page_description %}حالة الاشتراك والشاشات في كل مدرسة مرتبطة بحسابك{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto pb-8 md:pb-12 schools-overview">
+
+  <section class="schools-overview-hero">
+    <div class="schools-overview-hero-copy">
+      <span class="schools-overview-eyebrow">نظرة موحدة</span>
+      <h2>مدارسك في مكان واحد</h2>
+      <p>تابع الاشتراك وحالة الشاشات لكل مدرسة دون الحاجة للتبديل بينها. المدارس التي تحتاج تدخلاً تظهر أولاً.</p>
+    </div>
+    <dl class="schools-overview-metrics">
+      <div>
+        <dt>المدارس</dt>
+        <dd>{{ totals.schools }}</dd>
+      </div>
+      <div>
+        <dt>الشاشات</dt>
+        <dd>{{ totals.screens }}</dd>
+      </div>
+      <div class="is-live">
+        <dt>متصلة الآن</dt>
+        <dd>{{ totals.live }}</dd>
+      </div>
+      <div class="{% if totals.needs_attention %}is-alert{% endif %}">
+        <dt>تحتاج انتباهك</dt>
+        <dd>{{ totals.needs_attention }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  {% if totals.needs_attention %}
+  <p class="schools-overview-note" role="status">
+    {{ totals.needs_attention }} من مدارسك تحتاج مراجعة: إما اشتراك منتهٍ أو قارب على الانتهاء، أو شاشات نشطة بلا اتصال.
+  </p>
+  {% endif %}
+
+  <div class="schools-overview-grid">
+    {% for card in cards %}
+    <article class="school-card is-{{ card.status_key }}{% if card.is_active_school %} is-current{% endif %}">
+
+      <header class="school-card-head">
+        <div class="school-card-logo" aria-hidden="true">
+          {% if card.logo_url %}
+            <img src="{{ card.logo_url }}" alt="">
+          {% else %}
+            <span>{{ card.school.name|slice:':1' }}</span>
+          {% endif %}
+        </div>
+        <div class="school-card-title">
+          <h3>{{ card.school.name }}</h3>
+          <div class="school-card-tags">
+            {% if card.is_active_school %}<span class="school-tag is-current">المدرسة النشطة</span>{% endif %}
+            {% if card.plan_name %}<span class="school-tag">{{ card.plan_name }}</span>{% endif %}
+            {% if card.has_pending_request %}<span class="school-tag is-pending">طلب قيد المراجعة</span>{% endif %}
+          </div>
+        </div>
+        <span class="school-card-status">{{ card.status_label }}</span>
+      </header>
+
+      <p class="school-card-hint">{{ card.status_hint }}</p>
+
+      <dl class="school-card-stats">
+        <div>
+          <dt>الشاشات</dt>
+          <dd>{{ card.screens_total }}</dd>
+        </div>
+        <div>
+          <dt>مفعّلة</dt>
+          <dd>{{ card.screens_active }}</dd>
+        </div>
+        <div class="{% if card.screens_live %}is-live{% endif %}">
+          <dt>متصلة الآن</dt>
+          <dd>{{ card.screens_live }}</dd>
+        </div>
+        <div class="{% if card.screens_offline %}is-alert{% endif %}">
+          <dt>غير متصلة</dt>
+          <dd>{{ card.screens_offline }}</dd>
+        </div>
+      </dl>
+
+      {# زر واحد لكل وجهة: التبديل عملية تغيّر الحالة، لذا تُرسل POST محمية بـ CSRF. #}
+      <form method="post" action="{% url 'dashboard:switch_school' card.school.id %}" class="school-card-actions">
+        {% csrf_token %}
+        <button type="submit" name="next" value="{{ card.dashboard_next }}" class="school-card-action is-primary">
+          فتح لوحة المدرسة
+        </button>
+        <button type="submit" name="next" value="{{ card.screens_next }}" class="school-card-action">
+          الشاشات
+        </button>
+        <button type="submit" name="next" value="{{ card.subscription_next }}"
+                class="school-card-action{% if card.status_key != 'active' %} is-urgent{% endif %}">
+          {% if card.status_key == 'active' %}الاشتراك{% else %}تجديد الاشتراك{% endif %}
+        </button>
+      </form>
+
+    </article>
+    {% endfor %}
+  </div>
+
+  <a href="{% url 'dashboard:add_school' %}" class="schools-overview-add">
+    <span class="schools-overview-add-icon" aria-hidden="true">+</span>
+    <span>
+      <strong>إضافة مدرسة جديدة</strong>
+      <small>أنشئ مدرسة إضافية باشتراك مستقل واربطها بنفس الحساب.</small>
+    </span>
+  </a>
+
+</div>
+
+<style>
+.schools-overview { --so-line: #e2e8f0; --so-muted: #64748b; }
+
+.schools-overview-hero {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 1.15rem;
+    padding: 1.6rem 1.75rem;
+    border: 1px solid rgba(15, 23, 42, .08);
+    border-radius: 1.35rem;
+    color: #fff;
+    background:
+        radial-gradient(circle at 15% 10%, rgba(214, 169, 74, .22), transparent 32%),
+        linear-gradient(125deg, #0f172a 0%, #164e63 58%, #155e75 100%);
+    box-shadow: 0 18px 45px rgba(15, 23, 42, .12);
+}
+.schools-overview-hero-copy { max-width: 34rem; }
+.schools-overview-eyebrow { display: inline-flex; margin-bottom: .5rem; color: #fde68a; font-size: .72rem; font-weight: 900; letter-spacing: .06em; }
+.schools-overview-hero h2 { margin: 0; font-size: clamp(1.25rem, 2vw, 1.7rem); font-weight: 900; letter-spacing: -.02em; }
+.schools-overview-hero p { margin: .55rem 0 0; color: #cbd5e1; font-size: .84rem; line-height: 1.9; }
+
+.schools-overview-metrics { display: flex; flex-wrap: wrap; gap: .55rem; margin: 0; }
+.schools-overview-metrics > div {
+    min-width: 5.5rem;
+    padding: .65rem .9rem;
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: .85rem;
+    background: rgba(255, 255, 255, .09);
+    text-align: center;
+    backdrop-filter: blur(8px);
+}
+.schools-overview-metrics dt { color: #cbd5e1; font-size: .68rem; font-weight: 800; }
+.schools-overview-metrics dd { margin: .2rem 0 0; font-size: 1.35rem; font-weight: 900; line-height: 1; }
+.schools-overview-metrics .is-live dd { color: #6ee7b7; }
+.schools-overview-metrics .is-alert dd { color: #fca5a5; }
+
+.schools-overview-note {
+    margin-bottom: 1.15rem;
+    padding: .8rem 1rem;
+    border: 1px solid #fed7aa;
+    border-radius: .9rem;
+    background: #fff7ed;
+    color: #9a3412;
+    font-size: .78rem;
+    font-weight: 800;
+    line-height: 1.8;
+}
+
+.schools-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr));
+    gap: 1rem;
+}
+
+.school-card {
+    display: flex;
+    flex-direction: column;
+    gap: .85rem;
+    padding: 1.15rem;
+    border: 1px solid var(--so-line);
+    border-top: 3px solid #cbd5e1;
+    border-radius: 1.15rem;
+    background: #fff;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, .05);
+    transition: box-shadow .2s ease, transform .2s ease;
+}
+.school-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(15, 23, 42, .09); }
+.school-card.is-active { border-top-color: #10b981; }
+.school-card.is-expiring { border-top-color: #f59e0b; }
+.school-card.is-expired { border-top-color: #f43f5e; }
+.school-card.is-current { box-shadow: 0 0 0 2px #6366f1, 0 6px 20px rgba(15, 23, 42, .05); }
+
+.school-card-head { display: flex; align-items: flex-start; gap: .75rem; }
+.school-card-logo {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.85rem;
+    height: 2.85rem;
+    overflow: hidden;
+    border: 1px solid var(--so-line);
+    border-radius: .8rem;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 1.1rem;
+    font-weight: 900;
+}
+.school-card-logo img { width: 100%; height: 100%; object-fit: contain; }
+.school-card-title { min-width: 0; flex: 1; }
+.school-card-title h3 { margin: 0; overflow: hidden; color: #0f172a; font-size: .95rem; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.school-card-tags { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .35rem; }
+.school-tag { padding: .18rem .5rem; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: .65rem; font-weight: 800; }
+.school-tag.is-current { background: #e0e7ff; color: #4338ca; }
+.school-tag.is-pending { background: #fef3c7; color: #92400e; }
+
+.school-card-status {
+    flex: none;
+    align-self: flex-start;
+    padding: .3rem .65rem;
+    border-radius: 999px;
+    font-size: .67rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+.school-card.is-active .school-card-status { background: #d1fae5; color: #065f46; }
+.school-card.is-expiring .school-card-status { background: #fef3c7; color: #92400e; }
+.school-card.is-expired .school-card-status { background: #ffe4e6; color: #9f1239; }
+
+.school-card-hint { margin: 0; color: var(--so-muted); font-size: .74rem; font-weight: 600; line-height: 1.8; }
+
+.school-card-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; margin: 0; }
+.school-card-stats > div { padding: .5rem .35rem; border: 1px solid var(--so-line); border-radius: .7rem; background: #f8fafc; text-align: center; }
+.school-card-stats dt { color: var(--so-muted); font-size: .62rem; font-weight: 800; }
+.school-card-stats dd { margin: .15rem 0 0; color: #0f172a; font-size: 1rem; font-weight: 900; line-height: 1; }
+.school-card-stats .is-live dd { color: #059669; }
+.school-card-stats .is-alert dd { color: #e11d48; }
+
+.school-card-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: auto; padding-top: .25rem; }
+.school-card-action {
+    flex: 1 1 auto;
+    min-height: 2.4rem;
+    padding: .5rem .75rem;
+    border: 1px solid var(--so-line);
+    border-radius: .7rem;
+    background: #fff;
+    color: #334155;
+    font-size: .74rem;
+    font-weight: 800;
+    transition: .16s ease;
+}
+.school-card-action:hover { border-color: #94a3b8; background: #f8fafc; }
+.school-card-action.is-primary { flex-basis: 100%; border-color: transparent; background: linear-gradient(135deg, #0f172a, #164e63); color: #fff; }
+.school-card-action.is-primary:hover { filter: brightness(1.12); }
+.school-card-action.is-urgent { border-color: #fecdd3; background: #fff1f2; color: #9f1239; }
+.school-card-action.is-urgent:hover { background: #ffe4e6; }
+.school-card-action:focus-visible { outline: 3px solid rgba(99, 102, 241, .28); outline-offset: 2px; }
+
+.schools-overview-add {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    margin-top: 1rem;
+    padding: 1rem 1.15rem;
+    border: 1px dashed #cbd5e1;
+    border-radius: 1.15rem;
+    background: #f8fafc;
+    transition: .18s ease;
+}
+.schools-overview-add:hover { border-color: #6366f1; background: #eef2ff; }
+.schools-overview-add-icon {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: .75rem;
+    background: #4f46e5;
+    color: #fff;
+    font-size: 1.25rem;
+    font-weight: 900;
+}
+.schools-overview-add strong { display: block; color: #0f172a; font-size: .85rem; font-weight: 900; }
+.schools-overview-add small { display: block; margin-top: .15rem; color: var(--so-muted); font-size: .73rem; font-weight: 600; }
+
+@media (max-width: 640px) {
+    .schools-overview-hero { padding: 1.25rem; }
+    .schools-overview-metrics { width: 100%; }
+    .schools-overview-metrics > div { flex: 1 1 auto; min-width: 0; }
+}
+</style>
+{% endblock %}

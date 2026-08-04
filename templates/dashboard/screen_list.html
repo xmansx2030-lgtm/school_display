@@ -98,7 +98,7 @@
                 </div>
                 <div class="min-w-0">
                   <strong>{{ screen.name }}</strong>
-                  <span>{% if screen.is_active %}فعالة{% else %}متوقفة{% endif %}{% if screen.dashboard_has_customization %} • تخصيص مستقل{% endif %}</span>
+                  <span>{% if screen.is_active %}فعالة{% else %}متوقفة{% endif %} • {% if screen.dashboard_follows_school_display %}تتبع إعداد جميع الشاشات{% else %}تخصيص مستقل{% endif %}</span>
                 </div>
               </div>
 
@@ -158,17 +158,26 @@
                 <span>تخصيص الشاشة</span>
               </a>
 
+              <form method="post" action="{% url 'dashboard:screen_refresh_now' screen.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="screen-action-btn" title="سحب أحدث جدول ومحتوى دون إعادة تحميل الصفحة">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0114-7M19 5a9 9 0 01-14 7"/></svg>
+                  <span>تحديث البيانات</span>
+                </button>
+              </form>
+
               <form method="post" action="{% url 'dashboard:screen_reload_now' screen.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                <button type="submit" class="screen-action-btn" title="إعادة تحميل كامل للشاشة">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0114-7M19 5a9 9 0 01-14 7"/></svg>
-                  <span>تحديث</span>
+                <button type="submit" class="screen-action-btn" title="إعادة تحميل كاملة للصفحة على التلفاز">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4V1L8 5l4 4V6a6 6 0 11-6 6H4a8 8 0 108-8z"/></svg>
+                  <span>إعادة تحميل</span>
                 </button>
               </form>
 
               {% if screen.dashboard_bound_device %}
-                <form method="post" action="{% url 'dashboard:screen_unbind_device' screen.pk %}" onsubmit="return confirm('سيتم فصل الشاشة من الجهاز الحالي. هل أنت متأكد؟');">
+                <form method="post" action="{% url 'dashboard:screen_unbind_device' screen.pk %}" data-confirm="سيتم فصل الشاشة من الجهاز الحالي. هل أنت متأكد؟">
                   {% csrf_token %}
                   <button type="submit" class="screen-action-btn danger-soft" title="فك ارتباط الجهاز">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
@@ -177,7 +186,7 @@
                 </form>
               {% endif %}
 
-              <form method="post" action="{% url 'dashboard:screen_delete' screen.pk %}" onsubmit="return confirm('هل أنت متأكد من حذف الشاشة؟ سيتوقف الرابط عن العمل.');">
+              <form method="post" action="{% url 'dashboard:screen_delete' screen.pk %}" data-confirm="هل أنت متأكد من حذف الشاشة؟ سيتوقف الرابط عن العمل.">
                 {% csrf_token %}
                 <button type="submit" class="screen-action-icon danger" title="حذف الشاشة">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -258,7 +267,7 @@
   </div>
 </dialog>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
   const pairingGuide = document.getElementById('pairingGuideDialog');
   const pairingGuideStorageKey = 'screenPairingGuideSeen';
