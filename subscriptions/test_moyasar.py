@@ -127,6 +127,53 @@ class MoyasarCheckoutTests(TestCase):
         self.assertNotContains(page, "sk_test_secret")
         self.assertContains(page, "بيئة اختبار")
 
+    def test_checkout_config_never_offers_a_wallet_without_its_config(self):
+        """Apple Pay in ``methods`` without an ``apple_pay`` block makes Moyasar
+        reject the whole form with "Form configuration issue!". The app ships no
+        wallet configuration, so the rendered config must not request one."""
+        self.client.force_login(self.manager)
+
+        start = self.client.post(
+            reverse("subscriptions:moyasar_start"),
+            {"request_type": "new", "plan_id": self.plan.pk},
+        )
+        checkout = MoyasarCheckout.objects.get()
+        self.assertRedirects(
+            start,
+            reverse("subscriptions:moyasar_checkout", kwargs={"reference": checkout.merchant_reference}),
+        )
+
+        page = self.client.get(start.url)
+        self.assertEqual(page.status_code, 200)
+
+        raw = page.content.decode()
+        marker = raw.index('id="moyasar-config"')
+        blob = raw[raw.index(">", marker) + 1 : raw.index("</script>", marker)]
+        config = json.loads(blob)
+
+        self.assertNotIn("applepay", config["methods"])
+        self.assertEqual(config["methods"], ["creditcard", "stcpay"])
+        # Every field the form validates as always-required must be present.
+        for required in ("amount", "currency", "description", "publishable_api_key", "callback_url"):
+            self.assertTrue(config.get(required), f"missing required config: {required}")
+        self.assertTrue(config["callback_url"].startswith("https://"))
+
+    def test_wallet_methods_are_treated_as_needing_config(self):
+        # The guard's contract: applepay is a wallet method (needs an extra
+        # config block) while creditcard and stcpay are not. Resolving any input
+        # that names applepay must drop it, never the whole form.
+        from config import settings as settings_module
+
+        self.assertIn("applepay", settings_module._MOYASAR_WALLET_METHODS)
+        resolved = [
+            method
+            for method in ("creditcard", "applepay", "stcpay")
+            if method in settings_module._MOYASAR_SUPPORTED_METHODS
+            and method not in settings_module._MOYASAR_WALLET_METHODS
+        ] or ["creditcard"]
+        self.assertEqual(resolved, ["creditcard", "stcpay"])
+        self.assertNotIn("applepay", settings_module.MOYASAR_PAYMENT_METHODS)
+
     def test_start_is_blocked_until_the_email_is_verified(self):
         """An unverified address means the invoice may never reach the buyer."""
         self.manager_profile.email_verified_at = None

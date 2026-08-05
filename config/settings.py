@@ -1005,13 +1005,19 @@ MOYASAR_HTTP_TIMEOUT_SECONDS = env_int_clamped(
     60,
 )
 
-# Wallets convert far better than raw card entry in the Saudi market.
 # Every value must be a method Moyasar accepts for a hosted payment form.
 _MOYASAR_SUPPORTED_METHODS = {"creditcard", "applepay", "stcpay"}
+# Wallet methods make Moyasar validate an extra config block (apple_pay:
+# {country,label,validateMerchantURL,…}) and reject the ENTIRE form with
+# "Form configuration issue!" when it is missing. The app has no such block —
+# Apple Pay also needs Apple merchant-ID domain verification we do not run — so
+# any wallet method is dropped until its configuration actually exists, rather
+# than silently breaking checkout. creditcard and stcpay need no extra config.
+_MOYASAR_WALLET_METHODS = {"applepay"}
 MOYASAR_PAYMENT_METHODS = [
     method
-    for method in env_list("MOYASAR_PAYMENT_METHODS", "creditcard,applepay,stcpay")
-    if method in _MOYASAR_SUPPORTED_METHODS
+    for method in env_list("MOYASAR_PAYMENT_METHODS", "creditcard,stcpay")
+    if method in _MOYASAR_SUPPORTED_METHODS and method not in _MOYASAR_WALLET_METHODS
 ] or ["creditcard"]
 MOYASAR_SUPPORTED_NETWORKS = env_list("MOYASAR_SUPPORTED_NETWORKS", "mada,visa,mastercard")
 
