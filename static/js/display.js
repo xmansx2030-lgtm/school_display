@@ -3092,23 +3092,38 @@
     return "rgba(" + [rgb.r, rgb.g, rgb.b, clamp01(a)].join(",") + ")";
   }
 
+  /**
+   * The school's chosen accent colour.
+   *
+   * These four properties MUST be written to <body>, not to <html>. app.css
+   * declares them on `body.display-board` — unconditionally for the defaults and
+   * again for every named theme — and a declaration on an element always beats
+   * an inherited one. Written to <html> they were shadowed by body's own values
+   * and the chosen colour reached nothing on the board. An inline style on body
+   * outranks those rules, so the colour wins for the whole subtree.
+   */
+  function accentColorTarget() {
+    return document.body || root;
+  }
+
   function applyAccentColor(hex) {
+    const target = accentColorTarget();
     const rgb = hexToRgb(hex);
     if (!rgb) {
       // رجوع للألوان الافتراضية من app.css
-      root.style.removeProperty("--accent-main");
-      root.style.removeProperty("--accent-sub");
-      root.style.removeProperty("--mesh1");
-      root.style.removeProperty("--mesh2");
+      target.style.removeProperty("--accent-main");
+      target.style.removeProperty("--accent-sub");
+      target.style.removeProperty("--mesh1");
+      target.style.removeProperty("--mesh2");
       return;
     }
 
     const sub = rgbToHex(mixRgb(rgb, { r: 255, g: 255, b: 255 }, 0.30));
-    root.style.setProperty("--accent-main", rgbToHex(rgb));
-    root.style.setProperty("--accent-sub", sub);
+    target.style.setProperty("--accent-main", rgbToHex(rgb));
+    target.style.setProperty("--accent-sub", sub);
     // Mesh: لمسة خفيفة من نفس اللون
-    root.style.setProperty("--mesh1", rgba(rgb, 0.18));
-    root.style.setProperty("--mesh2", rgba(rgb, 0.12));
+    target.style.setProperty("--mesh1", rgba(rgb, 0.18));
+    target.style.setProperty("--mesh2", rgba(rgb, 0.12));
   }
 
   const last = {

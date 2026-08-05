@@ -187,3 +187,79 @@ class DisplayBoardStylesheetTests(SimpleTestCase):
         """The occasion loops must have stayed behind in the template."""
         self.assertNotIn("{%", self.css)
         self.assertNotIn("{{", self.css)
+
+    def test_board_tokens_are_scoped_where_the_theme_variables_live(self):
+        """Derived board tokens must not be computed on :root.
+
+        app.css declares --accent-main/--accent-sub/--mesh1/--mesh2 on
+        `body.display-board`. A `:root` block reading them resolves to the indigo
+        fallback instead — and then inherits that down to the whole board, so the
+        2026 layer stayed indigo whatever theme the school picked.
+        """
+        stripped = re.sub(r"/\*.*?\*/", "", self.css, flags=re.S)
+        theme_vars = r"--(?:accent-main|accent-sub|mesh1|mesh2|glass-surface|glass-border|bg-deep)"
+
+        offenders = []
+        for match in re.finditer(r"(^|\n)([ \t]*):root\s*\{(.*?)\n\2\}", stripped, re.S):
+            if re.search(rf"var\(\s*{theme_vars}", match.group(3)):
+                offenders.append(stripped[: match.start()].count("\n") + 2)
+
+        self.assertEqual(
+            offenders,
+            [],
+            f":root blocks at lines {offenders} read variables declared on body.display-board",
+        )
+
+    def test_board_tokens_are_declared_and_balanced(self):
+        self.assertIn("--board-tint-1", self.css)
+        self.assertIn("--board-accent-border", self.css)
+        stripped = re.sub(r"/\*.*?\*/", "", self.css, flags=re.S)
+        self.assertEqual(stripped.count("{"), stripped.count("}"))
+
+    def test_every_palette_class_in_the_markup_is_themed_or_semantic(self):
+        """A theme choice must reach the whole board.
+
+        Fixed Tailwind palette classes are allowed only where the colour carries
+        meaning — the emergency banner has to read as an alarm no matter what
+        palette the school picked.
+        """
+        markup = (
+            Path(settings.BASE_DIR) / "templates" / "website" / "display.html"
+        ).read_text(encoding="utf-8").split("<body", 1)[1]
+        tailwind = (
+            Path(settings.BASE_DIR) / "static" / "css" / "tailwind.generated.css"
+        ).read_text(encoding="utf-8")
+
+        palette = r"(?:emerald|orange|amber|purple|red|rose|cyan|sky|violet|teal|lime|yellow|green|blue)"
+        exempt = {
+            # Emergency banner: red has to read as an alarm, whatever the palette.
+            "bg-red-500", "bg-red-500/10", "text-red-200",
+            # Already neutralised by `aside .glass-panel > div:first-child`, which
+            # gives both side-panel headers the same white wash at a higher
+            # specificity. An override keyed on the utility could never win.
+            "bg-orange-500/5",
+        }
+
+        def defined_in(sheet, utility):
+            """Exact class match — `bg-orange-500/5` must not match `/50`."""
+            escaped = re.escape(utility.replace("/", r"\/"))
+            return re.search(rf"\.{escaped}(?![\w\\/-])", sheet) is not None
+
+        unthemed = []
+        for utility in sorted(set(re.findall(
+            rf"\b(?:bg|text|border|from|to|via)-{palette}-\d{{2,3}}(?:/\d{{1,3}})?", markup
+        ))):
+            if utility in exempt:
+                continue
+            # A class Tailwind never generated paints nothing, so it cannot
+            # override the theme either.
+            if not defined_in(tailwind, utility):
+                continue
+            if not defined_in(self.css, utility):
+                unthemed.append(utility)
+
+        self.assertEqual(
+            unthemed,
+            [],
+            f"these classes render a fixed colour the theme cannot reach: {unthemed}",
+        )
