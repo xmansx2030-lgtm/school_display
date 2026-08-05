@@ -1,6 +1,8 @@
 # dashboard/middleware.py
 from __future__ import annotations
 
+import logging
+
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import resolve, Resolver404
@@ -10,6 +12,9 @@ from django.conf import settings
 from subscriptions.utils import school_has_active_subscription
 from core.two_factor import get_enabled_config, two_factor_required_for
 from .access import is_system_staff_user
+
+
+logger = logging.getLogger(__name__)
 
 
 class TwoFactorRequiredMiddleware:
@@ -48,17 +53,37 @@ class SubscriptionRequiredMiddleware:
     يتحقق أن المدرسة النشطة (request.school) لديها اشتراك فعال قبل دخول /dashboard/
 
     - يعمل فقط على /dashboard/
-    - يستثني: login/logout/demo_login/my_subscription/switch_school
-    - لا يطبق على superuser ولا على غير المسجلين
+    - لا يطبق على superuser ولا على موظفي المنصة ولا على غير المسجلين
     - يمنع تكرار رسالة الخطأ في نفس الجلسة
+
+    البوابة تحجب *ميزات المنتج* فقط. أي مسار يحتاجه العميل ليعالج انقطاع
+    اشتراكه — الدفع، الفواتير، الدعم، التنقل بين مدارسه، وأمان حسابه — يبقى
+    مفتوحًا: حجبه يعاقب العميل في اللحظة التي يحتاج فيها الوصول أكثر من غيرها،
+    ولا يضيف أي ضغط تحصيلي مفيد.
     """
 
     EXEMPT_VIEWS = {
+        # الدخول والخروج
         "dashboard:login",
         "dashboard:logout",
         "dashboard:demo_login",
+        # الدفع والفوترة: الطريق الوحيد لرفع الحجب
         "dashboard:my_subscription",
+        "dashboard:subscription_invoice_view",
+        "dashboard:add_school",
+        # التنقل بين المدارس: مدرسة متعثرة يجب ألا تحبس بقية مدارس المدير
         "dashboard:switch_school",
+        "dashboard:select_school",
+        "dashboard:schools_overview",
+        # الدعم: أكثر ما يحتاجه العميل عند تعثر الاشتراك
+        "dashboard:customer_support_tickets",
+        "dashboard:customer_support_ticket_create",
+        "dashboard:customer_support_ticket_detail",
+        # أمان الحساب
+        "dashboard:change_password",
+        "dashboard:two_factor_setup",
+        "dashboard:two_factor_disable",
+        "dashboard:two_factor_verify",
     }
 
     def __init__(self, get_response):
@@ -70,10 +95,21 @@ class SubscriptionRequiredMiddleware:
             return response
         return self.get_response(request)
 
+    @staticmethod
+    def _user_has_other_schools(user, school) -> bool:
+        try:
+            return user.profile.schools.exclude(pk=school.pk).exists()
+        except Exception:
+            return False
+
     def process_request(self, request):
-        if getattr(settings, "DEBUG", False) or getattr(settings, "MIDDLEWARE_DEBUG", False):
-            print(
-                f"[DEBUG:middleware] user={getattr(request, 'user', None)} | path={getattr(request, 'path', None)} | is_authenticated={getattr(request.user, 'is_authenticated', None)} | is_superuser={getattr(request.user, 'is_superuser', None)}"
+        if getattr(settings, "MIDDLEWARE_DEBUG", False):
+            logger.debug(
+                "subscription_gate user=%s path=%s authenticated=%s superuser=%s",
+                getattr(request, "user", None),
+                getattr(request, "path", None),
+                getattr(request.user, "is_authenticated", None),
+                getattr(request.user, "is_superuser", None),
             )
         path = request.path or ""
 
@@ -117,7 +153,12 @@ class SubscriptionRequiredMiddleware:
             return None
 
         if not request.session.get("sub_blocked_once"):
-            messages.error(request, "⚠️ اشتراك مدرستكم منتهي أو غير نشط. الرجاء مراجعة صفحة الاشتراك.")
+            # مدير متعدد المدارس يجب أن يعرف أن الحجب يخص هذه المدرسة وحدها،
+            # وأن أمامه طريقًا واضحًا لبقية مدارسه.
+            notice = f"⚠️ اشتراك «{school.name}» منتهي أو غير نشط. الرجاء مراجعة صفحة الاشتراك."
+            if self._user_has_other_schools(request.user, school):
+                notice += " يمكنك الانتقال إلى بقية مدارسك من صفحة «كل مدارسي»."
+            messages.error(request, notice)
             request.session["sub_blocked_once"] = True
 
         return redirect("dashboard:my_subscription")

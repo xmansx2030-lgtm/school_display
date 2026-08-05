@@ -137,6 +137,32 @@ DISPLAY_WS_ENABLED = env_bool("DISPLAY_WS_ENABLED", "True")
 # Allow multiple devices per screen token (HTTP + WS must respect this)
 DISPLAY_ALLOW_MULTI_DEVICE = env_bool("DISPLAY_ALLOW_MULTI_DEVICE", "False")
 
+# =========================
+# Display bundle delivery
+# =========================
+# The minified bundle is ~54% smaller to parse, which matters most on weak TV
+# SoCs. Set to False to serve the readable bundle when debugging a screen.
+DISPLAY_USE_MINIFIED_JS = env_bool("DISPLAY_USE_MINIFIED_JS", "True")
+
+
+# =========================
+# Screen add-on pricing (SAR)
+# =========================
+# Price per extra screen for one month. Longer cycles multiply this figure, so
+# a pricing change is a config change rather than a code deploy.
+SCREEN_ADDON_MONTHLY_PRICE = env_int_clamped("SCREEN_ADDON_MONTHLY_PRICE", 60, 0, 100000)
+# Semiannual bills 6 months; annual bills 10 (two months free).
+SCREEN_ADDON_SEMIANNUAL_MULTIPLIER = env_int_clamped("SCREEN_ADDON_SEMIANNUAL_MULTIPLIER", 6, 1, 12)
+SCREEN_ADDON_ANNUAL_MULTIPLIER = env_int_clamped("SCREEN_ADDON_ANNUAL_MULTIPLIER", 10, 1, 24)
+
+# Commercial gate: screens stop serving content once a school's subscription
+# lapses. Disable only for diagnostics — leaving it off gives away the product.
+DISPLAY_REQUIRE_ACTIVE_SUBSCRIPTION = env_bool("DISPLAY_REQUIRE_ACTIVE_SUBSCRIPTION", "True")
+
+# How long a subscription access answer stays cached (seconds). Subscription
+# changes invalidate the entry explicitly, so this is only a safety ceiling.
+SUBSCRIPTION_ACCESS_CACHE_TTL = env_int_clamped("SUBSCRIPTION_ACCESS_CACHE_TTL", 300, 30, 3600)
+
 # Mobile-first TV pairing. Codes are one-time and deliberately short-lived.
 DISPLAY_PAIRING_TTL_SEC = env_int_clamped("DISPLAY_PAIRING_TTL_SEC", 600, 180, 1800)
 DISPLAY_PAIRING_START_LIMIT = env_int_clamped("DISPLAY_PAIRING_START_LIMIT", 20, 3, 100)
@@ -389,6 +415,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Thousands separators for the money figures in the admin console.
+    "django.contrib.humanize",
 
     # Media
     "cloudinary_storage",
@@ -454,10 +482,12 @@ MIDDLEWARE = [
     "core.middleware.SecurityHeadersMiddleware",
 ]
 
-# CSP starts in report-only mode while legacy inline handlers are migrated.
-# Do not enforce it in production until the CSP report stream is clean.
+# CSP is enforced: every inline event handler has been migrated to delegated
+# listeners in static/js/csp-actions.js, and the remaining inline <script>
+# blocks carry nonce="{{ csp_nonce }}". Flip REPORT_ONLY back to True if a
+# violation surfaces in production; reports keep flowing either way.
 CONTENT_SECURITY_POLICY_ENABLED = env_bool("CONTENT_SECURITY_POLICY_ENABLED", "True")
-CONTENT_SECURITY_POLICY_REPORT_ONLY = env_bool("CONTENT_SECURITY_POLICY_REPORT_ONLY", "True")
+CONTENT_SECURITY_POLICY_REPORT_ONLY = env_bool("CONTENT_SECURITY_POLICY_REPORT_ONLY", "False")
 CONTENT_SECURITY_POLICY_REPORT_URI = os.getenv("CONTENT_SECURITY_POLICY_REPORT_URI", "/csp-report/").strip()
 CSP_REPORT_LOG_LIMIT_PER_MINUTE = env_int_clamped("CSP_REPORT_LOG_LIMIT_PER_MINUTE", 5, 1, 60)
 
@@ -484,7 +514,9 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "core.context_processors.csp_nonce",
                 "dashboard.context_processors.admin_support_ticket_badges",
+                "dashboard.context_processors.school_whatsapp_contact",
             ],
         },
     },
@@ -869,6 +901,15 @@ LOGIN_REDIRECT_URL = "dashboard:index"
 LOGOUT_REDIRECT_URL = "dashboard:login"
 PASSWORD_RESET_TIMEOUT = env_int_clamped("PASSWORD_RESET_TIMEOUT", 3600, 300, 86400)
 
+# How long a signed email-verification link stays valid (seconds). Generous by
+# design: a school administrator may not open the mailbox the same day.
+EMAIL_VERIFICATION_TIMEOUT = env_int_clamped(
+    "EMAIL_VERIFICATION_TIMEOUT",
+    7 * 24 * 3600,
+    3600,
+    30 * 24 * 3600,
+)
+
 
 # =========================
 # Site base URL
@@ -879,7 +920,15 @@ SITE_BASE_URL = os.getenv("SITE_BASE_URL", "https://school-display.com")
 # =========================
 # Tamara checkout
 # =========================
-TAMARA_ENABLED = env_bool("TAMARA_ENABLED", "False")
+# تمارا مخفية مؤقتًا من المنصة. الكود والاختبارات والبيانات المحفوظة تبقى كما
+# هي دون حذف؛ هذا المفتاح وحده يخفي كل واجهاتها ويوقف عاملها ومساراتها.
+#
+# لإعادة تشغيلها لاحقًا:
+#   1) TAMARA_TEMPORARILY_HIDDEN=False
+#   2) TAMARA_ENABLED=True مع بقية مفاتيح تمارا
+#   3) أعد خدمة tamara-reconciliation-worker في compose.production.yaml
+TAMARA_TEMPORARILY_HIDDEN = env_bool("TAMARA_TEMPORARILY_HIDDEN", "True")
+TAMARA_ENABLED = env_bool("TAMARA_ENABLED", "False") and not TAMARA_TEMPORARILY_HIDDEN
 TAMARA_API_BASE_URL = os.getenv(
     "TAMARA_API_BASE_URL",
     "https://api-sandbox.tamara.co",
@@ -954,6 +1003,42 @@ MOYASAR_HTTP_TIMEOUT_SECONDS = env_int_clamped(
     15,
     3,
     60,
+)
+
+# Wallets convert far better than raw card entry in the Saudi market.
+# Every value must be a method Moyasar accepts for a hosted payment form.
+_MOYASAR_SUPPORTED_METHODS = {"creditcard", "applepay", "stcpay"}
+MOYASAR_PAYMENT_METHODS = [
+    method
+    for method in env_list("MOYASAR_PAYMENT_METHODS", "creditcard,applepay,stcpay")
+    if method in _MOYASAR_SUPPORTED_METHODS
+] or ["creditcard"]
+MOYASAR_SUPPORTED_NETWORKS = env_list("MOYASAR_SUPPORTED_NETWORKS", "mada,visa,mastercard")
+
+# Reconciliation closes the "customer paid but the callback never arrived" gap.
+MOYASAR_RECONCILIATION_INTERVAL_SECONDS = env_int_clamped(
+    "MOYASAR_RECONCILIATION_INTERVAL_SECONDS",
+    60,
+    5,
+    300,
+)
+MOYASAR_RECONCILIATION_BATCH_SIZE = env_int_clamped(
+    "MOYASAR_RECONCILIATION_BATCH_SIZE",
+    20,
+    1,
+    100,
+)
+MOYASAR_RECONCILIATION_LOOKBACK_HOURS = env_int_clamped(
+    "MOYASAR_RECONCILIATION_LOOKBACK_HOURS",
+    72,
+    1,
+    720,
+)
+MOYASAR_RECONCILIATION_MAX_PAGES = env_int_clamped(
+    "MOYASAR_RECONCILIATION_MAX_PAGES",
+    5,
+    1,
+    50,
 )
 
 if MOYASAR_ENABLED and not DEBUG and not RUNNING_TESTS:

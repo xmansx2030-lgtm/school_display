@@ -6,6 +6,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import jwt
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import TestCase, override_settings
@@ -13,6 +14,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.models import School, SubscriptionPlan, UserProfile
+from schedule.models import SchoolSettings
+from subscriptions.tamara_processing import (
+    reconcile_pending_checkouts as tamara_reconcile,
+)
 from subscriptions.models import (
     SchoolSubscription,
     SubscriptionInvoice,
@@ -112,6 +117,34 @@ class SubscriptionBusinessRulesTests(TestCase):
         )
 
         self.assertEqual(school_effective_max_screens(self.school.pk, on_date=self.today), 3)
+
+    def test_auto_screen_addon_uses_flat_commercial_price_per_screen(self):
+        monthly = SubscriptionScreenAddon.objects.create(
+            subscription=self.subscription,
+            screens_added=2,
+            pricing_strategy="auto_bundle",
+            pricing_cycle="monthly",
+            starts_at=self.today,
+        )
+        semiannual = SubscriptionScreenAddon.objects.create(
+            subscription=self.subscription,
+            screens_added=2,
+            pricing_strategy="auto_bundle",
+            pricing_cycle="semiannual",
+            starts_at=self.today,
+        )
+        annual = SubscriptionScreenAddon.objects.create(
+            subscription=self.subscription,
+            screens_added=2,
+            pricing_strategy="auto_bundle",
+            pricing_cycle="annual",
+            starts_at=self.today,
+        )
+
+        self.assertEqual(monthly.bundle_price, Decimal("120.00"))
+        self.assertEqual(semiannual.bundle_price, Decimal("720.00"))
+        self.assertEqual(annual.bundle_price, Decimal("1200.00"))
+        self.assertEqual(annual.total_price, Decimal("1200.00"))
 
     def test_payment_operation_creates_an_immutable_invoice_snapshot(self):
         operation = SubscriptionPaymentOperation.objects.create(
@@ -213,6 +246,17 @@ class SubscriptionEmailNotificationTests(TestCase):
         )
         profile = UserProfile.objects.create(user=self.user, active_school=self.school)
         profile.schools.add(self.school)
+        inactive_user = get_user_model().objects.create_user(
+            username="inactive_email_manager",
+            email="inactive-manager@example.com",
+            password="StrongPass123!",
+            is_active=False,
+        )
+        inactive_profile = UserProfile.objects.create(
+            user=inactive_user,
+            active_school=self.school,
+        )
+        inactive_profile.schools.add(self.school)
 
     def test_new_invoice_is_queued_and_delivered_with_attachment(self):
         operation = SubscriptionPaymentOperation.objects.create(
@@ -243,6 +287,31 @@ class SubscriptionEmailNotificationTests(TestCase):
         )
         notification.refresh_from_db()
         self.assertEqual(notification.status, SubscriptionEmailNotification.Status.SENT)
+
+    def test_queued_email_is_skipped_if_account_becomes_inactive(self):
+        operation = SubscriptionPaymentOperation.objects.create(
+            school=self.school,
+            subscription=self.subscription,
+            plan=self.plan,
+            amount=Decimal("500.00"),
+            method="bank_transfer",
+        )
+        notification = SubscriptionEmailNotification.objects.get(
+            invoice=operation.invoice,
+        )
+        self.user.is_active = False
+        self.user.save(update_fields=("is_active",))
+
+        result = process_pending_email_notifications()
+
+        notification.refresh_from_db()
+        self.assertEqual(result.sent, 0)
+        self.assertEqual(result.skipped, 1)
+        self.assertEqual(
+            notification.status,
+            SubscriptionEmailNotification.Status.SKIPPED,
+        )
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_worker_reconciles_a_paid_operation_created_without_an_invoice(self):
         operations = SubscriptionPaymentOperation.objects.bulk_create(
@@ -540,3 +609,88 @@ class TamaraCheckoutTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 503)
+
+
+class TamaraIsHiddenTests(TestCase):
+    """Tamara is hidden on purpose. These tests fail loudly if it leaks back.
+
+    The provider's code, data and test-suite stay in the tree untouched, so the
+    only thing that should ever bring it back is lifting the hide flag
+    deliberately — not a stray env var and not a template edit.
+    """
+
+    def setUp(self):
+        self.school = School.objects.create(name="مدرسة الإخفاء", slug="hidden-school")
+        self.plan = SubscriptionPlan.objects.create(
+            code="hidden-plan",
+            name="باقة",
+            price=Decimal("500.00"),
+            duration_days=365,
+            max_screens=2,
+        )
+        self.manager = get_user_model().objects.create_user(
+            username="hidden_manager", password="StrongPass123!", email="h@example.com"
+        )
+        profile = UserProfile.objects.create(user=self.manager, active_school=self.school)
+        profile.schools.add(self.school)
+        SchoolSettings.objects.create(school=self.school, name=self.school.name)
+        SchoolSubscription.objects.create(
+            school=self.school,
+            plan=self.plan,
+            starts_at=timezone.localdate(),
+            status="active",
+        )
+
+    @override_settings(TAMARA_TEMPORARILY_HIDDEN=True)
+    def test_the_hide_flag_overrides_an_enabled_env_var(self):
+        # settings.py resolves TAMARA_ENABLED at import time, so assert on the
+        # rule itself rather than on the already-computed value.
+        self.assertTrue(settings.TAMARA_TEMPORARILY_HIDDEN)
+        self.assertFalse(settings.TAMARA_ENABLED)
+
+    def test_subscription_page_offers_no_tamara_option(self):
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("dashboard:my_subscription"))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["tamara_available"])
+        self.assertNotContains(response, "تمارا")
+        self.assertNotContains(response, "tamara-checkout.css")
+
+    def test_public_pricing_page_offers_no_tamara_option(self):
+        response = self.client.get(reverse("website:subscriptions"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "تمارا")
+
+    def test_starting_a_tamara_checkout_is_refused(self):
+        self.client.force_login(self.manager)
+        response = self.client.post(
+            reverse("subscriptions:tamara_start"),
+            {"request_type": "new", "plan_id": self.plan.pk},
+        )
+        self.assertRedirects(response, reverse("dashboard:my_subscription"))
+        self.assertFalse(TamaraCheckout.objects.exists())
+
+    def test_tamara_webhook_is_closed(self):
+        response = self.client.post(
+            reverse("subscriptions:tamara_webhook"),
+            data="{}",
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 503)
+
+    def test_tamara_reconciliation_worker_does_nothing(self):
+        result = tamara_reconcile()
+        self.assertEqual((result.checked, result.activated, result.captured), (0, 0, 0))
+
+    def test_card_payment_is_still_offered(self):
+        """Hiding one provider must not take the whole checkout down with it."""
+        self.client.force_login(self.manager)
+        with override_settings(
+            MOYASAR_ENABLED=True,
+            MOYASAR_LIVE_MODE=True,
+            MOYASAR_PUBLISHABLE_KEY="pk_live_x",
+            MOYASAR_SECRET_KEY="sk_live_x",
+        ):
+            response = self.client.get(reverse("dashboard:my_subscription"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["moyasar_available"])

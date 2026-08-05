@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from datetime import time, timedelta
+import re
+from pathlib import Path
+from django.conf import settings
+from datetime import date, time, timedelta
 from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -11,7 +14,7 @@ from django.core.cache import cache
 from django.core import mail
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.test.client import RequestFactory
 from django.urls import resolve, reverse
 from django.utils import timezone
@@ -26,6 +29,9 @@ from core.models import (
     UserProfile,
     UserTwoFactorAuth,
 )
+from core import occasions
+from dashboard import views
+from notices.models import Announcement
 from core.system_access import ROLE_FINANCE, ROLE_SUPPORT, role_permissions
 from core.display_presence import latest_display_presence, touch_display_presence
 from display.services.device_binding import bind_device_atomic
@@ -41,7 +47,12 @@ from core.two_factor import (
 from dashboard.access import get_active_school_or_redirect
 from dashboard.decorators import manager_required, superuser_required, system_staff_required
 from dashboard.forms import SubscriptionNewRequestForm
-from subscriptions.models import SchoolSubscription, SubscriptionRequest, TamaraCheckout
+from subscriptions.models import (
+    SchoolSubscription,
+    SubscriptionRequest,
+    SubscriptionScreenAddon,
+    TamaraCheckout,
+)
 from schedule.models import ClassLesson, DaySchedule, Period, SchoolClass, SchoolSettings, Subject, Teacher
 from notices.models import Announcement, EmergencyAlert
 from dashboard.excel_import import apply_import, build_template_bytes, parse_workbook
@@ -186,6 +197,22 @@ class PasswordResetTests(TestCase):
         response = self.client.post(
             reverse("dashboard:password_reset"),
             {"email": "unknown@example.com"},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:password_reset_done"),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_inactive_account_does_not_receive_password_reset_email(self):
+        self.user.is_active = False
+        self.user.save(update_fields=("is_active",))
+
+        response = self.client.post(
+            reverse("dashboard:password_reset"),
+            {"email": "reset@example.com"},
         )
 
         self.assertRedirects(
@@ -438,8 +465,8 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(response, 'id="plan-filter-screens"')
         self.assertContains(response, 'data-payment-hub="new"')
         self.assertContains(response, 'data-payment-hub="renewal"')
-        self.assertContains(response, 'data-payment-choice="new"', count=3)
-        self.assertContains(response, 'data-payment-choice="renewal"', count=3)
+        self.assertContains(response, 'data-payment-choice="new"', count=2)
+        self.assertContains(response, 'data-payment-choice="renewal"', count=2)
         self.assertContains(response, "خطوة واحدة واضحة")
         self.assertContains(response, "ربط شاشة الآن")
         self.assertContains(response, reverse("dashboard:screen_list"))
@@ -448,6 +475,20 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(response, "الخيار المناسب لتشغيل شاشات المدرسة")
         self.assertContains(response, "الأكثر طلباً")
         self.assertNotContains(response, "المدارس:")
+
+    def test_inactive_legacy_plan_keeps_access_but_requires_new_plan_for_renewal(self):
+        subscription = SchoolSubscription.objects.select_related("plan").get(school=self.school)
+        subscription.plan.is_active = False
+        subscription.plan.save(update_fields=["is_active"])
+
+        response = self.client.get(reverse("dashboard:my_subscription"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["active_request_tab"], "new")
+        self.assertTrue(response.context["renewal_requires_new_plan"])
+        self.assertContains(response, "يبقى اشتراكك الحالي فعالًا حتى نهايته")
+        self.assertContains(response, "اختيار باقة التجديد")
+        self.assertNotContains(response, 'data-payment-hub="renewal"')
 
     def test_display_customization_lives_with_screens_not_school_settings(self):
         screen = DisplayScreen.objects.create(
@@ -507,12 +548,26 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(response, "مراجعة قبل الانتقال")
         self.assertContains(response, "لن يتم الخصم من هذه الصفحة")
         self.assertContains(response, "data-tamara-form")
+        self.assertContains(response, "document.body.appendChild(tamaraModal)")
+        self.assertContains(response, "body.dashboard-shell > .tamara-modal")
+        self.assertContains(response, "position: fixed !important")
+        self.assertContains(response, "body.dashboard-shell > .tamara-modal.hidden")
+        self.assertContains(response, "display: none !important")
+        self.assertContains(response, "max-height: calc(100dvh - 2rem)")
+        self.assertContains(response, 'class="tamara-modal-body"')
+        self.assertContains(response, 'class="tamara-modal-actions"')
+        self.assertContains(response, "if (tamaraModalBody) tamaraModalBody.scrollTop = 0")
         self.assertContains(response, "تعذر الاتصال بتمارا حاليًا.")
         self.assertContains(response, "إعادة المحاولة")
         self.assertContains(response, "التحويل البنكي بدلًا من ذلك")
         self.assertContains(response, 'data-tamara-history')
         self.assertContains(response, 'data-default-expanded="false"')
 
+    @override_settings(
+        TAMARA_ENABLED=True,
+        TAMARA_API_TOKEN="test-token",
+        TAMARA_API_BASE_URL="https://api-sandbox.tamara.co",
+    )
     def test_tamara_history_expands_when_payment_can_be_continued(self):
         current_plan = SchoolSubscription.objects.get(school=self.school).plan
         TamaraCheckout.objects.create(
@@ -529,6 +584,28 @@ class CustomerExperienceRegressionTests(TestCase):
 
         self.assertContains(response, 'data-default-expanded="true"')
         self.assertContains(response, "متابعة الدفع")
+
+    @override_settings(TAMARA_ENABLED=False)
+    def test_disabled_tamara_is_hidden_even_with_existing_checkout(self):
+        current_plan = SchoolSubscription.objects.get(school=self.school).plan
+        checkout_url = "https://checkout.tamara.test/disabled-session"
+        TamaraCheckout.objects.create(
+            school=self.school,
+            created_by=self.user,
+            plan=current_plan,
+            request_type="renewal",
+            amount=current_plan.price,
+            status="new",
+            checkout_url=checkout_url,
+        )
+
+        response = self.client.get(reverse("dashboard:my_subscription"))
+
+        self.assertFalse(response.context["tamara_available"])
+        self.assertNotContains(response, 'data-payment-method="tamara"')
+        self.assertNotContains(response, 'data-tamara-history')
+        self.assertNotContains(response, checkout_url)
+        self.assertNotContains(response, reverse("subscriptions:tamara_start"))
 
     def test_free_plan_needs_no_receipt_but_paid_bank_transfer_does(self):
         free_plan = SubscriptionPlan.objects.create(
@@ -941,7 +1018,6 @@ class SystemAdminExperienceTests(TestCase):
             duration_days=365,
             max_users=7,
             max_screens=2,
-            max_schools=1,
         )
         SchoolSubscription.objects.create(
             school=self.school,
@@ -1008,6 +1084,43 @@ class SystemAdminExperienceTests(TestCase):
         self.assertContains(response, "2")
         self.assertContains(response, "7")
 
+    def test_admin_plan_update_syncs_landing_and_school_manager_catalog(self):
+        response = self.client.post(
+            reverse("dashboard:system_plan_edit", args=[self.plan.pk]),
+            {
+                "name": "باقة متزامنة",
+                "description": "وصف موحد من لوحة إدارة المنصة",
+                "code": self.plan.code,
+                "price": "1777.00",
+                "duration_days": "365",
+                "max_screens": "2",
+                "card_badge_text": "الأوفر للمدارس",
+                "card_duration_text": "عام دراسي — صلاحية 12 شهرًا",
+                "card_price_caption": "ريال سعودي / عام دراسي",
+                "card_monthly_text": "سعر موحد في جميع الواجهات",
+                "card_features": "ميزة موحدة أولى\nميزة موحدة ثانية",
+                "card_screen_text": "تشغيل شاشتين",
+                "card_cta_text": "اختر الباقة المتزامنة",
+                "show_card_badge": "on",
+                "show_card_duration": "on",
+                "show_monthly_equivalent": "on",
+                "show_screen_limit": "on",
+                "sort_order": "10",
+                "is_active": "on",
+            },
+        )
+        self.assertRedirects(response, reverse("dashboard:system_plans_list"))
+
+        landing_response = self.client.get(reverse("website:home"))
+        self.client.force_login(self.manager)
+        manager_response = self.client.get(reverse("dashboard:my_subscription"))
+
+        for catalog_response in (landing_response, manager_response):
+            self.assertContains(catalog_response, "باقة متزامنة")
+            self.assertContains(catalog_response, "1777")
+            self.assertContains(catalog_response, "عام دراسي — صلاحية 12 شهرًا")
+            self.assertContains(catalog_response, "سعر موحد في جميع الواجهات")
+
 
     def test_superuser_in_support_group_keeps_plan_management_navigation(self):
         self.admin.groups.add(Group.objects.get_or_create(name="Support")[0])
@@ -1027,7 +1140,6 @@ class SystemAdminExperienceTests(TestCase):
         self.assertContains(form_response, "محتوى بطاقة الباقة")
         self.assertContains(form_response, "مزايا الباقة")
         self.assertNotContains(form_response, "الحد الأقصى للمستخدمين")
-        self.assertNotContains(form_response, "max_schools")
 
         create_response = self.client.post(
             reverse("dashboard:system_plan_create"),
@@ -1056,7 +1168,6 @@ class SystemAdminExperienceTests(TestCase):
         )
         self.assertRedirects(create_response, reverse("dashboard:system_plans_list"))
         created_plan = SubscriptionPlan.objects.get(code="new-plan")
-        self.assertEqual(created_plan.max_schools, 1)
         self.assertTrue(created_plan.is_featured)
         self.assertEqual(created_plan.description, "وصف الباقة الجديدة")
         self.assertEqual(created_plan.card_badge_text, "باقة المدارس النشطة")
@@ -1671,3 +1782,1206 @@ class EmergencyAlertsAndExcelImportTests(TestCase):
         with self.assertRaises(ValueError):
             apply_import(school=self.school, parsed=parsed)
         self.assertFalse(ClassLesson.objects.filter(settings=self.settings).exists())
+
+
+class SelfServiceSchoolCreationTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="multi_school_manager",
+            password="StrongPass123!",
+        )
+        self.current_school = School.objects.create(
+            name="المدرسة الحالية",
+            slug="current-self-service-school",
+        )
+        self.profile = UserProfile.objects.create(
+            user=self.user,
+            active_school=self.current_school,
+        )
+        self.profile.schools.add(self.current_school)
+        self.one_screen_plan = SubscriptionPlan.objects.create(
+            code="self-service-one-screen",
+            name="سنوية - شاشة واحدة",
+            price=500,
+            duration_days=365,
+            max_screens=1,
+            is_active=True,
+            sort_order=1,
+        )
+        self.three_screen_plan = SubscriptionPlan.objects.create(
+            code="self-service-three-screens",
+            name="سنوية - ثلاث شاشات",
+            price=900,
+            duration_days=365,
+            max_screens=3,
+            is_active=True,
+            sort_order=2,
+        )
+        self.client.force_login(self.user)
+
+    def test_manager_can_open_add_school_without_an_active_subscription(self):
+        response = self.client.get(reverse("dashboard:add_school"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "إضافة مدرسة جديدة")
+        self.assertContains(response, self.one_screen_plan.name)
+        self.assertContains(response, self.three_screen_plan.name)
+
+    def test_manager_creates_linked_inactive_school_then_continues_to_checkout(self):
+        response = self.client.post(
+            reverse("dashboard:add_school"),
+            {
+                "name": "مدرسة المستقبل",
+                "school_type": "girls",
+                "screen_count": "3",
+                "plan": self.three_screen_plan.pk,
+            },
+        )
+
+        school = School.objects.get(name="مدرسة المستقبل")
+        self.profile.refresh_from_db()
+        self.assertFalse(school.is_active)
+        self.assertEqual(school.school_type, "girls")
+        self.assertTrue(self.profile.schools.filter(pk=school.pk).exists())
+        self.assertEqual(self.profile.active_school_id, school.pk)
+        self.assertTrue(
+            SchoolSettings.objects.filter(
+                school=school,
+                name=school.name,
+                theme="rose",
+            ).exists()
+        )
+        self.assertFalse(SchoolSubscription.objects.filter(school=school).exists())
+        expected = (
+            reverse("dashboard:my_subscription")
+            + "?plan=self-service-three-screens&source=new_school#renewal-section"
+        )
+        self.assertRedirects(response, expected, fetch_redirect_response=False)
+
+        checkout_response = self.client.get(expected.split("#", 1)[0])
+        self.assertEqual(checkout_response.status_code, 200)
+        self.assertEqual(checkout_response.context["school"], school)
+        self.assertEqual(
+            checkout_response.context["requested_plan"],
+            self.three_screen_plan,
+        )
+        self.assertEqual(checkout_response.context["active_request_tab"], "new")
+
+    def test_plan_must_match_selected_screen_count(self):
+        response = self.client.post(
+            reverse("dashboard:add_school"),
+            {
+                "name": "مدرسة باقة غير مطابقة",
+                "school_type": "boys",
+                "screen_count": "1",
+                "plan": self.three_screen_plan.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "الباقة المختارة لا تطابق عدد الشاشات المحدد")
+        self.assertFalse(School.objects.filter(name="مدرسة باقة غير مطابقة").exists())
+
+    def test_free_plan_cannot_be_used_for_paid_school_creation(self):
+        free_plan = SubscriptionPlan.objects.create(
+            code="self-service-free",
+            name="مجانية",
+            price=0,
+            duration_days=14,
+            max_screens=1,
+            is_active=True,
+        )
+
+        response = self.client.post(
+            reverse("dashboard:add_school"),
+            {
+                "name": "مدرسة مجانية غير مسموحة",
+                "school_type": "boys",
+                "screen_count": "1",
+                "plan": free_plan.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(School.objects.filter(name="مدرسة مجانية غير مسموحة").exists())
+
+
+@override_settings(
+    CACHES=TEST_CACHES,
+    TWO_FACTOR_REQUIRED_FOR_PRIVILEGED=False,
+)
+class SystemAdminConsoleRegressionTests(TestCase):
+    """Regressions for defects found while auditing the platform admin console."""
+
+    def setUp(self):
+        self.owner = get_user_model().objects.create_superuser(
+            username="console_owner",
+            email="console-owner@example.com",
+            password="StrongPass123!",
+        )
+        self.plan = SubscriptionPlan.objects.create(
+            code="console-plan",
+            name="باقة لوحة الإدارة",
+            price=900,
+            duration_days=365,
+            max_screens=3,
+        )
+        self.subscribed_school = School.objects.create(
+            name="مدرسة مشتركة", slug="console-subscribed"
+        )
+        self.bare_school = School.objects.create(
+            name="مدرسة بلا اشتراك", slug="console-bare"
+        )
+        SchoolSubscription.objects.create(
+            school=self.subscribed_school,
+            plan=self.plan,
+            starts_at=timezone.localdate(),
+            ends_at=timezone.localdate() + timedelta(days=200),
+            status="active",
+        )
+
+    def _create_employee(self, *, username="console_employee", permissions):
+        employee = get_user_model().objects.create_user(
+            username=username,
+            password="StrongPass123!",
+            is_staff=True,
+        )
+        SystemEmployeeProfile.objects.create(
+            user=employee,
+            role="custom",
+            permission_keys=permissions,
+            created_by=self.owner,
+        )
+        return employee
+
+    def test_schools_list_filters_schools_without_a_live_subscription(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.get(
+            reverse("dashboard:system_schools_list"), {"subscription": "none"}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        listed = {school.pk for school in response.context["schools"]}
+        self.assertEqual(listed, {self.bare_school.pk})
+        self.assertEqual(response.context["schools_without_subscription_count"], 1)
+
+    def test_schools_list_filters_schools_with_a_live_subscription(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.get(
+            reverse("dashboard:system_schools_list"), {"subscription": "active"}
+        )
+
+        listed = {school.pk for school in response.context["schools"]}
+        self.assertEqual(listed, {self.subscribed_school.pk})
+
+    def test_overview_alert_links_to_the_matching_schools_filter(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse("dashboard:system_admin_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["schools_without_subscription_count"], 1)
+        self.assertContains(
+            response,
+            reverse("dashboard:system_schools_list") + "?subscription=none",
+        )
+
+    def test_support_ticket_status_can_be_updated_from_the_detail_page(self):
+        ticket = SupportTicket.objects.create(
+            user=self.owner,
+            school=self.subscribed_school,
+            subject="شاشة لا تعمل",
+            message="الشاشة الرئيسية متوقفة.",
+        )
+        self.client.force_login(self.owner)
+
+        detail = self.client.get(
+            reverse("dashboard:system_support_ticket_detail", args=[ticket.pk])
+        )
+        self.assertEqual(detail.status_code, 200)
+        # The status form must carry a real submit control; it previously relied
+        # on a data-autosubmit handler whose script was never loaded on the page.
+        self.assertContains(detail, "تحديث الحالة")
+
+        response = self.client.post(
+            reverse("dashboard:system_support_ticket_detail", args=[ticket.pk]),
+            {"status": "in_progress"},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:system_support_ticket_detail", args=[ticket.pk]),
+        )
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.status, "in_progress")
+
+    def test_support_ticket_list_filters_by_status_and_paginates(self):
+        for index in range(3):
+            SupportTicket.objects.create(
+                user=self.owner,
+                school=self.subscribed_school,
+                subject=f"تذكرة {index}",
+                message="نص",
+                status="closed" if index else "open",
+            )
+        self.client.force_login(self.owner)
+
+        response = self.client.get(
+            reverse("dashboard:system_support_tickets"), {"status": "open"}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["filtered_count"], 1)
+        self.assertEqual(response.context["open_count"], 1)
+        self.assertEqual(response.context["closed_count"], 2)
+        self.assertIsNotNone(response.context["page_obj"])
+
+    def test_delegated_employee_gets_the_console_shell_on_emergency_alerts(self):
+        employee = self._create_employee(
+            permissions=["dashboard.view", "emergency_alerts.view"]
+        )
+        self.client.force_login(employee)
+
+        response = self.client.get(reverse("dashboard:emergency_alert_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["base_template"], "admin/admin_base.html")
+        # The school shell offered manager-only links this identity cannot open.
+        self.assertNotContains(response, reverse("dashboard:ann_list"))
+
+    def test_owner_keeps_the_school_shell_on_emergency_alerts(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse("dashboard:emergency_alert_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["base_template"], "dashboard/_base.html")
+
+    def test_admin_cannot_delete_their_own_account(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            reverse("dashboard:system_user_delete", args=[self.owner.pk])
+        )
+
+        self.assertRedirects(response, reverse("dashboard:system_users_list"))
+        self.assertTrue(get_user_model().objects.filter(pk=self.owner.pk).exists())
+
+    def test_last_platform_owner_cannot_be_deleted(self):
+        second_owner = get_user_model().objects.create_superuser(
+            username="temporary_owner",
+            email="temp-owner@example.com",
+            password="StrongPass123!",
+        )
+        self.client.force_login(self.owner)
+
+        # Two owners exist, so removing one is allowed.
+        response = self.client.post(
+            reverse("dashboard:system_user_delete", args=[second_owner.pk])
+        )
+        self.assertRedirects(response, reverse("dashboard:system_users_list"))
+        self.assertFalse(get_user_model().objects.filter(pk=second_owner.pk).exists())
+
+        # The remaining owner must survive an explicit delete attempt.
+        deleter = self._create_employee(
+            username="owner_deleter", permissions=["dashboard.view", "users.manage"]
+        )
+        self.client.force_login(deleter)
+        response = self.client.post(
+            reverse("dashboard:system_user_delete", args=[self.owner.pk])
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(get_user_model().objects.filter(pk=self.owner.pk).exists())
+
+    def test_deleting_a_school_with_payment_records_deactivates_instead_of_crashing(self):
+        TamaraCheckout.objects.create(
+            school=self.subscribed_school,
+            plan=self.plan,
+            request_type="new",
+            amount=900,
+        )
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            reverse("dashboard:system_school_delete", args=[self.subscribed_school.pk])
+        )
+
+        self.assertRedirects(response, reverse("dashboard:system_schools_list"))
+        self.subscribed_school.refresh_from_db()
+        self.assertFalse(self.subscribed_school.is_active)
+
+    def test_reports_hides_sections_outside_the_employee_permissions(self):
+        employee = self._create_employee(
+            username="reports_only_employee",
+            permissions=["dashboard.view", "reports.view"],
+        )
+        self.client.force_login(employee)
+
+        response = self.client.get(reverse("dashboard:system_reports"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, reverse("dashboard:system_support_tickets"))
+        self.assertNotContains(
+            response, reverse("dashboard:system_subscription_requests_list")
+        )
+
+    def test_screen_addon_form_preselects_the_requested_subscription(self):
+        subscription = SchoolSubscription.objects.get(school=self.subscribed_school)
+        self.client.force_login(self.owner)
+
+        response = self.client.get(
+            reverse("dashboard:system_screen_addon_create"),
+            {"subscription": subscription.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["form"].initial.get("subscription"), subscription.pk
+        )
+
+    def test_screen_addon_list_shows_the_pricing_cycle_label(self):
+        subscription = SchoolSubscription.objects.get(school=self.subscribed_school)
+        SubscriptionScreenAddon.objects.create(
+            subscription=subscription,
+            screens_added=2,
+            pricing_cycle="semiannual",
+            starts_at=timezone.localdate(),
+            status="pending",
+        )
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse("dashboard:system_screen_addons_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["rows"][0]["pricing_cycle_label"], "نصف سنوي"
+        )
+        self.assertNotContains(response, "semiannual")
+
+
+@override_settings(
+    CACHES=TEST_CACHES,
+    TWO_FACTOR_REQUIRED_FOR_PRIVILEGED=False,
+)
+class SystemAdminConsoleSmokeTests(TestCase):
+    """Every platform console page must render for the owner and an employee."""
+
+    def setUp(self):
+        self.owner = get_user_model().objects.create_superuser(
+            username="smoke_owner",
+            email="smoke-owner@example.com",
+            password="StrongPass123!",
+        )
+        self.plan = SubscriptionPlan.objects.create(
+            code="smoke-plan",
+            name="باقة الفحص",
+            price=1200,
+            duration_days=365,
+            max_screens=4,
+        )
+        self.school = School.objects.create(name="مدرسة الفحص", slug="smoke-school")
+        self.subscription = SchoolSubscription.objects.create(
+            school=self.school,
+            plan=self.plan,
+            starts_at=timezone.localdate(),
+            ends_at=timezone.localdate() + timedelta(days=20),
+            status="active",
+        )
+        self.manager = get_user_model().objects.create_user(
+            username="smoke_manager", password="StrongPass123!"
+        )
+        UserProfile.objects.create(user=self.manager, active_school=self.school)
+        self.manager.profile.schools.add(self.school)
+        self.ticket = SupportTicket.objects.create(
+            user=self.manager,
+            school=self.school,
+            subject="مشكلة فحص",
+            message="نص المشكلة",
+        )
+        self.request = SubscriptionRequest.objects.create(
+            school=self.school,
+            plan=self.plan,
+            request_type="renewal",
+            amount=1200,
+            requested_starts_at=timezone.localdate(),
+        )
+        self.addon = SubscriptionScreenAddon.objects.create(
+            subscription=self.subscription,
+            screens_added=2,
+            pricing_cycle="annual",
+            starts_at=timezone.localdate(),
+            status="pending",
+        )
+
+    def _console_urls(self):
+        return [
+            reverse("dashboard:system_admin_dashboard"),
+            reverse("dashboard:system_schools_list"),
+            reverse("dashboard:system_school_create"),
+            reverse("dashboard:system_school_edit", args=[self.school.pk]),
+            reverse("dashboard:system_school_delete", args=[self.school.pk]),
+            reverse("dashboard:system_users_list"),
+            reverse("dashboard:system_user_create"),
+            reverse("dashboard:system_user_edit", args=[self.manager.pk]),
+            reverse("dashboard:system_user_delete", args=[self.manager.pk]),
+            reverse("dashboard:system_employees_list"),
+            reverse("dashboard:system_employee_create"),
+            reverse("dashboard:system_subscriptions_list"),
+            reverse("dashboard:system_subscription_create"),
+            reverse("dashboard:system_subscription_edit", args=[self.subscription.pk]),
+            reverse("dashboard:system_subscription_requests_list"),
+            reverse("dashboard:system_subscription_request_detail", args=[self.request.pk]),
+            reverse("dashboard:system_plans_list"),
+            reverse("dashboard:system_plan_create"),
+            reverse("dashboard:system_plan_edit", args=[self.plan.pk]),
+            reverse("dashboard:system_plan_delete", args=[self.plan.pk]),
+            reverse("dashboard:system_screen_addons_list"),
+            reverse("dashboard:system_screen_addon_create"),
+            reverse("dashboard:system_screen_addon_edit", args=[self.addon.pk]),
+            reverse("dashboard:system_screen_addon_delete", args=[self.addon.pk]),
+            reverse("dashboard:system_reports"),
+            reverse("dashboard:system_support_tickets"),
+            reverse("dashboard:system_support_ticket_detail", args=[self.ticket.pk]),
+            reverse("dashboard:system_support_ticket_create"),
+            reverse("dashboard:emergency_alert_list"),
+            reverse("dashboard:emergency_alert_create"),
+        ]
+
+    def test_every_console_page_renders_for_the_owner(self):
+        self.client.force_login(self.owner)
+        for url in self._console_urls():
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200, msg=url)
+
+    def test_every_console_page_renders_for_a_full_access_employee(self):
+        employee = get_user_model().objects.create_user(
+            username="smoke_employee", password="StrongPass123!", is_staff=True
+        )
+        SystemEmployeeProfile.objects.create(
+            user=employee,
+            role="operations",
+            permission_keys=role_permissions("operations"),
+            created_by=self.owner,
+        )
+        self.client.force_login(employee)
+
+        owner_only = {
+            reverse("dashboard:system_employees_list"),
+            reverse("dashboard:system_employee_create"),
+        }
+        for url in self._console_urls():
+            if url in owner_only:
+                continue
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200, msg=url)
+
+    def test_console_pages_render_a_single_top_level_heading(self):
+        self.client.force_login(self.owner)
+        for url in self._console_urls():
+            with self.subTest(url=url):
+                body = self.client.get(url).content.decode()
+                self.assertEqual(body.count("<h1"), 1, msg=url)
+
+
+class ScreenInheritanceTests(TestCase):
+    """تخصيص شاشة يجب ألا يقطع وراثتها من إعداد جميع الشاشات بلا قصد."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="inheritance_manager",
+            password="StrongPass123!",
+        )
+        self.school = School.objects.create(name="مدرسة الوراثة", slug="inheritance-school")
+        profile = UserProfile.objects.create(user=self.user, active_school=self.school)
+        profile.schools.add(self.school)
+        self.settings_obj = SchoolSettings.objects.create(
+            school=self.school,
+            name=self.school.name,
+            theme="indigo",
+        )
+        plan = SubscriptionPlan.objects.create(
+            code="inheritance-plan",
+            name="باقة الوراثة",
+            price=100,
+            duration_days=365,
+            max_screens=5,
+            is_active=True,
+        )
+        SchoolSubscription.objects.create(
+            school=self.school,
+            plan=plan,
+            starts_at=timezone.localdate() - timedelta(days=1),
+            ends_at=timezone.localdate() + timedelta(days=200),
+            status="active",
+        )
+        self.screen = DisplayScreen.objects.create(name="شاشة البهو", school=self.school)
+        self.client.force_login(self.user)
+
+    def _payload(self, **overrides):
+        payload = {
+            "name": self.screen.name,
+            "is_active": "on",
+            "theme": "rose",
+            "display_accent_color": "#EC4899",
+            "occasion_theme": "auto",
+            "featured_panel": "duty",
+            "standby_scroll_speed": "1.1",
+            "periods_scroll_speed": "0.9",
+            "display_before_title": "عنوان خاص",
+            "display_before_badge": "شارة",
+            "display_after_title": "عنوان",
+            "display_after_badge": "شارة",
+            "display_after_holiday_title": "عنوان",
+            "display_after_holiday_badge": "شارة",
+            "display_holiday_title": "عنوان",
+            "display_holiday_badge": "شارة",
+            "show_announcements": "on",
+            "show_period_classes": "on",
+            "show_standby": "on",
+            "show_duty": "on",
+            "show_excellence": "on",
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_saving_a_screen_while_inheriting_leaves_overrides_empty(self):
+        response = self.client.post(
+            reverse("dashboard:screen_edit", args=[self.screen.pk]),
+            self._payload(inherit_groups=["appearance", "messages", "motion"]),
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:screen_list"),
+            fetch_redirect_response=False,
+        )
+        self.screen.refresh_from_db()
+        self.assertEqual(self.screen.theme_override, "")
+        self.assertEqual(self.screen.display_accent_color_override, "")
+        self.assertEqual(self.screen.featured_panel_override, "")
+        self.assertIsNone(self.screen.standby_scroll_speed_override)
+        self.assertIsNone(self.screen.periods_scroll_speed_override)
+        self.assertEqual(self.screen.display_before_title_override, "")
+
+    def test_groups_can_be_customized_independently(self):
+        self.client.post(
+            reverse("dashboard:screen_edit", args=[self.screen.pk]),
+            self._payload(inherit_groups=["messages", "motion"]),
+        )
+
+        self.screen.refresh_from_db()
+        # المظهر مخصص...
+        self.assertEqual(self.screen.theme_override, "rose")
+        self.assertEqual(self.screen.featured_panel_override, "duty")
+        # ...بينما الرسائل والسرعات ما زالت موروثة من إعداد المدرسة.
+        self.assertEqual(self.screen.display_before_title_override, "")
+        self.assertIsNone(self.screen.standby_scroll_speed_override)
+
+    def test_inherited_group_does_not_require_its_fields(self):
+        payload = self._payload(inherit_groups=["messages"])
+        for field in (
+            "display_before_title",
+            "display_before_badge",
+            "display_after_title",
+            "display_after_badge",
+            "display_after_holiday_title",
+            "display_after_holiday_badge",
+            "display_holiday_title",
+            "display_holiday_badge",
+        ):
+            payload[field] = ""
+
+        response = self.client.post(
+            reverse("dashboard:screen_edit", args=[self.screen.pk]),
+            payload,
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:screen_list"),
+            fetch_redirect_response=False,
+        )
+        self.screen.refresh_from_db()
+        self.assertEqual(self.screen.display_holiday_title_override, "")
+
+    def test_customized_group_rejects_blank_fields(self):
+        response = self.client.post(
+            reverse("dashboard:screen_edit", args=[self.screen.pk]),
+            self._payload(inherit_groups=["appearance", "motion"], display_before_title=""),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.screen.refresh_from_db()
+        self.assertEqual(self.screen.display_before_title_override, "")
+
+    def test_screen_list_reports_inheritance_state(self):
+        response = self.client.get(reverse("dashboard:screen_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "تتبع إعداد جميع الشاشات")
+
+        self.screen.theme_override = "rose"
+        self.screen.save(update_fields=["theme_override"])
+
+        response = self.client.get(reverse("dashboard:screen_list"))
+        self.assertContains(response, "تخصيص مستقل")
+
+    def test_screen_limit_is_rechecked_under_lock_before_creating(self):
+        DisplayScreen.objects.filter(school=self.school).delete()
+        for index in range(5):
+            DisplayScreen.objects.create(name=f"شاشة {index}", school=self.school)
+
+        response = self.client.post(
+            reverse("dashboard:screen_create"),
+            {"name": "شاشة زائدة", "is_active": "on"},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:screen_list"),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(DisplayScreen.objects.filter(school=self.school).count(), 5)
+
+
+class MultiSchoolManagerTests(TestCase):
+    """مدير عدة مدارس: نظرة موحدة، وعدم حبسه بسبب مدرسة متعثرة."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="fleet_manager",
+            password="StrongPass123!",
+        )
+        self.paid_school = School.objects.create(name="مدرسة مدفوعة", slug="paid-fleet-school")
+        self.lapsed_school = School.objects.create(name="مدرسة متعثرة", slug="lapsed-fleet-school")
+        self.profile = UserProfile.objects.create(user=self.user, active_school=self.lapsed_school)
+        self.profile.schools.add(self.paid_school, self.lapsed_school)
+
+        for school in (self.paid_school, self.lapsed_school):
+            SchoolSettings.objects.create(school=school, name=school.name)
+
+        plan = SubscriptionPlan.objects.create(
+            code="fleet-plan",
+            name="باقة الأسطول",
+            price=700,
+            duration_days=365,
+            max_screens=4,
+            is_active=True,
+        )
+        SchoolSubscription.objects.create(
+            school=self.paid_school,
+            plan=plan,
+            starts_at=timezone.localdate() - timedelta(days=10),
+            ends_at=timezone.localdate() + timedelta(days=300),
+            status="active",
+        )
+        DisplayScreen.objects.create(name="شاشة مدفوعة", school=self.paid_school, is_active=True)
+        DisplayScreen.objects.create(name="شاشة متعثرة", school=self.lapsed_school, is_active=True)
+        self.client.force_login(self.user)
+
+    def test_overview_lists_every_school_with_its_status(self):
+        response = self.client.get(reverse("dashboard:schools_overview"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.paid_school.name)
+        self.assertContains(response, self.lapsed_school.name)
+        self.assertContains(response, "اشتراك ساري")
+        self.assertContains(response, "الاشتراك منتهي")
+
+    def test_lapsed_school_still_allows_support_and_switching(self):
+        for view_name in (
+            "dashboard:customer_support_tickets",
+            "dashboard:customer_support_ticket_create",
+            "dashboard:select_school",
+            "dashboard:schools_overview",
+        ):
+            response = self.client.get(reverse(view_name))
+            self.assertNotEqual(
+                response.status_code,
+                302,
+                msg=f"{view_name} must stay reachable while the active school is lapsed",
+            )
+
+    def test_lapsed_school_still_blocks_product_pages(self):
+        response = self.client.get(reverse("dashboard:screen_list"))
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:my_subscription"),
+            fetch_redirect_response=False,
+        )
+
+    def test_switching_school_from_overview_uses_post(self):
+        response = self.client.post(
+            reverse("dashboard:switch_school", args=[self.paid_school.pk]),
+            {"next": reverse("dashboard:index")},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:index"),
+            fetch_redirect_response=False,
+        )
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.active_school_id, self.paid_school.pk)
+
+    def test_overview_excludes_schools_outside_the_managers_profile(self):
+        School.objects.create(name="مدرسة غريبة", slug="stranger-fleet-school")
+
+        response = self.client.get(reverse("dashboard:schools_overview"))
+
+        self.assertNotContains(response, "مدرسة غريبة")
+
+    def test_dashboard_hero_summarises_the_fleet_when_school_has_many_screens(self):
+        self.profile.active_school = self.paid_school
+        self.profile.save(update_fields=["active_school"])
+        DisplayScreen.objects.create(name="شاشة ثانية", school=self.paid_school, is_active=True)
+
+        response = self.client.get(reverse("dashboard:index"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "2 شاشة في مدرسة مدفوعة")
+        self.assertContains(response, "تخصيص جميع الشاشات")
+
+
+class AnnouncementScreenTargetingTests(TestCase):
+    """استهداف شاشة معينة يجب ألا يضيع لأن الشاشة عُطّلت مؤقتًا."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="targeting_manager",
+            password="StrongPass123!",
+        )
+        self.school = School.objects.create(name="مدرسة الاستهداف", slug="targeting-school")
+        profile = UserProfile.objects.create(user=self.user, active_school=self.school)
+        profile.schools.add(self.school)
+        SchoolSettings.objects.create(school=self.school, name=self.school.name)
+        plan = SubscriptionPlan.objects.create(
+            code="targeting-plan",
+            name="باقة الاستهداف",
+            price=300,
+            duration_days=365,
+            max_screens=3,
+            is_active=True,
+        )
+        SchoolSubscription.objects.create(
+            school=self.school,
+            plan=plan,
+            starts_at=timezone.localdate() - timedelta(days=1),
+            ends_at=timezone.localdate() + timedelta(days=100),
+            status="active",
+        )
+        self.screen = DisplayScreen.objects.create(
+            name="شاشة الممر",
+            school=self.school,
+            is_active=True,
+        )
+        self.client.force_login(self.user)
+
+    def test_disabled_but_targeted_screen_survives_an_edit(self):
+        from notices.models import Announcement
+
+        create_response = self.client.post(
+            reverse("dashboard:ann_create"),
+            {
+                "title": "تنبيه موجه",
+                "body": "نص التنبيه",
+                "level": "info",
+                "occasion_theme": "",
+                "starts_at": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
+                "scope": "screens",
+                "screens": [self.screen.pk],
+                "is_active": "on",
+            },
+        )
+        self.assertRedirects(
+            create_response,
+            reverse("dashboard:ann_list"),
+            fetch_redirect_response=False,
+        )
+        announcement = Announcement.objects.get(title="تنبيه موجه")
+        self.assertEqual(list(announcement.screens.values_list("id", flat=True)), [self.screen.pk])
+
+        # الشاشة تعطلت (يدويا أو تلقائيا عند تجاوز حد الباقة).
+        self.screen.is_active = False
+        self.screen.save(update_fields=["is_active"])
+
+        form_response = self.client.get(reverse("dashboard:ann_edit", args=[announcement.pk]))
+        self.assertEqual(form_response.status_code, 200)
+        self.assertContains(form_response, self.screen.name)
+
+        self.client.post(
+            reverse("dashboard:ann_edit", args=[announcement.pk]),
+            {
+                "title": "تنبيه موجه محدث",
+                "body": "نص التنبيه",
+                "level": "info",
+                "occasion_theme": "",
+                "starts_at": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
+                "scope": "screens",
+                "screens": [self.screen.pk],
+                "is_active": "on",
+            },
+        )
+        announcement.refresh_from_db()
+        self.assertEqual(announcement.title, "تنبيه موجه محدث")
+        self.assertEqual(list(announcement.screens.values_list("id", flat=True)), [self.screen.pk])
+
+
+class OccasionRegistryTests(TestCase):
+    """السجل هو مصدر الحقيقة الوحيد؛ أي انحراف عنه يعني معاينة تكذب."""
+
+    def test_model_choices_are_derived_from_the_registry(self):
+        registry_keys = [item.key for item in occasions.all_occasions()]
+
+        announcement_keys = [key for key, _label in Announcement.OCCASION_THEME_CHOICES if key]
+        screen_keys = [
+            key
+            for key, _label in DisplayScreen.OCCASION_THEME_CHOICES
+            if key not in ("auto", "off")
+        ]
+
+        self.assertEqual(announcement_keys, registry_keys)
+        self.assertEqual(screen_keys, registry_keys)
+
+    def test_retired_weather_theme_is_gone_from_every_layer(self):
+        # «حالة جوية» تنبيه لا مناسبة، ومكرر في EmergencyAlert.
+        self.assertNotIn("weather", occasions.OCCASIONS)
+        self.assertNotIn("weather", dict(Announcement.OCCASION_THEME_CHOICES))
+        self.assertNotIn("weather", dict(DisplayScreen.OCCASION_THEME_CHOICES))
+
+    def test_saudi_calendar_is_covered(self):
+        for key in ("national_day", "founding_day", "flag_day", "ramadan", "eid_fitr", "eid_adha"):
+            self.assertIn(key, occasions.OCCASIONS, msg=f"{key} مفقودة من التقويم")
+
+    def test_every_occasion_carries_a_complete_visual_identity(self):
+        # حقل ناقص يعني ثيمًا يظهر بلا لون أو رمز على شاشة مدرسة.
+        for occasion in occasions.all_occasions():
+            with self.subTest(occasion=occasion.key):
+                self.assertTrue(occasion.name)
+                self.assertTrue(occasion.title)
+                self.assertTrue(occasion.mark)
+                self.assertTrue(occasion.badge_icon)
+                self.assertEqual(len(occasion.symbols), 2)
+                self.assertTrue(occasion.tagline)
+                for colour in (occasion.deep, occasion.accent, occasion.highlight, occasion.soft):
+                    self.assertRegex(colour, r"^#[0-9a-fA-F]{6}$")
+                self.assertTrue(occasion.pattern_css)
+                self.assertGreater(occasion.duration_hours, 0)
+
+    def test_theme_map_and_card_list_cover_the_same_occasions(self):
+        self.assertEqual(set(occasions.theme_map()), set(occasions.OCCASIONS))
+        self.assertEqual(
+            [card["key"] for card in occasions.card_list()],
+            [item.key for item in occasions.all_occasions()],
+        )
+
+
+class OccasionScheduleTests(TestCase):
+    """التواريخ الثابتة يجب أن تُحسب بدقة — هي أساس الاقتراح."""
+
+    def test_gregorian_occasion_resolves_to_its_fixed_date(self):
+        national_day = occasions.OCCASIONS["national_day"]
+
+        self.assertEqual(
+            national_day.schedule.next_occurrence(date(2026, 1, 1)),
+            date(2026, 9, 23),
+        )
+
+    def test_gregorian_occasion_rolls_over_to_next_year_once_passed(self):
+        flag_day = occasions.OCCASIONS["flag_day"]
+
+        self.assertEqual(
+            flag_day.schedule.next_occurrence(date(2026, 6, 1)),
+            date(2027, 3, 11),
+        )
+
+    def test_occasion_on_its_own_day_is_still_returned(self):
+        national_day = occasions.OCCASIONS["national_day"]
+
+        self.assertEqual(
+            national_day.schedule.next_occurrence(date(2026, 9, 23)),
+            date(2026, 9, 23),
+        )
+
+    def test_hijri_occasion_resolves_through_the_hijri_calendar(self):
+        ramadan = occasions.OCCASIONS["ramadan"]
+
+        occurs_on = ramadan.schedule.next_occurrence(date(2026, 1, 1))
+
+        self.assertIsNotNone(occurs_on)
+        from hijridate import Gregorian
+
+        hijri = Gregorian(occurs_on.year, occurs_on.month, occurs_on.day).to_hijri()
+        self.assertEqual((hijri.month, hijri.day), (9, 1))
+
+    def test_occasions_without_a_fixed_date_are_never_suggested(self):
+        # التخرج وبداية العام قرار مدرسي لا تاريخ ثابت.
+        for key in ("graduation", "back_to_school"):
+            self.assertIsNone(occasions.OCCASIONS[key].schedule)
+
+        suggestions = occasions.upcoming(date(2026, 9, 20), lead_days=365)
+        suggested_keys = {item.occasion.key for item in suggestions}
+
+        self.assertNotIn("graduation", suggested_keys)
+        self.assertNotIn("back_to_school", suggested_keys)
+
+    def test_upcoming_respects_the_lead_window(self):
+        five_days_before = date(2026, 9, 18)
+
+        within = occasions.upcoming(five_days_before, lead_days=10)
+        outside = occasions.upcoming(five_days_before, lead_days=3)
+
+        self.assertIn("national_day", {item.occasion.key for item in within})
+        self.assertNotIn("national_day", {item.occasion.key for item in outside})
+
+    def test_upcoming_is_sorted_by_proximity(self):
+        results = occasions.upcoming(date(2026, 9, 1), lead_days=120)
+
+        self.assertEqual(
+            [item.days_left for item in results],
+            sorted(item.days_left for item in results),
+        )
+
+    def test_countdown_labels_read_naturally_in_arabic(self):
+        national_day = occasions.OCCASIONS["national_day"]
+        labels = {}
+        for days_before, expected in ((0, "اليوم"), (1, "غدًا"), (2, "بعد يومين"), (5, "بعد 5 أيام")):
+            item = occasions.UpcomingOccasion(
+                national_day, date(2026, 9, 23), days_before
+            )
+            labels[expected] = item.countdown_label
+
+        for expected, actual in labels.items():
+            self.assertEqual(actual, expected)
+
+
+class OccasionSuggestionViewTests(TestCase):
+    """الاقتراح يذكّر بلا أن يفعّل — التفعيل التلقائي مخاطرة لا تُغتفر."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="occasion_manager",
+            password="StrongPass123!",
+        )
+        self.school = School.objects.create(name="مدرسة المناسبات", slug="occasion-school")
+        profile = UserProfile.objects.create(user=self.user, active_school=self.school)
+        profile.schools.add(self.school)
+        SchoolSettings.objects.create(school=self.school, name=self.school.name)
+        plan = SubscriptionPlan.objects.create(
+            code="occasion-plan",
+            name="باقة المناسبات",
+            price=200,
+            duration_days=365,
+            max_screens=2,
+            is_active=True,
+        )
+        SchoolSubscription.objects.create(
+            school=self.school,
+            plan=plan,
+            starts_at=timezone.localdate() - timedelta(days=1),
+            ends_at=timezone.localdate() + timedelta(days=120),
+            status="active",
+        )
+        self.client.force_login(self.user)
+
+    def test_templates_page_previews_the_real_screen_colours_and_marks(self):
+        response = self.client.get(reverse("dashboard:occasion_templates"))
+
+        self.assertEqual(response.status_code, 200)
+        for occasion in occasions.all_occasions():
+            self.assertContains(response, occasion.accent)
+            self.assertContains(response, occasion.name)
+
+    def test_creating_an_announcement_from_a_template_prefills_registry_copy(self):
+        response = self.client.get(
+            reverse("dashboard:ann_create") + "?template=flag_day"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, occasions.OCCASIONS["flag_day"].title)
+
+    def test_unknown_template_key_is_ignored_without_error(self):
+        response = self.client.get(reverse("dashboard:ann_create") + "?template=not-real")
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_suggestion_appears_when_an_occasion_is_near(self):
+        near = occasions.OCCASIONS["national_day"].schedule.next_occurrence(
+            timezone.localdate()
+        )
+        suggestions = occasions.upcoming(near - timedelta(days=4))
+
+        self.assertIn("national_day", {item.occasion.key for item in suggestions})
+
+    def test_suggestion_disappears_once_the_school_prepared_that_occasion(self):
+        Announcement.objects.create(
+            school=self.school,
+            title="دام عزك يا وطن",
+            body="نص",
+            occasion_theme="national_day",
+            is_active=True,
+            starts_at=timezone.now(),
+        )
+        near = occasions.OCCASIONS["national_day"].schedule.next_occurrence(
+            timezone.localdate()
+        )
+
+        remaining = views._occasion_suggestions_for(self.school, today=near - timedelta(days=4))
+
+        self.assertNotIn("national_day", {item.occasion.key for item in remaining})
+
+    def test_expired_announcement_does_not_silence_next_years_suggestion(self):
+        # تنبيه العام الماضي انتهى؛ يجب أن يُذكَّر المدير بالمناسبة من جديد.
+        Announcement.objects.create(
+            school=self.school,
+            title="دام عزك يا وطن",
+            body="نص",
+            occasion_theme="national_day",
+            is_active=True,
+            starts_at=timezone.now() - timedelta(days=400),
+            expires_at=timezone.now() - timedelta(days=399),
+        )
+        near = occasions.OCCASIONS["national_day"].schedule.next_occurrence(
+            timezone.localdate()
+        )
+
+        remaining = views._occasion_suggestions_for(self.school, today=near - timedelta(days=4))
+
+        self.assertIn("national_day", {item.occasion.key for item in remaining})
+
+    def test_dashboard_home_renders_without_suggestions_out_of_season(self):
+        response = self.client.get(reverse("dashboard:index"))
+
+        self.assertEqual(response.status_code, 200)
+
+
+class TemplateCommentSyntaxTests(SimpleTestCase):
+    """`{# ... #}` في Django تعليق سطر واحد فقط.
+
+    تعليق يمتد لسطرين لا يُحذف عند التصيير — يُطبع حرفيًا في الصفحة فيقرأه
+    المستخدم. هذا الاختبار يمنع عودة الخطأ في أي قالب.
+    """
+
+    def test_no_template_uses_a_multiline_hash_comment(self):
+        offenders = []
+        for path in sorted(Path(settings.BASE_DIR).joinpath("templates").rglob("*.html")):
+            text = path.read_text(encoding="utf-8")
+            for match in re.finditer(r"\{#(.*?)#\}", text, re.S):
+                if "\n" in match.group(1):
+                    line = text[: match.start()].count("\n") + 1
+                    offenders.append(f"{path.relative_to(settings.BASE_DIR)}:{line}")
+
+        self.assertEqual(
+            offenders,
+            [],
+            msg=(
+                "تعليقات متعددة الأسطر تُعرض كنص للمستخدم. "
+                "استخدم {% comment %}...{% endcomment %} بدلًا منها: "
+                + ", ".join(offenders)
+            ),
+        )
+
+    def test_django_really_does_render_multiline_hash_comments(self):
+        # يوثّق سبب الاختبار أعلاه بدل الاعتماد على الحفظ.
+        from django.template import Context, Template
+
+        rendered = Template("A{# سطر\nسطر آخر #}B").render(Context({}))
+
+        self.assertIn("سطر", rendered)
+
+
+class OccasionCardRenderTests(TestCase):
+    """أخطاء تظهر فقط عند التصيير الفعلي لصفحة القوالب."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="card_render_manager",
+            password="StrongPass123!",
+        )
+        self.school = School.objects.create(name="مدرسة العرض", slug="card-render-school")
+        profile = UserProfile.objects.create(user=self.user, active_school=self.school)
+        profile.schools.add(self.school)
+        SchoolSettings.objects.create(school=self.school, name=self.school.name)
+        plan = SubscriptionPlan.objects.create(
+            code="card-render-plan",
+            name="باقة العرض",
+            price=100,
+            duration_days=365,
+            max_screens=2,
+            is_active=True,
+        )
+        SchoolSubscription.objects.create(
+            school=self.school,
+            plan=plan,
+            starts_at=timezone.localdate() - timedelta(days=1),
+            ends_at=timezone.localdate() + timedelta(days=120),
+            status="active",
+        )
+        self.client.force_login(self.user)
+
+    def _page(self):
+        response = self.client.get(reverse("dashboard:occasion_templates"))
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode()
+
+    def test_page_renders_no_template_syntax_to_the_user(self):
+        html = self._page()
+
+        self.assertNotIn("{#", html)
+        self.assertNotIn("{%", html)
+
+    def test_every_mark_renders_monochrome_so_the_grid_stays_coherent(self):
+        # الإيموجي الملوّن يتجاهل لون الثيم ويظهر بثقل بصري مختلف، فتبدو
+        # الشبكة مفكّكة رغم أن باقي الرموز أنيقة وأحادية.
+        html = self._page()
+
+        coloured = sorted({char for char in html if ord(char) >= 0x1F300})
+
+        self.assertEqual(coloured, [], msg=f"رموز ملوّنة في الصفحة: {coloured}")
+
+    def test_action_button_rule_is_declared_once_so_cards_align(self):
+        # قاعدتان بنفس المحدِّد كانتا تلغيان margin-top:auto، فتتفاوت مواضع
+        # الأزرار بحسب طول نص كل بطاقة.
+        html = self._page()
+
+        self.assertEqual(html.count(".occasion-card-body > a {"), 1)
+        self.assertIn("margin-top: auto", html)
+
+    def test_masked_pattern_carries_the_webkit_prefix(self):
+        html = self._page()
+
+        self.assertIn("-webkit-mask-image", html)
+
+    def test_card_count_matches_the_registry(self):
+        html = self._page()
+
+        self.assertEqual(html.count('<article class="occasion-card"'), len(occasions.all_occasions()))
+
+
+class ArabicCountdownLabelTests(SimpleTestCase):
+    """تمييز العدد في العربية: ٣–١٠ جمع، و١١ فأكثر مفرد منصوب."""
+
+    def _label(self, days_left):
+        occasion = occasions.OCCASIONS["national_day"]
+        return occasions.UpcomingOccasion(occasion, date(2026, 9, 23), days_left).countdown_label
+
+    def test_small_counts_use_the_plural_form(self):
+        self.assertEqual(self._label(0), "اليوم")
+        self.assertEqual(self._label(1), "غدًا")
+        self.assertEqual(self._label(2), "بعد يومين")
+        self.assertEqual(self._label(3), "بعد 3 أيام")
+        self.assertEqual(self._label(10), "بعد 10 أيام")
+
+    def test_eleven_and_above_use_the_singular_accusative(self):
+        self.assertEqual(self._label(11), "بعد 11 يومًا")
+        self.assertEqual(self._label(49), "بعد 49 يومًا")
+
+    def test_no_count_ever_produces_the_ungrammatical_plural(self):
+        for days in range(11, 61):
+            with self.subTest(days=days):
+                self.assertNotIn("أيام", self._label(days))

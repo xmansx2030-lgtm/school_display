@@ -1,4 +1,5 @@
 {% extends "admin/admin_base.html" %}
+{% load humanize %}
 
 {% block title %}مركز إدارة المنصة{% endblock %}
 {% block page_icon %}chart-pie{% endblock %}
@@ -42,7 +43,7 @@
             {% for school in search_results.schools %}
               <a href="{% if can_schools_manage %}{% url 'dashboard:system_school_edit' school.pk %}{% else %}{% url 'dashboard:system_schools_list' %}?q={{ school.name|urlencode }}{% endif %}" class="block rounded-lg bg-slate-50 px-3 py-2 hover:bg-blue-50">
                 <span class="block text-xs font-bold text-slate-800">{{ school.name }}</span>
-                <span class="text-[10px] text-slate-400">{{ school.slug }}</span>
+                <span class="admin-ltr text-[10px] text-slate-400">{{ school.slug }}</span>
               </a>
             {% empty %}
               <p class="py-5 text-center text-xs text-slate-400">لا توجد مدارس مطابقة.</p>
@@ -59,7 +60,7 @@
             {% for user in search_results.users %}
               <a href="{% if can_users_manage %}{% url 'dashboard:system_user_edit' user.pk %}{% else %}{% url 'dashboard:system_users_list' %}?q={{ user.username|urlencode }}{% endif %}" class="block rounded-lg bg-slate-50 px-3 py-2 hover:bg-violet-50">
                 <span class="block text-xs font-bold text-slate-800">{{ user.get_full_name|default:user.username }}</span>
-                <span class="text-[10px] text-slate-400">{{ user.email|default:"بدون بريد" }}</span>
+                <span class="admin-ltr text-[10px] text-slate-400">{{ user.email|default:"بدون بريد" }}</span>
               </a>
             {% empty %}
               <p class="py-5 text-center text-xs text-slate-400">لا توجد حسابات مطابقة.</p>
@@ -123,7 +124,7 @@
       </div>
       <p class="admin-metric-value">{{ subscriptions_count }}</p>
       <p class="admin-metric-label">اشتراكاً سارياً</p>
-      <p class="admin-metric-note">{{ revenue }} ر.س قيمة الباقات النشطة</p>
+      <p class="admin-metric-note">{{ revenue|floatformat:0|intcomma:False }} ر.س قيمة الباقات النشطة</p>
     </a>{% endif %}
 
     {% if can_schools_view %}<a href="{% url 'dashboard:system_schools_list' %}?screen=online" class="admin-metric-card" style="--metric-color:#0891b2">
@@ -185,7 +186,7 @@
   </section>
   {% endif %}
 
-  <section class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+  <section class="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
     <div class="xl:col-span-2 admin-panel">
       <div class="admin-panel-header">
         <div>
@@ -253,7 +254,7 @@
           <span class="flex-1"><strong class="block text-xs text-slate-800">تنتهي خلال 30 يوماً</strong><small class="text-[11px] text-slate-500">تواصل قبل توقف الخدمة</small></span>
           <strong class="text-sm text-amber-600">{{ expiring_subs_count }}</strong>
         </a>{% endif %}
-        {% if can_schools_view %}<a href="{% url 'dashboard:system_schools_list' %}?state=active" class="admin-alert-item">
+        {% if can_schools_view %}<a href="{% url 'dashboard:system_schools_list' %}?subscription=none" class="admin-alert-item">
           <span class="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center"><i class="fas fa-link-slash"></i></span>
           <span class="flex-1"><strong class="block text-xs text-slate-800">مدارس بلا اشتراك سارٍ</strong><small class="text-[11px] text-slate-500">تحتاج تفعيل أو مراجعة</small></span>
           <strong class="text-sm text-violet-600">{{ schools_without_subscription_count }}</strong>
@@ -267,7 +268,7 @@
     </aside>
   </section>
 
-  <section class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+  <section class="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
     {% if can_subscriptions_view %}<div class="admin-panel">
       <div class="admin-panel-header">
         <div>
@@ -277,7 +278,7 @@
         <a href="{% url 'dashboard:system_subscriptions_list' %}?status=expiring" class="text-xs font-black text-blue-600">عرض الكل</a>
       </div>
       <div class="admin-table-wrap">
-        <table class="admin-table" style="min-width:38rem">
+        <table class="admin-table is-compact">
           <thead><tr><th>المدرسة</th><th>الباقة</th><th>الانتهاء</th><th></th></tr></thead>
           <tbody>
             {% for subscription in expiring_subscriptions %}
@@ -304,7 +305,7 @@
         <a href="{% url 'dashboard:system_schools_list' %}" class="text-xs font-black text-blue-600">عرض الكل</a>
       </div>
       <div class="admin-table-wrap">
-        <table class="admin-table" style="min-width:38rem">
+        <table class="admin-table is-compact">
           <thead><tr><th>المدرسة</th><th>المدراء</th><th>الشاشات</th><th></th></tr></thead>
           <tbody>
             {% for school in recent_schools %}

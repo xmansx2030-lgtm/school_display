@@ -848,3 +848,97 @@ class WebSocketMetricsAccessTests(SimpleTestCase):
             )
 
         self.assertEqual(response.status_code, 200)
+
+
+class WeekPlanOfflineResilienceTests(TestCase):
+    """خطة الأسبوع هي ما يُبقي شاشةً مقطوعة عن الإنترنت على جدول صحيح لأيام."""
+
+    def setUp(self):
+        self.settings = SchoolSettings.objects.create(
+            name="مدرسة خطة الأسبوع",
+            timezone_name="Asia/Riyadh",
+        )
+        monday = DaySchedule.objects.create(settings=self.settings, weekday=1, is_active=True)
+        tuesday = DaySchedule.objects.create(settings=self.settings, weekday=2, is_active=True)
+        # يوم معطّل: يجب أن يظهر كإجازة معروفة (قائمة فارغة) لا كيوم مجهول.
+        DaySchedule.objects.create(settings=self.settings, weekday=3, is_active=False)
+
+        Period.objects.create(day=monday, index=1, starts_at=dt_time(7, 0), ends_at=dt_time(7, 45))
+        Period.objects.create(day=monday, index=2, starts_at=dt_time(7, 50), ends_at=dt_time(8, 35))
+        Break.objects.create(day=monday, starts_at=dt_time(8, 35), duration_min=20, label="فسحة")
+        Period.objects.create(day=tuesday, index=1, starts_at=dt_time(9, 0), ends_at=dt_time(9, 45))
+
+    def _week_plan(self, now_iso="2026-06-01T07:10:00+03:00"):
+        snap = build_day_snapshot(self.settings, now=datetime.fromisoformat(now_iso))
+        return snap["meta"]["week_plan"]
+
+    def test_week_plan_covers_all_seven_weekdays(self):
+        plan = self._week_plan()
+
+        self.assertEqual(sorted(plan.keys()), ["1", "2", "3", "4", "5", "6", "7"])
+
+    def test_each_day_carries_its_own_blocks(self):
+        plan = self._week_plan()
+
+        self.assertEqual(len(plan["1"]), 3)  # حصتان + فسحة
+        self.assertEqual(len(plan["2"]), 1)
+        self.assertEqual(plan["2"][0]["from"], "09:00")
+        self.assertEqual(plan["2"][0]["to"], "09:45")
+
+    def test_days_without_schedule_are_empty_lists_not_missing_keys(self):
+        # الفرق جوهري للشاشة: قائمة فارغة = إجازة معروفة تعرض رسالة الإجازة،
+        # ومفتاح غائب = يوم مجهول تعرض عنده "بانتظار الاتصال".
+        plan = self._week_plan()
+
+        for weekday in ("3", "4", "5", "6", "7"):
+            self.assertIn(weekday, plan)
+            self.assertEqual(plan[weekday], [])
+
+    def test_blocks_use_date_independent_local_times(self):
+        # الشاشة تطبّق هذه الأوقات على أي تاريخ، فلا يجوز أن تحمل تاريخًا.
+        plan = self._week_plan()
+
+        for block in plan["1"]:
+            self.assertRegex(block["from"], r"^\d{2}:\d{2}$")
+            self.assertRegex(block["to"], r"^\d{2}:\d{2}$")
+
+    def test_blocks_are_sorted_chronologically(self):
+        plan = self._week_plan()
+
+        times = [block["from"] for block in plan["1"]]
+        self.assertEqual(times, sorted(times))
+
+    def test_week_plan_is_stable_across_the_reference_date(self):
+        # نفس الجدول يجب أن يُنتج نفس الخطة أيًا كان اليوم الذي بُنيت فيه،
+        # وإلا اختلف ما تحفظه الشاشة يوم الأحد عمّا تحفظه يوم الخميس.
+        monday_view = self._week_plan("2026-06-01T07:10:00+03:00")
+        thursday_view = self._week_plan("2026-06-04T20:00:00+03:00")
+
+        self.assertEqual(monday_view, thursday_view)
+
+    def test_week_plan_is_present_on_holidays_too(self):
+        # الجمعة بلا دوام: الشاشة ما زالت تحتاج الخطة لتعرف جدول الغد.
+        plan = self._week_plan("2026-06-05T10:00:00+03:00")
+
+        self.assertEqual(len(plan["1"]), 3)
+        self.assertEqual(len(plan["2"]), 1)
+
+    def test_week_plan_reuses_the_prefetched_index_without_extra_queries(self):
+        # الفهرس يُبنى مرة واحدة ويُشارك مع لقطة اليوم، فبناء الخطة نفسه لا
+        # يكلّف أي استعلام. لولا ذلك لتضاعف حمل قاعدة البيانات لكل لقطة.
+        from datetime import date
+        from zoneinfo import ZoneInfo
+
+        from schedule.time_engine import _build_active_days_index, build_week_plan
+
+        index = _build_active_days_index(self.settings)
+
+        with self.assertNumQueries(0):
+            plan = build_week_plan(
+                self.settings,
+                date(2026, 6, 1),
+                ZoneInfo("Asia/Riyadh"),
+                active_days_index=index,
+            )
+
+        self.assertEqual(len(plan["1"]), 3)

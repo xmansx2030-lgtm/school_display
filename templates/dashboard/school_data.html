@@ -374,7 +374,7 @@
               <span class="school-data-item-name">{{ c.name }}</span>
               <form method="post" action="{% url 'dashboard:delete_class' c.id %}">
                 {% csrf_token %}
-                <button type="submit" onclick="return confirm('سيتم حذف هذا الفصل من النظام، هل أنت متأكد؟');" class="school-data-delete" title="حذف الفصل" aria-label="حذف الفصل">
+                <button type="submit" data-confirm="سيتم حذف هذا الفصل من النظام، هل أنت متأكد؟" class="school-data-delete" title="حذف الفصل" aria-label="حذف الفصل">
                   <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
                 </button>
               </form>
@@ -417,7 +417,7 @@
               <span class="school-data-item-name">{{ s.name }}</span>
               <form method="post" action="{% url 'dashboard:delete_subject' s.id %}">
                 {% csrf_token %}
-                <button type="submit" onclick="return confirm('سيتم حذف هذه المادة من النظام، هل أنت متأكد؟');" class="school-data-delete" title="حذف المادة" aria-label="حذف المادة">
+                <button type="submit" data-confirm="سيتم حذف هذه المادة من النظام، هل أنت متأكد؟" class="school-data-delete" title="حذف المادة" aria-label="حذف المادة">
                   <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
                 </button>
               </form>
@@ -460,7 +460,7 @@
               <span class="school-data-item-name">{{ t.name }}</span>
               <form method="post" action="{% url 'dashboard:delete_teacher' t.id %}">
                 {% csrf_token %}
-                <button type="submit" onclick="return confirm('سيتم حذف هذا المعلم/المعلمة من النظام، هل أنت متأكد؟');" class="school-data-delete" title="حذف المعلم/المعلمة" aria-label="حذف المعلم/المعلمة">
+                <button type="submit" data-confirm="سيتم حذف هذا المعلم/المعلمة من النظام، هل أنت متأكد؟" class="school-data-delete" title="حذف المعلم/المعلمة" aria-label="حذف المعلم/المعلمة">
                   <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
                 </button>
               </form>

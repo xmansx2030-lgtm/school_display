@@ -1,4 +1,5 @@
 {% extends "admin/admin_base.html" %}
+{% load humanize %}
 
 {% block title %}إدارة الاشتراكات{% endblock %}
 {% block page_icon %}file-invoice-dollar{% endblock %}
@@ -41,7 +42,7 @@
     </a>
     <div class="admin-metric-card" style="--metric-color:#7c3aed">
       <span class="admin-metric-icon"><i class="fas fa-sack-dollar"></i></span>
-      <p class="admin-metric-value">{{ active_revenue }}</p>
+      <p class="admin-metric-value">{{ active_revenue|floatformat:0|intcomma:False }}</p>
       <p class="admin-metric-label">ر.س قيمة الباقات السارية</p>
     </div>
   </section>
@@ -87,7 +88,7 @@
       <span class="text-xs font-bold text-slate-500">{{ page_obj.paginator.count|default:0 }} نتيجة</span>
     </div>
     <div class="admin-table-wrap">
-      <table class="admin-table">
+      <table class="admin-table has-actions">
         <thead>
           <tr>
             <th>المدرسة</th>
@@ -95,7 +96,7 @@
             <th>الفترة</th>
             <th>المدة المتبقية</th>
             <th>الحالة</th>
-            <th>الإجراءات</th>
+            <th class="admin-no-print">الإجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -112,7 +113,7 @@
               </td>
               <td>
                 <strong class="block text-xs text-slate-800">{{ subscription.plan_name }}</strong>
-                <span class="text-[10px] text-slate-400">{{ subscription.plan_price }} ر.س</span>
+                <span class="text-[10px] text-slate-400">{{ subscription.plan_price|floatformat:0|intcomma:False }} ر.س</span>
               </td>
               <td class="whitespace-nowrap">
                 <span class="block text-xs text-slate-700">{{ subscription.starts_at|date:"Y-m-d"|default:"—" }}</span>
@@ -149,11 +150,11 @@
                   {% if can_subscriptions_manage %}<a href="{% url 'dashboard:system_subscription_edit' subscription.id %}" class="admin-btn admin-btn-secondary" style="min-height:2.15rem;padding:.35rem .65rem">
                     <i class="fas fa-pen"></i> تعديل / تجديد
                   </a>{% endif %}
-                  {% if can_screen_addons_manage %}<a href="{% url 'dashboard:system_screen_addon_create' %}" class="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-700 flex items-center justify-center" title="إضافة شاشات">
+                  {% if can_screen_addons_manage %}<a href="{% url 'dashboard:system_screen_addon_create' %}?subscription={{ subscription.id }}" class="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-700 flex items-center justify-center" title="إضافة شاشات لهذا الاشتراك">
                     <i class="fas fa-display"></i>
                   </a>{% endif %}
                   {% if can_subscriptions_manage %}
-                    <form method="post" action="{% url 'dashboard:system_subscription_delete' subscription.id %}" onsubmit="return confirm('حذف اشتراك {{ subscription.school_name }}؟');">
+                    <form method="post" action="{% url 'dashboard:system_subscription_delete' subscription.id %}" data-confirm="حذف اشتراك {{ subscription.school_name }}؟">
                       {% csrf_token %}
                       <button type="submit" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center" title="حذف الاشتراك">
                         <i class="fas fa-trash"></i>

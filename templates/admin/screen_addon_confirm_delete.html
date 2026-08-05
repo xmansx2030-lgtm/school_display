@@ -1,7 +1,13 @@
 {% extends "admin/admin_base.html" %}
 
 {% block title %}حذف زيادة شاشات{% endblock %}
+{% block page_icon %}trash{% endblock %}
 {% block page_title %}حذف زيادة شاشات{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:system_screen_addons_list' %}" class="hover:text-blue-600">الشاشات الإضافية</a>
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">حذف</span>
+{% endblock %}
 {% block page_description %}
 تأكيد حذف زيادة الشاشات. هذا لا يحذف الشاشات الحالية، لكنه قد يمنع إضافة شاشات جديدة لاحقًا.
 {% endblock %}

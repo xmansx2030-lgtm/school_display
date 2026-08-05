@@ -9,70 +9,41 @@
   <link rel="icon" type="image/png" sizes="1024x1024" href="/favicon.png?v=20260723-logo1">
   <link rel="apple-touch-icon" href="/favicon.png?v=20260723-logo1">
 
-  <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-04-15b">
+  <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-08-04-lux1">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="{% static 'css/admin-console.css' %}?v=2026-07-23-a3">
+  <link rel="stylesheet" href="{% static 'css/admin-console.css' %}?v=2026-08-04-lux1">
 
   <style>
     body {
       font-family: "Cairo", sans-serif;
-      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    }
-    
-    .sidebar-link {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 0.75rem 1rem;
-      border-radius: 0.75rem;
-      transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     }
 
-    .sidebar-link:hover {
-      transform: translateY(-1px);
-    }
-
-    .sidebar-link-active {
-      background: linear-gradient(90deg, #2563eb, #4f46e5);
-      color: #fff;
-      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.22);
-    }
-
-    .sidebar-submenu {
-      margin-right: 2.5rem;
-      transition: all 0.3s ease;
-      overflow: hidden;
-    }
-    
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-10px); }
+      from { opacity: 0; transform: translateY(-8px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    
+
     .animate-fade-in {
-      animation: fadeIn 0.3s ease-out;
+      animation: fadeIn 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
-    
-    /* Scrollbar styling */
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-    
-    ::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 10px;
-    }
-    
+
+    /* Work-surface scrollbar. The dark rail overrides this with its own. */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb {
-      background: #c1c1c1;
-      border-radius: 10px;
+      border: 3px solid transparent;
+      border-radius: 999px;
+      background: rgba(100, 116, 139, 0.35);
+      background-clip: content-box;
     }
-    
-    ::-webkit-scrollbar-thumb:hover {
-      background: #a1a1a1;
+    ::-webkit-scrollbar-thumb:hover { background: rgba(71, 85, 105, 0.55); background-clip: content-box; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .animate-fade-in { animation: none; }
     }
   </style>
+  <link rel="stylesheet" href="{% static 'css/mobile.css' %}?v=2026-08-05-m1">
 </head>
 
 <body class="admin-body min-h-screen flex">
@@ -85,12 +56,13 @@
 
   <!-- الشريط الجانبي -->
   <aside id="adminSidebar"
-         class="admin-sidebar translate-x-full lg:translate-x-0 fixed lg:sticky lg:top-0 inset-y-0 right-0 h-screen border-l border-slate-200/70 flex flex-col z-50 transition-transform duration-300 ease-in-out">
-    
+         class="admin-sidebar translate-x-full lg:translate-x-0 fixed lg:sticky lg:top-0 inset-y-0 right-0 h-screen flex flex-col z-50 transition-transform duration-300 ease-in-out">
+
     <!-- رأس الشريط الجانبي -->
-    <div class="p-6 border-b border-slate-200 relative">
+    <div class="admin-rail-head p-6 border-b relative">
       <!-- Close button for mobile -->
-      <button id="adminSidebarCloseBtn" type="button" aria-label="إغلاق قائمة الإدارة" class="lg:hidden absolute left-4 top-6 text-slate-400 hover:text-slate-600">
+      <button id="adminSidebarCloseBtn" type="button" aria-label="إغلاق قائمة الإدارة"
+              class="lg:hidden absolute left-4 top-6 text-slate-400 hover:text-white transition-colors">
         <i class="fas fa-times text-xl"></i>
       </button>
       <div class="flex items-center gap-3">
@@ -98,23 +70,23 @@
           <i class="fas fa-layer-group text-white text-lg"></i>
         </div>
         <div>
-          <h2 class="text-lg font-black text-slate-900">إدارة المنصة</h2>
-          <p class="text-xs text-slate-500 mt-1">مركز عمليات المدارس</p>
+          <h2 class="admin-rail-title text-lg font-black">إدارة المنصة</h2>
+          <p class="admin-rail-subtitle text-xs mt-1">مركز عمليات المدارس</p>
         </div>
       </div>
-      
+
       <!-- معلومات المسؤول -->
-      <div class="mt-6 p-4 bg-gradient-to-r from-slate-50 to-gray-50 rounded-xl border border-slate-100">
+      <div class="admin-rail-user mt-6 p-4">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shrink-0">
             <i class="fas fa-user text-white text-sm"></i>
           </div>
           <div class="flex-1 min-w-0">
-            <p class="font-medium text-slate-800 text-sm truncate">
+            <p class="admin-rail-user-name text-sm font-bold truncate">
               {% if request.user.get_full_name %}{{ request.user.get_full_name }}{% else %}{{ request.user.username }}{% endif %}
             </p>
-            <p class="text-xs text-slate-500 mt-1 truncate">
-              {{ platform_role_label }}{% if request.user.email %} · {{ request.user.email }}{% endif %}
+            <p class="admin-rail-user-meta text-xs mt-1 truncate">
+              {{ platform_role_label }}{% if request.user.email %} · <span class="admin-ltr align-baseline">{{ request.user.email }}</span>{% endif %}
             </p>
           </div>
         </div>
@@ -130,12 +102,15 @@
             <p class="admin-nav-label">{{ group.grouper }}</p>
             <div class="space-y-1">
               {% for item in group.list %}
-                <a href="{{ item.url }}" class="admin-nav-link {% if item.active %}is-active{% endif %}">
-                  <span class="admin-nav-icon"><i class="fas {{ item.icon }}"></i></span>
+                <a href="{{ item.url }}" class="admin-nav-link {% if item.active %}is-active{% endif %}"
+                   {% if item.active %}aria-current="page"{% endif %}
+                   title="{{ item.description }}">
+                  <span class="admin-nav-icon" aria-hidden="true"><i class="fas {{ item.icon }}"></i></span>
                   <span>{{ item.title }}</span>
                   {% if item.badge_count %}
-                    <span class="mr-auto inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full bg-rose-600 text-white text-[10px] font-black">
+                    <span class="admin-nav-badge">
                       {{ item.badge_count }}
+                      <span class="sr-only">عنصر بانتظار المعالجة</span>
                     </span>
                   {% endif %}
                 </a>
@@ -152,31 +127,27 @@
     </div>
     
     <!-- تذييل الشريط الجانبي -->
-    <div class="p-5 border-t border-slate-200 space-y-3">
+    <div class="admin-rail-foot p-4 border-t space-y-1">
       {% if not is_support_staff %}
-        <a href="{% url 'dashboard:index' %}"
-           class="sidebar-link text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 hover:shadow-sm">
-          <i class="fas fa-arrow-left text-lg w-6 text-center"></i>
+        <a href="{% url 'dashboard:index' %}" class="sidebar-link">
+          <i class="fas fa-arrow-left w-5 text-center"></i>
           <span>الرجوع للوحة المدرسة</span>
         </a>
       {% endif %}
 
-      <a href="{% url 'dashboard:two_factor_setup' %}"
-         class="sidebar-link text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 hover:shadow-sm">
-        <i class="fas fa-shield-halved text-lg w-6 text-center"></i>
+      <a href="{% url 'dashboard:two_factor_setup' %}" class="sidebar-link">
+        <i class="fas fa-shield-halved w-5 text-center"></i>
         <span>المصادقة الثنائية</span>
       </a>
-      
-      <a href="{% url 'dashboard:logout' %}"
-         class="sidebar-link text-slate-700 hover:bg-rose-50 hover:text-rose-600 hover:shadow-sm">
-        <i class="fas fa-sign-out-alt text-lg w-6 text-center"></i>
+
+      <a href="{% url 'dashboard:logout' %}" class="sidebar-link is-danger">
+        <i class="fas fa-right-from-bracket w-5 text-center"></i>
         <span>تسجيل الخروج</span>
       </a>
-      
+
       <!-- نسخة النظام -->
-      <div class="mt-4 pt-4 border-t border-slate-100 text-center">
-        <p class="text-xs text-slate-400">الإصدار 1.0.0</p>
-        <p class="text-xs text-slate-400 mt-1">© {% now "Y" %} نظام المدارس</p>
+      <div class="admin-rail-version mt-3 pt-3 text-center" style="border-top:1px solid var(--rail-hairline)">
+        <p class="text-[11px]">الإصدار 1.0.0 · © {% now "Y" %} نظام المدارس</p>
       </div>
     </div>
   </aside>
@@ -188,7 +159,7 @@
       <div class="admin-page-width flex items-center gap-3">
         {% if not hide_admin_sidebar %}
           <button id="adminSidebarOpenBtn" type="button" aria-controls="adminSidebar" aria-expanded="false" aria-label="فتح قائمة الإدارة"
-                  class="lg:hidden w-11 h-11 rounded-xl bg-white border border-slate-200 text-slate-600 shadow-sm">
+                  class="admin-icon-btn lg:hidden shrink-0">
             <i class="fas fa-bars"></i>
           </button>
         {% endif %}
@@ -200,20 +171,19 @@
           <span class="search-shortcut">Ctrl K</span>
         </form>
 
-        <div class="mr-auto flex items-center gap-2">
-          {% if can_subscription_requests_view %}<a href="{% url 'dashboard:system_subscription_requests_list' %}"
-             class="relative w-11 h-11 rounded-xl bg-white border border-slate-200 text-slate-600 flex items-center justify-center hover:text-blue-600"
-             aria-label="طلبات الاشتراك">
-            <i class="fas fa-receipt"></i>
-            {% if admin_open_subscription_requests_count %}
-              <span class="absolute -top-1 -left-1 min-w-5 h-5 px-1 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center">
-                {{ admin_open_subscription_requests_count }}
-              </span>
-            {% endif %}
-          </a>{% endif %}
-          <button id="adminReloadBtn" type="button"
-                  class="w-11 h-11 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600"
-                  aria-label="تحديث الصفحة">
+        <div class="mr-auto flex items-center gap-2 shrink-0">
+          {% if can_subscription_requests_view %}
+            <a href="{% url 'dashboard:system_subscription_requests_list' %}" class="admin-icon-btn relative"
+               aria-label="طلبات الاشتراك بانتظار المراجعة" title="طلبات الاشتراك">
+              <i class="fas fa-receipt"></i>
+              {% if admin_open_subscription_requests_count %}
+                <span class="admin-nav-badge absolute -top-1.5 -left-1.5 !min-w-[1.15rem] !h-[1.15rem] !text-[10px] !m-0">
+                  {{ admin_open_subscription_requests_count }}
+                </span>
+              {% endif %}
+            </a>
+          {% endif %}
+          <button id="adminReloadBtn" type="button" class="admin-icon-btn" aria-label="تحديث الصفحة" title="تحديث الصفحة">
             <i class="fas fa-rotate"></i>
           </button>
         </div>
@@ -223,21 +193,21 @@
     <div class="admin-page-width">
       <header class="mb-5 md:mb-7">
         <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-          <div>
-            <nav class="mb-2 flex items-center gap-2 text-xs text-slate-400">
-              <a href="{% url 'dashboard:system_admin_dashboard' %}" class="hover:text-blue-600">إدارة المنصة</a>
+          <div class="min-w-0">
+            <nav class="admin-crumbs mb-2.5 flex items-center gap-2 text-xs" aria-label="مسار التنقل">
+              <a href="{% url 'dashboard:system_admin_dashboard' %}">إدارة المنصة</a>
               {% block breadcrumb %}
                 <i class="fas fa-angle-left text-[9px]"></i>
-                <span class="text-slate-500">الصفحة الحالية</span>
+                <span aria-current="page">الصفحة الحالية</span>
               {% endblock %}
             </nav>
-            <div class="flex items-center gap-3">
-              <span class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <div class="flex items-start gap-3.5">
+              <span class="admin-page-icon" aria-hidden="true">
                 <i class="fas fa-{% block page_icon %}cogs{% endblock %}"></i>
               </span>
-              <div>
-                <h1 class="text-xl md:text-3xl font-black text-slate-900">{% block page_title %}العنوان{% endblock %}</h1>
-                <p class="mt-1 text-xs md:text-sm text-slate-500">{% block page_description %}وصف الصفحة{% endblock %}</p>
+              <div class="min-w-0">
+                <h1 class="admin-page-title">{% block page_title %}العنوان{% endblock %}</h1>
+                <p class="admin-page-subtitle">{% block page_description %}وصف الصفحة{% endblock %}</p>
               </div>
             </div>
           </div>
@@ -251,14 +221,19 @@
       </header>
 
       {% if messages %}
-        <div class="mb-5 space-y-3">
+        <div class="mb-5 space-y-3 admin-no-print" role="status" aria-live="polite">
           {% for message in messages %}
-            <div class="rounded-xl border px-4 py-3 text-sm font-bold
-              {% if message.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800
-              {% elif message.tags == 'error' %}border-rose-200 bg-rose-50 text-rose-800
-              {% elif message.tags == 'warning' %}border-amber-200 bg-amber-50 text-amber-800
-              {% else %}border-sky-200 bg-sky-50 text-sky-800{% endif %}">
-              {{ message }}
+            <div class="admin-toast
+              {% if message.tags == 'success' %}is-success
+              {% elif message.tags == 'error' %}is-error
+              {% elif message.tags == 'warning' %}is-warning
+              {% else %}is-info{% endif %}">
+              <i class="admin-toast-icon fas
+                {% if message.tags == 'success' %}fa-circle-check
+                {% elif message.tags == 'error' %}fa-circle-exclamation
+                {% elif message.tags == 'warning' %}fa-triangle-exclamation
+                {% else %}fa-circle-info{% endif %}" aria-hidden="true"></i>
+              <span>{{ message }}</span>
             </div>
           {% endfor %}
         </div>
@@ -268,13 +243,15 @@
         {% block content %}{% endblock %}
       </div>
 
-      <footer class="mt-8 pb-3 text-center text-[11px] text-slate-400 admin-no-print">
-        آخر تحديث: <span id="current-time"></span> · <span id="current-date"></span>
+      <footer class="admin-foot mt-10 pb-4 admin-no-print">
+        <span class="admin-foot-dot" aria-hidden="true"></span>
+        <span>آخر تحديث: <span id="current-time"></span> · <span id="current-date"></span></span>
       </footer>
     </div>
   </main>
 
-  <script defer src="{% static 'js/admin-shell.js' %}?v=2026-07-23-c1"></script>
+  <script defer src="{% static 'js/csp-actions.js' %}?v=2026-08-04-a1"></script>
+  <script defer src="{% static 'js/admin-shell.js' %}?v=2026-08-04-c2"></script>
   
 </body>
 </html>

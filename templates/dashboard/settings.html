@@ -102,6 +102,20 @@
                         <div><span>الهوية البصرية</span><h3>كيف تظهر مدرستك على الشاشة؟</h3></div>
                         <p>اختر الشعار واللون والمحتوى البارز. يمكنك فتح المعاينة قبل أو بعد الحفظ.</p>
                     </div>
+
+                    {% if is_screen_scope %}
+                    <label class="screen-inherit-card" data-inherit-toggle>
+                        <input type="checkbox" name="inherit_groups" value="appearance"
+                               data-inherit-input
+                               {% if 'appearance' in inherit_selected %}checked{% endif %}>
+                        <span class="screen-inherit-body">
+                            <strong>اتباع إعداد جميع الشاشات</strong>
+                            <small>تبقى هذه الشاشة على الهوية البصرية العامة، وتصلها أي تعديلات لاحقة عليها تلقائيًا. ألغِ التحديد لتخصيص اللون والكرت المميز لهذه الشاشة وحدها.</small>
+                        </span>
+                        <span class="screen-inherit-state" aria-hidden="true"></span>
+                    </label>
+                    {% endif %}
+
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
                         <div class="settings-identity-card">
                             <div class="settings-logo-preview" data-logo-preview>
@@ -121,11 +135,17 @@
                                 {{ form.logo }}
                                 <p id="logoHelp">PNG أو JPG أو WebP، ويفضل شعار مربع بخلفية شفافة.</p>
                                 {% if form.logo.errors %}<div class="settings-field-error" role="alert">{% for error in form.logo.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                {% if is_screen_scope %}
+                                <label class="screen-inherit-inline">
+                                    {{ form.use_school_logo }}
+                                    <span><strong>{{ form.use_school_logo.label }}</strong><small>{{ form.use_school_logo.help_text }}</small></span>
+                                </label>
+                                {% endif %}
                             </div>
                         </div>
 
                         <!-- Featured Card Selector -->
-                        <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group">
+                        <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group" data-inherit-group="appearance">
                             <label for="{{ form.featured_panel.id_for_label }}" class="text-sm font-bold text-slate-700 mb-4 flex items-center justify-between">
                                 <span>الكرت المميز في شاشة العرض</span>
                             </label>
@@ -140,7 +160,7 @@
                         </div>
                         
                         <!-- Theme Colors Selector (Visual) -->
-                        <div class="dashboard-control-surface bg-white rounded-xl p-4 border border-slate-200 relative overflow-hidden">
+                        <div class="dashboard-control-surface bg-white rounded-xl p-4 border border-slate-200 relative overflow-hidden" data-inherit-group="appearance">
                             <label class="block text-sm font-bold text-slate-700 mb-5 relative z-10">لون الثيم</label>
                             
                             <div class="hidden">
@@ -241,7 +261,7 @@
                 <section id="settings-panel-contact" data-settings-tab-panel="contact" class="settings-tab-panel hidden" role="tabpanel" aria-labelledby="settings-tab-contact" tabindex="0">
                     <div class="settings-section-heading">
                         <div><span>بيانات مسؤول المدرسة</span><h3>بيانات التواصل</h3></div>
-                        <p>حدّث البريد ورقم الجوال المستخدمين في إشعارات الاشتراك والتحقق لدى تمارا.</p>
+                        <p>حدّث البريد ورقم الجوال المستخدمين في إشعارات الاشتراك والفواتير والتحقق.</p>
                     </div>
                     <div class="settings-copy-grid">
                         <article class="settings-copy-card">
@@ -259,7 +279,7 @@
                         <article class="settings-copy-card">
                             <div class="settings-copy-card-head">
                                 <span class="settings-scenario-icon is-after">05</span>
-                                <div><h4>رقم الجوال</h4><p>رقم سعودي صالح لاستقبال التحقق واستخدام الدفع بالتقسيط.</p></div>
+                                <div><h4>رقم الجوال</h4><p>رقم سعودي صالح لاستقبال رسائل التحقق وإشعارات الاشتراك.</p></div>
                             </div>
                             <div class="settings-field">
                                 <label for="{{ form.mobile.id_for_label }}">{{ form.mobile.label }}</label>
@@ -270,7 +290,7 @@
                         </article>
                     </div>
                     <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold leading-7 text-amber-900">
-                        يجب حفظ بريد إلكتروني ورقم جوال سعودي صحيحين قبل بدء الدفع عبر تمارا.
+                        يجب حفظ بريد إلكتروني ورقم جوال سعودي صحيحين قبل بدء عملية الدفع.
                     </div>
                 </section>
                 {% endif %}
@@ -281,7 +301,21 @@
                         <div><span>رسائل تلقائية</span><h3>ماذا تعرض الشاشة خارج وقت الحصص؟</h3></div>
                         <p>خصص عنوانًا رئيسيًا وشارة قصيرة لكل حالة. اجعل النص واضحًا وقابلًا للقراءة من مسافة.</p>
                     </div>
-                    <div class="settings-copy-grid">
+
+                    {% if is_screen_scope %}
+                    <label class="screen-inherit-card" data-inherit-toggle>
+                        <input type="checkbox" name="inherit_groups" value="messages"
+                               data-inherit-input
+                               {% if 'messages' in inherit_selected %}checked{% endif %}>
+                        <span class="screen-inherit-body">
+                            <strong>اتباع إعداد جميع الشاشات</strong>
+                            <small>تعرض هذه الشاشة الرسائل العامة للمدرسة. ألغِ التحديد لكتابة رسائل خاصة بموقع هذه الشاشة.</small>
+                        </span>
+                        <span class="screen-inherit-state" aria-hidden="true"></span>
+                    </label>
+                    {% endif %}
+
+                    <div class="settings-copy-grid" data-inherit-group="messages">
                         <article class="settings-copy-card">
                             <div class="settings-copy-card-head"><span class="settings-scenario-icon is-before">01</span><div><h4>قبل بداية الدوام</h4><p>الرسالة الترحيبية قبل أول حصة.</p></div></div>
                             <div class="settings-field"><label for="{{ form.display_before_title.id_for_label }}">العنوان الرئيسي</label>{{ form.display_before_title }}{% if form.display_before_title.help_text %}<p id="{{ form.display_before_title.id_for_label }}_helptext">{{ form.display_before_title.help_text }}</p>{% endif %}{% if form.display_before_title.errors %}<div class="settings-field-error" role="alert">{% for error in form.display_before_title.errors %}{{ error }}{% endfor %}</div>{% endif %}</div>
@@ -311,10 +345,24 @@
                         <div><span>{% if show_display_settings %}حركة المحتوى{% else %}متابعة التشغيل{% endif %}</span><h3>{% if show_display_settings %}وازن بين السرعة وسهولة القراءة{% else %}تنبيهات اتصال الشاشات وتقاريرها{% endif %}</h3></div>
                         <p>{% if show_display_settings %}ابدأ بالقيم المقترحة، ثم راقب النتيجة من شاشة المعاينة قبل اعتمادها.{% else %}تحكم في وقت اكتشاف انقطاع الشاشة وإرسال التنبيهات وتقارير التشغيل.{% endif %}</p>
                     </div>
+
+                    {% if is_screen_scope %}
+                    <label class="screen-inherit-card" data-inherit-toggle>
+                        <input type="checkbox" name="inherit_groups" value="motion"
+                               data-inherit-input
+                               {% if 'motion' in inherit_selected %}checked{% endif %}>
+                        <span class="screen-inherit-body">
+                            <strong>اتباع إعداد جميع الشاشات</strong>
+                            <small>تستخدم هذه الشاشة سرعات التمرير العامة. ألغِ التحديد إذا كانت الشاشة أبعد أو أصغر وتحتاج سرعة مختلفة.</small>
+                        </span>
+                        <span class="screen-inherit-state" aria-hidden="true"></span>
+                    </label>
+                    {% endif %}
+
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                         {% if show_display_settings %}
                         <!-- Standby Speed -->
-                        <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group">
+                        <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group" data-inherit-group="motion">
                              <label for="{{ form.standby_scroll_speed.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-3">{{ form.standby_scroll_speed.label }}</label>
                              <div class="relative">
                                 {{ form.standby_scroll_speed }}
@@ -326,7 +374,7 @@
                         </div>
 
                         <!-- Periods Speed -->
-                                <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group">
+                                <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group" data-inherit-group="motion">
                              <label for="{{ form.periods_scroll_speed.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-3">{{ form.periods_scroll_speed.label }}</label>
                              <div class="relative">
                                 {{ form.periods_scroll_speed }}
@@ -351,7 +399,7 @@
                         <div class="dashboard-control-surface bg-blue-50/50 rounded-xl p-5 border border-blue-100 sm:col-span-2">
                             <div class="mb-4">
                                 <h4 class="text-sm font-black text-slate-800">مراقبة اتصال الشاشات</h4>
-                                <p class="mt-1 text-xs text-slate-500">تنبيه تلقائي عند الانقطاع وتقرير أسبوعي لنسبة تشغيل كل شاشة.</p>
+                                <p class="mt-1 text-xs text-slate-500">تنبيه تلقائي عند انقطاع اتصال إحدى شاشات المدرسة.</p>
                             </div>
                             <div class="grid md:grid-cols-2 gap-4">
                                 <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
@@ -366,10 +414,6 @@
                                 <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
                                     {{ form.screen_offline_email_enabled }}
                                     <span><strong class="block text-sm text-slate-800">{{ form.screen_offline_email_enabled.label }}</strong><small class="text-xs text-slate-500">يرسل إلى عناوين البريد المسجلة لمدراء المدرسة.</small></span>
-                                </label>
-                                <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
-                                    {{ form.weekly_uptime_report_enabled }}
-                                    <span><strong class="block text-sm text-slate-800">{{ form.weekly_uptime_report_enabled.label }}</strong><small class="text-xs text-slate-500">نسبة التشغيل والانقطاع لكل شاشة خلال الأسبوع.</small></span>
                                 </label>
                             </div>
                         </div>
@@ -415,7 +459,7 @@
 </div>
 
 <!-- Scripts -->
-<script>
+<script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     // Style inputs
     const form = document.getElementById('settingsForm');
@@ -623,6 +667,36 @@ document.addEventListener('DOMContentLoaded', function() {
         form.addEventListener('change', markUnsaved);
     }
 
+    // ── وراثة إعداد جميع الشاشات ──
+    // تعطيل بصري فقط: تبقى الحقول مُرسَلة حتى يستعيد المدير قيمه فورًا عند
+    // إلغاء الوراثة، والخادم هو من يقرر تجاهلها ويفرّغ حقول التخصيص.
+    const inheritInputs = Array.prototype.slice.call(
+        document.querySelectorAll('[data-inherit-input]')
+    );
+    function syncInheritGroup(input) {
+        const group = input.value;
+        const inherited = input.checked;
+        document.querySelectorAll('[data-inherit-group="' + group + '"]').forEach((el) => {
+            el.classList.toggle('is-inherited', inherited);
+            el.setAttribute('aria-hidden', inherited ? 'true' : 'false');
+        });
+    }
+    inheritInputs.forEach((input) => {
+        syncInheritGroup(input);
+        input.addEventListener('change', () => syncInheritGroup(input));
+    });
+
+    const useSchoolLogo = form ? form.querySelector('[name="use_school_logo"]') : null;
+    if (useSchoolLogo && logoInput) {
+        // اختيار ملف جديد يعني نية واضحة بتخصيص الشعار.
+        logoInput.addEventListener('change', () => {
+            if (logoInput.files && logoInput.files.length) useSchoolLogo.checked = false;
+        });
+        useSchoolLogo.addEventListener('change', () => {
+            if (useSchoolLogo.checked) logoInput.value = '';
+        });
+    }
+
     if (logoInput && logoPreview) {
         logoInput.addEventListener('change', () => {
             const file = logoInput.files && logoInput.files[0];
@@ -679,6 +753,81 @@ document.addEventListener('DOMContentLoaded', function() {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* ── وراثة إعداد جميع الشاشات (نطاق الشاشة الواحدة) ── */
+.screen-inherit-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    margin-bottom: 1.15rem;
+    padding: 0.95rem 1.05rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.screen-inherit-card:hover { border-color: #cbd5e1; }
+.screen-inherit-card:has(input:checked) {
+    border-color: #a5b4fc;
+    background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+    box-shadow: 0 6px 18px rgba(99, 102, 241, .08);
+}
+.screen-inherit-card:focus-within { outline: 3px solid rgba(99,102,241,.22); outline-offset: 2px; }
+.screen-inherit-card input[type="checkbox"] {
+    flex: none;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-top: 0.15rem;
+    accent-color: #4f46e5;
+    cursor: pointer;
+}
+.screen-inherit-body { display: flex; flex-direction: column; gap: 0.3rem; }
+.screen-inherit-body strong { color: #0f172a; font-size: 0.85rem; font-weight: 900; }
+.screen-inherit-body small { color: #64748b; font-size: 0.75rem; font-weight: 600; line-height: 1.85; }
+.screen-inherit-state {
+    flex: none;
+    margin-inline-start: auto;
+    align-self: center;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 0.68rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+.screen-inherit-state::after { content: "مخصّصة"; }
+.screen-inherit-card:has(input:checked) .screen-inherit-state { background: #4f46e5; color: #fff; }
+.screen-inherit-card:has(input:checked) .screen-inherit-state::after { content: "موروثة"; }
+
+[data-inherit-group].is-inherited {
+    opacity: .5;
+    filter: saturate(.55);
+    pointer-events: none;
+    user-select: none;
+    transition: opacity .18s ease, filter .18s ease;
+}
+
+.screen-inherit-inline {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px dashed #e2e8f0;
+    cursor: pointer;
+}
+.screen-inherit-inline input[type="checkbox"] {
+    flex: none;
+    width: 1.05rem;
+    height: 1.05rem;
+    margin-top: 0.1rem;
+    accent-color: #4f46e5;
+    cursor: pointer;
+}
+.screen-inherit-inline strong { display: block; color: #0f172a; font-size: 0.78rem; font-weight: 900; }
+.screen-inherit-inline small { display: block; margin-top: 0.15rem; color: #64748b; font-size: 0.71rem; font-weight: 600; line-height: 1.7; }
 
 .dashboard-settings {
     --settings-ink: #0f172a;

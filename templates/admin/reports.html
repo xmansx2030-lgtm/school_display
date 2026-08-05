@@ -1,175 +1,174 @@
 {% extends "admin/admin_base.html" %}
+{% load humanize l10n %}
 
 {% block title %}التقارير والإحصائيات{% endblock %}
+{% block page_icon %}chart-line{% endblock %}
 {% block page_title %}التقارير والإحصائيات{% endblock %}
-{% block page_description %}تحليل الإيرادات ونمو الاشتراكات وتوزيع المدارس{% endblock %}
+{% block page_description %}تحليل الإيرادات ونمو الاشتراكات وتوزيع المدارس على المنصة.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">التقارير</span>
+{% endblock %}
 
 {% block content %}
-<div class="space-y-8">
+<div class="space-y-5">
 
-  <!-- مؤشرات رئيسية -->
-  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-    <div class="rounded-2xl p-6 bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg">
-      <div class="flex items-start justify-between">
-        <div>
-          <p class="text-amber-100 text-sm mb-1">إجمالي الإيرادات النشطة</p>
-          <h2 class="text-3xl font-extrabold">{{ total_revenue|floatformat:2 }} <span class="text-base font-medium">ر.س</span></h2>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl">💰</div>
-      </div>
+  <section class="grid grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4" aria-label="المؤشرات المالية">
+    <div class="admin-metric-card" style="--metric-color:#d97706">
+      <span class="admin-metric-icon"><i class="fas fa-sack-dollar"></i></span>
+      <p class="admin-metric-value">{{ total_revenue|floatformat:0|intcomma:False }}</p>
+      <p class="admin-metric-label">ر.س قيمة الاشتراكات السارية</p>
+      <p class="admin-metric-note">مجموع أسعار باقات الاشتراكات النشطة اليوم</p>
     </div>
 
-    <div class="rounded-2xl p-6 bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-lg">
-      <div class="flex items-start justify-between">
-        <div>
-          <p class="text-emerald-100 text-sm mb-1">الاشتراكات النشطة</p>
-          <h2 class="text-3xl font-extrabold">{{ active_subscriptions_count|default:0 }}</h2>
-          <p class="text-emerald-100 text-xs mt-1">من أصل {{ total_subscriptions_count|default:0 }} اشتراك</p>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl">💳</div>
-      </div>
+    <div class="admin-metric-card" style="--metric-color:#059669">
+      <span class="admin-metric-icon"><i class="fas fa-credit-card"></i></span>
+      <p class="admin-metric-value">{{ active_subscriptions_count|default:0 }}</p>
+      <p class="admin-metric-label">اشتراك سارٍ</p>
+      <p class="admin-metric-note">من أصل {{ total_subscriptions_count|default:0 }} اشتراكاً مسجلاً</p>
     </div>
 
-    <div class="rounded-2xl p-6 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg">
-      <div class="flex items-start justify-between">
-        <div>
-          <p class="text-blue-100 text-sm mb-1">متوسط الإيراد لكل اشتراك نشط</p>
-          <h2 class="text-3xl font-extrabold">{{ avg_revenue_per_active|floatformat:2 }} <span class="text-base font-medium">ر.س</span></h2>
-          <p class="text-blue-100 text-xs mt-1">ARPS</p>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl">📈</div>
-      </div>
+    <div class="admin-metric-card" style="--metric-color:#2563eb">
+      <span class="admin-metric-icon"><i class="fas fa-chart-line"></i></span>
+      <p class="admin-metric-value">{{ avg_revenue_per_active|floatformat:0|intcomma:False }}</p>
+      <p class="admin-metric-label">ر.س متوسط قيمة الاشتراك</p>
+      <p class="admin-metric-note">ARPS — متوسط الإيراد لكل اشتراك سارٍ</p>
     </div>
 
-    <div class="rounded-2xl p-5 border border-rose-100 bg-rose-50/70 shadow-sm">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-rose-700 font-semibold text-sm">طلبات التجديد/الاشتراك المعلقة</p>
-          <p class="text-2xl font-extrabold text-rose-700 mt-1">{{ admin_open_subscription_requests_count|default:0 }}</p>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center text-2xl">🧾</div>
-      </div>
-      <a href="{% url 'dashboard:system_subscription_requests_list' %}" class="mt-4 inline-flex text-sm font-medium text-rose-700 hover:text-rose-800">
-        الذهاب إلى الطلبات
+    {% if can_subscription_requests_view %}
+      <a href="{% url 'dashboard:system_subscription_requests_list' %}" class="admin-metric-card" style="--metric-color:#e11d48">
+        <span class="admin-metric-icon"><i class="fas fa-receipt"></i></span>
+        <p class="admin-metric-value">{{ admin_open_subscription_requests_count|default:0 }}</p>
+        <p class="admin-metric-label">طلب اشتراك/تجديد معلق</p>
+        <p class="admin-metric-note">بانتظار المراجعة أو الاعتماد</p>
       </a>
-    </div>
+    {% endif %}
 
-    <div class="rounded-2xl p-5 border border-fuchsia-100 bg-fuchsia-50/70 shadow-sm">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-fuchsia-700 font-semibold text-sm">تذاكر دعم مفتوحة</p>
-          <p class="text-2xl font-extrabold text-fuchsia-700 mt-1">{{ admin_new_support_tickets_count|default:0 }}</p>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-fuchsia-100 flex items-center justify-center text-2xl">🛟</div>
-      </div>
-      <a href="{% url 'dashboard:system_support_tickets' %}" class="mt-4 inline-flex text-sm font-medium text-fuchsia-700 hover:text-fuchsia-800">
-        الذهاب إلى الدعم الفني
+    {% if can_support_view %}
+      <a href="{% url 'dashboard:system_support_tickets' %}" class="admin-metric-card" style="--metric-color:#a21caf">
+        <span class="admin-metric-icon"><i class="fas fa-headset"></i></span>
+        <p class="admin-metric-value">{{ admin_new_support_tickets_count|default:0 }}</p>
+        <p class="admin-metric-label">تذكرة دعم مفتوحة</p>
+        <p class="admin-metric-note">تحتاج ردًا من فريق الدعم</p>
       </a>
-    </div>
+    {% endif %}
 
-    <div class="rounded-2xl p-5 border border-slate-200 bg-slate-50 shadow-sm">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-slate-700 font-semibold text-sm">إجمالي المدارس</p>
-          <p class="text-2xl font-extrabold text-slate-800 mt-1">{{ schools_count|default:0 }}</p>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-slate-200 flex items-center justify-center text-2xl">🏫</div>
-      </div>
-      <a href="{% url 'dashboard:system_schools_list' %}" class="mt-4 inline-flex text-sm font-medium text-slate-700 hover:text-slate-900">
-        الذهاب إلى المدارس
+    {% if can_schools_view %}
+      <a href="{% url 'dashboard:system_schools_list' %}" class="admin-metric-card" style="--metric-color:#0891b2">
+        <span class="admin-metric-icon"><i class="fas fa-school"></i></span>
+        <p class="admin-metric-value">{{ schools_count|default:0 }}</p>
+        <p class="admin-metric-label">مدرسة في المنصة</p>
+        <p class="admin-metric-note">انتقل إلى قائمة المدارس</p>
       </a>
-    </div>
-  </div>
+    {% endif %}
+  </section>
 
-  <!-- الإيرادات حسب الباقة -->
-  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-    <div class="p-6 border-b border-slate-100 flex items-center justify-between">
-      <h3 class="text-xl font-bold text-slate-800">تفاصيل الإيرادات حسب الباقة</h3>
-      <span class="text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-600">{{ revenue_by_plan|length }} باقة</span>
+  <section class="admin-panel">
+    <div class="admin-panel-header">
+      <div>
+        <h2 class="text-base font-black text-slate-900">تفاصيل الإيرادات حسب الباقة</h2>
+        <p class="mt-1 text-xs text-slate-500">محسوبة من أسعار الباقات المرتبطة بالاشتراكات السارية.</p>
+      </div>
+      <span class="text-xs font-bold text-slate-500">{{ revenue_by_plan|length }} باقة</span>
     </div>
-    <div class="overflow-x-auto">
-      <table class="w-full text-right">
-        <thead class="bg-slate-50 text-slate-600 font-medium">
+    <div class="admin-table-wrap">
+      <table class="admin-table" style="min-width:42rem">
+        <thead>
           <tr>
-            <th class="p-4 w-14">#</th>
-            <th class="p-4">اسم الباقة</th>
-            <th class="p-4">عدد المشتركين</th>
-            <th class="p-4">إجمالي الإيرادات</th>
-            <th class="p-4">نسبة المساهمة</th>
+            <th class="w-14">#</th>
+            <th>اسم الباقة</th>
+            <th>عدد المشتركين</th>
+            <th>إجمالي القيمة</th>
+            <th>نسبة المساهمة</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
+        <tbody>
           {% for item in revenue_by_plan %}
-          <tr class="hover:bg-slate-50 transition">
-            <td class="p-4 text-slate-400 font-semibold">{{ forloop.counter }}</td>
-            <td class="p-4 font-medium text-slate-800">{{ item.plan_name }}</td>
-            <td class="p-4 text-slate-600">{{ item.count }}</td>
-            <td class="p-4 font-bold text-emerald-600">{{ item.total_revenue|floatformat:2 }} ر.س</td>
-            <td class="p-4 min-w-[220px]">
-              <div class="flex items-center gap-3">
-                <div class="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden">
-                  <div class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600" style="width: {{ item.share_percent }}%"></div>
+            <tr>
+              <td class="font-black text-slate-400">{{ forloop.counter }}</td>
+              <td class="font-bold text-slate-900">{{ item.plan_name }}</td>
+              <td class="text-slate-600">{{ item.count }}</td>
+              <td class="font-black text-emerald-700">{{ item.total_revenue|floatformat:0|intcomma:False }} ر.س</td>
+              <td>
+                <div class="admin-bar-row">
+                  <div class="admin-bar-track">
+                    {# unlocalize: the Arabic locale renders 47.3 as "47,3", which is not valid CSS. #}
+                    <div class="admin-bar-fill is-emerald" style="width:{{ item.share_percent|unlocalize }}%"></div>
+                  </div>
+                  <span class="admin-bar-value">{{ item.share_percent|floatformat:1 }}%</span>
                 </div>
-                <span class="text-xs font-semibold text-slate-600 whitespace-nowrap">{{ item.share_percent|floatformat:1 }}%</span>
-              </div>
-            </td>
-          </tr>
+              </td>
+            </tr>
           {% empty %}
-          <tr>
-            <td colspan="5" class="p-8 text-center text-slate-500">لا توجد بيانات إيرادات حالياً.</td>
-          </tr>
+            <tr>
+              <td colspan="5">
+                <div class="admin-empty">
+                  <i class="fas fa-chart-pie mb-2 text-2xl text-slate-300"></i>
+                  <p>لا توجد بيانات إيرادات حالياً.</p>
+                </div>
+              </td>
+            </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-  </div>
+  </section>
 
-  <!-- مخططات فعلية -->
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-      <h3 class="text-lg font-bold text-slate-800 mb-5">نمو الاشتراكات خلال آخر 6 أشهر</h3>
-      <div class="h-64 rounded-xl border border-slate-100 bg-slate-50/70 p-4 overflow-x-auto">
-        <div class="flex items-end gap-4 min-w-[380px] h-full">
+  <section class="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+    <div class="admin-panel">
+      <div class="admin-panel-header">
+        <div>
+          <h2 class="text-base font-black text-slate-900">نمو الاشتراكات — آخر 6 أشهر</h2>
+          <p class="mt-1 text-xs text-slate-500">عدد الاشتراكات الجديدة في كل شهر.</p>
+        </div>
+      </div>
+      <div class="p-4">
+        <div class="admin-chart">
           {% for point in monthly_growth %}
             {% widthratio point.count max_monthly_subscriptions 100 as bar_height %}
-            <div class="flex-1 min-w-[54px] flex flex-col items-center gap-2">
-              <span class="text-xs font-semibold text-slate-600">{{ point.count }}</span>
-              <div class="w-full h-40 rounded-lg bg-slate-100 flex items-end overflow-hidden">
-                <div class="w-full rounded-t-lg bg-gradient-to-t from-blue-600 to-indigo-500 transition-all duration-500"
-                     style="height: {% if max_monthly_subscriptions > 0 %}{{ bar_height }}{% else %}0{% endif %}%"></div>
+            <div class="admin-chart-col">
+              <span class="admin-chart-value">{{ point.count }}</span>
+              <div class="admin-chart-track">
+                <div class="admin-chart-fill"
+                     style="height:{% if max_monthly_subscriptions > 0 %}{{ bar_height }}{% else %}0{% endif %}%"></div>
               </div>
-              <span class="text-[11px] text-slate-500">{{ point.label }}</span>
+              <span class="admin-chart-label">{{ point.label }}</span>
             </div>
           {% endfor %}
         </div>
       </div>
     </div>
-    
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-      <h3 class="text-lg font-bold text-slate-800 mb-5">توزيع المدارس حسب النوع</h3>
-      <div class="h-64 rounded-xl border border-slate-100 bg-slate-50/70 p-4 overflow-y-auto">
+
+    <div class="admin-panel">
+      <div class="admin-panel-header">
+        <div>
+          <h2 class="text-base font-black text-slate-900">توزيع المدارس حسب النوع</h2>
+          <p class="mt-1 text-xs text-slate-500">إجمالي {{ schools_distribution_total }} مدرسة.</p>
+        </div>
+      </div>
+      <div class="p-4">
         {% if schools_distribution %}
           <div class="space-y-4">
             {% for item in schools_distribution %}
               <div>
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-sm font-semibold text-slate-700">{{ item.label }}</span>
-                  <span class="text-xs text-slate-500">{{ item.count }} مدرسة ({{ item.percent|floatformat:1 }}%)</span>
+                <div class="mb-2 flex items-center justify-between gap-3">
+                  <span class="text-xs font-black text-slate-700">{{ item.label }}</span>
+                  <span class="text-[11px] text-slate-500">{{ item.count }} مدرسة ({{ item.percent|floatformat:1 }}%)</span>
                 </div>
-                <div class="h-2.5 rounded-full bg-slate-100 overflow-hidden">
-                  <div class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-600" style="width: {{ item.percent }}%"></div>
+                <div class="admin-bar-track">
+                  <div class="admin-bar-fill is-cyan" style="width:{{ item.percent|unlocalize }}%"></div>
                 </div>
               </div>
             {% endfor %}
           </div>
         {% else %}
-          <div class="h-full flex items-center justify-center text-slate-400">
-            لا توجد بيانات مدارس متاحة حالياً.
+          <div class="admin-empty">
+            <i class="fas fa-school mb-2 text-2xl text-slate-300"></i>
+            <p>لا توجد بيانات مدارس متاحة حالياً.</p>
           </div>
         {% endif %}
       </div>
     </div>
-  </div>
+  </section>
 
 </div>
 {% endblock %}

@@ -1,27 +1,30 @@
 {% extends "admin/admin_base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
+{% block page_icon %}display{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_description %}
 إضافة أو تعديل زيادة شاشات فوق حد الباقة. يمكن اختيار دورة تسعير شهرية حتى لو الاشتراك سنوي.
 {% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:system_screen_addons_list' %}" class="hover:text-blue-600">الشاشات الإضافية</a>
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <span class="text-slate-500">{% if edit %}تعديل{% else %}إضافة{% endif %}</span>
+{% endblock %}
+{% block page_actions %}
+  <a href="{% url 'dashboard:system_screen_addons_list' %}" class="admin-btn admin-btn-secondary">
+    <i class="fas fa-arrow-right"></i> العودة للقائمة
+  </a>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto space-y-5">
+<div class="max-w-3xl space-y-5">
 
-  {# ─── Header ─── #}
-  <div class="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm flex items-center justify-between gap-4">
-    <div class="flex items-center gap-4">
-      <div class="h-11 w-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl shrink-0">🖥️</div>
-      <div>
-        <h1 class="text-xl font-extrabold text-slate-900 leading-tight">{{ title }}</h1>
-        <p class="text-xs text-slate-500 mt-0.5">التسعير التلقائي: 1=25، 2=40، 3=55 وفوق 3 +15 لكل شاشة. السنوي×10، نصف سنوي×5.</p>
-      </div>
-    </div>
-    <a href="{% url 'dashboard:system_screen_addons_list' %}"
-       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm shrink-0 transition">
-      <span>↩</span> العودة
-    </a>
+  <div class="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+    <p class="text-sm leading-7 text-sky-900">
+      التسعير التلقائي: 1 = 25، 2 = 40، 3 = 55، وفوق ذلك +15 لكل شاشة. الاشتراك السنوي ×10 ونصف السنوي ×5.
+    </p>
   </div>
 
   {# ─── Errors ─── #}
@@ -232,7 +235,7 @@
 </style>
 
 {# ─── Dynamic JS ─── #}
-<script>
+<script nonce="{{ csp_nonce }}">
 (function () {
   /* ── helpers ── */
   const $ = id => document.getElementById(id);
@@ -253,20 +256,15 @@
   const previewVal  = $('auto_price_value');
   const endsBadge   = $('ends_at_auto_badge');
 
-  /* ── Tiered auto-pricing (mirrors Python model logic) ── */
+  /* ── Flat per-screen auto-pricing (mirrors Python model logic) ── */
   function calcAutoBundle(screens, cycle) {
     screens = parseInt(screens, 10);
     if (!screens || screens <= 0) return null;
 
-    // Monthly slab prices
-    let monthlyPrice;
-    if (screens === 1)      monthlyPrice = 25;
-    else if (screens === 2) monthlyPrice = 40;
-    else if (screens === 3) monthlyPrice = 55;
-    else                    monthlyPrice = 55 + (screens - 3) * 15;
+    const monthlyPrice = screens * 60;
 
     // Cycle multiplier
-    const multipliers = { inherit: 1, monthly: 1, semiannual: 5, annual: 10 };
+    const multipliers = { inherit: 1, monthly: 1, semiannual: 6, annual: 10 };
     const mult = multipliers[cycle] ?? 1;
     return monthlyPrice * mult;
   }

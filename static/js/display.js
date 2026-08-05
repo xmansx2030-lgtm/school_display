@@ -2321,6 +2321,23 @@
     return true;
   }
 
+  /**
+   * تفريغ محرك اليوم.
+   *
+   * ``dayEngineLoad`` يتجاهل الجداول الفارغة عمدًا حتى لا تمحو استجابةٌ ناقصة
+   * جدولًا سليمًا. لكن عند الانتقال إلى يوم بلا دوام يجب أن تختفي كتل الأمس
+   * فعليًا، وإلا استمر المحرك في تحريك حصص لا وجود لها اليوم.
+   */
+  function dayEngineClear() {
+    _dayEngine.blocks = [];
+    _dayEngine.ringPoints = [];
+    _dayEngine.lastDayKey = "";
+    lastBellBoundaryDaySig = "";
+    for (var key in bellBoundarySeen) {
+      if (Object.prototype.hasOwnProperty.call(bellBoundarySeen, key)) delete bellBoundarySeen[key];
+    }
+  }
+
   function dayEngineSyncToLocalNow() {
     if (!_dayEngine.blocks.length) return false;
     var res = dayEngineFindNow();
@@ -3846,14 +3863,21 @@
   let annPtr = 0;
   let annList = [];
   const ANN_INT = 6500;
-  const OCCASION_THEME_META = {
-    national_day: { label: "اليوم الوطني السعودي", icon: "⚔", heroIcon: "⚔", symbols: ["⚔", "✦"], tagline: "هوية وطن • فخر وانتماء" },
-    founding_day: { label: "يوم التأسيس", icon: "◈", heroIcon: "١٧٢٧", symbols: ["◈", "١٧٢٧"], tagline: "جذور راسخة • إرث ممتد" },
-    teachers_day: { label: "يوم المعلم", icon: "📚", symbols: ["📖", "✎"], tagline: "شكر وعرفان • صُنّاع الأجيال" },
-    back_to_school: { label: "العودة للدراسة", icon: "🎒", symbols: ["✏️", "📐"], tagline: "بداية مشرقة • طموح جديد" },
-    graduation: { label: "حفل التخرج", icon: "🎓", symbols: ["🎓", "✦"], tagline: "حصاد الإنجاز • بداية المستقبل" },
-    weather: { label: "حالة جوية", icon: "🌧️", symbols: ["☁️", "💧"], tagline: "السلامة أولًا • متابعة التعليمات" },
-  };
+  // بيانات المناسبات تأتي من سجل واحد في الخادم (core/occasions.py) تُحقنه
+  // الصفحة في كتلة JSON. لا تُعرَّف هنا: أي تكرار سينحرف عن ألوان CSS وعن
+  // معاينة لوحة المدير عند أول تعديل.
+  const OCCASION_THEME_META = (function readOccasionThemeMeta() {
+    try {
+      const node = document.getElementById("occasionThemeMeta");
+      if (!node) return {};
+      const parsed = JSON.parse(node.textContent || "{}");
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (e) {
+      // صفحة قديمة مخزَّنة في Service Worker بلا الكتلة: تعمل الشاشة بلا
+      // مناسبات بدل أن تتوقف.
+      return {};
+    }
+  })();
   let occasionThemeSignature = "";
   let activeOccasionAnnouncement = null;
 
@@ -3876,7 +3900,10 @@
     }
 
     if (document.body) document.body.setAttribute("data-occasion-ambient", "1");
-    setTextIfChanged(dom.occasionHeroIcon, meta.heroIcon || meta.icon);
+    if (dom.occasionHero) {
+      dom.occasionHero.setAttribute("data-mark-text", meta.markIsText ? "1" : "0");
+    }
+    setTextIfChanged(dom.occasionHeroIcon, meta.mark || meta.badgeIcon);
     setTextIfChanged(
       dom.occasionHeroLabel,
       safeText(selected.occasion_theme_label || meta.label)
@@ -3949,7 +3976,7 @@
 
     const meta = OCCASION_THEME_META[key];
     document.body.setAttribute("data-occasion-theme", key);
-    setTextIfChanged(dom.occasionThemeBadgeIcon, meta.icon);
+    setTextIfChanged(dom.occasionThemeBadgeIcon, meta.badgeIcon);
     setTextIfChanged(
       dom.occasionThemeBadgeLabel,
       safeText(selected.occasion_theme_label || meta.label)
@@ -3975,10 +4002,20 @@
 
   function renderAnnouncements(arr) {
     const screenId = parseInt(document.body.getAttribute("data-screen-id") || "0", 10);
+    const currentMs = nowMs();
     const sourceList = (Array.isArray(arr) ? arr.slice() : []).filter((item) => {
       item = item || {};
       const targets = Array.isArray(item.screen_ids) ? item.screen_ids.map(Number) : [];
-      return !targets.length || targets.indexOf(screenId) >= 0;
+      if (targets.length && targets.indexOf(screenId) < 0) return false;
+
+      // النافذة الزمنية تُفرض هنا أيضًا، لا على الخادم وحده. النسخة المحفوظة
+      // قد تبقى قيد العرض ساعات بلا اتصال، فبدون هذا الفحص يظل تنبيه
+      // "اجتماع اليوم الساعة ٩" معروضًا بعد انتهائه بأيام.
+      const startsMs = item.starts_at ? Date.parse(String(item.starts_at)) : NaN;
+      const expiresMs = item.expires_at ? Date.parse(String(item.expires_at)) : NaN;
+      if (!isNaN(startsMs) && startsMs > currentMs) return false;
+      if (!isNaN(expiresMs) && expiresMs <= currentMs) return false;
+      return true;
     });
     const showAnnouncements = screenFlag("screenShowAnnouncements", true);
     const sig = annSignature(sourceList) + "||" + (showAnnouncements ? "1" : "0");
@@ -3989,7 +4026,9 @@
     last.annSig = sig;
 
     annList = showAnnouncements ? sourceList : [];
-    applyOccasionTheme(sourceList);
+    // شاشة أُخفيت عنها التنبيهات يجب ألا ترث قالب مناسبةٍ مصدرُه تنبيهٌ لا يظهر
+    // عليها أصلًا؛ وإلا تغيّر مظهرها بسبب محتوى غير مرئي فيها.
+    applyOccasionTheme(annList);
     if (annTimer) {
       clearInterval(annTimer);
       annTimer = null;
@@ -5099,10 +5138,62 @@
     overlay.classList.remove("u-hidden");
   }
 
-  function renderOfflineMode(isOfflineCached) {
+  function _formatOfflineAge(ageMs) {
+    if (!ageMs || !isFinite(ageMs)) return "";
+    const minutes = Math.floor(ageMs / 60000);
+    if (minutes < 60) return "قبل " + Math.max(1, minutes) + " دقيقة";
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return "قبل " + hours + " ساعة";
+    const days = Math.floor(hours / 24);
+    return "قبل " + days + " يوم";
+  }
+
+  /**
+   * شارة عدم الاتصال بثلاث درجات بدل ثنائية متصل/غير متصل:
+   *   • أقل من ١٥ دقيقة → لا شيء (انقطاع قصير طبيعي)
+   *   • بيانات اليوم نفسه  → عمر آخر تحديث
+   *   • بعد تغيّر التاريخ  → تحذير صريح بأن الجدول محلي وغير مؤكد
+   */
+  function renderOfflineMode(payload) {
     const badge = document.getElementById("offlineModeBadge");
     if (!badge) return;
-    badge.classList.toggle("u-hidden", !isOfflineCached);
+
+    const isCached = !!(payload && payload._offlineCached);
+    if (!isCached) {
+      badge.classList.add("u-hidden");
+      badge.removeAttribute("data-severity");
+      return;
+    }
+
+    const ageMs = Number(payload._offlineAgeMs) || 0;
+    const dayShifted = !!payload._offlineDayShifted;
+
+    if (!dayShifted && ageMs > 0 && ageMs < OFFLINE_QUIET_MS) {
+      badge.classList.add("u-hidden");
+      badge.removeAttribute("data-severity");
+      return;
+    }
+
+    let text;
+    let severity;
+    if (dayShifted && !payload._offlineHasDayPlan) {
+      // لا نعرف جدول اليوم إطلاقًا: أعلى درجات التحذير.
+      severity = "critical";
+      text = "غير متصلة — تعذّر تحديد جدول اليوم";
+    } else if (dayShifted) {
+      // نعرض جدولًا أو إجازة من خطة الأسبوع المحفوظة: صحيح غالبًا، لكنه لم
+      // يُؤكَّد من الخادم منذ أمس.
+      severity = "warning";
+      text = "غير متصلة — الجدول من النسخة المحفوظة";
+    } else {
+      severity = "notice";
+      const age = _formatOfflineAge(ageMs);
+      text = age ? "غير متصلة — آخر تحديث " + age : "غير متصلة — آخر بيانات محفوظة";
+    }
+
+    setTextIfChanged(badge, text);
+    badge.setAttribute("data-severity", severity);
+    badge.classList.remove("u-hidden");
   }
 
 
@@ -5111,7 +5202,7 @@
 
     lastPayloadForFiltering = payload;
     renderEmergencyAlerts(payload.emergency_alerts || []);
-    renderOfflineMode(!!payload._offlineCached);
+    renderOfflineMode(payload);
 
     // Legacy/back-compat: payload.now is only a fallback. Snapshot bodies are cached,
     // while X-Server-Time-MS is generated per response. Re-applying cached payload.now
@@ -5631,9 +5722,11 @@
   function persistOfflineSnapshot(payload) {
     if (!payload || payload._offlineCached || payload._rateLimited || payload._notModified) return;
     try {
+      const savedAt = Date.now();
       localStorage.setItem(
         _offlineSnapshotKey(),
-        JSON.stringify({savedAt: Date.now(), payload: payload})
+        // dayKey يُحفظ صراحةً حتى نكتشف عبور منتصف الليل حتى لو انحرفت ساعة الجهاز.
+        JSON.stringify({savedAt: savedAt, dayKey: _localDateKey(savedAt), payload: payload})
       );
     } catch (e) {
       try {
@@ -5642,15 +5735,107 @@
     }
   }
 
+  // ===== Offline resilience =================================================
+  // النسخة المحفوظة تُبقي الشاشة تعمل بلا إنترنت، لكن الثقة بها تتناقص مع
+  // الوقت. القاعدة: نعرض ما نعرف أنه ما زال صحيحًا، ونُسقط ما لا نستطيع
+  // التحقق منه — شاشة تقول "بانتظار الاتصال" أفضل من شاشة تعرض جدول الأمس
+  // بثقة كاملة.
+  // ==========================================================================
+
+  // أقل من هذا العمر لا يستحق إزعاجًا بصريًا: الانقطاعات القصيرة طبيعية.
+  const OFFLINE_QUIET_MS = 15 * 60 * 1000;
+
+  function _localDateKey(ms) {
+    const d = new Date(typeof ms === "number" ? ms : nowMs());
+    const pad = (n) => (n < 10 ? "0" + n : String(n));
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  }
+
+  /** ترقيم قاعدة البيانات لليوم: الاثنين=1 .. الأحد=7 */
+  function _dbWeekday(ms) {
+    const jsDay = new Date(typeof ms === "number" ? ms : nowMs()).getDay(); // الأحد=0
+    return jsDay === 0 ? 7 : jsDay;
+  }
+
+  /**
+   * تكييف نسخة محفوظة عبرت منتصف الليل مع اليوم الحالي.
+   *
+   * جدول اليوم الجديد يُستبدل من `meta.week_plan` (أوقات محلية مستقلة عن
+   * التاريخ)، ويُسقط كل محتوى مرتبط بيوم بعينه لأنه لم يعد قابلًا للتحقق:
+   * حصص الانتظار والإشراف وفصول الحصة الجارية تخص يوم أمس، لا اليوم.
+   */
+  function _rehydrateForNewDay(payload) {
+    const weekPlan = (payload.meta && payload.meta.week_plan) || null;
+    const todayPlan = weekPlan ? weekPlan[String(_dbWeekday())] : null;
+
+    payload._offlineDayShifted = true;
+    payload.day_path = Array.isArray(todayPlan) ? todayPlan.slice() : [];
+    payload._offlineHasDayPlan = Array.isArray(todayPlan);
+
+    // محتوى اليوم السابق: إسقاطه أصدق من عرضه.
+    payload.period_classes = [];
+    payload.standby = { items: [] };
+    payload.duty = { items: [] };
+    payload.current_period = null;
+    payload.next_period = null;
+
+    // اسمح لمحرك اليوم بإعادة البناء بدل الإبقاء على توقيع الأمس. اليوم بلا
+    // جدول يُفرَّغ صراحةً لأن ``dayEngineLoad`` يتجاهل الجداول الفارغة.
+    if (payload.day_path.length) {
+      _dayEngine.lastDayKey = "";
+    } else {
+      dayEngineClear();
+    }
+
+    // التاريخ يُعاد حسابه من الساعة المحلية. مسح الذاكرة المؤقتة ضروري: بدونه
+    // يظل `tickClock` يعرض تاريخ الأمس المحفوظ حتى لو أفرغنا الحمولة.
+    payload.date_info = null;
+    cachedDateInfo = null;
+
+    // ثلاث حالات مختلفة، ولكل واحدة رسالتها الصادقة:
+    const settings = payload.settings || {};
+    if (!payload._offlineHasDayPlan) {
+      // لا خطة أسبوع أصلًا (نسخة قديمة) → لا نعرف شيئًا عن اليوم.
+      payload.state = {
+        type: "off",
+        reason: "offline_unknown_day",
+        label: "بانتظار الاتصال لتحديث جدول اليوم",
+        badge: "غير متصلة",
+      };
+    } else if (!payload.day_path.length) {
+      // إجازة معروفة من خطة الأسبوع → رسالة الإجازة المعتادة للمدرسة.
+      payload.state = {
+        type: "off",
+        reason: "holiday",
+        label: safeText(settings.display_holiday_title || "") || "إجازة",
+        badge: safeText(settings.display_holiday_badge || "") || "إجازة",
+      };
+    } else {
+      // يوم دراسي معروف → المحرك المحلي يتولى حساب الحالة من الجدول.
+      payload.state = { type: "off", reason: "offline_recomputed" };
+    }
+    return payload;
+  }
+
   function loadOfflineSnapshot() {
     try {
       const raw = localStorage.getItem(_offlineSnapshotKey());
       if (!raw) return null;
       const stored = JSON.parse(raw);
       if (!stored || !stored.payload) return null;
-      stored.payload._offlineCached = true;
-      stored.payload._offlineSavedAt = stored.savedAt || null;
-      return stored.payload;
+
+      const payload = stored.payload;
+      const savedAt = Number(stored.savedAt) || 0;
+      payload._offlineCached = true;
+      payload._offlineSavedAt = savedAt || null;
+      payload._offlineAgeMs = savedAt ? Math.max(0, nowMs() - savedAt) : null;
+
+      const savedDayKey = String(stored.dayKey || (savedAt ? _localDateKey(savedAt) : ""));
+      if (savedDayKey && savedDayKey !== _localDateKey()) {
+        return _rehydrateForNewDay(payload);
+      }
+      payload._offlineDayShifted = false;
+      return payload;
     } catch (e) {
       return null;
     }

@@ -2,9 +2,12 @@
   "name": "school_display-ui",
   "private": true,
   "devDependencies": {
+    "esbuild": "^0.28.1",
     "tailwindcss": "^3.4.17"
   },
   "scripts": {
-    "build:tailwind": "tailwindcss -c tailwind.config.js -i static/css/tailwind.input.css -o static/css/tailwind.generated.css --minify"
+    "build:tailwind": "tailwindcss -c tailwind.config.js -i static/css/tailwind.input.css -o static/css/tailwind.generated.css --minify",
+    "build:display": "esbuild static/js/display.js --minify --target=es2017 --legal-comments=none --outfile=static/js/display.min.js",
+    "build": "npm run build:tailwind && npm run build:display"
   }
 }

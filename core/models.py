@@ -6,6 +6,7 @@ import os
 import secrets
 import uuid
 
+from .occasions import screen_choices as occasion_screen_choices
 from .system_access import ROLE_CHOICES
 
 
@@ -101,6 +102,16 @@ class UserProfile(models.Model):
         default=False,
         help_text="يوجّه المستخدم الجديد إلى دليل البدء مرة واحدة بعد أول دخول.",
     )
+    email_verified_at = models.DateTimeField(
+        "تاريخ توثيق البريد",
+        null=True,
+        blank=True,
+        help_text="البريد الموثّق يضمن وصول الفواتير وروابط استعادة كلمة المرور.",
+    )
+
+    @property
+    def email_is_verified(self) -> bool:
+        return self.email_verified_at is not None
 
     class Meta:
         verbose_name = "ملف المستخدم"
@@ -187,16 +198,9 @@ class DisplayScreen(models.Model):
         ("orange", "برتقالي"),
         ("violet", "بنفسجي"),
     ]
-    OCCASION_THEME_CHOICES = [
-        ("auto", "تلقائي حسب التنبيه"),
-        ("off", "بدون قالب مناسبة"),
-        ("national_day", "اليوم الوطني السعودي"),
-        ("founding_day", "يوم التأسيس"),
-        ("teachers_day", "يوم المعلم"),
-        ("back_to_school", "العودة للدراسة"),
-        ("graduation", "حفل التخرج"),
-        ("weather", "حالة جوية"),
-    ]
+    # مشتقة من سجل المناسبات الموحّد، فلا تنحرف عن الخيارات المعروضة في
+    # لوحة المدير أو الثيمات المدعومة على الشاشة. انظر :mod:`core.occasions`.
+    OCCASION_THEME_CHOICES = occasion_screen_choices()
     FEATURED_PANEL_CHOICES = [
         ("", "استخدام اختيار المدرسة"),
         ("excellence", "لوحة الشرف"),
@@ -558,11 +562,9 @@ class SubscriptionPlan(models.Model):
         blank=True,
         help_text="اتركه فارغًا لعدد غير محدود.",
     )
-    max_schools = models.PositiveIntegerField(
-        "الحد الأقصى للمدارس",
-        default=1,
-        help_text="العدد المسموح به من المدارس في هذه الخطة.",
-    )
+    # ``max_schools`` كان يوحي بحد للمدارس في الخطة الواحدة، لكن كل مدرسة تحمل
+    # اشتراكها المستقل، فلم يُقرأ الحقل في أي مسار. أُزيل حتى لا يوهم بحدٍّ
+    # مطبَّق. الحد الفعلي الوحيد هو ``max_screens`` لكل اشتراك.
     is_active = models.BooleanField(
         "متاحة للاشتراك",
         default=True,
@@ -590,79 +592,10 @@ class SubscriptionPlan(models.Model):
         return self.name
 
 
-# ملاحظة: لا نضيف imports جديدة غير لازمة هنا
-# لأن هذا الموديل أصبح Legacy ولا يجب أن يتداخل مع subscriptions
-class SchoolSubscription(models.Model):
-    """
-    ⚠️ Legacy Model (للتوافق الخلفي فقط)
-
-    هذا الموديل كان موجودًا سابقًا داخل core.
-    الآن مصدر الحقيقة للاشتراك هو: subscriptions.SchoolSubscription
-
-    ✅ مهم:
-    - هذا الموديل لا يُحدّث School.is_active إطلاقًا (لتجنب التعارض).
-    - لا تعتمد عليه في منطق صلاحيات/اشتراكات الداشبورد.
-    """
-
-    school = models.ForeignKey(
-        "core.School",
-        on_delete=models.CASCADE,
-        related_name="+",
-        verbose_name="المدرسة",
-    )
-    plan = models.ForeignKey(
-        "core.SubscriptionPlan",
-        on_delete=models.PROTECT,
-        related_name="+",
-        verbose_name="الخطة",
-    )
-    start_date = models.DateField("تاريخ البداية")
-    end_date = models.DateField(
-        "تاريخ الانتهاء",
-        null=True,
-        blank=True,
-    )
-    is_active = models.BooleanField(
-        "نشط",
-        default=True,
-    )
-    notes = models.CharField(
-        "ملاحظات",
-        max_length=250,
-        blank=True,
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = "اشتراك مدرسة (قديم)"
-        verbose_name_plural = "اشتراكات المدارس (قديمة)"
-        ordering = ("-start_date", "-created_at")
-
-    def __str__(self) -> str:
-        school_name = getattr(self.school, "name", str(self.school))
-        plan_name = getattr(self.plan, "name", str(self.plan))
-        return f"{school_name} — {plan_name}"
-
-    @property
-    def is_expired(self) -> bool:
-        if self.end_date:
-            return self.end_date < timezone.localdate()
-        return False
-
-    @property
-    def status(self) -> str:
-        if not self.is_active:
-            return "موقوف"
-        if self.is_expired:
-            return "منتهي"
-        return "نشط"
-
-    def save(self, *args, **kwargs):
-        """
-        ✅ لا نقوم هنا بتحديث school.is_active
-        لأن هذا كان سبب التعارض مع subscriptions.SchoolSubscription.
-        """
-        return super().save(*args, **kwargs)
+# The legacy ``core.SchoolSubscription`` model was removed once
+# ``subscriptions.SchoolSubscription`` became the single source of truth.
+# Nothing read the old table, and keeping two subscription models around was a
+# standing source of confusion about which one governed access.
 
 
 class SupportTicket(models.Model):

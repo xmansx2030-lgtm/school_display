@@ -6,7 +6,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from core.models import School
-from .models import SchoolSubscription, SubscriptionPaymentOperation
+from .models import SchoolSubscription, SubscriptionPaymentOperation, SubscriptionScreenAddon
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +32,17 @@ def sync_school_active(school_id: int) -> None:
     School.objects.filter(id=school_id).update(is_active=has_active)
 
 
+def _invalidate_access_cache(school_id: int) -> None:
+    from .access import invalidate_school_subscription_cache
+
+    invalidate_school_subscription_cache(school_id)
+
+
 def _safe_sync(sender, instance, **kwargs):
     try:
         if instance.school_id:
             sync_school_active(instance.school_id)
+            _invalidate_access_cache(instance.school_id)
     except Exception:
         logger.exception("Failed to sync school.is_active for school_id=%s", getattr(instance, "school_id", None))
 
@@ -44,8 +51,19 @@ def _safe_sync_delete(sender, instance, **kwargs):
     try:
         if instance.school_id:
             sync_school_active(instance.school_id)
+            _invalidate_access_cache(instance.school_id)
     except Exception:
         logger.exception("Failed to sync school.is_active after delete for school_id=%s", getattr(instance, "school_id", None))
+
+
+def _safe_sync_addon(sender, instance, **kwargs):
+    """A paid screen add-on changes the effective screen limit."""
+    try:
+        school_id = getattr(getattr(instance, "subscription", None), "school_id", None)
+        if school_id:
+            _invalidate_access_cache(school_id)
+    except Exception:
+        logger.exception("Failed to invalidate access cache for screen addon id=%s", getattr(instance, "id", None))
 
 
 def _safe_create_invoice(sender, instance: SubscriptionPaymentOperation, created: bool, **kwargs):
@@ -72,6 +90,17 @@ def connect_signals():
 
     post_save.connect(_safe_sync, sender=SchoolSubscription, dispatch_uid="subscriptions_sync_school_active_save")
     post_delete.connect(_safe_sync_delete, sender=SchoolSubscription, dispatch_uid="subscriptions_sync_school_active_delete")
+
+    post_save.connect(
+        _safe_sync_addon,
+        sender=SubscriptionScreenAddon,
+        dispatch_uid="subscriptions_invalidate_access_on_addon_save",
+    )
+    post_delete.connect(
+        _safe_sync_addon,
+        sender=SubscriptionScreenAddon,
+        dispatch_uid="subscriptions_invalidate_access_on_addon_delete",
+    )
 
     post_save.connect(
         _safe_create_invoice,

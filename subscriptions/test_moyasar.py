@@ -1,18 +1,35 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from core.models import School, SubscriptionPlan, UserProfile
+from schedule.models import SchoolSettings
 
-from .models import MoyasarCheckout, SubscriptionInvoice, SubscriptionPaymentOperation
-from .moyasar_processing import MoyasarVerificationError, apply_payment_details
+from .access import school_max_screens, school_subscription_is_active
+from .models import (
+    MoyasarCheckout,
+    SchoolSubscription,
+    SubscriptionInvoice,
+    SubscriptionPaymentOperation,
+    SubscriptionRefund,
+    SubscriptionRequest,
+)
+from .moyasar import MoyasarClient
+from .moyasar_processing import (
+    MoyasarVerificationError,
+    apply_payment_details,
+    reconcile_pending_checkouts,
+)
+from .utils import school_has_active_subscription
 
 
 @override_settings(
@@ -49,8 +66,14 @@ class MoyasarCheckoutTests(TestCase):
             password="StrongPass123!",
             email="manager@example.com",
         )
-        manager_profile = UserProfile.objects.create(user=self.manager, active_school=self.school)
+        manager_profile = UserProfile.objects.create(
+            user=self.manager,
+            active_school=self.school,
+            # Checkout requires a proven address so the invoice can be delivered.
+            email_verified_at=timezone.now(),
+        )
         manager_profile.schools.add(self.school)
+        self.manager_profile = manager_profile
 
     def _checkout(self, *, live_mode: bool = False, created_by=None) -> MoyasarCheckout:
         return MoyasarCheckout.objects.create(
@@ -104,6 +127,20 @@ class MoyasarCheckoutTests(TestCase):
         self.assertNotContains(page, "sk_test_secret")
         self.assertContains(page, "بيئة اختبار")
 
+    def test_start_is_blocked_until_the_email_is_verified(self):
+        """An unverified address means the invoice may never reach the buyer."""
+        self.manager_profile.email_verified_at = None
+        self.manager_profile.save(update_fields=["email_verified_at"])
+        self.client.force_login(self.manager)
+
+        response = self.client.post(
+            reverse("subscriptions:moyasar_start"),
+            {"request_type": "new", "plan_id": self.plan.pk},
+        )
+
+        self.assertRedirects(response, reverse("dashboard:my_subscription"))
+        self.assertFalse(MoyasarCheckout.objects.exists())
+
     def test_paid_test_payment_does_not_activate_real_subscription(self):
         checkout = self._checkout(live_mode=False)
 
@@ -112,6 +149,40 @@ class MoyasarCheckoutTests(TestCase):
         self.assertEqual(result.status, "paid")
         self.assertIsNone(result.subscription_id)
         self.assertIsNone(result.payment_operation_id)
+
+    def test_cancel_marks_own_initiated_checkout_as_voided(self):
+        checkout = self._checkout(created_by=self.manager)
+        self.client.force_login(self.manager)
+
+        response = self.client.post(
+            reverse(
+                "subscriptions:moyasar_cancel",
+                kwargs={"reference": checkout.merchant_reference},
+            )
+        )
+
+        self.assertRedirects(response, reverse("dashboard:my_subscription"))
+        checkout.refresh_from_db()
+        self.assertEqual(checkout.status, "voided")
+        self.assertEqual(checkout.last_event, "customer_canceled")
+        self.assertIsNotNone(checkout.processed_at)
+        self.assertIsNone(checkout.payment_id)
+        self.assertIsNone(checkout.payment_operation_id)
+
+    def test_cancel_cannot_change_another_users_checkout(self):
+        checkout = self._checkout(created_by=self.owner)
+        self.client.force_login(self.manager)
+
+        response = self.client.post(
+            reverse(
+                "subscriptions:moyasar_cancel",
+                kwargs={"reference": checkout.merchant_reference},
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)
+        checkout.refresh_from_db()
+        self.assertEqual(checkout.status, "initiated")
 
     @override_settings(
         MOYASAR_LIVE_MODE=True,
@@ -199,3 +270,349 @@ class MoyasarCheckoutTests(TestCase):
         checkout.refresh_from_db()
         self.assertIsNotNone(checkout.payment_operation_id)
         self.assertEqual(SubscriptionPaymentOperation.objects.filter(method="moyasar").count(), 1)
+
+
+@override_settings(
+    DEBUG=False,
+    RUNNING_TESTS=True,
+    MOYASAR_ENABLED=True,
+    MOYASAR_LIVE_MODE=True,
+    MOYASAR_ACTIVATE_TEST_PAYMENTS=False,
+    MOYASAR_API_BASE_URL="https://api.moyasar.com/v1",
+    MOYASAR_PUBLISHABLE_KEY="pk_live_publishable",
+    MOYASAR_SECRET_KEY="sk_live_secret",
+    MOYASAR_WEBHOOK_SECRET="webhook-test-secret",
+    MOYASAR_CALLBACK_BASE_URL="https://school-display.com",
+    MOYASAR_HTTP_TIMEOUT_SECONDS=5,
+    SUBSCRIPTION_ACCESS_CACHE_TTL=300,
+)
+class PaidAccessIsGrantedWithoutStaffTests(TestCase):
+    """A completed card payment must open the product with zero human steps.
+
+    These tests assert on *access* — the gate the customer actually feels —
+    rather than only on the rows written, and they cover each of the three
+    independent confirmation paths (return URL, webhook, reconciliation).
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.school = School.objects.create(name="مدرسة الدفع", slug="pay-school")
+        self.plan = SubscriptionPlan.objects.create(
+            code="pay-plan",
+            name="الباقة السنوية",
+            price=Decimal("500.00"),
+            duration_days=365,
+            max_screens=3,
+        )
+        self.manager = get_user_model().objects.create_user(
+            username="paying_manager",
+            password="StrongPass123!",
+            email="pay@example.com",
+        )
+        profile = UserProfile.objects.create(
+            user=self.manager,
+            active_school=self.school,
+            email_verified_at=timezone.now(),
+        )
+        profile.schools.add(self.school)
+        SchoolSettings.objects.create(school=self.school, name=self.school.name)
+
+    def _checkout(self, **overrides):
+        defaults = dict(
+            school=self.school,
+            created_by=self.manager,
+            plan=self.plan,
+            request_type="new",
+            starts_at=timezone.localdate(),
+            amount=self.plan.price,
+            currency="SAR",
+            live_mode=True,
+        )
+        defaults.update(overrides)
+        return MoyasarCheckout.objects.create(**defaults)
+
+    def _paid_details(self, checkout, *, payment_id="pay_live_0000000000001"):
+        return {
+            "id": payment_id,
+            "status": "paid",
+            "amount": int(Decimal(checkout.amount) * 100),
+            "currency": "SAR",
+            "live": True,
+            "metadata": {"merchant_reference": checkout.merchant_reference},
+        }
+
+    def _assert_locked_out(self):
+        self.assertFalse(school_subscription_is_active(self.school.id))
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse("dashboard:index"))
+        self.assertRedirects(
+            response,
+            reverse("dashboard:my_subscription"),
+            fetch_redirect_response=False,
+        )
+
+    def _assert_access_open(self):
+        # Cached predicate — this is what the dashboard and display middleware read.
+        self.assertTrue(school_subscription_is_active(self.school.id))
+        self.assertEqual(school_max_screens(self.school.id), 3)
+        self.school.refresh_from_db()
+        self.assertTrue(self.school.is_active)
+        self.client.force_login(self.manager)
+        self.assertEqual(self.client.get(reverse("dashboard:index")).status_code, 200)
+
+    def _assert_no_staff_action_needed(self):
+        """Nothing may be left sitting in a queue a human has to work."""
+        self.assertFalse(
+            SubscriptionRequest.objects.filter(
+                school=self.school, status__in=["submitted", "under_review"]
+            ).exists(),
+            "الدفع الإلكتروني أنشأ طلبًا يحتاج اعتماد موظف",
+        )
+        subscription = SchoolSubscription.objects.get(school=self.school)
+        self.assertEqual(subscription.status, "active")
+        self.assertIsNotNone(subscription.ends_at, "الاشتراك بلا تاريخ انتهاء")
+        self.assertEqual(
+            subscription.ends_at,
+            subscription.starts_at + timedelta(days=self.plan.duration_days),
+        )
+        operation = SubscriptionPaymentOperation.objects.get(school=self.school)
+        self.assertEqual(operation.method, "moyasar")
+        self.assertTrue(SubscriptionInvoice.objects.filter(operation=operation).exists())
+
+    # ---- path 1: customer returns to the callback URL -------------------
+    @patch("subscriptions.moyasar_views.MoyasarClient.fetch_payment")
+    def test_return_url_opens_access_immediately(self, fetch_payment):
+        checkout = self._checkout()
+        fetch_payment.return_value = self._paid_details(checkout)
+        self._assert_locked_out()
+
+        self.client.force_login(self.manager)
+        self.client.get(
+            reverse("subscriptions:moyasar_return"),
+            {"reference": checkout.merchant_reference, "id": "pay_live_0000000000001"},
+        )
+
+        self._assert_access_open()
+        self._assert_no_staff_action_needed()
+
+    # ---- path 2: customer closed the browser; only the webhook fires ----
+    def test_webhook_alone_opens_access_when_customer_never_returns(self):
+        checkout = self._checkout()
+        self._assert_locked_out()
+        self.client.logout()
+
+        response = self.client.post(
+            reverse("subscriptions:moyasar_webhook"),
+            data=json.dumps(
+                {
+                    "type": "payment_paid",
+                    "secret_token": "webhook-test-secret",
+                    "data": self._paid_details(checkout),
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self._assert_access_open()
+        self._assert_no_staff_action_needed()
+
+    # ---- path 3: no return, no webhook; the worker sweeps it up ---------
+    @patch("subscriptions.moyasar.MoyasarClient.list_payments")
+    @patch("subscriptions.moyasar.MoyasarClient.fetch_payment")
+    @patch("subscriptions.moyasar.MoyasarClient.__init__", return_value=None)
+    def test_reconciliation_worker_opens_access_with_no_callback_at_all(
+        self, _init, fetch_payment, list_payments
+    ):
+        checkout = self._checkout()
+        self._assert_locked_out()
+        self.client.logout()
+
+        # The checkout never learned its payment id, so the worker has to find
+        # the payment by scanning Moyasar's ledger for the merchant reference.
+        fetch_payment.side_effect = AssertionError("should scan, not fetch")
+        list_payments.return_value = ([self._paid_details(checkout)], False)
+
+        result = reconcile_pending_checkouts()
+
+        self.assertEqual(result.activated, 1)
+        self._assert_access_open()
+        self._assert_no_staff_action_needed()
+
+    # ---- money safety ---------------------------------------------------
+    def test_a_tampered_amount_never_opens_access(self):
+        checkout = self._checkout()
+        tampered = self._paid_details(checkout)
+        tampered["amount"] = 100  # 1.00 SAR instead of 500.00
+
+        with self.assertRaises(MoyasarVerificationError):
+            apply_payment_details(checkout.pk, tampered, event_type="return")
+
+        self.assertFalse(school_subscription_is_active(self.school.id))
+        self.assertFalse(SchoolSubscription.objects.filter(school=self.school).exists())
+
+    def test_extra_screens_paid_at_checkout_raise_the_limit_at_once(self):
+        checkout = self._checkout(extra_screens=2)
+        self.assertEqual(school_max_screens(self.school.id), 0)
+
+        apply_payment_details(checkout.pk, self._paid_details(checkout), event_type="return")
+
+        # plan (3) + purchased (2) with no staff step in between.
+        self.assertEqual(school_max_screens(self.school.id), 5)
+
+    def test_renewal_extends_the_term_without_a_gap(self):
+        today = timezone.localdate()
+        current = SchoolSubscription.objects.create(
+            school=self.school,
+            plan=self.plan,
+            starts_at=today - timedelta(days=350),
+            ends_at=today + timedelta(days=5),
+            status="active",
+        )
+        checkout = self._checkout(
+            request_type="renewal",
+            starts_at=current.ends_at + timedelta(days=1),
+        )
+
+        apply_payment_details(checkout.pk, self._paid_details(checkout), event_type="return")
+
+        renewal = SchoolSubscription.objects.exclude(pk=current.pk).get(school=self.school)
+        self.assertEqual(renewal.status, "active")
+        self.assertEqual(renewal.starts_at, current.ends_at + timedelta(days=1))
+        # Access holds continuously across the handover date.
+        self.assertTrue(school_has_active_subscription(self.school.id, on_date=current.ends_at))
+        self.assertTrue(school_has_active_subscription(self.school.id, on_date=renewal.starts_at))
+
+    # ---- an outage must not turn a real payment into a void -------------
+    @patch("subscriptions.moyasar.MoyasarClient.list_payments")
+    @patch("subscriptions.moyasar.MoyasarClient.__init__", return_value=None)
+    def test_payment_older_than_the_lookback_is_still_recovered(self, _init, list_payments):
+        checkout = self._checkout()
+        stale = timezone.now() - timedelta(hours=96)
+        MoyasarCheckout.objects.filter(pk=checkout.pk).update(created_at=stale, updated_at=stale)
+        list_payments.return_value = ([self._paid_details(checkout)], False)
+
+        result = reconcile_pending_checkouts()
+
+        # The sweep must actually ask Moyasar about it rather than write it off.
+        self.assertTrue(list_payments.called)
+        self.assertEqual(result.activated, 1)
+        checkout.refresh_from_db()
+        self.assertEqual(checkout.status, "paid")
+        self._assert_access_open()
+
+    @patch("subscriptions.moyasar.MoyasarClient.list_payments")
+    @patch("subscriptions.moyasar.MoyasarClient.__init__", return_value=None)
+    def test_truly_abandoned_attempt_is_still_voided(self, _init, list_payments):
+        checkout = self._checkout()
+        stale = timezone.now() - timedelta(hours=96)
+        MoyasarCheckout.objects.filter(pk=checkout.pk).update(created_at=stale, updated_at=stale)
+        list_payments.return_value = ([], False)  # ledger has nothing for it
+
+        result = reconcile_pending_checkouts()
+
+        self.assertEqual(result.expired, 1)
+        checkout.refresh_from_db()
+        self.assertEqual(checkout.status, "voided")
+        self.assertFalse(school_subscription_is_active(self.school.id))
+
+    @patch("subscriptions.moyasar.MoyasarClient.list_payments")
+    @patch("subscriptions.moyasar.MoyasarClient.__init__", return_value=None)
+    def test_a_failed_ledger_sweep_never_voids_anything(self, _init, list_payments):
+        checkout = self._checkout()
+        stale = timezone.now() - timedelta(hours=96)
+        MoyasarCheckout.objects.filter(pk=checkout.pk).update(created_at=stale, updated_at=stale)
+        list_payments.side_effect = RuntimeError("moyasar unreachable")
+
+        result = reconcile_pending_checkouts()
+
+        self.assertEqual(result.expired, 0)
+        checkout.refresh_from_db()
+        # Still open, so the next healthy tick can recover it.
+        self.assertEqual(checkout.status, "initiated")
+
+    # ---- gateway-side refunds must reach our own books ------------------
+    def test_refund_issued_inside_moyasar_is_recorded_locally(self):
+        checkout = self._checkout()
+        apply_payment_details(checkout.pk, self._paid_details(checkout), event_type="return")
+        operation = SubscriptionPaymentOperation.objects.get(school=self.school)
+
+        refunded = self._paid_details(checkout)
+        refunded["status"] = "refunded"
+        refunded["refunded"] = 50000  # full amount, in halalas
+        apply_payment_details(checkout.pk, refunded, event_type="webhook")
+
+        refund = SubscriptionRefund.objects.get(operation=operation)
+        self.assertEqual(refund.amount, Decimal("500.00"))
+        self.assertEqual(refund.status, "completed")
+        self.assertFalse(refund.revokes_access, "الاسترداد يجب ألا يوقف الخدمة تلقائيًا")
+        # Access deliberately survives: revoking it stays a human decision.
+        self.assertTrue(school_subscription_is_active(self.school.id))
+
+    def test_repeated_refund_notifications_do_not_double_book(self):
+        checkout = self._checkout()
+        apply_payment_details(checkout.pk, self._paid_details(checkout), event_type="return")
+        refunded = self._paid_details(checkout)
+        refunded["status"] = "refunded"
+        refunded["refunded"] = 50000
+
+        apply_payment_details(checkout.pk, refunded, event_type="webhook")
+        apply_payment_details(checkout.pk, refunded, event_type="webhook")
+        apply_payment_details(checkout.pk, refunded, event_type="reconcile:fetch")
+
+        self.assertEqual(SubscriptionRefund.objects.count(), 1)
+
+    def test_partial_refund_then_the_rest_books_only_the_difference(self):
+        checkout = self._checkout()
+        apply_payment_details(checkout.pk, self._paid_details(checkout), event_type="return")
+
+        partial = self._paid_details(checkout)
+        partial["status"] = "refunded"
+        partial["refunded"] = 20000  # 200.00 so far
+        apply_payment_details(checkout.pk, partial, event_type="webhook")
+
+        rest = dict(partial, refunded=50000)  # Moyasar reports the cumulative total
+        apply_payment_details(checkout.pk, rest, event_type="webhook")
+
+        amounts = sorted(r.amount for r in SubscriptionRefund.objects.all())
+        self.assertEqual(amounts, [Decimal("200.00"), Decimal("300.00")])
+
+    # ---- a lapsed row must not be revived with a dead end date ----------
+    def test_paying_for_a_lapsed_term_gives_a_full_term_not_an_expired_one(self):
+        today = timezone.localdate()
+        lapsed = SchoolSubscription.objects.create(
+            school=self.school,
+            plan=self.plan,
+            starts_at=today,
+            ends_at=today - timedelta(days=1),
+            status="expired",
+        )
+        checkout = self._checkout(starts_at=today)
+
+        apply_payment_details(checkout.pk, self._paid_details(checkout), event_type="return")
+
+        lapsed.refresh_from_db()
+        self.assertEqual(lapsed.status, "active")
+        self.assertEqual(lapsed.ends_at, today + timedelta(days=self.plan.duration_days))
+        self._assert_access_open()
+
+
+class MoyasarPaginationTests(TestCase):
+    """``has_next`` gates whether a sweep counts as complete, so it must not
+    report "end of ledger" for a shape it does not understand."""
+
+    def test_known_shapes(self):
+        cases = [
+            ({"current_page": 1, "next_page": 2}, 1, True),
+            ({"current_page": 2, "next_page": None}, 2, False),
+            ({"current_page": 1, "total_pages": 3}, 1, True),
+            ({"current_page": 3, "total_pages": 3}, 3, False),
+        ]
+        for meta, page, expected in cases:
+            with self.subTest(meta=meta):
+                self.assertIs(MoyasarClient._has_next_page(meta, requested_page=page), expected)
+
+    def test_unrecognised_shapes_assume_more_pages(self):
+        for meta in (None, {}, "nonsense", {"cursor": "abc"}):
+            with self.subTest(meta=meta):
+                self.assertTrue(MoyasarClient._has_next_page(meta, requested_page=1))

@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" sizes="1024x1024" href="/favicon.png?v=20260723-logo1">
   <link rel="apple-touch-icon" href="/favicon.png?v=20260723-logo1">
 
-  <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-04-15b">
+  <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-08-04-lux1">
   <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;600;700;800;900&family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
@@ -156,6 +156,75 @@
       min-width: 100%;
     }
 
+    /* زر واتساب: ثابت أسفل الشاشة، بلا أي حركة، ونصّه ظاهر دائمًا.
+       لا نبض ولا تمدّد عند المرور — العميل يرى الزر كاملاً من أول لحظة. */
+    .dashboard-whatsapp-float {
+      position: fixed;
+      left: max(1rem, env(safe-area-inset-left));
+      bottom: max(1rem, env(safe-area-inset-bottom));
+      z-index: 70;
+      display: inline-flex;
+      align-items: center;
+      gap: .6rem;
+      min-height: 3.6rem;
+      padding: .5rem 1.05rem .5rem .5rem;
+      border: 1px solid rgba(255,255,255,.28);
+      border-radius: 999px;
+      background: linear-gradient(140deg, #3ee083 0%, #25d366 45%, #0d8f47 100%);
+      color: #fff;
+      text-decoration: none;
+      box-shadow:
+        0 14px 32px -12px rgba(12,102,55,.72),
+        0 6px 14px -8px rgba(15,23,42,.32),
+        inset 0 1px 0 rgba(255,255,255,.34);
+    }
+    /* التركيز وحده يُظهر إطارًا — لإمكانية الوصول بلوحة المفاتيح، بلا حركة. */
+    .dashboard-whatsapp-float:focus-visible {
+      outline: 3px solid #fff;
+      outline-offset: 3px;
+    }
+    .dashboard-whatsapp-icon {
+      position: relative;
+      display: grid;
+      width: 2.6rem;
+      height: 2.6rem;
+      flex: 0 0 auto;
+      place-items: center;
+      border-radius: 999px;
+      background: rgba(255,255,255,.18);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.22);
+    }
+    .dashboard-whatsapp-icon svg {
+      width: 1.55rem;
+      height: 1.55rem;
+      fill: currentColor;
+      filter: drop-shadow(0 1px 1px rgba(6,66,36,.35));
+    }
+    /* The button is pinned, so the last row of a page would otherwise sit
+       underneath it and be unreachable. Reserve its height plus the gap. */
+    .dashboard-main-inner {
+      padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+    }
+
+    .dashboard-whatsapp-copy {
+      line-height: 1.25;
+      text-align: start;
+      white-space: nowrap;
+    }
+    .dashboard-whatsapp-copy strong {
+      display: block;
+      font-size: .86rem;
+      font-weight: 900;
+      letter-spacing: -.01em;
+    }
+    .dashboard-whatsapp-copy small {
+      display: block;
+      margin-top: .12rem;
+      color: rgba(255,255,255,.88);
+      font-size: .68rem;
+      font-weight: 700;
+    }
+
     .dashboard-topbar-actions {
       min-width: 0;
     }
@@ -208,12 +277,28 @@
         padding-inline: 0.75rem;
       }
 
+      /* على الجوال يبقى النص ظاهرًا أيضًا — الوضوح هو المقصود — مع تصغير
+         بسيط حتى لا يزاحم محتوى الصفحة. */
+      .dashboard-whatsapp-float {
+        min-height: 3.25rem;
+        gap: .5rem;
+        padding: .42rem .85rem .42rem .42rem;
+      }
+      .dashboard-whatsapp-icon { width: 2.35rem; height: 2.35rem; }
+      .dashboard-whatsapp-icon svg { width: 1.4rem; height: 1.4rem; }
+      .dashboard-whatsapp-copy strong { font-size: .8rem; }
+      .dashboard-whatsapp-copy small { font-size: .64rem; }
     }
   </style>
-  <link rel="stylesheet" href="{% static 'css/dashboard-luxury.css' %}?v=2026-06-01a">
-  <link rel="stylesheet" href="{% static 'css/tamara-checkout.css' %}?v=2026-08-02a">
+  <link rel="stylesheet" href="{% static 'css/dashboard-luxury.css' %}?v=2026-08-05-wa1">
+  {% comment %} Styles only the Tamara CTA uses, and it pulls a logo from tamara's CDN.
+     Load it where that button actually renders instead of on every page. {% endcomment %}
+  {% if tamara_available %}
+    <link rel="stylesheet" href="{% static 'css/tamara-checkout.css' %}?v=2026-08-02a">
+  {% endif %}
   {% block extra_css %}{% endblock %}
   {% block extra_head %}{% endblock %}
+  <link rel="stylesheet" href="{% static 'css/mobile.css' %}?v=2026-08-05-m1">
 </head>
 
 <body class="dashboard-shell min-h-full bg-[#f1f5f9] text-slate-900">
@@ -297,6 +382,15 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"/></svg>
         </button>
       </form>
+      {% endif %}
+
+      {% if request.user.is_authenticated and not is_system_staff %}
+      <a href="{% url 'dashboard:add_school' %}"
+         class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-indigo-700 hover:shadow-md"
+         title="إضافة مدرسة جديدة">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M12 5v14M5 12h14"/></svg>
+        <span class="hidden md:inline">إضافة مدرسة</span>
+      </a>
       {% endif %}
 
       <div class="hidden sm:flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
@@ -386,6 +480,21 @@
         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
         <span>اشتراكي</span>
       </a>
+
+      {% if request.user.is_authenticated and not is_system_staff %}
+      {% if request.user.profile.schools.all|length > 1 %}
+      <a href="{% url 'dashboard:schools_overview' %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'schools_overview' %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18M5 21V8l5-4 5 4v13M15 21V11l4-2v12M8 12h1m-1 3h1m4-3h1m-1 3h1"/></svg>
+        <span>كل مدارسي</span>
+      </a>
+      {% endif %}
+      <a href="{% url 'dashboard:add_school' %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'add_school' %}active{% endif %}">
+        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14M5 12h14M4 21h16M7 21V9h10v12"/></svg>
+        <span>إضافة مدرسة جديدة</span>
+      </a>
+      {% endif %}
 
       <a href="{% url 'dashboard:settings' %}"
          class="sidebar-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
@@ -558,7 +667,27 @@
   </main>
 </div>
 
+{% if school_whatsapp_url %}
+  <a href="{{ school_whatsapp_url }}"
+     class="dashboard-whatsapp-float"
+     target="_blank"
+     rel="noopener noreferrer"
+     aria-label="التواصل مع الدعم الفني عبر واتساب — حالة الاشتراك: {{ school_whatsapp_status }}"
+     title="{{ school_whatsapp_platform_name }} — الدعم الفني عبر واتساب ({{ school_whatsapp_status }})">
+    <span class="dashboard-whatsapp-icon" aria-hidden="true">
+      <svg viewBox="0 0 32 32" role="presentation" focusable="false">
+        <path d="M16.04 3.2c-7.05 0-12.77 5.72-12.77 12.77 0 2.25.59 4.45 1.71 6.39L3.2 28.8l6.61-1.73a12.72 12.72 0 0 0 6.23 1.59h.01c7.04 0 12.76-5.72 12.76-12.77 0-3.41-1.33-6.62-3.74-9.03a12.68 12.68 0 0 0-9.03-3.66Zm0 23.28h-.01a10.6 10.6 0 0 1-5.4-1.48l-.39-.23-4.02 1.05 1.07-3.92-.25-.4a10.57 10.57 0 0 1-1.62-5.65c0-5.85 4.77-10.61 10.63-10.61 2.84 0 5.5 1.11 7.51 3.12a10.55 10.55 0 0 1 3.11 7.5c0 5.86-4.77 10.62-10.63 10.62Zm5.83-7.95c-.32-.16-1.89-.93-2.18-1.04-.29-.11-.5-.16-.71.16-.21.32-.82 1.04-1 1.25-.19.21-.37.24-.69.08-.32-.16-1.35-.5-2.57-1.58-.95-.85-1.59-1.89-1.78-2.21-.19-.32-.02-.5.14-.66.14-.14.32-.37.48-.56.16-.19.21-.32.32-.53.11-.21.05-.4-.03-.56-.08-.16-.71-1.73-.98-2.37-.26-.62-.52-.54-.71-.55l-.61-.01c-.21 0-.56.08-.85.4-.29.32-1.11 1.09-1.11 2.65 0 1.57 1.14 3.08 1.3 3.29.16.21 2.24 3.42 5.42 4.8.76.33 1.35.52 1.81.67.76.24 1.45.21 2 .13.61-.09 1.89-.77 2.15-1.52.27-.75.27-1.38.19-1.52-.08-.13-.29-.21-.61-.37Z"/>
+      </svg>
+    </span>
+    <span class="dashboard-whatsapp-copy">
+      <strong>تواصل عبر واتساب</strong>
+      <small>الدعم الفني — نرد خلال دقائق</small>
+    </span>
+  </a>
+{% endif %}
+
 {% block extra_js %}{% endblock %}
+<script defer src="{% static 'js/csp-actions.js' %}?v=2026-08-04-a1"></script>
 <script defer src="{% static 'js/dashboard-shell.js' %}?v=2026-07-23-b4"></script>
 </body>
 </html>

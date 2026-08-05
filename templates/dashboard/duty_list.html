@@ -416,7 +416,7 @@
                   <a href="{% url 'dashboard:duty_edit' d.pk %}" class="duty-action-icon" title="تعديل" aria-label="تعديل">
                     <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
                   </a>
-                  <form method="post" action="{% url 'dashboard:duty_delete' d.pk %}" onsubmit="return confirmDelete('{{ d.teacher_name }}', '{{ d.get_duty_type_display }}');" class="inline">
+                  <form method="post" action="{% url 'dashboard:duty_delete' d.pk %}" data-confirm="هل أنت متأكد من حذف هذا التكليف؟&#10;{{ d.teacher_name }} — {{ d.get_duty_type_display }}" class="inline">
                     {% csrf_token %}
                     <button type="submit" class="duty-action-icon is-danger" title="حذف" aria-label="حذف">
                       <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
@@ -460,9 +460,4 @@
   </section>
 </div>
 
-<script>
-function confirmDelete(teacherName, dutyLabel) {
-  return confirm(`هل أنت متأكد من حذف هذا التكليف؟\n${teacherName} — ${dutyLabel}`);
-}
-</script>
 {% endblock %}

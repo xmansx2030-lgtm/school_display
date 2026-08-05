@@ -170,7 +170,7 @@
 </form>
 
 {{ role_presets|json_script:"role-presets-data" }}
-<script>
+<script nonce="{{ csp_nonce }}">
   (() => {
     const presets = JSON.parse(document.getElementById('role-presets-data').textContent || '{}');
     const roleSelect = document.getElementById('{{ form.role.id_for_label }}');

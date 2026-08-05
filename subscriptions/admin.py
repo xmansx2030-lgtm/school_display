@@ -3,14 +3,17 @@ from django.contrib import admin
 from core.models import SubscriptionPlan
 from .models import (
     SchoolSubscription,
+    SubscriptionAuditLog,
     SubscriptionInvoice,
     SubscriptionEmailNotification,
     SubscriptionPaymentOperation,
+    SubscriptionRefund,
     SubscriptionScreenAddon,
     SubscriptionRequest,
     MoyasarCheckout,
     TamaraCheckout,
 )
+from .refunds import record_refund, refundable_amount
 
 
 # إدارة خطط الاشتراك
@@ -96,6 +99,7 @@ class SubscriptionPaymentOperationAdmin(admin.ModelAdmin):
         "school",
         "plan",
         "amount",
+        "still_refundable",
         "method",
         "source",
         "created_by",
@@ -104,6 +108,10 @@ class SubscriptionPaymentOperationAdmin(admin.ModelAdmin):
     list_filter = ("method", "source", "created_at")
     search_fields = ("school__name", "plan__name", "created_by__username", "note")
     autocomplete_fields = ("school", "subscription", "plan", "created_by")
+
+    @admin.display(description="القابل للاسترداد")
+    def still_refundable(self, obj):
+        return refundable_amount(obj)
 
 
 @admin.register(TamaraCheckout)
@@ -203,3 +211,63 @@ class SubscriptionEmailNotificationAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
+
+
+@admin.register(SubscriptionRefund)
+class SubscriptionRefundAdmin(admin.ModelAdmin):
+    list_display = (
+        "school",
+        "amount",
+        "reason",
+        "status",
+        "revokes_access",
+        "created_by",
+        "created_at",
+    )
+    list_filter = ("status", "reason", "revokes_access", "created_at")
+    search_fields = (
+        "school__name",
+        "gateway_reference",
+        "notes",
+        "operation__note",
+    )
+    autocomplete_fields = ("operation", "school", "subscription")
+    readonly_fields = ("created_at", "completed_at", "created_by")
+
+    def save_model(self, request, obj, form, change):
+        """Route new refunds through the service so effects and audit apply."""
+        if change:
+            super().save_model(request, obj, form, change)
+            return
+
+        refund = record_refund(
+            obj.operation,
+            amount=obj.amount,
+            reason=obj.reason,
+            status=obj.status,
+            notes=obj.notes,
+            gateway_reference=obj.gateway_reference,
+            revoke_access=obj.revokes_access,
+            actor=request.user,
+            request=request,
+        )
+        obj.pk = refund.pk
+
+
+@admin.register(SubscriptionAuditLog)
+class SubscriptionAuditLogAdmin(admin.ModelAdmin):
+    """Read-only by design: the trail is evidence, not editable data."""
+
+    list_display = ("created_at", "action", "school", "actor_label", "amount", "summary")
+    list_filter = ("action", "created_at")
+    search_fields = ("school__name", "actor_label", "summary")
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

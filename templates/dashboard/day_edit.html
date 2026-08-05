@@ -730,7 +730,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function(){
     const afInputs = ['af_count', 'af_start', 'af_period', 'af_gap', 'af_break_after', 'af_break_dur'];
     const afElements = afInputs.map(id => document.getElementById(id));

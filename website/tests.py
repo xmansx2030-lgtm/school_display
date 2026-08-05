@@ -1,3 +1,4 @@
+from decimal import Decimal
 from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model
@@ -5,6 +6,7 @@ from django.contrib.auth import get_user
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from core.models import DisplayScreen, School, SubscriptionPlan, UserProfile
 from schedule.models import SchoolSettings
@@ -120,6 +122,14 @@ class TrialSignupTests(TestCase):
         self.assertContains(response, "هل يمكن تخصيص محتوى كل شاشة بشكل مستقل؟")
         self.assertContains(response, "استيراد الجدول من Excel")
         self.assertContains(response, "آخر بيانات محفوظة")
+        self.assertContains(response, "كل مسؤول يرى فائدة مباشرة في يومه")
+        self.assertContains(response, "إدارة المحتوى — 299 ر.س شهريًا")
+        self.assertNotContains(response, "مجمع تعليمي: حتى 3 مدارس و15 شاشة")
+        self.assertContains(response, "عام دراسي")
+        self.assertContains(response, "شهر مجانًا")
+        self.assertContains(response, "صمّم باقة مدرستك")
+        self.assertContains(response, "data-pricing-summary-price")
+        self.assertContains(response, "كل شاشة لها محتواها")
         self.assertContains(response, 'data-form-step="1"')
         self.assertContains(response, 'data-form-step="2"')
         self.assertNotContains(response, "<iframe")
@@ -131,7 +141,6 @@ class TrialSignupTests(TestCase):
             description="وصف موحد يظهر في جميع واجهات الباقات",
             price=9876,
             duration_days=365,
-            max_schools=2,
             max_users=12,
             max_screens=4,
             sort_order=3,
@@ -150,7 +159,6 @@ class TrialSignupTests(TestCase):
             name="باقة مخفية من الهبوط",
             price=4321,
             duration_days=180,
-            max_schools=1,
             max_users=5,
             max_screens=1,
             is_active=False,
@@ -174,19 +182,61 @@ class TrialSignupTests(TestCase):
         self.assertNotContains(response, "المدارس:")
         self.assertNotContains(response, "باقة مخفية من الهبوط")
 
+    def test_landing_pricing_groups_all_cycles_and_exposes_screen_selector(self):
+        monthly = SubscriptionPlan.objects.create(
+            code="grouped-monthly",
+            name="باقة مجمعة شهرية",
+            price=240,
+            duration_days=30,
+            max_screens=3,
+            is_active=True,
+        )
+        annual = SubscriptionPlan.objects.create(
+            code="grouped-annual",
+            name="باقة مجمعة سنوية",
+            price=2200,
+            duration_days=365,
+            max_screens=3,
+            is_active=True,
+        )
+        semiannual = SubscriptionPlan.objects.create(
+            code="grouped-semiannual",
+            name="باقة مجمعة نصف سنوية",
+            price=1300,
+            duration_days=182,
+            max_screens=3,
+            is_active=True,
+        )
+
+        response = self.client.get(reverse("website:home"))
+
+        self.assertContains(response, 'data-pricing-cycle="monthly"')
+        self.assertContains(response, 'data-pricing-cycle="annual"')
+        self.assertContains(response, 'data-pricing-cycle="semiannual"')
+        self.assertContains(response, 'data-pricing-panel="monthly"')
+        self.assertContains(response, 'data-pricing-panel="annual"')
+        self.assertContains(response, 'data-pricing-panel="semiannual"')
+        self.assertContains(response, f'data-plan-code="{monthly.code}"')
+        self.assertContains(response, f'data-plan-code="{annual.code}"')
+        self.assertContains(response, f'data-plan-code="{semiannual.code}"')
+        for screen_count in range(1, 6):
+            self.assertContains(
+                response,
+                f'data-screen-count-option="{screen_count}"',
+            )
+
     def test_landing_pricing_reflects_dashboard_price_update_on_next_request(self):
         plan = SubscriptionPlan.objects.create(
             code="landing-live-price",
             name="باقة السعر اللحظي",
-            price=8765,
+            price=8642,
             duration_days=90,
-            max_schools=1,
             max_users=6,
             max_screens=2,
             is_active=True,
         )
         first_response = self.client.get(reverse("website:home"))
-        self.assertContains(first_response, "8765")
+        self.assertContains(first_response, "8642")
 
         plan.price = 7654
         plan.duration_days = 120
@@ -195,7 +245,7 @@ class TrialSignupTests(TestCase):
         second_response = self.client.get(reverse("website:home"))
         self.assertContains(second_response, "7654")
         self.assertContains(second_response, "120 يوماً")
-        self.assertNotContains(second_response, "8765")
+        self.assertNotContains(second_response, "8642")
         self.assertIn("no-cache", second_response.headers.get("Cache-Control", ""))
 
     def test_trial_signup_rejects_duplicate_mobile(self):
@@ -379,10 +429,28 @@ class PaidPlanJourneyTests(TestCase):
 
 @override_settings(DISPLAY_WS_LIVE_STATUS_CHECK_SEC=60)
 class DisplayRuntimeConfigTests(TestCase):
+    @staticmethod
+    def _activate(school):
+        """Give the school a live subscription so the display gate lets it through."""
+        plan = SubscriptionPlan.objects.create(
+            code=f"display-plan-{school.slug}",
+            name="خطة العرض",
+            price=Decimal("100.00"),
+            duration_days=365,
+            max_screens=5,
+        )
+        return SchoolSubscription.objects.create(
+            school=school,
+            plan=plan,
+            starts_at=timezone.localdate(),
+            status="active",
+        )
+
     def test_display_page_receives_the_configured_ws_safety_interval(self):
         school = School.objects.create(name="مدرسة العرض", slug="display-school")
         SchoolSettings.objects.create(name=school.name, school=school)
         screen = DisplayScreen.objects.create(name="الشاشة الرئيسية", school=school)
+        self._activate(school)
 
         response = self.client.get(reverse("website:short_display", args=[screen.short_code]))
 
@@ -409,6 +477,7 @@ class DisplayRuntimeConfigTests(TestCase):
             show_duty=True,
             show_excellence=False,
         )
+        self._activate(school)
 
         response = self.client.get(reverse("website:short_display", args=[screen.short_code]))
 

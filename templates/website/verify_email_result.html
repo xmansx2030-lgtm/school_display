@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}تأكيد البريد الإلكتروني | لوحة العرض الذكية{% endblock %}
+
+{% block extra_head %}
+<style>
+  .verify-wrap {
+    min-height: 78vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 18px;
+  }
+
+  .verify-card {
+    width: min(560px, 100%);
+    padding: clamp(26px, 5vw, 44px);
+    border-radius: var(--radius);
+    background: var(--card);
+    border: 1px solid var(--stroke);
+    backdrop-filter: blur(8px);
+    text-align: center;
+  }
+
+  .verify-icon {
+    width: 74px;
+    height: 74px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--stroke);
+  }
+
+  .verify-icon.ok   { background: rgba(34, 197, 94, .12); }
+  .verify-icon.warn { background: rgba(212, 175, 55, .12); }
+
+  .verify-card h1 {
+    margin: 0 0 14px;
+    font-size: clamp(21px, 3.4vw, 28px);
+    font-weight: 800;
+    color: #fff;
+  }
+
+  .verify-card p {
+    margin: 0 0 14px;
+    line-height: 2;
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  .verify-card .subtle { color: var(--muted2); font-size: 13.5px; }
+  .verify-card .email  { color: var(--green2); font-weight: 700; }
+
+  .verify-cta {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 13px 30px;
+    border-radius: 14px;
+    background: var(--green);
+    color: #fff;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background .2s ease;
+  }
+
+  .verify-cta:hover { background: var(--green2); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="verify-wrap">
+  <div class="verify-card">
+
+    {% if ok %}
+      <div class="verify-icon ok">✅</div>
+
+      {% if already_verified %}
+        <h1>بريدك مؤكد مسبقاً</h1>
+        <p>
+          تم تأكيد <span class="email">{{ email }}</span> سابقاً،
+          ولا حاجة لأي إجراء إضافي.
+        </p>
+      {% else %}
+        <h1>تم تأكيد بريدك بنجاح</h1>
+        <p>
+          أصبح <span class="email">{{ email }}</span> مؤكداً.
+          ستصلك فواتير الاشتراك وتنبيهات التجديد على هذا العنوان.
+        </p>
+      {% endif %}
+
+      <a class="verify-cta" href="{{ login_url }}">الدخول إلى لوحة التحكم</a>
+
+    {% else %}
+      <div class="verify-icon warn">⚠️</div>
+      <h1>تعذّر تأكيد البريد</h1>
+      <p>{{ message }}</p>
+      <p class="subtle">
+        يمكنك طلب رابط تأكيد جديد من صفحة <strong>اشتراكي</strong> بعد تسجيل الدخول.
+      </p>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

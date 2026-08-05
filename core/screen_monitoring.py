@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta
 from decimal import Decimal
+from html import escape
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -20,7 +21,7 @@ User = get_user_model()
 
 def _manager_emails(school) -> list[str]:
     return list(
-        User.objects.filter(profile__schools=school)
+        User.objects.filter(profile__schools=school, is_active=True)
         .exclude(email="")
         .values_list("email", flat=True)
         .distinct()
@@ -145,12 +146,12 @@ def send_weekly_uptime_reports(*, week_start=None, now=None) -> dict:
     week_end = week_start + timedelta(days=6)
     start, end = _period_datetimes(week_start)
     period_seconds = int((end - start).total_seconds())
-    schools_sent = reports_created = 0
+    reports_created = 0
+    school_reports = []
 
     for school_settings in SchoolSettings.objects.filter(
-        weekly_uptime_report_enabled=True,
         school__isnull=False,
-    ).select_related("school"):
+    ).select_related("school").order_by("school__name", "school_id"):
         school = school_settings.school
         reports = []
         for screen in DisplayScreen.objects.filter(school=school, is_active=True).order_by("name"):
@@ -169,31 +170,51 @@ def send_weekly_uptime_reports(*, week_start=None, now=None) -> dict:
             reports.append(report)
         if not reports or all(report.sent_at for report in reports):
             continue
-        lines = [
-            f"تقرير تشغيل شاشات {school.name}",
-            f"الفترة: {week_start} إلى {week_end}",
-            "",
-        ]
+        school_reports.append((school, reports))
+
+    if not school_reports:
+        return {"schools_sent": 0, "reports_created": reports_created}
+
+    lines = [
+        "<b>📊 تقرير تشغيل الشاشات الأسبوعي</b>",
+        f"🗓 الفترة: <code>{week_start} إلى {week_end}</code>",
+    ]
+    for school, reports in school_reports:
+        average = sum(
+            (report.uptime_percent for report in reports),
+            Decimal("0"),
+        ) / Decimal(len(reports))
         lines.extend(
-            f"- {report.screen.name}: {report.uptime_percent}%"
+            (
+                "",
+                f"🏫 <b>{escape(school.name, quote=False)}</b>",
+                f"متوسط التشغيل: <code>{average.quantize(Decimal('0.01'))}%</code>",
+            )
+        )
+        lines.extend(
+            f"• {escape(report.screen.name, quote=False)}: "
+            f"<code>{report.uptime_percent}%</code>"
             for report in reports
         )
-        recipients = _manager_emails(school)
-        if recipients:
-            send_mail(
-                f"تقرير تشغيل الشاشات الأسبوعي — {school.name}",
-                "\n".join(lines),
-                getattr(settings, "DEFAULT_FROM_EMAIL", None),
-                recipients,
-                fail_silently=True,
-            )
-        queue_alert(
-            event_type="screen_uptime_weekly",
-            dedupe_key=f"screen-uptime-weekly:{school.pk}:{week_start.isoformat()}",
-            message="<b>📊 تقرير تشغيل الشاشات الأسبوعي</b>\n\n" + "\n".join(lines[1:]),
-            action_url="/dashboard/screens/",
-            action_label="فتح الشاشات",
-        )
-        ScreenWeeklyUptimeReport.objects.filter(pk__in=[item.pk for item in reports]).update(sent_at=now)
-        schools_sent += 1
-    return {"schools_sent": schools_sent, "reports_created": reports_created}
+
+    base_url = str(getattr(settings, "SITE_BASE_URL", "") or "").rstrip("/")
+    alert, _created = queue_alert(
+        event_type="screen_uptime_weekly",
+        dedupe_key=f"screen-uptime-weekly:{week_start.isoformat()}",
+        message="\n".join(lines),
+        action_url=f"{base_url}/dashboard/admin-panel/" if base_url else "",
+        action_label="فتح لوحة مدير النظام",
+    )
+    if alert is None:
+        return {"schools_sent": 0, "reports_created": reports_created}
+
+    report_ids = [
+        report.pk
+        for _school, reports in school_reports
+        for report in reports
+    ]
+    ScreenWeeklyUptimeReport.objects.filter(pk__in=report_ids).update(sent_at=now)
+    return {
+        "schools_sent": len(school_reports),
+        "reports_created": reports_created,
+    }

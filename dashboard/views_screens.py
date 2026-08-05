@@ -384,18 +384,17 @@ def screen_list(request):
         screen.dashboard_last_seen_full = last_seen_full
         screen.dashboard_is_live = is_live
         screen.dashboard_bound_device = bound_device
+        # مجموعة موروثة = كل حقول التخصيص فيها فارغة، أي أن الشاشة ما زالت
+        # تتبع "تخصيص جميع الشاشات" وتصلها تعديلاته تلقائيًا.
+        inherited_groups = set(ScreenDisplayCustomizationForm.inherited_groups_for(screen))
+        screen.dashboard_inherited_groups = sorted(inherited_groups)
+        screen.dashboard_follows_school_display = (
+            len(inherited_groups) == len(ScreenDisplayCustomizationForm.INHERIT_GROUP_FIELDS)
+            and not bool(getattr(screen, "logo_override", None))
+        )
         screen.dashboard_has_customization = bool(
-            (getattr(screen, "theme_override", "") or "").strip()
-            or bool(getattr(screen, "logo_override", None))
-            or (getattr(screen, "display_accent_color_override", "") or "").strip()
-            or getattr(screen, "standby_scroll_speed_override", None) is not None
-            or getattr(screen, "periods_scroll_speed_override", None) is not None
-            or any(
-                (getattr(screen, field_name, "") or "").strip()
-                for field_name in ScreenDisplayCustomizationForm.MESSAGE_FIELD_MAP.values()
-            )
+            not screen.dashboard_follows_school_display
             or (getattr(screen, "occasion_theme", "auto") or "auto") != "auto"
-            or (getattr(screen, "featured_panel_override", "") or "").strip()
             or not bool(getattr(screen, "show_announcements", True))
             or not bool(getattr(screen, "show_period_classes", True))
             or not bool(getattr(screen, "show_standby", True))
@@ -445,9 +444,16 @@ def screen_list(request):
     )
 
 
+def _screen_limit_message(max_screens: int) -> str:
+    if max_screens <= 0:
+        return "لا يمكن إنشاء شاشة بدون اشتراك نشط."
+    return f"لا يمكن إنشاء أكثر من {int(max_screens)} شاشة لهذه المدرسة."
+
+
 @manager_required
 def screen_create(request):
     display_screen = _display_screen_model()
+    school_model = apps.get_model("core", "School")
     school, response = get_active_school_or_redirect(request)
     if response:
         return response
@@ -455,18 +461,26 @@ def screen_create(request):
     current_count = display_screen.objects.filter(school=school).count()
     max_screens = get_school_max_screens_limit(school)
     if (max_screens is not None) and (current_count >= int(max_screens)):
-        if max_screens <= 0:
-            messages.warning(request, "لا يمكن إنشاء شاشة بدون اشتراك نشط.")
-        else:
-            messages.warning(request, f"لا يمكن إنشاء أكثر من {int(max_screens)} شاشة لهذه المدرسة.")
+        messages.warning(request, _screen_limit_message(int(max_screens)))
         return redirect("dashboard:screen_list")
 
     if request.method == "POST":
         form = DisplayScreenForm(request.POST)
         if form.is_valid():
-            screen = form.save(commit=False)
-            screen.school = school
-            screen.save()
+            # الفحص أعلاه يخدم الواجهة فقط. طلبان متزامنان يمكن أن يجتازاه معًا،
+            # لذلك نعيد الفحص داخل معاملة تقفل صف المدرسة: القفل يجعل الإنشاء
+            # متسلسلًا لكل مدرسة، فلا تتجاوز أي مدرسة حد باقتها.
+            with transaction.atomic():
+                school_model.objects.select_for_update().filter(pk=school.pk).first()
+                locked_count = display_screen.objects.filter(school=school).count()
+                locked_limit = get_school_max_screens_limit(school)
+                if (locked_limit is not None) and (locked_count >= int(locked_limit)):
+                    messages.warning(request, _screen_limit_message(int(locked_limit)))
+                    return redirect("dashboard:screen_list")
+
+                screen = form.save(commit=False)
+                screen.school = school
+                screen.save()
             messages.success(
                 request,
                 "تم إضافة شاشة جديدة.\n\n"
@@ -558,13 +572,13 @@ def screen_edit(request, pk: int):
         if getattr(screen, "logo_override", None):
             screen.logo_override.delete(save=False)
         screen.logo_override = None
-        screen.theme_override = ""
-        screen.featured_panel_override = ""
-        screen.display_accent_color_override = ""
-        screen.standby_scroll_speed_override = None
-        screen.periods_scroll_speed_override = None
-        for model_name in ScreenDisplayCustomizationForm.MESSAGE_FIELD_MAP.values():
-            setattr(screen, model_name, "")
+        for override_names in ScreenDisplayCustomizationForm.INHERIT_GROUP_FIELDS.values():
+            for override_name in override_names:
+                setattr(
+                    screen,
+                    override_name,
+                    None if override_name.endswith("_speed_override") else "",
+                )
         screen.occasion_theme = "auto"
         screen.show_announcements = True
         screen.show_period_classes = True
@@ -606,6 +620,15 @@ def screen_edit(request, pk: int):
 
     preview_url = f"/s/{screen.short_code}/" if screen.short_code else None
 
+    # القيم المعروضة في مفاتيح "اتباع إعداد جميع الشاشات": ما أرسله المدير عند
+    # وجود أخطاء، وإلا حالة الشاشة المحفوظة.
+    if form.is_bound and hasattr(form.data, "getlist"):
+        inherit_selected = list(form.data.getlist("inherit_groups"))
+    elif form.is_bound:
+        inherit_selected = list(form.data.get("inherit_groups") or ())
+    else:
+        inherit_selected = ScreenDisplayCustomizationForm.inherited_groups_for(screen)
+
     return render(
         request,
         "dashboard/settings.html",
@@ -618,6 +641,7 @@ def screen_edit(request, pk: int):
             "show_display_settings": True,
             "show_account_settings": False,
             "is_screen_scope": True,
+            "inherit_selected": inherit_selected,
             "display_scope_title": f"تخصيص شاشة: {screen.name}",
             "display_scope_description": "التعديلات هنا تخص هذه الشاشة فقط، ويمكن إعادتها إلى إعدادات جميع الشاشات في أي وقت.",
             "current_logo_url": logo_url,

@@ -28,16 +28,17 @@
       <p class="admin-metric-value">{{ active_schools_count }}</p>
       <p class="admin-metric-label">مدارس نشطة</p>
     </div>
-    <div class="admin-metric-card" style="--metric-color:#e11d48">
+    <a href="?state=inactive" class="admin-metric-card" style="--metric-color:#e11d48">
       <span class="admin-metric-icon"><i class="fas fa-circle-pause"></i></span>
       <p class="admin-metric-value">{{ inactive_schools_count }}</p>
       <p class="admin-metric-label">مدارس موقوفة</p>
-    </div>
-    <div class="admin-metric-card" style="--metric-color:#7c3aed">
-      <span class="admin-metric-icon"><i class="fas fa-filter"></i></span>
-      <p class="admin-metric-value">{{ filtered_schools_count }}</p>
-      <p class="admin-metric-label">ضمن النتائج الحالية</p>
-    </div>
+    </a>
+    <a href="?subscription=none" class="admin-metric-card" style="--metric-color:#7c3aed">
+      <span class="admin-metric-icon"><i class="fas fa-link-slash"></i></span>
+      <p class="admin-metric-value">{{ schools_without_subscription_count }}</p>
+      <p class="admin-metric-label">بلا اشتراك سارٍ</p>
+      <p class="admin-metric-note">{{ filtered_schools_count }} ضمن النتائج الحالية</p>
+    </a>
   </section>
 
   <form method="get" class="admin-filter-bar admin-no-print">
@@ -71,8 +72,17 @@
         <option value="none" {% if screen_state == "none" %}selected{% endif %}>بلا شاشة</option>
       </select>
     </div>
+    <div class="admin-filter-field">
+      <label for="subscriptionState">الاشتراك</label>
+      <select id="subscriptionState" name="subscription">
+        <option value="">كل المدارس</option>
+        <option value="active" {% if subscription_state == "active" %}selected{% endif %}>اشتراك سارٍ</option>
+        <option value="expiring" {% if subscription_state == "expiring" %}selected{% endif %}>ينتهي خلال 30 يوماً</option>
+        <option value="none" {% if subscription_state == "none" %}selected{% endif %}>بلا اشتراك سارٍ</option>
+      </select>
+    </div>
     <button type="submit" class="admin-btn admin-btn-primary"><i class="fas fa-filter"></i> تطبيق</button>
-    {% if q or state or plan_id or screen_state %}
+    {% if q or state or plan_id or screen_state or subscription_state %}
       <a href="{% url 'dashboard:system_schools_list' %}" class="admin-btn admin-btn-secondary"><i class="fas fa-xmark"></i> مسح</a>
     {% endif %}
   </form>
@@ -86,7 +96,7 @@
       <span class="text-xs font-bold text-slate-500">{{ filtered_schools_count }} نتيجة</span>
     </div>
     <div class="admin-table-wrap">
-      <table class="admin-table">
+      <table class="admin-table has-actions">
         <thead>
           <tr>
             <th>المدرسة</th>
@@ -95,7 +105,7 @@
             <th>الشاشات</th>
             <th>الحالة</th>
             <th>أضيفت</th>
-            <th>الإجراءات</th>
+            <th class="admin-no-print">الإجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -108,7 +118,7 @@
                   </span>
                   <div>
                     <strong class="block text-sm text-slate-900">{{ school.name }}</strong>
-                    <span class="text-[10px] text-slate-400">{{ school.slug }}</span>
+                    <span class="admin-ltr text-[10px] text-slate-400">{{ school.slug }}</span>
                   </div>
                 </div>
               </td>
@@ -195,10 +205,10 @@
         <span class="text-xs text-slate-500">صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</span>
         <div class="flex gap-2">
           {% if page_obj.has_previous %}
-            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.previous_page_number }}&q={{ q|urlencode }}&state={{ state }}&plan={{ plan_id }}&screen={{ screen_state }}">السابقة</a>
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.previous_page_number }}&q={{ q|urlencode }}&state={{ state }}&plan={{ plan_id }}&screen={{ screen_state }}&subscription={{ subscription_state }}">السابقة</a>
           {% endif %}
           {% if page_obj.has_next %}
-            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.next_page_number }}&q={{ q|urlencode }}&state={{ state }}&plan={{ plan_id }}&screen={{ screen_state }}">التالية</a>
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.next_page_number }}&q={{ q|urlencode }}&state={{ state }}&plan={{ plan_id }}&screen={{ screen_state }}&subscription={{ subscription_state }}">التالية</a>
           {% endif %}
         </div>
       </div>

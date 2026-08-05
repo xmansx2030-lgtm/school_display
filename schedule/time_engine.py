@@ -1,6 +1,7 @@
 # schedule/time_engine.py
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -21,6 +22,8 @@ from schedule.models import (
     WEEKDAYS,
 )
 
+
+logger = logging.getLogger(__name__)
 
 WEEKDAY_LABELS = {value: label for value, label in WEEKDAYS}
 
@@ -269,6 +272,50 @@ def _active_window_bounds(timeline):
     return start_t, end_t, active_start, active_end
 
 
+def build_week_plan(settings, reference_date, tz, *, active_days_index: dict[int, list] | None = None) -> dict:
+    """جدول الأسبوع كاملًا بصيغة ``day_path`` وبأوقات محلية مستقلة عن التاريخ.
+
+    الشاشة تحفظ هذه الخطة محليًا. إذا انقطع الإنترنت وعبرت الشاشة منتصف الليل،
+    تستبدل جدول اليوم الجديد من هنا بدل الاستمرار في عرض جدول الأمس بثقة كاذبة.
+
+    المفتاح هو ترقيم قاعدة البيانات لليوم (الاثنين=1 .. الأحد=7)، والقيمة قائمة
+    الكتل مرتبة زمنيًا. اليوم بلا دوام تكون قيمته قائمة فارغة — وهذا مقصود، إذ
+    يميّز "إجازة معروفة" عن "يوم غير معروف" (مفتاح غائب).
+    """
+    if active_days_index is None:
+        active_days_index = _build_active_days_index(settings)
+
+    plan: dict[str, list] = {}
+    for py_weekday in range(7):
+        db_weekday = _normalize_weekday_for_db(py_weekday)
+        legacy_weekday = (py_weekday + 1) % 7
+        days, _resolved = _load_active_days_for_weekday(
+            None,
+            db_weekday,
+            legacy_weekday,
+            active_days_index=active_days_index,
+        )
+        if not days:
+            plan[str(db_weekday)] = []
+            continue
+
+        timeline = _build_timeline_for_days(days, reference_date, tz)
+        timeline.sort(key=lambda block: block["start"])
+        plan[str(db_weekday)] = [
+            {
+                "kind": block["kind"],
+                "index": block.get("index"),
+                "label": block.get("label") or "",
+                "class": block.get("class"),
+                "teacher": block.get("teacher"),
+                "from": block["start"].strftime("%H:%M"),
+                "to": block["end"].strftime("%H:%M"),
+            }
+            for block in timeline
+        ]
+    return plan
+
+
 def _next_school_day_info(settings, start_date, tz, *, include_today: bool = False, active_days_index: dict[int, list] | None = None):
     day_qs = getattr(settings, "day_schedules", None)
     if day_qs is None or not hasattr(day_qs, "filter"):
@@ -337,7 +384,38 @@ def build_day_snapshot(settings, now=None):
     returns:
       meta, settings, state, current_period, next_period, day_path,
       period_classes, standby{items}, excellence{items}
+
+    ``meta.week_plan`` يحمل جدول الأسبوع كاملًا حتى تستطيع الشاشة الاستمرار
+    بجدول صحيح لأيام بعد انقطاع الإنترنت. انظر :func:`build_week_plan`.
     """
+    # الفهرس يُبنى مرة واحدة ويُشارك بين لقطة اليوم وخطة الأسبوع، فلا يضيف
+    # بناء الخطة أي استعلام إضافي.
+    active_days_index = _build_active_days_index(settings)
+    snapshot = _build_day_snapshot(settings, now=now, active_days_index=active_days_index)
+
+    try:
+        tz_name = getattr(settings, "timezone_name", None) or "Asia/Riyadh"
+        try:
+            tz = ZoneInfo(tz_name)
+        except Exception:
+            tz = ZoneInfo("Asia/Riyadh")
+        reference_date = timezone.localtime(now, tz).date() if now else timezone.localtime(timezone.now(), tz).date()
+        meta = snapshot.get("meta") if isinstance(snapshot, dict) else None
+        if isinstance(meta, dict):
+            meta["week_plan"] = build_week_plan(
+                settings,
+                reference_date,
+                tz,
+                active_days_index=active_days_index,
+            )
+    except Exception:
+        # خطة الأسبوع تحسين للصمود بلا اتصال؛ فشلها يجب ألا يمنع عرض اليوم.
+        logger.exception("week_plan_build_failed settings_id=%s", getattr(settings, "pk", None))
+
+    return snapshot
+
+
+def _build_day_snapshot(settings, now=None, *, active_days_index: dict[int, list] | None = None):
     if now is None:
         now = timezone.localtime()
 
@@ -373,7 +451,8 @@ def build_day_snapshot(settings, now=None):
         "periods_scroll_speed": float(getattr(settings, "periods_scroll_speed", 0.5) or 0.5),
     }
     settings_payload.update(_resolve_display_messages(settings))
-    active_days_index = _build_active_days_index(settings)
+    if active_days_index is None:
+        active_days_index = _build_active_days_index(settings)
     day_qs = getattr(settings, "day_schedules", None)
 
     actual_days, actual_resolved_weekday = _load_active_days_for_weekday(

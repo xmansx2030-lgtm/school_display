@@ -1,0 +1,116 @@
+/* ==========================================================================
+   Mobile corrections shared by every authenticated and public shell.
+   Loaded last so it can correct rules declared elsewhere.
+
+   Selectors here are deliberately specificity-heavy (`html body …`). The
+   dashboard and admin stylesheets set their form sizing with `!important`
+   and attribute/ID selectors, so a plain `input {}` rule would silently lose.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Stop iOS Safari zooming the page when a field is focused.
+
+   Any form control under 16px makes mobile Safari scale the viewport on
+   focus. The page then stays zoomed and scrolled sideways, which reads to the
+   user as "the layout jumped". Desktop sizing is untouched; this only applies
+   on small screens.
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+    html body input[type="text"],
+    html body input[type="email"],
+    html body input[type="password"],
+    html body input[type="url"],
+    html body input[type="tel"],
+    html body input[type="search"],
+    html body input[type="number"],
+    html body input[type="date"],
+    html body input[type="time"],
+    html body input[type="datetime-local"],
+    html body input[type="month"],
+    html body input[type="week"],
+    html body input:not([type]),
+    html body textarea,
+    html body select {
+        font-size: 16px !important;
+    }
+
+    /* Same rule, aimed at the higher-specificity declarations in the
+       dashboard and admin stylesheets. */
+    html body .admin-search input,
+    html body .admin-filter-field input,
+    html body .admin-filter-field select,
+    html body .admin-form-field input:not([type="checkbox"]):not([type="radio"]),
+    html body .admin-form-field select,
+    html body .admin-form-field textarea,
+    html body .input-field,
+    html body #schoolSwitcherSelect,
+    html body .dashboard-settings #settingsForm input,
+    html body .dashboard-settings #settingsForm select,
+    html body .dashboard-settings #settingsForm textarea,
+    html body .dashboard-timetable-day .day-filter-item select {
+        font-size: 16px !important;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   2. Wide tables must scroll, never clip.
+
+   Rounded cards use `overflow: hidden` to clip their corners. A table wider
+   than the card then loses its outer columns with no way to reach them. This
+   utility goes *inside* such a card and owns the horizontal scrolling.
+   -------------------------------------------------------------------------- */
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Keeps momentum scrolling from stealing vertical page gestures. */
+    overscroll-behavior-x: contain;
+}
+
+/* Hint that there is more content sideways, without adding markup. */
+@media (max-width: 768px) {
+    .table-scroll {
+        background:
+            linear-gradient(to left, #fff 40%, rgba(255, 255, 255, 0)) left center / 1.75rem 100% no-repeat,
+            linear-gradient(to right, #fff 40%, rgba(255, 255, 255, 0)) right center / 1.75rem 100% no-repeat,
+            linear-gradient(to left, rgba(15, 23, 42, 0.08), rgba(255, 255, 255, 0)) left center / 0.7rem 100% no-repeat,
+            linear-gradient(to right, rgba(15, 23, 42, 0.08), rgba(255, 255, 255, 0)) right center / 0.7rem 100% no-repeat;
+        background-attachment: local, local, scroll, scroll;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   3. Comfortable touch targets.
+
+   Pointer-coarse rather than a width breakpoint: this is about the finger,
+   not the screen, so it also covers touch laptops and tablets.
+   -------------------------------------------------------------------------- */
+@media (pointer: coarse) {
+    html body .dashboard-toolbar .inline-flex,
+    html body .btn-sm,
+    html body .admin-icon-btn {
+        min-height: 40px;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   4. Last-resort guard against sideways page scroll.
+
+   `clip` behaves like `hidden` but does not create a scroll container, so
+   `position: sticky` headers and toolbars keep working.
+   -------------------------------------------------------------------------- */
+@supports (overflow: clip) {
+    @media (max-width: 768px) {
+        html body {
+            overflow-x: clip;
+        }
+    }
+}
+
+/* Media should never be the thing that pushes a layout wide. */
+img,
+svg,
+video,
+canvas,
+iframe {
+    max-width: 100%;
+}

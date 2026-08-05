@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -6,6 +7,7 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.core.cache import cache
 from django.core import mail
+from django.template.loader import render_to_string
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 from django.urls import reverse
@@ -15,6 +17,7 @@ from core.display_presence import display_is_live, latest_display_presence, touc
 from core.models import DisplayScreen, School, ScreenOutage, ScreenWeeklyUptimeReport, UserProfile
 from core.screen_monitoring import scan_screens, send_weekly_uptime_reports
 from schedule.models import SchoolSettings
+from telegram_alerts.models import TelegramAlert
 from django.contrib.auth import get_user_model
 
 
@@ -75,6 +78,17 @@ class ScreenMonitoringTests(TestCase):
         )
         profile = UserProfile.objects.create(user=self.manager, active_school=self.school)
         profile.schools.add(self.school)
+        self.inactive_manager = get_user_model().objects.create_user(
+            username="inactive_monitor_manager",
+            email="inactive-manager@example.com",
+            password="StrongPass123!",
+            is_active=False,
+        )
+        inactive_profile = UserProfile.objects.create(
+            user=self.inactive_manager,
+            active_school=self.school,
+        )
+        inactive_profile.schools.add(self.school)
         self.screen = DisplayScreen.objects.create(
             school=self.school,
             name="شاشة المدخل",
@@ -92,6 +106,7 @@ class ScreenMonitoringTests(TestCase):
         self.assertEqual(first["alerted"], 1)
         self.assertEqual(second["opened"], 0)
         self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["manager@example.com"])
         outage = ScreenOutage.objects.get(screen=self.screen)
         self.assertIsNotNone(outage.alert_sent_at)
 
@@ -115,7 +130,8 @@ class ScreenMonitoringTests(TestCase):
         self.assertEqual(late["opened"], 1)
         self.assertEqual(late["alerted"], 1)
 
-    def test_weekly_report_calculates_and_persists_per_screen_uptime(self):
+    @override_settings(TELEGRAM_ALERTS_ENABLED=True)
+    def test_weekly_report_is_one_admin_alert_and_sends_no_manager_email(self):
         week_start = timezone.localdate() - timedelta(days=14)
         tz = timezone.get_current_timezone()
         start = timezone.make_aware(datetime.combine(week_start, datetime.min.time()), tz)
@@ -124,16 +140,45 @@ class ScreenMonitoringTests(TestCase):
             detected_at=start + timedelta(days=1),
             resolved_at=start + timedelta(days=2),
         )
+        second_school = School.objects.create(
+            name="مدرسة النور",
+            slug="alnoor-school",
+        )
+        SchoolSettings.objects.create(
+            school=second_school,
+            name=second_school.name,
+            weekly_uptime_report_enabled=False,
+        )
+        second_screen = DisplayScreen.objects.create(
+            school=second_school,
+            name="شاشة الساحة",
+            is_active=True,
+            bound_device_id="second-monitor-device",
+        )
 
         result = send_weekly_uptime_reports(week_start=week_start)
+        repeated = send_weekly_uptime_reports(week_start=week_start)
 
-        self.assertEqual(result["schools_sent"], 1)
+        self.assertEqual(result["schools_sent"], 2)
+        self.assertEqual(repeated["schools_sent"], 0)
         report = ScreenWeeklyUptimeReport.objects.get(screen=self.screen, week_start=week_start)
         self.assertEqual(report.offline_seconds, 24 * 60 * 60)
         self.assertAlmostEqual(float(report.uptime_percent), 85.71, places=2)
         self.assertIsNotNone(report.sent_at)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertIsNotNone(
+            ScreenWeeklyUptimeReport.objects.get(
+                screen=second_screen,
+                week_start=week_start,
+            ).sent_at
+        )
+        self.assertEqual(len(mail.outbox), 0)
+        alert = TelegramAlert.objects.get(event_type="screen_uptime_weekly")
+        self.assertIn(self.school.name, alert.message)
+        self.assertIn(second_school.name, alert.message)
+        self.assertIn(self.screen.name, alert.message)
+        self.assertIn(second_screen.name, alert.message)
 
+    @override_settings(TELEGRAM_ALERTS_ENABLED=True)
     def test_weekly_report_counts_offline_time_from_last_seen(self):
         week_start = timezone.localdate() - timedelta(days=21)
         tz = timezone.get_current_timezone()
@@ -149,6 +194,20 @@ class ScreenMonitoringTests(TestCase):
 
         report = ScreenWeeklyUptimeReport.objects.get(screen=self.screen, week_start=week_start)
         self.assertEqual(report.offline_seconds, 60 * 60)
+
+    def test_weekly_report_waits_for_admin_telegram_without_emailing_manager(self):
+        week_start = timezone.localdate() - timedelta(days=28)
+
+        result = send_weekly_uptime_reports(week_start=week_start)
+
+        report = ScreenWeeklyUptimeReport.objects.get(
+            screen=self.screen,
+            week_start=week_start,
+        )
+        self.assertEqual(result["schools_sent"], 0)
+        self.assertIsNone(report.sent_at)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(TelegramAlert.objects.exists())
 
 
 class DisplayTokenMiddlewareTests(SimpleTestCase):
@@ -197,12 +256,6 @@ class RootAssetTests(SimpleTestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn('id="occasionThemeDecor"', display_template)
-        self.assertIn('data-occasion-theme="national_day"', display_template)
-        self.assertIn('data-occasion-theme="founding_day"', display_template)
-        self.assertIn('data-occasion-theme="teachers_day"', display_template)
-        self.assertIn('data-occasion-theme="back_to_school"', display_template)
-        self.assertIn('data-occasion-theme="graduation"', display_template)
-        self.assertIn('data-occasion-theme="weather"', display_template)
         self.assertIn('id="occasionHero"', display_template)
         self.assertIn('id="occasionHeroTitle"', display_template)
         self.assertIn("occasion-hero__mark", display_template)
@@ -212,6 +265,64 @@ class RootAssetTests(SimpleTestCase):
         self.assertIn('setAttribute("data-occasion-ambient", "1")', display_script)
         self.assertIn("const offsetX", display_script)
         self.assertIn("const offsetY", display_script)
+
+    def test_display_shell_renders_a_theme_for_every_registered_occasion(self):
+        """الهوية البصرية تُولَّد من السجل، فلا تُكتب أي مناسبة يدويًا هنا.
+
+        نصيّر الصفحة فعلًا بدل تفتيش نصّها: هذا يكشف مناسبة أُضيفت للسجل ولم
+        يصلها لون، وهو بالضبط الخلل الصامت الذي كان التكرار يسبّبه.
+        """
+        from core import occasions
+
+        html = render_to_string(
+            "website/display.html",
+            {
+                "occasion_themes": occasions.all_occasions(),
+                "occasion_theme_meta_json": json.dumps(
+                    occasions.theme_map(), ensure_ascii=False
+                ),
+            },
+        )
+
+        for occasion in occasions.all_occasions():
+            with self.subTest(occasion=occasion.key):
+                self.assertIn(f'body[data-occasion-theme="{occasion.key}"]', html)
+                self.assertIn(occasion.accent, html)
+                self.assertIn(occasion.deep, html)
+
+        # الثيمات المتقاعدة يجب ألا تُصيَّر إطلاقًا.
+        for retired in occasions.RETIRED_OCCASION_KEYS:
+            self.assertNotIn(f'body[data-occasion-theme="{retired}"]', html)
+
+    def test_display_shell_publishes_occasion_meta_for_the_client(self):
+        """``display.js`` يقرأ بيانات المناسبات من الصفحة لا من نسخة خاصة به."""
+        from core import occasions
+
+        html = render_to_string(
+            "website/display.html",
+            {
+                "occasion_themes": occasions.all_occasions(),
+                "occasion_theme_meta_json": json.dumps(
+                    occasions.theme_map(), ensure_ascii=False
+                ),
+            },
+        )
+
+        match = re.search(
+            r'<script type="application/json" id="occasionThemeMeta">(.*?)</script>',
+            html,
+            re.S,
+        )
+        self.assertIsNotNone(match, "كتلة بيانات المناسبات مفقودة من الصفحة")
+
+        published = json.loads(match.group(1))
+        self.assertEqual(set(published), set(occasions.OCCASIONS))
+        for key, meta in published.items():
+            with self.subTest(occasion=key):
+                self.assertTrue(meta["label"])
+                self.assertTrue(meta["mark"])
+                self.assertTrue(meta["badgeIcon"])
+                self.assertEqual(len(meta["symbols"]), 2)
 
 
 class SecurityHeadersTests(SimpleTestCase):

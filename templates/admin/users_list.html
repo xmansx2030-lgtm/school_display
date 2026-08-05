@@ -88,7 +88,7 @@
       <span class="text-xs font-bold text-slate-500">{{ filtered_users_count }} حساباً</span>
     </div>
     <div class="admin-table-wrap">
-      <table class="admin-table">
+      <table class="admin-table has-actions">
         <thead>
           <tr>
             <th>المدير</th>
@@ -96,7 +96,7 @@
             <th>المدارس المرتبطة</th>
             <th>الحالة والصلاحية</th>
             <th>آخر دخول</th>
-            <th>الإجراءات</th>
+            <th class="admin-no-print">الإجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -109,12 +109,12 @@
                   </span>
                   <div>
                     <strong class="block text-sm text-slate-900">{{ user.get_full_name|default:user.username }}</strong>
-                    <span class="text-[10px] text-slate-400">@{{ user.username }}</span>
+                    <span class="admin-ltr text-[10px] text-slate-400">@{{ user.username }}</span>
                   </div>
                 </div>
               </td>
               <td>
-                <span class="block text-xs">{{ user.email|default:"لا يوجد بريد" }}</span>
+                <span class="admin-ltr block text-xs">{{ user.email|default:"لا يوجد بريد" }}</span>
                 {% if user.profile.mobile %}<span class="mt-1 block text-[10px] text-slate-400">{{ user.profile.mobile }}</span>{% endif %}
               </td>
               <td>

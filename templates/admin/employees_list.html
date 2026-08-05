@@ -1,161 +1,173 @@
 {% extends "admin/admin_base.html" %}
 
-{% block title %}إدارة الموظفين{% endblock %}
-{% block page_title %}إدارة الموظفين{% endblock %}
-{% block page_description %}
-إدارة فريق المنصة بأدوار تشغيلية وصلاحيات دقيقة قابلة للتعديل.
+{% block title %}موظفو المنصة{% endblock %}
+{% block page_icon %}user-tie{% endblock %}
+{% block page_title %}موظفو المنصة وصلاحياتهم{% endblock %}
+{% block page_description %}الدعم والمالية ونجاح العملاء والعمليات، مع بقاء صلاحيات المالك محمية.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">موظفو المنصة</span>
+{% endblock %}
+{% block page_actions %}
+  <a href="{% url 'dashboard:system_employee_create' %}" class="admin-btn admin-btn-primary">
+    <i class="fas fa-user-plus"></i> إضافة موظف
+  </a>
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-
-  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-    <div>
-      <h1 class="text-2xl md:text-3xl font-bold text-slate-900">إدارة الموظفين</h1>
-      <p class="text-slate-500 mt-1 text-sm md:text-base">
-        الدعم والمالية ونجاح العملاء والعمليات، مع بقاء صلاحيات المالك محمية.
-      </p>
+<div class="space-y-5">
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="admin-metric-card" style="--metric-color:#4f46e5">
+      <span class="admin-metric-icon"><i class="fas fa-users-gear"></i></span>
+      <p class="admin-metric-value">{{ employees_count }}</p>
+      <p class="admin-metric-label">موظف منصة</p>
     </div>
-
-    <div class="flex flex-col sm:flex-row gap-3">
-      <form method="get" class="flex items-center gap-2">
-        <input
-          type="text"
-          name="q"
-          value="{{ q }}"
-          placeholder="بحث باسم المستخدم أو البريد أو المجموعة..."
-          class="w-full sm:w-72 px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-        >
-        {% if q %}
-        <a href="{% url 'dashboard:system_employees_list' %}"
-           class="text-xs text-slate-500 hover:text-slate-700">
-          مسح البحث
-        </a>
-        {% endif %}
-      </form>
-
-      <a href="{% url 'dashboard:system_employee_create' %}"
-         class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-indigo-600 shadow-md hover:shadow-lg hover:from-indigo-600 hover:to-indigo-700 transition">
-        <span class="ml-2">➕</span>
-        <span>إضافة موظف</span>
-      </a>
+    <div class="admin-metric-card" style="--metric-color:#d97706">
+      <span class="admin-metric-icon"><i class="fas fa-crown"></i></span>
+      <p class="admin-metric-value">{{ owners_count }}</p>
+      <p class="admin-metric-label">حساب مالك</p>
+      <p class="admin-metric-note">وصول كامل غير قابل للتفويض</p>
     </div>
-  </div>
+    <div class="admin-metric-card" style="--metric-color:#e11d48">
+      <span class="admin-metric-icon"><i class="fas fa-user-lock"></i></span>
+      <p class="admin-metric-value">{{ inactive_count }}</p>
+      <p class="admin-metric-label">حساب موقوف</p>
+    </div>
+    <div class="admin-metric-card" style="--metric-color:#2563eb">
+      <span class="admin-metric-icon"><i class="fas fa-filter"></i></span>
+      <p class="admin-metric-value">{{ filtered_count }}</p>
+      <p class="admin-metric-label">ضمن النتائج الحالية</p>
+    </div>
+  </section>
 
-  <div class="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="min-w-full text-sm">
-        <thead class="bg-slate-50 text-slate-600">
+  <form method="get" class="admin-filter-bar admin-no-print">
+    <div class="admin-filter-field is-search">
+      <label for="employeeSearch">بحث</label>
+      <input id="employeeSearch" type="search" name="q" value="{{ q }}" placeholder="اسم المستخدم، البريد، الدور أو المجموعة...">
+    </div>
+    <button type="submit" class="admin-btn admin-btn-primary"><i class="fas fa-filter"></i> تطبيق</button>
+    {% if q %}
+      <a href="{% url 'dashboard:system_employees_list' %}" class="admin-btn admin-btn-secondary"><i class="fas fa-xmark"></i> مسح</a>
+    {% endif %}
+  </form>
+
+  <section class="admin-panel">
+    <div class="admin-panel-header">
+      <div>
+        <h2 class="text-base font-black text-slate-900">فريق المنصة</h2>
+        <p class="mt-1 text-xs text-slate-500">تُطبَّق أي تعديلات على الصلاحيات فورًا على جلسة الموظف.</p>
+      </div>
+      <span class="text-xs font-bold text-slate-500">{{ filtered_count }} حساب</span>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table has-actions" style="min-width:52rem">
+        <thead>
           <tr>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">المستخدم</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">البريد</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">الدور الوظيفي</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">الوصول الممنوح</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">آخر تسجيل دخول</th>
-            <th class="p-3 text-right font-semibold border-b border-slate-200">إجراءات</th>
+            <th>المستخدم</th>
+            <th>البريد</th>
+            <th>الدور الوظيفي</th>
+            <th>الوصول الممنوح</th>
+            <th>آخر دخول</th>
+            <th class="admin-no-print">الإجراءات</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
+        <tbody>
           {% for u in page_obj.object_list %}
-          <tr class="hover:bg-slate-50 transition">
-            <td class="p-3">
-              <div class="font-semibold text-slate-900">{{ u.username }}</div>
-              <div class="text-[11px] text-slate-500">{% if u.get_full_name %}{{ u.get_full_name }}{% endif %}</div>
-            </td>
-            <td class="p-3 text-slate-600 text-xs">
-              {% if u.email %}
-              {{ u.email }}
-              {% else %}
-              <span class="text-slate-400">لا يوجد</span>
-              {% endif %}
-            </td>
-            <td class="p-3 text-xs">
-              <div>
-                <span class="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 font-black text-indigo-700">
-                  <i class="fas {% if u.is_superuser %}fa-crown{% else %}fa-briefcase{% endif %}"></i>
+            <tr>
+              <td>
+                <div class="flex items-center gap-3">
+                  <span class="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 font-black text-indigo-700">
+                    {{ u.username|slice:":1"|upper }}
+                  </span>
+                  <div>
+                    <strong class="block text-sm text-slate-900">{{ u.get_full_name|default:u.username }}</strong>
+                    <span class="admin-ltr text-[10px] text-slate-400">@{{ u.username }}</span>
+                  </div>
+                </div>
+              </td>
+              <td class="text-xs text-slate-600"><span class="admin-ltr">{{ u.email|default:"لا يوجد" }}</span></td>
+              <td>
+                <span class="admin-status {% if u.is_superuser %}admin-status-warning{% else %}admin-status-info{% endif %}">
                   {{ u.platform_role_label }}
                 </span>
-              </div>
-              <div class="mt-2 flex flex-wrap gap-1">
-                {% if u.is_active %}
-                <span class="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold">نشط</span>
+                <div class="mt-2">
+                  {% if u.is_active %}
+                    <span class="admin-status admin-status-success">نشط</span>
+                  {% else %}
+                    <span class="admin-status admin-status-danger">موقوف</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td>
+                <div class="mb-2 flex items-center gap-1 text-xs">
+                  <strong class="text-slate-800">{{ u.platform_permission_count }}</strong>
+                  <span class="text-slate-400">صلاحية</span>
+                </div>
+                <div class="flex max-w-md flex-wrap gap-1">
+                  {% for permission_label in u.platform_permission_labels|slice:":3" %}
+                    <span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-600">{{ permission_label }}</span>
+                  {% endfor %}
+                  {% comment %} Count the hidden chips, not the permission total: an owner has one
+                     "وصول كامل" chip standing for all of them, so there is no overflow. {% endcomment %}
+                  {% with shown=u.platform_permission_labels|length %}
+                    {% if shown > 3 %}
+                      <span class="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700">+{{ shown|add:"-3" }}</span>
+                    {% endif %}
+                  {% endwith %}
+                </div>
+              </td>
+              <td class="whitespace-nowrap">
+                {% if u.last_login %}
+                  <strong class="block text-xs text-slate-700">{{ u.last_login|date:"Y-m-d" }}</strong>
+                  <span class="text-[10px] text-slate-400">{{ u.last_login|date:"H:i" }}</span>
                 {% else %}
-                <span class="px-2 py-1 rounded-full bg-rose-50 text-rose-700 font-semibold">موقوف</span>
+                  <span class="admin-status admin-status-muted">لم يدخل بعد</span>
                 {% endif %}
-
-              </div>
-            </td>
-            <td class="p-3 text-xs">
-              <div class="mb-2 flex items-center gap-2">
-                <strong class="text-slate-800">{{ u.platform_permission_count }}</strong>
-                <span class="text-slate-400">صلاحية</span>
-              </div>
-              <div class="flex max-w-md flex-wrap gap-1">
-                {% for permission_label in u.platform_permission_labels|slice:":3" %}
-                  <span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-600">{{ permission_label }}</span>
-                {% endfor %}
-                {% if u.platform_permission_count > 3 %}
-                  <span class="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700">+{{ u.platform_permission_count|add:"-3" }}</span>
-                {% endif %}
-              </div>
-            </td>
-            <td class="p-3 text-xs text-slate-500">
-              {% if u.last_login %}
-              {{ u.last_login|date:"Y-m-d H:i" }}
-              {% else %}
-              -
-              {% endif %}
-            </td>
-            <td class="p-3">
-              <div class="flex items-center gap-2">
-                {% if not u.is_superuser %}
-                  <a href="{% url 'dashboard:system_employee_edit' u.pk %}"
-                     class="text-xs px-3 py-2 rounded-lg bg-sky-50 text-sky-700 font-bold hover:bg-sky-100">
-                    <i class="fas fa-user-shield ml-1"></i> الصلاحيات
-                  </a>
-                  <a href="{% url 'dashboard:system_user_delete' u.pk %}"
-                     class="text-xs px-3 py-2 rounded-lg bg-rose-50 text-rose-700 font-bold hover:bg-rose-100">
-                    حذف
-                  </a>
-                {% else %}
-                  <span class="text-[10px] font-bold text-slate-400">حساب المالك محمي</span>
-                {% endif %}
-              </div>
-            </td>
-          </tr>
+              </td>
+              <td>
+                <div class="flex items-center gap-2 whitespace-nowrap">
+                  {% if u.is_superuser %}
+                    <span class="text-[10px] font-bold text-slate-400">حساب المالك محمي</span>
+                  {% else %}
+                    <a href="{% url 'dashboard:system_employee_edit' u.pk %}" class="admin-btn admin-btn-secondary" style="min-height:2.15rem;padding:.35rem .65rem">
+                      <i class="fas fa-user-shield"></i> الصلاحيات
+                    </a>
+                    {% if request.user.pk != u.pk %}
+                      <a href="{% url 'dashboard:system_user_delete' u.pk %}" class="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-700" title="حذف الحساب">
+                        <i class="fas fa-trash"></i>
+                      </a>
+                    {% endif %}
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
           {% empty %}
-          <tr>
-            <td colspan="6" class="p-6 text-center text-slate-400 text-sm">
-              لا يوجد موظفون حالياً.
-            </td>
-          </tr>
+            <tr>
+              <td colspan="6">
+                <div class="admin-empty">
+                  <i class="fas fa-users-gear mb-3 text-3xl text-slate-300"></i>
+                  <h3 class="font-black text-slate-700">لا يوجد موظفون مطابقون</h3>
+                  <p class="mt-1 text-xs">أضف أول موظف منصة وحدد صلاحياته بدقة.</p>
+                </div>
+              </td>
+            </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
 
     {% if page_obj.has_other_pages %}
-    <div class="px-4 py-3 flex items-center justify-between border-t border-slate-100 bg-slate-50/60">
-      <div class="text-xs text-slate-500">
-        صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}
+      <div class="flex items-center justify-between gap-3 border-t border-slate-100 p-4 admin-no-print">
+        <span class="text-xs text-slate-500">عرض {{ page_obj.start_index }}–{{ page_obj.end_index }} من {{ page_obj.paginator.count }}</span>
+        <div class="flex gap-2">
+          {% if page_obj.has_previous %}
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.previous_page_number }}&q={{ q|urlencode }}">السابقة</a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.next_page_number }}&q={{ q|urlencode }}">التالية</a>
+          {% endif %}
+        </div>
       </div>
-      <div class="flex items-center gap-1">
-        {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}"
-           class="px-2 py-1 text-xs rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
-          السابقة
-        </a>
-        {% endif %}
-        {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}"
-           class="px-2 py-1 text-xs rounded-lg bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
-          التالية
-        </a>
-        {% endif %}
-      </div>
-    </div>
     {% endif %}
-
-  </div>
+  </section>
 </div>
 {% endblock %}

@@ -1,133 +1,153 @@
 {% extends "admin/admin_base.html" %}
+{% load humanize %}
 
 {% block title %}طلبات التجديد والاشتراك{% endblock %}
 {% block page_icon %}receipt{% endblock %}
 {% block page_title %}طلبات التجديد والاشتراك{% endblock %}
 {% block page_description %}مراجعة طلبات العملاء وإيصالات التحويل واعتماد الاشتراكات أو رفضها.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">طلبات الاشتراك</span>
+{% endblock %}
+{% block page_actions %}
+  {% if can_subscriptions_view %}
+    <a href="{% url 'dashboard:system_subscriptions_list' %}" class="admin-btn admin-btn-secondary">
+      <i class="fas fa-file-invoice-dollar"></i> الاشتراكات
+    </a>
+  {% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="space-y-8">
+<div class="space-y-5">
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <a href="{% url 'dashboard:system_subscription_requests_list' %}" class="admin-metric-card" style="--metric-color:#2563eb">
+      <span class="admin-metric-icon"><i class="fas fa-layer-group"></i></span>
+      <p class="admin-metric-value">{{ page_obj.paginator.count|default:0 }}</p>
+      <p class="admin-metric-label">ضمن النتائج الحالية</p>
+    </a>
+    <a href="?status=submitted" class="admin-metric-card" style="--metric-color:#d97706">
+      <span class="admin-metric-icon"><i class="fas fa-hourglass-half"></i></span>
+      <p class="admin-metric-value">{{ open_count }}</p>
+      <p class="admin-metric-label">بانتظار المراجعة</p>
+      <p class="admin-metric-note">مرسلة أو قيد المراجعة</p>
+    </a>
+    <a href="?status=approved" class="admin-metric-card" style="--metric-color:#059669">
+      <span class="admin-metric-icon"><i class="fas fa-circle-check"></i></span>
+      <p class="admin-metric-value">{{ approved_count }}</p>
+      <p class="admin-metric-label">معتمدة</p>
+    </a>
+    <a href="?status=rejected" class="admin-metric-card" style="--metric-color:#e11d48">
+      <span class="admin-metric-icon"><i class="fas fa-circle-xmark"></i></span>
+      <p class="admin-metric-value">{{ rejected_count }}</p>
+      <p class="admin-metric-label">مرفوضة</p>
+    </a>
+  </section>
 
-  <div class="bg-gradient-to-r from-white to-slate-50 rounded-2xl p-6 border border-slate-100 shadow-sm">
-    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-      <div class="space-y-2">
-        <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-amber-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v14l-4-2-4 2-4-2-4 2V6a2 2 0 012-2z" />
-            </svg>
-          </div>
-          <div>
-            <h1 class="text-2xl font-bold text-slate-900">طلبات التجديد والاشتراك</h1>
-            <p class="mt-1 text-sm text-slate-500">مراجعة إيصالات التحويل واعتماد/رفض الطلبات.</p>
-          </div>
-        </div>
+  <form method="get" class="admin-filter-bar admin-no-print">
+    <div class="admin-filter-field is-search">
+      <label for="requestSearch">بحث</label>
+      <input id="requestSearch" type="search" name="q" value="{{ q }}" placeholder="اسم المدرسة، الرابط أو الباقة...">
+    </div>
+    <div class="admin-filter-field">
+      <label for="requestStatus">الحالة</label>
+      <select id="requestStatus" name="status">
+        <option value="">كل الحالات</option>
+        <option value="submitted" {% if status == 'submitted' %}selected{% endif %}>مرسلة</option>
+        <option value="under_review" {% if status == 'under_review' %}selected{% endif %}>قيد المراجعة</option>
+        <option value="approved" {% if status == 'approved' %}selected{% endif %}>معتمدة</option>
+        <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>مرفوضة</option>
+      </select>
+    </div>
+    <div class="admin-filter-field">
+      <label for="requestType">نوع الطلب</label>
+      <select id="requestType" name="type">
+        <option value="">كل الأنواع</option>
+        <option value="renewal" {% if request_type == 'renewal' %}selected{% endif %}>تجديد</option>
+        <option value="new" {% if request_type == 'new' %}selected{% endif %}>اشتراك جديد</option>
+      </select>
+    </div>
+    <button type="submit" class="admin-btn admin-btn-primary"><i class="fas fa-filter"></i> تطبيق</button>
+    {% if q or status or request_type %}
+      <a href="{% url 'dashboard:system_subscription_requests_list' %}" class="admin-btn admin-btn-secondary"><i class="fas fa-xmark"></i> مسح</a>
+    {% endif %}
+  </form>
 
-        <div class="flex flex-wrap gap-4 text-sm">
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-            <span class="text-slate-600">قيد المراجعة/مرسلة: {{ open_count }}</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span class="text-slate-600">معتمدة: {{ approved_count }}</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-            <span class="text-slate-600">مرفوضة: {{ rejected_count }}</span>
-          </div>
-        </div>
+  <section class="admin-panel">
+    <div class="admin-panel-header">
+      <div>
+        <h2 class="text-base font-black text-slate-900">سجل الطلبات</h2>
+        <p class="mt-1 text-xs text-slate-500">افتح الطلب لمراجعة الإيصال ثم اعتماده أو رفضه مع تسجيل الملاحظة.</p>
       </div>
+      <span class="text-xs font-bold text-slate-500">{{ page_obj.paginator.count|default:0 }} طلب</span>
     </div>
-  </div>
-
-  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-      <form method="get" class="flex-1">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input type="text" name="q" value="{{ q }}" placeholder="بحث بالمدرسة أو الخطة..."
-                 class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm bg-slate-50">
-          <select name="status" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm bg-slate-50">
-            <option value="" {% if not status %}selected{% endif %}>كل الحالات</option>
-            <option value="submitted" {% if status == 'submitted' %}selected{% endif %}>مرسلة</option>
-            <option value="under_review" {% if status == 'under_review' %}selected{% endif %}>قيد المراجعة</option>
-            <option value="approved" {% if status == 'approved' %}selected{% endif %}>معتمدة</option>
-            <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>مرفوضة</option>
-          </select>
-          <select name="type" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm bg-slate-50">
-            <option value="" {% if not request_type %}selected{% endif %}>كل الأنواع</option>
-            <option value="renewal" {% if request_type == 'renewal' %}selected{% endif %}>تجديد</option>
-            <option value="new" {% if request_type == 'new' %}selected{% endif %}>اشتراك جديد</option>
-          </select>
-        </div>
-        <div class="mt-3">
-          <button class="px-5 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold">بحث</button>
-          <a href="?" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100">تصفير</a>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="min-w-full text-sm">
+    <div class="admin-table-wrap">
+      <table class="admin-table has-actions" style="min-width:48rem">
         <thead>
-          <tr class="bg-slate-50 border-b border-slate-100">
-            <th class="px-6 py-4 text-right font-semibold text-slate-600">التاريخ</th>
-            <th class="px-6 py-4 text-right font-semibold text-slate-600">المدرسة</th>
-            <th class="px-6 py-4 text-right font-semibold text-slate-600">النوع</th>
-            <th class="px-6 py-4 text-right font-semibold text-slate-600">الخطة</th>
-            <th class="px-6 py-4 text-right font-semibold text-slate-600">المبلغ</th>
-            <th class="px-6 py-4 text-right font-semibold text-slate-600">الحالة</th>
-            <th class="px-6 py-4 text-right font-semibold text-slate-600">الإجراء</th>
+          <tr>
+            <th>التاريخ</th>
+            <th>المدرسة</th>
+            <th>النوع</th>
+            <th>الباقة</th>
+            <th>المبلغ</th>
+            <th>الحالة</th>
+            <th class="admin-no-print">الإجراءات</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
+        <tbody>
           {% for obj in page_obj.object_list %}
-            <tr class="hover:bg-slate-50/60">
-              <td class="px-6 py-4 text-slate-700 whitespace-nowrap">{{ obj.created_at|date:"Y-m-d" }}</td>
-              <td class="px-6 py-4 text-slate-800 font-semibold">{{ obj.school.name }}</td>
-              <td class="px-6 py-4 text-slate-700">{{ obj.get_request_type_display }}</td>
-              <td class="px-6 py-4 text-slate-700">{{ obj.plan.name }}</td>
-              <td class="px-6 py-4 text-slate-700">{{ obj.amount }} ر.س</td>
-              <td class="px-6 py-4">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
-                  {% if obj.status == 'approved' %}bg-emerald-100 text-emerald-700
-                  {% elif obj.status == 'rejected' %}bg-rose-100 text-rose-700
-                  {% elif obj.status == 'under_review' %}bg-amber-100 text-amber-700
-                  {% else %}bg-slate-100 text-slate-700{% endif %}">
-                  {{ obj.get_status_display }}
-                </span>
+            <tr>
+              <td class="whitespace-nowrap">
+                <strong class="block text-xs text-slate-700">{{ obj.created_at|date:"Y-m-d" }}</strong>
+                <span class="text-[10px] text-slate-400">{{ obj.created_at|date:"H:i" }}</span>
               </td>
-              <td class="px-6 py-4">
-                <a href="{% url 'dashboard:system_subscription_request_detail' obj.pk %}" class="text-sky-700 hover:text-sky-900 font-semibold">عرض</a>
+              <td class="font-bold text-slate-900">{{ obj.school.name|default:"—" }}</td>
+              <td class="text-xs text-slate-700">{{ obj.get_request_type_display }}</td>
+              <td class="text-xs text-slate-700">{{ obj.plan.name|default:"—" }}</td>
+              <td class="whitespace-nowrap font-black text-slate-900">{{ obj.amount|default:0|floatformat:0|intcomma:False }} ر.س</td>
+              <td>
+                {% if obj.status == 'approved' %}
+                  <span class="admin-status admin-status-success">{{ obj.get_status_display }}</span>
+                {% elif obj.status == 'rejected' %}
+                  <span class="admin-status admin-status-danger">{{ obj.get_status_display }}</span>
+                {% elif obj.status == 'under_review' %}
+                  <span class="admin-status admin-status-warning">{{ obj.get_status_display }}</span>
+                {% else %}
+                  <span class="admin-status admin-status-info">{{ obj.get_status_display }}</span>
+                {% endif %}
+              </td>
+              <td>
+                <a href="{% url 'dashboard:system_subscription_request_detail' obj.pk %}" class="admin-btn admin-btn-secondary" style="min-height:2.15rem;padding:.35rem .65rem">
+                  <i class="fas fa-eye"></i> مراجعة
+                </a>
               </td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="7" class="px-6 py-8 text-center text-slate-400">لا توجد طلبات.</td>
+              <td colspan="7">
+                <div class="admin-empty">
+                  <i class="fas fa-receipt mb-3 text-3xl text-slate-300"></i>
+                  <h3 class="font-black text-slate-700">لا توجد طلبات مطابقة</h3>
+                  <p class="mt-1 text-xs">غيّر الفلاتر أو انتظر ورود طلب جديد من المدارس.</p>
+                </div>
+              </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
 
-    {% if page_obj %}
-      <div class="p-5 border-t border-slate-100 flex items-center justify-between text-sm">
-        <div class="text-slate-500">صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</div>
-        <div class="flex items-center gap-2">
+    {% if page_obj.has_other_pages %}
+      <div class="flex items-center justify-between gap-3 border-t border-slate-100 p-4 admin-no-print">
+        <span class="text-xs text-slate-500">عرض {{ page_obj.start_index }}–{{ page_obj.end_index }} من {{ page_obj.paginator.count }}</span>
+        <div class="flex gap-2">
           {% if page_obj.has_previous %}
-            <a class="px-3 py-1 rounded-lg border border-slate-200 hover:bg-slate-50"
-               href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if request_type %}&type={{ request_type }}{% endif %}">السابق</a>
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.previous_page_number }}&q={{ q|urlencode }}&status={{ status }}&type={{ request_type }}">السابقة</a>
           {% endif %}
           {% if page_obj.has_next %}
-            <a class="px-3 py-1 rounded-lg border border-slate-200 hover:bg-slate-50"
-               href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if request_type %}&type={{ request_type }}{% endif %}">التالي</a>
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.next_page_number }}&q={{ q|urlencode }}&status={{ status }}&type={{ request_type }}">التالية</a>
           {% endif %}
         </div>
       </div>
     {% endif %}
-  </div>
-
+  </section>
 </div>
 {% endblock %}

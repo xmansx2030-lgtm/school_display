@@ -1,31 +1,61 @@
 {% extends "dashboard/_base.html" %}
 
 {% block title %}قوالب المناسبات{% endblock %}
-{% block page_title %}قوالب المناسبات المحلية{% endblock %}
-{% block page_description %}محتوى وثيم كامل يتفعّل تلقائيًا على شاشات المدرسة خلال وقت المناسبة{% endblock %}
+{% block page_title %}قوالب المناسبات{% endblock %}
+{% block page_description %}محتوى وثيم كامل يتفعّل على شاشات المدرسة خلال وقت المناسبة{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto pb-12">
-  <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-    {% for key, item in occasion_templates.items %}
-      <article class="occasion-card" style="--occasion-primary:{{ item.primary }};--occasion-secondary:{{ item.secondary }}">
+<div class="max-w-7xl mx-auto pb-12 occasion-page">
+
+  {% if upcoming_occasions %}
+  <section class="occasion-upcoming" aria-labelledby="upcomingHeading">
+    <h2 id="upcomingHeading">مناسبات قادمة</h2>
+    <p>هذه التواريخ ثابتة في التقويم. فعّل القالب قبل موعده لتظهر المناسبة على الشاشة في وقتها.</p>
+    <ul>
+      {% for item in upcoming_occasions %}
+      <li style="--occasion-accent:{{ item.occasion.accent }}">
+        <span class="occasion-upcoming-mark" aria-hidden="true">{{ item.occasion.mark }}</span>
+        <span class="occasion-upcoming-copy">
+          <strong>{{ item.occasion.name }}</strong>
+          <small>{{ item.occurs_on|date:"j F Y" }}</small>
+        </span>
+        <span class="occasion-upcoming-countdown{% if item.days_left <= 3 %} is-near{% endif %}">{{ item.countdown_label }}</span>
+        <a href="{% url 'dashboard:ann_create' %}?template={{ item.occasion.key }}">تفعيل</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <div class="occasion-grid">
+    {% for item in occasion_cards %}
+      <article class="occasion-card"
+               style="--occasion-deep:{{ item.deep }};--occasion-accent:{{ item.accent }};--occasion-highlight:{{ item.highlight }};--occasion-soft:{{ item.soft }}">
+
+        {% comment %} المعاينة تستخدم ألوان الشاشة ورمزها ونمطها الزخرفي — نفس المصدر
+           الذي يقرأ منه التلفاز، فما يراه المدير هنا هو ما سيظهر هناك. {% endcomment %}
         <div class="occasion-preview">
-          <span class="occasion-preview-orb">{{ item.icon }}</span>
-          <div>
+          <span class="occasion-preview-pattern" aria-hidden="true"
+                style="background-image: {{ item.pattern_css|safe }}"></span>
+          <span class="occasion-preview-mark{% if item.mark_is_text %} is-text{% endif %}"
+                aria-hidden="true"
+                style="border-radius:{{ item.mark_shape }};transform:{{ item.mark_transform }}">{{ item.mark }}</span>
+          <span class="occasion-preview-copy">
             <small>ثيم {{ item.theme_name }}</small>
             <strong>{{ item.title }}</strong>
-          </div>
+            <em>{{ item.tagline }}</em>
+          </span>
         </div>
+
         <div class="occasion-card-body">
-          <div class="occasion-theme-pill"><span></span> يغيّر مظهر الشاشة بالكامل</div>
           <h2>{{ item.name }}</h2>
           <p>{{ item.body }}</p>
           <div class="occasion-features">
-            <span>ألوان مخصصة</span>
-            <span>خلفية وزخارف</span>
+            <span>يغيّر مظهر الشاشة</span>
+            <span>{{ item.duration_hours }} ساعة</span>
             <span>عودة تلقائية</span>
           </div>
-          <a href="{% url 'dashboard:ann_create' %}?template={{ key }}">استخدام القالب والثيم</a>
+          <a href="{% url 'dashboard:ann_create' %}?template={{ item.key }}">استخدام القالب والثيم</a>
         </div>
       </article>
     {% endfor %}
@@ -33,67 +63,179 @@
 </div>
 
 <style>
+.occasion-page { --oc-line: #e2e8f0; --oc-muted: #64748b; }
+
+/* ── المناسبات القادمة ── */
+.occasion-upcoming {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1.35rem;
+  border: 1px solid var(--oc-line);
+  border-radius: 1.25rem;
+  background: #fff;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, .06);
+}
+.occasion-upcoming h2 { margin: 0; color: #0f172a; font-size: 1rem; font-weight: 950; }
+.occasion-upcoming > p { margin: .35rem 0 1rem; color: var(--oc-muted); font-size: .78rem; font-weight: 600; line-height: 1.8; }
+.occasion-upcoming ul { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.occasion-upcoming li {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+  padding: .7rem .85rem;
+  border: 1px solid var(--oc-line);
+  border-inline-start: 3px solid var(--occasion-accent);
+  border-radius: .9rem;
+  background: #f8fafc;
+}
+.occasion-upcoming-mark {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  flex: none;
+  border-radius: .7rem;
+  background: color-mix(in srgb, var(--occasion-accent) 14%, #fff);
+  color: var(--occasion-accent);
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+.occasion-upcoming-copy { flex: 1; min-width: 0; }
+.occasion-upcoming-copy strong { display: block; color: #0f172a; font-size: .85rem; font-weight: 900; }
+.occasion-upcoming-copy small { display: block; margin-top: .1rem; color: var(--oc-muted); font-size: .72rem; font-weight: 600; }
+.occasion-upcoming-countdown {
+  flex: none;
+  padding: .3rem .7rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: .7rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.occasion-upcoming-countdown.is-near { background: #fef3c7; color: #92400e; }
+.occasion-upcoming li > a {
+  flex: none;
+  padding: .45rem .95rem;
+  border-radius: .7rem;
+  background: var(--occasion-accent);
+  color: #fff;
+  font-size: .74rem;
+  font-weight: 900;
+  transition: filter .16s ease;
+}
+.occasion-upcoming li > a:hover { filter: brightness(1.12); }
+
+/* ── بطاقات القوالب ── */
+.occasion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: 1rem;
+}
 .occasion-card {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--oc-line);
   border-radius: 1.25rem;
   background: #fff;
   box-shadow: 0 14px 32px rgba(15, 23, 42, .08);
+  transition: transform .2s ease, box-shadow .2s ease;
 }
+.occasion-card:hover { transform: translateY(-2px); box-shadow: 0 20px 40px rgba(15, 23, 42, .12); }
+
+/* المعاينة تحاكي بطل الشاشة: خلفية عميقة + توهج اللون + نمط زخرفي + رمز. */
 .occasion-preview {
   position: relative;
   display: flex;
   align-items: center;
   gap: 1rem;
-  min-height: 9rem;
+  min-height: 10rem;
   overflow: hidden;
   padding: 1.25rem;
-  color: #fff;
+  color: var(--occasion-soft);
   background:
-    radial-gradient(circle at 12% 20%, color-mix(in srgb, var(--occasion-secondary) 55%, transparent), transparent 28%),
-    linear-gradient(135deg, var(--occasion-primary), color-mix(in srgb, var(--occasion-primary) 68%, #020617));
+    radial-gradient(circle at 12% 14%, color-mix(in srgb, var(--occasion-highlight) 20%, transparent), transparent 34%),
+    radial-gradient(circle at 88% 88%, color-mix(in srgb, var(--occasion-accent) 42%, transparent), transparent 46%),
+    linear-gradient(135deg, color-mix(in srgb, var(--occasion-deep) 84%, #000), var(--occasion-deep));
 }
-.occasion-preview::after {
-  content: "";
+.occasion-preview-pattern {
   position: absolute;
   inset: 0;
-  opacity: .18;
-  background-image: repeating-linear-gradient(45deg, transparent 0 18px, #fff 19px 20px);
+  opacity: .14;
+  background-size: 48px 48px;
+  /* البادئة مطلوبة لمتصفحات WebKit الأقدم، وبدونها يظهر النمط بحوافّ حادة
+     تملأ المستطيل كله بدل التلاشي نحو الأطراف. */
+  -webkit-mask-image: radial-gradient(circle at center, #000 10%, transparent 82%);
+  mask-image: radial-gradient(circle at center, #000 10%, transparent 82%);
 }
-.occasion-preview > * { position: relative; z-index: 1; }
-.occasion-preview-orb {
+.occasion-preview > *:not(.occasion-preview-pattern) { position: relative; z-index: 1; }
+.occasion-preview-mark {
   display: grid;
   place-items: center;
-  width: 4.5rem;
-  height: 4.5rem;
+  width: 4.6rem;
+  height: 4.6rem;
   flex: 0 0 auto;
-  border: 1px solid rgba(255,255,255,.35);
-  border-radius: 1.35rem;
-  background: rgba(255,255,255,.14);
-  font-size: 2.3rem;
-  backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in srgb, var(--occasion-highlight) 34%, transparent);
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--occasion-accent) 34%, transparent), transparent 70%),
+    color-mix(in srgb, var(--occasion-deep) 46%, transparent);
+  color: #fff;
+  font-size: 2rem;
+  line-height: 1;
 }
-.occasion-preview small,
-.occasion-preview strong { display: block; }
-.occasion-preview small { color: rgba(255,255,255,.72); font-size: .72rem; font-weight: 800; }
-.occasion-preview strong { margin-top: .35rem; font-size: 1.15rem; font-weight: 950; }
-.occasion-card-body { padding: 1.15rem; }
-.occasion-theme-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: .4rem;
-  border-radius: 999px;
-  background: #f0fdf4;
-  color: #047857;
-  padding: .35rem .65rem;
+.occasion-preview-mark.is-text {
+  color: var(--occasion-highlight);
+  font-size: 1.15rem;
+  font-weight: 950;
+  letter-spacing: -.03em;
+}
+.occasion-preview-copy { min-width: 0; }
+.occasion-preview-copy small { display: block; color: color-mix(in srgb, var(--occasion-soft) 74%, transparent); font-size: .7rem; font-weight: 800; }
+.occasion-preview-copy strong { display: block; margin-top: .3rem; color: #fff; font-size: 1.2rem; font-weight: 950; }
+.occasion-preview-copy em {
+  display: block;
+  margin-top: .35rem;
+  color: var(--occasion-highlight);
   font-size: .68rem;
-  font-weight: 900;
+  font-style: normal;
+  font-weight: 800;
 }
-.occasion-theme-pill span { width: .45rem; height: .45rem; border-radius: 50%; background: #10b981; }
-.occasion-card h2 { margin: .9rem 0 0; color: #0f172a; font-size: 1.05rem; font-weight: 950; }
-.occasion-card p { min-height: 4rem; margin: .4rem 0 0; color: #64748b; font-size: .78rem; font-weight: 600; line-height: 1.8; }
+
+.occasion-card-body { display: flex; flex: 1; flex-direction: column; padding: 1.15rem; }
+.occasion-card h2 { margin: 0; color: #0f172a; font-size: 1rem; font-weight: 950; }
+.occasion-card p { margin: .45rem 0 0; color: var(--oc-muted); font-size: .78rem; font-weight: 600; line-height: 1.85; }
 .occasion-features { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .85rem; }
-.occasion-features span { border: 1px solid #e2e8f0; border-radius: 999px; background: #f8fafc; color: #475569; padding: .28rem .55rem; font-size: .65rem; font-weight: 800; }
-.occasion-card a { display: flex; justify-content: center; margin-top: 1rem; border-radius: .75rem; background: var(--occasion-primary); color: #fff; padding: .7rem 1rem; font-size: .78rem; font-weight: 950; }
+.occasion-features span {
+  border: 1px solid var(--oc-line);
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  padding: .28rem .55rem;
+  font-size: .65rem;
+  font-weight: 800;
+}
+/* margin-top:auto يدفع الزر إلى أسفل البطاقة، فتتحاذى أزرار البطاقات كلها
+   مهما اختلف طول النص فوقها. */
+.occasion-card-body > a {
+  display: flex;
+  justify-content: center;
+  margin-top: auto;
+  padding: .7rem 1rem;
+  border-radius: .75rem;
+  background: var(--occasion-accent);
+  color: #fff;
+  font-size: .78rem;
+  font-weight: 950;
+  transition: filter .16s ease;
+}
+.occasion-features { margin-bottom: 1rem; }
+.occasion-card-body > a:hover { filter: brightness(1.12); }
+.occasion-card-body > a:focus-visible,
+.occasion-upcoming li > a:focus-visible { outline: 3px solid rgba(99, 102, 241, .3); outline-offset: 2px; }
+
+@media (max-width: 640px) {
+  .occasion-upcoming li { flex-wrap: wrap; }
+  .occasion-upcoming-copy { flex-basis: 100%; order: -1; }
+}
 </style>
 {% endblock %}

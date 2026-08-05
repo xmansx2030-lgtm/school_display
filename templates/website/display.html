@@ -51,18 +51,35 @@
       line-height: 1.5;
     }
 
+    /* شارة عدم الاتصال بثلاث درجات: كلما تقادمت البيانات ارتفع وضوح التحذير،
+       حتى لا تبدو شاشة تعرض جدولًا غير مؤكد كأنها تعرض بيانات حيّة. */
     #offlineModeBadge {
       position: fixed;
       left: 1rem;
       bottom: 1rem;
       z-index: 9997;
-      border: 1px solid rgba(251, 191, 36, .55);
+      border: 1px solid rgba(148, 163, 184, .5);
       border-radius: 999px;
-      background: rgba(120, 53, 15, .92);
-      color: #fef3c7;
+      background: rgba(30, 41, 59, .92);
+      color: #e2e8f0;
       padding: .55rem .9rem;
       font-weight: 800;
       box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    #offlineModeBadge[data-severity="warning"] {
+      border-color: rgba(251, 191, 36, .55);
+      background: rgba(120, 53, 15, .92);
+      color: #fef3c7;
+    }
+    #offlineModeBadge[data-severity="critical"] {
+      border-color: rgba(248, 113, 113, .6);
+      background: rgba(127, 29, 29, .94);
+      color: #fee2e2;
+      animation: offlineBadgePulse 2.4s ease-in-out infinite;
+    }
+    @keyframes offlineBadgePulse { 0%, 100% { opacity: 1; } 50% { opacity: .62; } }
+    @media (prefers-reduced-motion: reduce) {
+      #offlineModeBadge[data-severity="critical"] { animation: none; }
     }
 
     #emergencyOverlay {
@@ -94,12 +111,19 @@
       --mesh1: color-mix(in srgb, var(--occasion-accent) 32%, transparent) !important;
       --mesh2: color-mix(in srgb, var(--occasion-highlight) 22%, transparent) !important;
     }
-    body[data-occasion-theme="national_day"] { --occasion-deep:#001d16; --occasion-accent:#009b4d; --occasion-highlight:#e2c269; --occasion-soft:#d1fae5; --occasion-glow:rgba(0,155,77,.34); }
-    body[data-occasion-theme="founding_day"] { --occasion-deep:#28170f; --occasion-accent:#9a623b; --occasion-highlight:#e0b783; --occasion-soft:#ffedd5; --occasion-glow:rgba(154,98,59,.34); }
-    body[data-occasion-theme="teachers_day"] { --occasion-deep:#071b31; --occasion-accent:#2563a6; --occasion-highlight:#f2c14e; --occasion-soft:#dbeafe; --occasion-glow:rgba(37,99,166,.34); }
-    body[data-occasion-theme="back_to_school"] { --occasion-deep:#05243c; --occasion-accent:#0e91b7; --occasion-highlight:#ffd166; --occasion-soft:#cffafe; --occasion-glow:rgba(14,145,183,.38); }
-    body[data-occasion-theme="graduation"] { --occasion-deep:#1d1135; --occasion-accent:#7c3bbd; --occasion-highlight:#f4c95d; --occasion-soft:#ede9fe; --occasion-glow:rgba(124,59,189,.38); }
-    body[data-occasion-theme="weather"] { --occasion-deep:#06283d; --occasion-accent:#0284c7; --occasion-highlight:#67e8f9; --occasion-soft:#e0f2fe; --occasion-glow:rgba(2,132,199,.38); }
+    {% comment %}
+      ألوان المناسبات وأنماطها تُولَّد من سجل واحد في core/occasions.py.
+      لا تُحرَّر هنا: أي قيمة تُكتب يدويًا ستنحرف عن معاينة لوحة المدير.
+    {% endcomment %}
+    {% for occasion in occasion_themes %}
+    body[data-occasion-theme="{{ occasion.key }}"] {
+      --occasion-deep: {{ occasion.deep }};
+      --occasion-accent: {{ occasion.accent }};
+      --occasion-highlight: {{ occasion.highlight }};
+      --occasion-soft: {{ occasion.soft }};
+      --occasion-glow: color-mix(in srgb, {{ occasion.accent }} 34%, transparent);
+    }
+    {% endfor %}
 
     body[data-occasion-theme] #fitRoot {
       background:
@@ -136,29 +160,14 @@
       inset: 0;
       opacity: .12;
       background-size: 72px 72px;
+      -webkit-mask-image: radial-gradient(circle at center, #000 10%, transparent 78%);
       mask-image: radial-gradient(circle at center, #000 10%, transparent 78%);
     }
-    body[data-occasion-theme="national_day"] .occasion-theme-pattern {
-      background-image: linear-gradient(30deg, var(--occasion-highlight) 12%, transparent 12.5%, transparent 87%, var(--occasion-highlight) 87.5%);
+    {% for occasion in occasion_themes %}
+    body[data-occasion-theme="{{ occasion.key }}"] .occasion-theme-pattern {
+      background-image: {{ occasion.pattern_css|safe }};
     }
-    body[data-occasion-theme="founding_day"] .occasion-theme-pattern {
-      background-image: repeating-linear-gradient(45deg, transparent 0 22px, var(--occasion-highlight) 23px 25px);
-    }
-    body[data-occasion-theme="teachers_day"] .occasion-theme-pattern {
-      background-image: linear-gradient(var(--occasion-highlight) 1px, transparent 1px), linear-gradient(90deg, var(--occasion-highlight) 1px, transparent 1px);
-      background-size: 56px 56px;
-    }
-    body[data-occasion-theme="back_to_school"] .occasion-theme-pattern {
-      background-image: linear-gradient(rgba(255,255,255,.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.8) 1px, transparent 1px);
-      background-size: 42px 42px;
-    }
-    body[data-occasion-theme="graduation"] .occasion-theme-pattern {
-      background-image: radial-gradient(var(--occasion-highlight) 2px, transparent 2px);
-      background-size: 48px 48px;
-    }
-    body[data-occasion-theme="weather"] .occasion-theme-pattern {
-      background-image: repeating-linear-gradient(112deg, transparent 0 28px, var(--occasion-highlight) 29px 31px);
-    }
+    {% endfor %}
     .occasion-theme-symbol {
       position: absolute;
       opacity: .13;
@@ -320,18 +329,20 @@
       line-height: 1;
       filter: drop-shadow(0 22px 30px rgba(0,0,0,.28));
     }
-    body[data-occasion-theme="founding_day"] #occasionHeroIcon {
+    {# رمز نصّي (رقم أو حرف) يحتاج خطًا ولونًا، لا حجم إيموجي. #}
+    #occasionHero[data-mark-text="1"] #occasionHeroIcon {
       color: var(--occasion-highlight);
       font-family: "IBM Plex Sans Arabic", "Arial", sans-serif;
       font-size: clamp(5rem, 7vw, 8.5rem);
       font-weight: 950;
       letter-spacing: -.05em;
     }
-    body[data-occasion-theme="founding_day"] .occasion-hero__mark { border-radius: 32% 68% 42% 58% / 58% 38% 62% 42%; }
-    body[data-occasion-theme="teachers_day"] .occasion-hero__mark { border-radius: 2.5rem; transform: rotate(2deg); }
-    body[data-occasion-theme="back_to_school"] .occasion-hero__mark { border-radius: 38% 62% 56% 44% / 48% 42% 58% 52%; }
-    body[data-occasion-theme="graduation"] .occasion-hero__mark { border-radius: 50% 50% 42% 58% / 58% 42% 58% 42%; }
-    body[data-occasion-theme="weather"] .occasion-hero__mark { border-radius: 48% 52% 60% 40% / 56% 38% 62% 44%; }
+    {% for occasion in occasion_themes %}
+    body[data-occasion-theme="{{ occasion.key }}"] .occasion-hero__mark {
+      border-radius: {{ occasion.mark_shape }};
+      transform: {{ occasion.mark_transform }};
+    }
+    {% endfor %}
     body[data-occasion-ambient="1"] #heroCard > .relative.z-10,
     body[data-occasion-ambient="1"] #dayTimelinePanel {
       visibility: hidden;
@@ -2459,6 +2470,7 @@
                 linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
             background-size: 52px 52px;
+            -webkit-mask-image: linear-gradient(to bottom, black, transparent 88%);
             mask-image: linear-gradient(to bottom, black, transparent 88%);
         }
 
@@ -3345,14 +3357,20 @@
     </div>
   </noscript>
 
+    {% comment %}
+      بيانات المناسبات مُولَّدة من core/occasions.py. نوع application/json ليس
+      قابلًا للتنفيذ، فيمرّ تحت سياسة script-src 'self' بلا nonce. وجودها في
+      الصفحة نفسها (لا في الـ snapshot) يعني أنها متاحة لحظة الإقلاع ومحفوظة
+      ضمن الصفحة في ذاكرة Service Worker، فتعمل المناسبات بلا اتصال أيضًا.
+    {% endcomment %}
+    <script type="application/json" id="occasionThemeMeta">{{ occasion_theme_meta_json|safe }}</script>
+
     <script defer src="{% static 'js/display-controls.js' %}?v=2026-07-23-b4"></script>
+    {% if display_use_minified_js %}
+    <script defer src="{% static 'js/display.min.js' %}?v=2026-08-03-binding-notice-c2"></script>
+    {% else %}
     <script defer src="{% static 'js/display.js' %}?v=2026-08-03-binding-notice-c2"></script>
-    <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", function () {
-          navigator.serviceWorker.register("/sw.js", {scope: "/"}).catch(function () {});
-        });
-      }
-    </script>
+    {% endif %}
+    <script defer src="{% static 'js/display-sw-register.js' %}?v=2026-08-04-a1"></script>
 </body>
 </html>

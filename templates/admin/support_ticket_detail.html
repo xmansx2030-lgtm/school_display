@@ -1,115 +1,160 @@
 {% extends "admin/admin_base.html" %}
 
-{% block title %}تفاصيل التذكرة #{{ ticket.id }}{% endblock %}
-{% block page_title %}تفاصيل التذكرة #{{ ticket.id }}{% endblock %}
-{% block page_description %}عرض تفاصيل التذكرة والرد عليها{% endblock %}
+{% block title %}تذكرة #{{ ticket.id }} — {{ ticket.subject }}{% endblock %}
+{% block page_icon %}headset{% endblock %}
+{% block page_title %}تذكرة #{{ ticket.id }}{% endblock %}
+{% block page_description %}{{ ticket.subject }}{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:system_support_tickets' %}" class="hover:text-blue-600">تذاكر الدعم</a>
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">#{{ ticket.id }}</span>
+{% endblock %}
+{% block page_actions %}
+  <a href="{% url 'dashboard:system_support_tickets' %}" class="admin-btn admin-btn-secondary">
+    <i class="fas fa-arrow-right"></i> رجوع للتذاكر
+  </a>
+{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  
-  <!-- Ticket Details & Conversation -->
-  <div class="lg:col-span-2 space-y-6">
-    
-    <!-- Original Message -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h3 class="text-xl font-bold text-slate-800 mb-2">{{ ticket.subject }}</h3>
-      <div class="flex items-center gap-2 text-sm text-slate-500 mb-4">
-        <span>بواسطة: {{ ticket.user.username }}</span>
-        <span>•</span>
-        <span>{{ ticket.created_at|date:"Y-m-d H:i" }}</span>
-      </div>
-      <div class="prose max-w-none text-slate-700 bg-slate-50 p-4 rounded-lg">
-        {{ ticket.message|linebreaks }}
-      </div>
-    </div>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
 
-    <!-- Comments -->
-    <div class="space-y-4">
-      <h4 class="font-bold text-slate-800">الردود والمناقشة</h4>
-      
-      {% for comment in ticket.comments.all %}
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 {% if comment.user.is_superuser %}border-l-4 border-l-blue-500{% endif %}">
-        <div class="flex justify-between items-start mb-2">
-          <div class="flex items-center gap-2">
-            <span class="font-bold text-slate-800">{{ comment.user.username }}</span>
-            {% if comment.user.is_superuser %}
-            <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs">دعم فني</span>
-            {% endif %}
-          </div>
-          <span class="text-xs text-slate-500">{{ comment.created_at|date:"Y-m-d H:i" }}</span>
-        </div>
-        <div class="text-slate-700">
-          {{ comment.message|linebreaks }}
-        </div>
-      </div>
-      {% empty %}
-      <div class="text-center py-8 text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-        لا توجد ردود حتى الآن.
-      </div>
-      {% endfor %}
-    </div>
-
-    <!-- Add Reply -->
-    {% if can_manage_support %}
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h4 class="font-bold text-slate-800 mb-4">إضافة رد</h4>
-      <form method="post">
-        {% csrf_token %}
-        <div class="space-y-4">
-          {{ comment_form.message }}
-          <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium">
-            إرسال الرد
-          </button>
-        </div>
-      </form>
-    </div>
-    {% endif %}
-
-  </div>
-
-  <!-- Sidebar Info -->
-  <div class="space-y-6">
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h4 class="font-bold text-slate-800 mb-4">معلومات التذكرة</h4>
-      
-      {% if can_manage_support %}<form method="post" class="space-y-4">
-        {% csrf_token %}
-        
+  <div class="xl:col-span-2 space-y-5">
+    <section class="admin-panel">
+      <div class="admin-panel-header">
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">الحالة</label>
-          <select name="status" class="w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500" onchange="this.form.submit()">
-            {% for code, label in ticket.STATUS_CHOICES %}
-            <option value="{{ code }}" {% if ticket.status == code %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
+          <h2 class="text-base font-black text-slate-900">{{ ticket.subject }}</h2>
+          <p class="mt-1 text-xs text-slate-500">
+            بواسطة {{ ticket.user.get_full_name|default:ticket.user.username }} · {{ ticket.created_at|date:"Y-m-d H:i" }}
+          </p>
         </div>
-
-        <div class="pt-4 border-t border-slate-100 space-y-3">
-          <div class="flex justify-between">
-            <span class="text-slate-500">الأولوية:</span>
-            <span class="font-medium {% if ticket.priority == 'high' or ticket.priority == 'urgent' %}text-red-600{% endif %}">
-              {{ ticket.get_priority_display }}
-            </span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-slate-500">المدرسة:</span>
-            <span class="font-medium">{{ ticket.school.name|default:"-" }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-slate-500">رقم الجوال:</span>
-            <span class="font-medium">{{ ticket.user.profile.mobile|default:"-" }}</span>
-          </div>
+        {% if ticket.status == 'open' %}
+          <span class="admin-status admin-status-info">مفتوحة</span>
+        {% elif ticket.status == 'in_progress' %}
+          <span class="admin-status admin-status-warning">قيد المعالجة</span>
+        {% else %}
+          <span class="admin-status admin-status-muted">مغلقة</span>
+        {% endif %}
+      </div>
+      <div class="p-4">
+        <div class="rounded-xl bg-slate-50 p-4 text-sm leading-7 text-slate-700">
+          {{ ticket.message|linebreaks }}
         </div>
+      </div>
+    </section>
 
-      </form>{% else %}
-        <div class="space-y-3 text-sm">
-          <div class="flex justify-between"><span class="text-slate-500">الحالة:</span><strong>{{ ticket.get_status_display }}</strong></div>
-          <div class="flex justify-between"><span class="text-slate-500">الأولوية:</span><strong>{{ ticket.get_priority_display }}</strong></div>
-          <div class="flex justify-between"><span class="text-slate-500">المدرسة:</span><strong>{{ ticket.school.name|default:"-" }}</strong></div>
+    <section class="admin-panel">
+      <div class="admin-panel-header">
+        <div>
+          <h2 class="text-base font-black text-slate-900">الردود والمناقشة</h2>
+          <p class="mt-1 text-xs text-slate-500">{{ comments|length }} رد على هذه التذكرة.</p>
+        </div>
+      </div>
+      <div class="space-y-3 p-4">
+        {% for comment in comments %}
+          <article class="rounded-xl border p-4 {% if comment.is_platform_reply %}border-blue-200 bg-blue-50/50{% else %}border-slate-200 bg-white{% endif %}">
+            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <strong class="text-xs font-black text-slate-800">{{ comment.user.get_full_name|default:comment.user.username }}</strong>
+                {% if comment.is_platform_reply %}
+                  <span class="admin-status admin-status-info">فريق المنصة</span>
+                {% else %}
+                  <span class="admin-status admin-status-muted">مدير المدرسة</span>
+                {% endif %}
+              </div>
+              <span class="text-[10px] text-slate-400">{{ comment.created_at|date:"Y-m-d H:i" }}</span>
+            </div>
+            <div class="text-sm leading-7 text-slate-700">{{ comment.message|linebreaks }}</div>
+          </article>
+        {% empty %}
+          <div class="admin-empty">
+            <i class="fas fa-comments mb-2 text-2xl text-slate-300"></i>
+            <p>لا توجد ردود حتى الآن.</p>
+          </div>
+        {% endfor %}
+      </div>
+
+      {% if can_manage_support %}
+        <div class="border-t border-slate-100 p-4">
+          <h3 class="mb-3 text-sm font-black text-slate-800">إضافة رد</h3>
+          <form method="post" class="space-y-3">
+            {% csrf_token %}
+            {{ comment_form.message }}
+            {% if comment_form.message.errors %}
+              <p class="admin-field-error">{{ comment_form.message.errors|striptags }}</p>
+            {% endif %}
+            <button type="submit" class="admin-btn admin-btn-primary">
+              <i class="fas fa-paper-plane"></i> إرسال الرد
+            </button>
+          </form>
         </div>
       {% endif %}
-    </div>
+    </section>
   </div>
+
+  <aside class="space-y-5">
+    <section class="admin-panel">
+      <div class="admin-panel-header">
+        <div>
+          <h2 class="text-base font-black text-slate-900">معلومات التذكرة</h2>
+        </div>
+      </div>
+      <div class="space-y-3 p-4 text-xs">
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-slate-500">الأولوية</span>
+          {% if ticket.priority == 'urgent' or ticket.priority == 'high' %}
+            <span class="admin-status admin-status-danger">{{ ticket.get_priority_display }}</span>
+          {% else %}
+            <span class="admin-status admin-status-muted">{{ ticket.get_priority_display }}</span>
+          {% endif %}
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-slate-500">المدرسة</span>
+          {% if ticket.school and can_schools_manage %}
+            <a href="{% url 'dashboard:system_school_edit' ticket.school.pk %}" class="font-black text-blue-600">{{ ticket.school.name }}</a>
+          {% else %}
+            <strong class="text-slate-800">{{ ticket.school.name|default:"—" }}</strong>
+          {% endif %}
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-slate-500">البريد</span>
+          <strong class="text-slate-800">{{ ticket.user.email|default:"—" }}</strong>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-slate-500">رقم الجوال</span>
+          <strong class="text-slate-800">{{ ticket.user.profile.mobile|default:"—" }}</strong>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-slate-500">آخر تحديث</span>
+          <strong class="text-slate-800">{{ ticket.updated_at|date:"Y-m-d H:i" }}</strong>
+        </div>
+      </div>
+    </section>
+
+    {% if can_manage_support %}
+      <section class="admin-panel admin-no-print">
+        <div class="admin-panel-header">
+          <div>
+            <h2 class="text-base font-black text-slate-900">تغيير الحالة</h2>
+            <p class="mt-1 text-xs text-slate-500">يُحفظ التغيير فورًا بعد الضغط على تحديث.</p>
+          </div>
+        </div>
+        <form method="post" class="space-y-3 p-4">
+          {% csrf_token %}
+          <div class="admin-filter-field">
+            <label for="ticketStatusSelect">الحالة</label>
+            <select id="ticketStatusSelect" name="status">
+              {% for code, label in ticket.STATUS_CHOICES %}
+                <option value="{{ code }}" {% if ticket.status == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="admin-btn admin-btn-primary w-full justify-center">
+            <i class="fas fa-check"></i> تحديث الحالة
+          </button>
+        </form>
+      </section>
+    {% endif %}
+  </aside>
 
 </div>
 {% endblock %}

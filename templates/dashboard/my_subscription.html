@@ -11,7 +11,39 @@
 <div class="max-w-6xl mx-auto space-y-8 animate-fade-in-up">
 
   {# --- تنبيهات هامة (Alerts Section) --- #}
-  
+
+  {# 0. توثيق البريد الإلكتروني — مطلوب قبل الدفع لضمان وصول الفاتورة #}
+  {% if not email_verified %}
+    <div class="dashboard-info-band group relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-50 to-cyan-50 border border-sky-200 p-1 shadow-sm">
+      <div class="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 bg-sky-200/40 rounded-full blur-3xl"></div>
+      <div class="relative flex flex-col sm:flex-row items-center sm:items-start gap-4 p-5 md:p-6">
+        <div class="flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white text-sky-500 shadow-sm flex items-center justify-center text-2xl md:text-3xl ring-4 ring-sky-100">
+          ✉️
+        </div>
+        <div class="flex-1 text-center sm:text-right">
+          <h3 class="text-base md:text-lg font-black text-sky-900">أكّد بريدك الإلكتروني قبل الدفع</h3>
+          <p class="mt-1 text-sm leading-relaxed text-sky-800/80">
+            {% if account_email %}
+              أرسلنا رابط التأكيد إلى <span class="font-bold">{{ account_email }}</span>.
+              التأكيد يضمن وصول الفاتورة وتنبيهات التجديد، وهو مطلوب لإتمام الدفع الإلكتروني.
+            {% else %}
+              لا يوجد بريد إلكتروني مسجل على حسابك. أضِف بريدك من الإعدادات لتتمكن من استلام الفواتير وإتمام الدفع.
+            {% endif %}
+          </p>
+        </div>
+        {% if account_email %}
+          <form method="post" action="{% url 'subscriptions:resend_email_verification' %}" class="flex-shrink-0">
+            {% csrf_token %}
+            <button type="submit"
+                    class="rounded-xl bg-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-sky-700 active:scale-95">
+              إعادة إرسال الرابط
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
   {# 1. تنبيه اشتراك قادم #}
   {% if upcoming_subscription %}
     <div class="dashboard-info-band group relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 p-1 shadow-sm hover:shadow-md transition-all duration-300">
@@ -50,7 +82,7 @@
               توقفت بعض المميزات عن العمل. لضمان استمرار ظهور شاشة مدرستك، يرجى تجديد الاشتراك الآن.
             </p>
           </div>
-          <button onclick="document.getElementById('renewal-section').scrollIntoView({behavior: 'smooth'})" class="flex-shrink-0 bg-white text-rose-600 hover:bg-rose-50 px-6 py-3 rounded-xl font-bold shadow-lg transition transform hover:-translate-y-1 active:scale-95">
+          <button data-action="scroll-to" data-target="#renewal-section" class="flex-shrink-0 bg-white text-rose-600 hover:bg-rose-50 px-6 py-3 rounded-xl font-bold shadow-lg transition transform hover:-translate-y-1 active:scale-95">
             تجديد الاشتراك الآن ⚡
           </button>
         </div>
@@ -69,7 +101,7 @@
               تم إيقاف الاشتراك من قبل الإدارة. يرجى التواصل معنا أو تقديم طلب اشتراك جديد لإعادة التفعيل.
             </p>
           </div>
-          <button onclick="document.getElementById('renewal-section').scrollIntoView({behavior: 'smooth'})" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-white border border-white/30 px-6 py-3 rounded-xl font-bold transition">
+          <button data-action="scroll-to" data-target="#renewal-section" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-white border border-white/30 px-6 py-3 rounded-xl font-bold transition">
             طلب اشتراك جديد
           </button>
         </div>
@@ -183,6 +215,46 @@
           </div>
         </div>
 
+        {# --- شراء شاشات إضافية على الاشتراك الجاري --- #}
+        {% if screen_addon_offer %}
+        <div class="mt-6 rounded-2xl border border-indigo-100 bg-gradient-to-l from-indigo-50/70 to-white p-5 md:p-6">
+          <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+
+            <div class="flex items-start gap-4">
+              <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm ring-4 ring-indigo-50">➕</div>
+              <div>
+                <h3 class="text-base font-black text-slate-900">تحتاج شاشة إضافية؟</h3>
+                <p class="mt-1 text-sm leading-relaxed text-slate-600">
+                  أضِف شاشات إلى اشتراكك الحالي فوراً. المبلغ محسوب للمدة المتبقية فقط
+                  {% if screen_addon_offer.ends_at %}حتى {{ screen_addon_offer.ends_at|date:"Y-m-d" }}{% endif %}،
+                  وتُفعّل الشاشات مباشرة بعد الدفع.
+                </p>
+                <p class="mt-2 text-xs font-bold text-indigo-700">
+                  {{ screen_addon_offer.unit_price }} ر.س لكل شاشة للمدة المتبقية
+                </p>
+              </div>
+            </div>
+
+            <form method="post" action="{% url 'subscriptions:moyasar_start' %}"
+                  class="flex flex-shrink-0 items-end gap-3">
+              {% csrf_token %}
+              <input type="hidden" name="request_type" value="screens">
+              <div>
+                <label for="addon-screens" class="mb-1 block text-[11px] font-bold text-slate-500">عدد الشاشات</label>
+                <input type="number" id="addon-screens" name="extra_screens"
+                       value="1" min="1" max="{{ screen_addon_offer.max_screens }}" required
+                       class="w-24 rounded-xl border border-slate-200 px-3 py-3 text-center text-lg font-black text-slate-900 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+              </div>
+              <button type="submit"
+                      class="rounded-xl bg-indigo-600 px-6 py-3.5 font-black text-white shadow-lg transition hover:bg-indigo-700 active:scale-[.98]">
+                شراء الشاشات
+              </button>
+            </form>
+
+          </div>
+        </div>
+        {% endif %}
+
       </div>
     </div>
   {% else %}
@@ -234,7 +306,7 @@
         </div>
 
         <div class="pt-4">
-            <button onclick="document.getElementById('renewal-section').scrollIntoView({behavior: 'smooth'})" 
+            <button data-action="scroll-to" data-target="#renewal-section" 
             class="group relative inline-flex items-center justify-center gap-4 px-12 py-5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white rounded-2xl font-bold text-xl shadow-xl shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-indigo-500/50 focus:ring-4 focus:ring-indigo-500/40 outline-none">
             <span>اشترك الآن وابدأ فوراً</span>
             <svg class="w-6 h-6 transition-transform duration-300 group-hover:translate-x-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -262,7 +334,7 @@
           <span class="text-rose-500">💳</span>
           اختر طريقة الدفع المناسبة
         </h3>
-        <p class="text-sm leading-6 text-slate-500">راجع الخطة والمبلغ أولًا، ثم اختر الدفع الإلكتروني أو تمارا أو التحويل البنكي.</p>
+        <p class="text-sm leading-6 text-slate-500">راجع الخطة والمبلغ أولًا، ثم اختر الدفع الإلكتروني بالبطاقة أو التحويل البنكي.</p>
       </div>
 
       {% if moyasar_available %}
@@ -314,11 +386,6 @@
           <li class="rounded-xl bg-white px-2 py-3 ring-1 ring-rose-100"><span class="mb-1 block text-base">3</span>تفعيل تلقائي</li>
         </ol>
       </div>
-      {% else %}
-      <div class="rounded-xl border border-indigo-100 bg-indigo-50 p-4 flex items-center gap-3">
-        <div class="text-lg">💬</div>
-        <p class="text-xs leading-relaxed text-indigo-900">الدفع عبر تمارا غير متاح إلكترونيًا حاليًا. يمكنك إتمام التحويل البنكي أو التواصل مع الدعم.</p>
-      </div>
       {% endif %}
 
       <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -351,7 +418,7 @@
             <div>
               <div class="flex justify-between items-end mb-1">
                 <p class="text-[10px] text-slate-400 uppercase tracking-wider">رقم الآيبان (IBAN)</p>
-                <button onclick="copyToClipboard('SA8580000660608016220957', this)" class="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-emerald-300 transition flex items-center gap-1 group">
+                <button data-copy="SA8580000660608016220957" class="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-emerald-300 transition flex items-center gap-1 group">
                    <span class="copy-text">نسخ</span>
                    <span class="text-lg leading-none opacity-0 group-hover:opacity-100 transition-opacity">📋</span>
                 </button>
@@ -444,7 +511,13 @@
                </div>
             </div>
 
-            {% if renewal_plan_details and not renewal_plan_details.is_free %}
+            {% if renewal_requires_new_plan %}
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
+              <p class="font-black">تم تحديث باقات المنصة</p>
+              <p class="mt-1 text-xs leading-6">يبقى اشتراكك الحالي فعالًا حتى نهايته. عند التجديد اختر الباقة الجديدة المناسبة لعدد شاشات المدرسة.</p>
+              <button type="button" data-action="click-target" data-target="[data-tab=new]" class="mt-4 rounded-xl bg-amber-900 px-5 py-3 text-sm font-black text-white">اختيار باقة التجديد</button>
+            </div>
+            {% elif renewal_plan_details and not renewal_plan_details.is_free %}
             <section
               class="payment-hub"
               data-payment-hub="renewal"
@@ -472,7 +545,7 @@
               <form method="post" action="{% url 'subscriptions:moyasar_start' %}" class="mt-4">
                 {% csrf_token %}
                 <input type="hidden" name="request_type" value="renewal">
-                <input type="hidden" name="plan_id" value="{{ subscription.plan_id }}">
+                <input type="hidden" name="plan_id" value="{{ renewal_plan_details.id }}">
                 <button type="submit" class="w-full rounded-xl bg-slate-900 px-5 py-4 font-black text-white transition hover:bg-slate-700 active:scale-[.99]">
                   متابعة الدفع الإلكتروني <span aria-hidden="true">←</span>
                 </button>
@@ -501,10 +574,10 @@
               <p class="mt-4 rounded-xl bg-white px-4 py-3 text-xs leading-6 text-slate-600 ring-1 ring-rose-100">
                 مثال تقريبي عند توفر 4 دفعات: <strong data-tamara-installment data-amount="{{ renewal_plan_details.price }}">—</strong> ر.س للدفعة. تعرض تمارا الخيارات النهائية حسب الأهلية.
               </p>
-              <form method="post" action="{% url 'subscriptions:tamara_start' %}" class="mt-4" data-tamara-form data-plan-name="{{ subscription.plan.name }}" data-plan-amount="{{ renewal_plan_details.price }}" data-request-label="تجديد الاشتراك">
+              <form method="post" action="{% url 'subscriptions:tamara_start' %}" class="mt-4" data-tamara-form data-plan-name="{{ renewal_plan_details.name }}" data-plan-amount="{{ renewal_plan_details.price }}" data-request-label="تجديد الاشتراك">
                 {% csrf_token %}
                 <input type="hidden" name="request_type" value="renewal">
-                <input type="hidden" name="plan_id" value="{{ subscription.plan_id }}">
+                <input type="hidden" name="plan_id" value="{{ renewal_plan_details.id }}">
                 <button type="submit" class="tamara-pay-button w-full rounded-xl px-5 py-4 font-black text-white shadow-sm transition active:scale-[.99]">
                   <span>متابعة الدفع عبر تمارا</span>
                   <span aria-hidden="true">←</span>
@@ -561,7 +634,7 @@
           {% else %}
              <div class="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
                <p class="text-slate-500 mb-2">لا يوجد اشتراك حالي لتجديده.</p>
-               <button onclick="document.querySelector('[data-tab=new]').click()" class="text-indigo-600 font-bold hover:underline">انتقل لطلب اشتراك جديد</button>
+               <button data-action="click-target" data-target="[data-tab=new]" class="text-indigo-600 font-bold hover:underline">انتقل لطلب اشتراك جديد</button>
              </div>
           {% endif %}
         </div>
@@ -571,23 +644,61 @@
         {{ plans_map|json_script:"plans-map" }}
 
         <div class="mb-5">
-          <div class="mb-3 flex items-end justify-between gap-3">
-            <div>
-              <h4 class="font-black text-slate-900">اختر الباقة المناسبة</h4>
-              <p class="mt-1 text-xs leading-6 text-slate-500">الأسعار والحدود محدثة مباشرة من إدارة المنصة.</p>
+          {% if available_plan_cards %}
+          <section class="school-plan-builder" data-school-plan-builder data-default-screens="{{ screens_total_count|default:1 }}">
+            <div class="school-plan-builder-head">
+              <div class="school-plan-builder-title">
+                <span aria-hidden="true">✦</span>
+                <div>
+                  <p>صمّم اشتراك مدرستك</p>
+                  <small>اختر المدة وعدد الشاشات، وسنحدد الباقة المطابقة تلقائيًا</small>
+                </div>
+              </div>
+              <button id="plan-advanced-toggle" type="button" class="school-plan-advanced-toggle" aria-expanded="false" aria-controls="plan-advanced-tools">
+                استعراض كل الباقات
+              </button>
             </div>
-            <span class="hidden text-[11px] font-bold text-indigo-600 sm:inline">جميع مزايا النظام مشمولة</span>
-          </div>
-          {% if available_plan_cards %}<div class="plan-filter-shell mb-4" aria-label="فلترة باقات الاشتراك">
+
+            <div class="school-plan-builder-grid">
+              <div class="school-plan-builder-step">
+                <div class="school-plan-step-label"><span>1</span><div><strong>مدة الاشتراك</strong><small>اختر المرونة أو الوفر</small></div></div>
+                <div class="school-plan-cycle-options" role="tablist" aria-label="مدة الاشتراك">
+                  <button type="button" class="school-plan-cycle is-active" data-manager-plan-cycle="monthly" aria-selected="true" role="tab"><span>شهري</span><small>مرن</small></button>
+                  <button type="button" class="school-plan-cycle" data-manager-plan-cycle="semiannual" aria-selected="false" role="tab"><span>6 أشهر</span><small>وفر 5%</small></button>
+                  <button type="button" class="school-plan-cycle" data-manager-plan-cycle="annual" aria-selected="false" role="tab"><span>عام دراسي</span><small>الأوفر</small></button>
+                </div>
+              </div>
+
+              <div class="school-plan-builder-step">
+                <div class="school-plan-step-label"><span>2</span><div><strong>عدد الشاشات</strong><small>لكل شاشة محتواها المستقل</small></div></div>
+                <div class="school-plan-screen-options" role="tablist" aria-label="عدد الشاشات">
+                  <button type="button" class="school-plan-screen is-active" data-manager-screen-count="1" aria-selected="true" aria-label="شاشة واحدة" role="tab"><span>▣</span><strong>1</strong><small>شاشة</small></button>
+                  <button type="button" class="school-plan-screen" data-manager-screen-count="2" aria-selected="false" aria-label="شاشتان" role="tab"><span>▣</span><strong>2</strong><small>شاشتان</small></button>
+                  <button type="button" class="school-plan-screen" data-manager-screen-count="3" aria-selected="false" aria-label="3 شاشات" role="tab"><span>▣</span><strong>3</strong><small>شاشات</small></button>
+                  <button type="button" class="school-plan-screen" data-manager-screen-count="4" aria-selected="false" aria-label="4 شاشات" role="tab"><span>▣</span><strong>4</strong><small>شاشات</small></button>
+                  <button type="button" class="school-plan-screen" data-manager-screen-count="5" aria-selected="false" aria-label="5 شاشات" role="tab"><span>▣</span><strong>5</strong><small>شاشات</small></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="school-plan-choice-summary" aria-live="polite">
+              <span class="school-plan-choice-check" aria-hidden="true">✓</span>
+              <div><small>الباقة المناسبة لاختيارك</small><strong id="manager-plan-choice-label">شهري · شاشة واحدة</strong></div>
+              <span class="school-plan-choice-hint">تم تحديدها تلقائيًا ↓</span>
+            </div>
+          </section>
+
+          <div id="plan-advanced-tools" class="hidden">
+          <div class="plan-filter-shell mb-4" aria-label="فلترة باقات الاشتراك">
             <div class="plan-search-field">
               <span aria-hidden="true">⌕</span>
               <input id="plan-filter-search" type="search" placeholder="ابحث باسم الباقة أو وصفها..." autocomplete="off" aria-label="البحث في الباقات">
             </div>
             <select id="plan-filter-duration" class="plan-filter-select" aria-label="تصفية حسب المدة">
               <option value="all">كل المدد</option>
-              <option value="short">حتى 3 أشهر</option>
-              <option value="half">حتى 6 أشهر</option>
-              <option value="annual">سنوية</option>
+              <option value="short">شهري</option>
+              <option value="half">6 أشهر</option>
+              <option value="annual">عام دراسي</option>
               <option value="other">مدد أخرى</option>
             </select>
             <select id="plan-filter-screens" class="plan-filter-select" aria-label="تصفية حسب عدد الشاشات">
@@ -604,18 +715,28 @@
               <button type="button" class="plan-filter-chip" data-plan-price-filter="free" aria-pressed="false">مجانية</button>
               <span id="plan-visible-count" class="mr-auto text-[11px] font-black text-slate-500" aria-live="polite"></span>
             </div>
-          </div>{% endif %}
+          </div>
+          </div>
+          {% endif %}
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h4 class="font-black text-slate-900">الباقة المحددة</h4>
+              <p class="mt-1 text-xs leading-6 text-slate-500">السعر والمزايا محدثة مباشرة من إدارة المنصة.</p>
+            </div>
+            <span class="hidden text-[11px] font-bold text-indigo-600 sm:inline">جميع مزايا النظام مشمولة</span>
+          </div>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-2" id="plan-options-grid">
             {% for plan in available_plan_cards %}
               <button
                 type="button"
                 data-plan-option
                 data-plan-id="{{ plan.id }}"
+                data-plan-code="{{ plan.code }}"
                 data-plan-price="{{ plan.price }}"
                 data-plan-duration="{{ plan.duration_days }}"
                 data-plan-max-screens="{% if plan.max_screens is not None %}{{ plan.max_screens }}{% endif %}"
                 aria-pressed="false"
-                class="group relative rounded-2xl border p-4 text-right transition-all {% if plan.is_featured %}border-indigo-300 bg-indigo-50/60{% else %}border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/30{% endif %}"
+                class="manager-plan-option group relative rounded-2xl border p-4 text-right transition-all {% if plan.is_featured %}border-indigo-300 bg-indigo-50/60{% else %}border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/30{% endif %}"
               >
                 {% if plan.badge_text %}
                   <span class="absolute left-3 top-3 rounded-full {% if plan.is_trial %}bg-emerald-600{% else %}bg-indigo-600{% endif %} px-2.5 py-1 text-[10px] font-black text-white">{{ plan.badge_text }}</span>
@@ -623,6 +744,8 @@
                 <div class="pl-20">
                   <p class="font-black text-slate-900">{{ plan.name }}</p>
                   {% if plan.description %}<p class="mt-1 text-xs leading-5 text-slate-500">{{ plan.description }}</p>{% endif %}
+                  {% if plan.duration_text %}<p class="mt-2 text-[11px] font-black text-indigo-700">{{ plan.duration_text }}</p>{% endif %}
+                  {% if plan.monthly_text %}<p class="mt-1 text-[10px] font-bold leading-5 text-emerald-700">{{ plan.monthly_text }}</p>{% endif %}
                 </div>
                 <div class="mt-4 flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
                   <div>
@@ -678,7 +801,7 @@
         <div id="payment-plan-prompt" class="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/60 px-5 py-6 text-center">
           <span class="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-xl text-white">↓</span>
           <p class="mt-3 font-black text-indigo-950">اختر باقة لعرض وسائل الدفع</p>
-          <p class="mt-1 text-xs leading-6 text-indigo-700">بعد اختيار الباقة ستظهر خيارات الدفع الإلكتروني وتمارا والتحويل البنكي في مكان واحد.</p>
+          <p class="mt-1 text-xs leading-6 text-indigo-700">بعد اختيار الباقة ستظهر خيارات الدفع الإلكتروني والتحويل البنكي في مكان واحد.</p>
         </div>
 
         <section
@@ -762,7 +885,7 @@
             <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-lg text-white">✓</span>
             <div>
               <p class="font-black text-emerald-950">هذه الباقة مجانية</p>
-              <p class="mt-1 text-xs leading-6 text-emerald-800">لا تحتاج إلى تمارا أو تحويل بنكي أو رفع إيصال. يمكنك بدء الطلب مباشرة.</p>
+              <p class="mt-1 text-xs leading-6 text-emerald-800">لا تحتاج إلى دفع إلكتروني أو تحويل بنكي أو رفع إيصال. يمكنك بدء الطلب مباشرة.</p>
             </div>
           </div>
           <form method="post" class="mt-4">
@@ -814,7 +937,7 @@
     </div>
   </div>
 
-  {% if tamara_checkouts %}
+  {% if tamara_available and tamara_checkouts %}
   <details
     class="tamara-history-details dashboard-section-card mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
     data-tamara-history
@@ -921,38 +1044,44 @@
   <div id="tamara-confirm-modal" class="tamara-modal hidden" role="dialog" aria-modal="true" aria-labelledby="tamara-confirm-title" aria-describedby="tamara-confirm-description">
     <button type="button" class="tamara-modal-backdrop" data-tamara-close aria-label="إغلاق نافذة مراجعة الدفع"></button>
     <div class="tamara-modal-card" role="document">
-      <div class="flex items-start justify-between gap-4">
+      <span class="tamara-modal-handle" aria-hidden="true"></span>
+      <header class="tamara-modal-header">
         <div class="flex items-center gap-3">
-          <span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ff5a78] text-lg font-black text-white">t</span>
+          <span class="tamara-modal-brand">t</span>
           <div>
             <p class="text-xs font-bold text-rose-600">مراجعة قبل الانتقال</p>
-            <h3 id="tamara-confirm-title" class="mt-1 text-xl font-black text-slate-900">تأكيد بيانات الدفع</h3>
+            <h3 id="tamara-confirm-title" class="mt-1 text-2xl font-black text-slate-900">تأكيد بيانات الدفع</h3>
           </div>
         </div>
-        <button type="button" class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" data-tamara-close aria-label="إغلاق">✕</button>
+        <button type="button" class="tamara-modal-close" data-tamara-close aria-label="إغلاق">✕</button>
+      </header>
+
+      <div class="tamara-modal-body" tabindex="0">
+        <div class="tamara-modal-security">
+          <span class="tamara-modal-security-icon" aria-hidden="true">✓</span>
+          <p id="tamara-confirm-description" class="text-sm leading-7 text-slate-600">راجع الخطة والمبلغ. ستنتقل بعد المتابعة إلى تمارا للتحقق من رقم الجوال واختيار طريقة الدفع المتاحة.</p>
+        </div>
+        <dl class="tamara-modal-summary mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+          <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3">
+            <dt class="text-xs font-bold text-slate-500">نوع الطلب</dt>
+            <dd id="tamara-confirm-request" class="text-sm font-black text-slate-800">—</dd>
+          </div>
+          <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3">
+            <dt class="text-xs font-bold text-slate-500">الخطة</dt>
+            <dd id="tamara-confirm-plan" class="text-sm font-black text-slate-800">—</dd>
+          </div>
+          <div class="flex items-center justify-between gap-4 px-4 py-3">
+            <dt class="text-xs font-bold text-slate-500">الإجمالي</dt>
+            <dd class="text-xl font-black text-slate-900"><span id="tamara-confirm-amount">—</span> ر.س</dd>
+          </div>
+        </dl>
+        <p class="tamara-modal-notice mt-4 rounded-2xl px-4 py-3 text-xs leading-6">الدفعات والرسوم وخيارات الأهلية النهائية تحددها تمارا وتظهر لك قبل إكمال العملية.</p>
       </div>
 
-      <p id="tamara-confirm-description" class="mt-5 text-sm leading-7 text-slate-600">راجع الخطة والمبلغ. بعد المتابعة ستنتقل إلى تمارا للتحقق من رقم الجوال واختيار طريقة الدفع المتاحة.</p>
-      <dl class="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-        <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3">
-          <dt class="text-xs font-bold text-slate-500">نوع الطلب</dt>
-          <dd id="tamara-confirm-request" class="text-sm font-black text-slate-800">—</dd>
-        </div>
-        <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3">
-          <dt class="text-xs font-bold text-slate-500">الخطة</dt>
-          <dd id="tamara-confirm-plan" class="text-sm font-black text-slate-800">—</dd>
-        </div>
-        <div class="flex items-center justify-between gap-4 px-4 py-3">
-          <dt class="text-xs font-bold text-slate-500">الإجمالي</dt>
-          <dd class="text-lg font-black text-slate-900"><span id="tamara-confirm-amount">—</span> ر.س</dd>
-        </div>
-      </dl>
-      <p class="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">الدفعات والرسوم وخيارات الأهلية النهائية تحددها تمارا وتظهر لك قبل إكمال العملية.</p>
-
-      <div class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <button type="button" id="tamara-confirm-submit" class="tamara-pay-button order-1 rounded-xl px-5 py-3.5 font-black text-white sm:order-2">المتابعة إلى تمارا</button>
-        <button type="button" class="order-2 rounded-xl border border-slate-200 bg-white px-5 py-3.5 font-black text-slate-700 transition hover:bg-slate-50 sm:order-1" data-tamara-close>رجوع</button>
-      </div>
+      <footer class="tamara-modal-actions">
+        <button type="button" id="tamara-confirm-submit" class="tamara-pay-button rounded-xl px-5 py-3.5 font-black text-white">المتابعة إلى تمارا</button>
+        <button type="button" class="tamara-modal-back rounded-xl border border-slate-200 bg-white px-5 py-3.5 font-black text-slate-700 transition hover:bg-slate-50" data-tamara-close>رجوع</button>
+      </footer>
     </div>
   </div>
   {% endif %}
@@ -1018,7 +1147,7 @@
 
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
   (function () {
     // --- Tabs Logic ---
     function setActiveTab(tab) {
@@ -1213,7 +1342,13 @@
       updatePlanDetails();
     }
 
-    // --- Plan filters ---
+    // --- Guided plan builder and advanced filters ---
+    var planBuilder = document.querySelector('[data-school-plan-builder]');
+    var planAdvancedToggle = document.getElementById('plan-advanced-toggle');
+    var planAdvancedTools = document.getElementById('plan-advanced-tools');
+    var planChoiceLabel = document.getElementById('manager-plan-choice-label');
+    var managerCycleButtons = document.querySelectorAll('[data-manager-plan-cycle]');
+    var managerScreenButtons = document.querySelectorAll('[data-manager-screen-count]');
     var planSearch = document.getElementById('plan-filter-search');
     var durationFilter = document.getElementById('plan-filter-duration');
     var screensFilter = document.getElementById('plan-filter-screens');
@@ -1221,6 +1356,77 @@
     var filterEmpty = document.getElementById('plan-filter-empty');
     var visibleCount = document.getElementById('plan-visible-count');
     var priceMode = 'all';
+    var advancedPlanMode = false;
+    var selectedManagerCycle = 'monthly';
+    var defaultManagerScreens = Number(planBuilder && planBuilder.getAttribute('data-default-screens') || 1);
+    var selectedManagerScreens = String(Math.min(5, Math.max(1, defaultManagerScreens || 1)));
+
+    function managerCycleLabel(cycle) {
+      if (cycle === 'semiannual') return '6 أشهر';
+      if (cycle === 'annual') return 'عام دراسي';
+      return 'شهري';
+    }
+
+    function managerScreenLabel(count) {
+      if (count === '1') return 'شاشة واحدة';
+      if (count === '2') return 'شاشتان';
+      return count + ' شاشات';
+    }
+
+    function syncPlanBuilderControls() {
+      managerCycleButtons.forEach(function (button) {
+        var active = button.getAttribute('data-manager-plan-cycle') === selectedManagerCycle;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      managerScreenButtons.forEach(function (button) {
+        var active = button.getAttribute('data-manager-screen-count') === selectedManagerScreens;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      if (planChoiceLabel) {
+        planChoiceLabel.textContent = managerCycleLabel(selectedManagerCycle) + ' · ' + managerScreenLabel(selectedManagerScreens);
+      }
+    }
+
+    function applyGuidedPlanSelection(selectMatch) {
+      var expectedCode = 'school-screen-' + selectedManagerScreens + '-' + selectedManagerCycle;
+      var matchedButton = null;
+
+      document.querySelectorAll('[data-plan-option]').forEach(function (button) {
+        var matches = button.getAttribute('data-plan-code') === expectedCode;
+        button.classList.toggle('hidden', !matches);
+        if (matches) matchedButton = button;
+      });
+
+      syncPlanBuilderControls();
+      if (filterEmpty) filterEmpty.classList.toggle('hidden', !!matchedButton);
+      if (visibleCount) visibleCount.textContent = matchedButton ? 'باقة واحدة' : 'لا توجد باقة';
+
+      if (selectMatch && matchedButton && planSelect) {
+        var matchedId = matchedButton.getAttribute('data-plan-id') || '';
+        if (String(planSelect.value || '') !== String(matchedId)) {
+          planSelect.value = matchedId;
+          planSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+          updatePlanDetails();
+        }
+      }
+    }
+
+    function setAdvancedPlanMode(enabled) {
+      advancedPlanMode = !!enabled;
+      if (planAdvancedTools) planAdvancedTools.classList.toggle('hidden', !advancedPlanMode);
+      if (planAdvancedToggle) {
+        planAdvancedToggle.setAttribute('aria-expanded', advancedPlanMode ? 'true' : 'false');
+        planAdvancedToggle.textContent = advancedPlanMode ? 'العودة للاختيار السريع' : 'استعراض كل الباقات';
+      }
+      if (advancedPlanMode) {
+        applyPlanFilters();
+      } else {
+        applyGuidedPlanSelection(true);
+      }
+    }
 
     function durationMatches(days, mode) {
       if (mode === 'all') return true;
@@ -1231,6 +1437,10 @@
     }
 
     function applyPlanFilters() {
+      if (!advancedPlanMode) {
+        applyGuidedPlanSelection(false);
+        return;
+      }
       var query = String(planSearch && planSearch.value || '').trim().toLocaleLowerCase('ar');
       var durationMode = durationFilter ? durationFilter.value : 'all';
       var requiredScreens = Number(screensFilter && screensFilter.value || 0);
@@ -1262,6 +1472,28 @@
       if (visibleCount) visibleCount.textContent = shown + (shown === 1 ? ' باقة' : ' باقات');
     }
 
+    managerCycleButtons.forEach(function (button) {
+      button.addEventListener('click', function () {
+        selectedManagerCycle = button.getAttribute('data-manager-plan-cycle') || 'monthly';
+        if (advancedPlanMode) setAdvancedPlanMode(false);
+        else applyGuidedPlanSelection(true);
+      });
+    });
+
+    managerScreenButtons.forEach(function (button) {
+      button.addEventListener('click', function () {
+        selectedManagerScreens = button.getAttribute('data-manager-screen-count') || '1';
+        if (advancedPlanMode) setAdvancedPlanMode(false);
+        else applyGuidedPlanSelection(true);
+      });
+    });
+
+    if (planAdvancedToggle) {
+      planAdvancedToggle.addEventListener('click', function () {
+        setAdvancedPlanMode(!advancedPlanMode);
+      });
+    }
+
     document.querySelectorAll('[data-plan-price-filter]').forEach(function (chip) {
       chip.addEventListener('click', function () {
         priceMode = chip.getAttribute('data-plan-price-filter') || 'all';
@@ -1290,16 +1522,38 @@
         applyPlanFilters();
       });
     }
-    applyPlanFilters();
+    var initiallySelectedPlan = planSelect && planSelect.value
+      ? document.querySelector('[data-plan-option][data-plan-id="' + planSelect.value + '"]')
+      : null;
+    var initiallySelectedCode = initiallySelectedPlan ? String(initiallySelectedPlan.getAttribute('data-plan-code') || '') : '';
+    var officialCodeMatch = initiallySelectedCode.match(/^school-screen-([1-5])-(monthly|semiannual|annual)$/);
+    if (officialCodeMatch) {
+      selectedManagerScreens = officialCodeMatch[1];
+      selectedManagerCycle = officialCodeMatch[2];
+    } else if (initiallySelectedPlan) {
+      advancedPlanMode = true;
+    }
+    setAdvancedPlanMode(advancedPlanMode);
 
     // Initialize Tab
     setActiveTab('{% if active_request_tab == "new" %}new{% else %}renewal{% endif %}');
 
+    {% comment %} Tamara is hidden, so its modal markup is never rendered and this
+       controller would only bind to elements that do not exist. {% endcomment %}
+    {% if tamara_available %}
     // --- Review step before creating a Tamara checkout session ---
     var tamaraModal = document.getElementById('tamara-confirm-modal');
     var tamaraConfirmButton = document.getElementById('tamara-confirm-submit');
+    var tamaraModalBody = tamaraModal ? tamaraModal.querySelector('.tamara-modal-body') : null;
     var pendingTamaraForm = null;
     var lastTamaraTrigger = null;
+
+    // Animated dashboard containers keep a transform after entering, which
+    // turns fixed descendants into content-relative overlays. Move the dialog
+    // to body so its bounds always follow the visible viewport.
+    if (tamaraModal && tamaraModal.parentElement !== document.body) {
+      document.body.appendChild(tamaraModal);
+    }
 
     function closeTamaraModal() {
       if (!tamaraModal) return;
@@ -1326,6 +1580,7 @@
       if (requestEl) requestEl.textContent = requestLabel;
       tamaraModal.classList.remove('hidden');
       document.body.classList.add('tamara-modal-open');
+      if (tamaraModalBody) tamaraModalBody.scrollTop = 0;
       if (tamaraConfirmButton) {
         tamaraConfirmButton.disabled = false;
         tamaraConfirmButton.textContent = 'المتابعة إلى تمارا';
@@ -1363,6 +1618,7 @@
         closeTamaraModal();
       }
     });
+    {% endif %}
   })();
 
   // --- Copy Clipboard Tool ---
@@ -1408,6 +1664,12 @@
       button.classList.add('bg-white/10', 'text-emerald-300');
     }, 2000);
   }
+
+  // Bound here rather than with an inline onclick so the page satisfies CSP.
+  document.addEventListener('click', function (event) {
+    var trigger = event.target.closest('[data-copy]');
+    if (trigger) { copyToClipboard(trigger.getAttribute('data-copy'), trigger); }
+  });
 </script>
 
 <style>
@@ -1426,6 +1688,240 @@
   }
   .animate-bounce-slow {
     animation: bounce 2s infinite;
+  }
+  .school-plan-builder {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    margin-bottom: 1rem;
+    padding: 1.15rem;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 1.45rem;
+    background:
+      radial-gradient(circle at 10% 0%, rgba(245, 158, 11, .2), transparent 30%),
+      radial-gradient(circle at 95% 100%, rgba(16, 185, 129, .15), transparent 30%),
+      linear-gradient(145deg, #0f172a, #172554 62%, #111827);
+    color: #fff;
+    box-shadow: 0 22px 55px rgba(15, 23, 42, .2);
+  }
+  .school-plan-builder::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    pointer-events: none;
+    background-image: linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .school-plan-builder-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding-bottom: .9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, .1);
+  }
+  .school-plan-builder-title {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+  }
+  .school-plan-builder-title > span {
+    display: inline-flex;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: .85rem;
+    background: linear-gradient(135deg, #fde68a, #f59e0b);
+    color: #172554;
+    font-size: 1.05rem;
+    font-weight: 900;
+    box-shadow: 0 10px 22px rgba(245, 158, 11, .22);
+  }
+  .school-plan-builder-title p {
+    font-size: .98rem;
+    font-weight: 900;
+  }
+  .school-plan-builder-title small {
+    display: block;
+    margin-top: .15rem;
+    color: rgba(255, 255, 255, .58);
+    font-size: .68rem;
+    font-weight: 700;
+  }
+  .school-plan-advanced-toggle {
+    flex: 0 0 auto;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .07);
+    padding: .55rem .85rem;
+    color: rgba(255, 255, 255, .75);
+    font-size: .66rem;
+    font-weight: 900;
+    transition: border-color .2s ease, background .2s ease, color .2s ease;
+  }
+  .school-plan-advanced-toggle:hover {
+    border-color: rgba(253, 230, 138, .5);
+    background: rgba(255, 255, 255, .11);
+    color: #fff;
+  }
+  .school-plan-builder-grid {
+    display: grid;
+    grid-template-columns: 1.08fr .92fr;
+    gap: .85rem;
+  }
+  .school-plan-builder-step {
+    min-width: 0;
+    padding: .85rem;
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 1.05rem;
+    background: rgba(255, 255, 255, .045);
+  }
+  .school-plan-step-label {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    margin-bottom: .7rem;
+  }
+  .school-plan-step-label > span {
+    display: inline-flex;
+    width: 1.65rem;
+    height: 1.65rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: .55rem;
+    background: rgba(255, 255, 255, .11);
+    color: #fde68a;
+    font-size: .68rem;
+    font-weight: 900;
+  }
+  .school-plan-step-label strong,
+  .school-plan-step-label small {
+    display: block;
+  }
+  .school-plan-step-label strong { font-size: .78rem; }
+  .school-plan-step-label small {
+    margin-top: .1rem;
+    color: rgba(255, 255, 255, .48);
+    font-size: .6rem;
+    font-weight: 700;
+  }
+  .school-plan-cycle-options,
+  .school-plan-screen-options {
+    display: grid;
+    gap: .45rem;
+  }
+  .school-plan-cycle-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .school-plan-screen-options { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .school-plan-cycle,
+  .school-plan-screen {
+    min-width: 0;
+    border: 1px solid rgba(255, 255, 255, .09);
+    background: rgba(255, 255, 255, .055);
+    color: rgba(255, 255, 255, .67);
+    transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease, box-shadow .2s ease;
+  }
+  .school-plan-cycle:hover,
+  .school-plan-screen:hover {
+    transform: translateY(-2px);
+    border-color: rgba(253, 230, 138, .35);
+    color: #fff;
+  }
+  .school-plan-cycle {
+    min-height: 4.2rem;
+    padding: .65rem .45rem;
+    border-radius: .85rem;
+    text-align: center;
+  }
+  .school-plan-cycle span,
+  .school-plan-cycle small,
+  .school-plan-screen span,
+  .school-plan-screen strong,
+  .school-plan-screen small { display: block; }
+  .school-plan-cycle span {
+    font-size: .76rem;
+    font-weight: 900;
+  }
+  .school-plan-cycle small {
+    margin-top: .3rem;
+    color: inherit;
+    font-size: .58rem;
+    font-weight: 800;
+  }
+  .school-plan-screen {
+    min-height: 4.2rem;
+    padding: .55rem .2rem;
+    border-radius: .8rem;
+    text-align: center;
+  }
+  .school-plan-screen > span { font-size: .72rem; }
+  .school-plan-screen strong {
+    margin-top: .2rem;
+    font-size: .88rem;
+  }
+  .school-plan-screen small {
+    margin-top: .1rem;
+    color: inherit;
+    font-size: .5rem;
+    font-weight: 800;
+  }
+  .school-plan-cycle.is-active,
+  .school-plan-screen.is-active {
+    border-color: #fde68a;
+    background: linear-gradient(145deg, #fde68a, #fbbf24);
+    color: #172554;
+    box-shadow: 0 10px 25px rgba(245, 158, 11, .18);
+  }
+  .school-plan-choice-summary {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    margin-top: .85rem;
+    padding: .75rem .85rem;
+    border-radius: .95rem;
+    background: rgba(255, 255, 255, .075);
+    color: #fff;
+  }
+  .school-plan-choice-check {
+    display: inline-flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #10b981;
+    font-size: .68rem;
+    font-weight: 900;
+  }
+  .school-plan-choice-summary small,
+  .school-plan-choice-summary strong { display: block; }
+  .school-plan-choice-summary small {
+    color: rgba(255, 255, 255, .5);
+    font-size: .55rem;
+    font-weight: 800;
+  }
+  .school-plan-choice-summary strong {
+    margin-top: .1rem;
+    font-size: .76rem;
+  }
+  .school-plan-choice-hint {
+    margin-right: auto;
+    color: #a7f3d0;
+    font-size: .6rem;
+    font-weight: 900;
+  }
+  .manager-plan-option:not(.hidden) {
+    grid-column: 1 / -1;
+    animation: managerPlanIn .26s ease-out;
+  }
+  @keyframes managerPlanIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
   }
   .plan-filter-shell {
     display: grid;
@@ -1617,17 +2113,19 @@
   .details-chevron {
     transition: transform .2s ease;
   }
-  .tamara-modal {
-    position: fixed;
-    inset: 0;
+  body.dashboard-shell > .tamara-modal {
+    position: fixed !important;
+    inset: 0 !important;
     z-index: 80;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1rem;
+    padding: clamp(.75rem, 2vw, 1.5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
-  .tamara-modal.hidden {
-    display: none;
+  body.dashboard-shell > .tamara-modal.hidden {
+    display: none !important;
   }
   .tamara-modal-backdrop {
     position: absolute;
@@ -1635,21 +2133,123 @@
     width: 100%;
     height: 100%;
     border: 0;
-    background: rgba(15, 23, 42, .62);
-    backdrop-filter: blur(5px);
+    background: rgba(15, 23, 42, .68);
+    backdrop-filter: blur(7px);
   }
   .tamara-modal-card {
     position: relative;
     z-index: 1;
-    width: min(32rem, 100%);
+    display: flex;
+    flex-direction: column;
+    width: min(38rem, 100%);
     max-height: calc(100vh - 2rem);
-    overflow-y: auto;
+    max-height: calc(100dvh - 2rem);
+    overflow: hidden;
     border: 1px solid rgba(255, 255, 255, .7);
-    border-radius: 1.5rem;
+    border-radius: 1.75rem;
     background: #fff;
-    padding: 1.5rem;
-    box-shadow: 0 30px 80px rgba(15, 23, 42, .3);
+    box-shadow: 0 36px 100px rgba(15, 23, 42, .38), 0 4px 16px rgba(15, 23, 42, .12);
     animation: tamaraModalIn .18s ease-out;
+  }
+  .tamara-modal-handle {
+    display: none;
+  }
+  .tamara-modal-header {
+    flex: none;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.35rem 1.5rem 1.2rem;
+    border-bottom: 1px solid rgba(244, 63, 94, .1);
+    background: linear-gradient(135deg, rgba(255, 241, 242, .96), #fff 72%);
+  }
+  .tamara-modal-brand {
+    display: flex;
+    width: 3rem;
+    height: 3rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1rem;
+    background: linear-gradient(145deg, #ff6b87, #f43f5e);
+    color: #fff;
+    font-size: 1.15rem;
+    font-weight: 900;
+    box-shadow: 0 10px 24px rgba(244, 63, 94, .24);
+  }
+  .tamara-modal-close {
+    display: inline-flex;
+    width: 2.4rem;
+    height: 2.4rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: .85rem;
+    color: #94a3b8;
+    transition: background .18s ease, color .18s ease, transform .18s ease;
+  }
+  .tamara-modal-close:hover {
+    background: rgba(244, 63, 94, .08);
+    color: #e11d48;
+    transform: rotate(4deg);
+  }
+  .tamara-modal-body {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding: 1.25rem 1.5rem;
+    outline: none;
+  }
+  .tamara-modal-body::-webkit-scrollbar {
+    width: 5px;
+  }
+  .tamara-modal-body::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(244, 63, 94, .26);
+  }
+  .tamara-modal-security {
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+  }
+  .tamara-modal-security-icon {
+    display: inline-flex;
+    width: 1.8rem;
+    height: 1.8rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    margin-top: .15rem;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #047857;
+    font-size: .8rem;
+    font-weight: 900;
+  }
+  .tamara-modal-summary {
+    background: linear-gradient(180deg, #fff, #f8fafc) !important;
+    box-shadow: 0 8px 28px rgba(15, 23, 42, .055) !important;
+  }
+  .tamara-modal-notice {
+    border: 1px solid rgba(245, 158, 11, .16);
+    background: linear-gradient(135deg, #fffbeb, #fff7ed) !important;
+    color: #92400e;
+  }
+  .tamara-modal-actions {
+    flex: none;
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: .75rem;
+    padding: 1rem 1.5rem 1.25rem;
+    border-top: 1px solid rgba(148, 163, 184, .16);
+    background: rgba(255, 255, 255, .96);
+    box-shadow: 0 -14px 32px rgba(15, 23, 42, .06);
+    backdrop-filter: blur(12px);
+  }
+  .tamara-modal-back {
+    min-height: 3.25rem;
   }
   .tamara-modal-open {
     overflow: hidden;
@@ -1659,6 +2259,14 @@
     to { opacity: 1; transform: translateY(0) scale(1); }
   }
   @media (max-width: 640px) {
+    .school-plan-builder { padding: .85rem; border-radius: 1.15rem; }
+    .school-plan-builder-head { align-items: flex-start; }
+    .school-plan-builder-title small { max-width: 13rem; }
+    .school-plan-advanced-toggle { padding: .45rem .65rem; font-size: .58rem; }
+    .school-plan-builder-grid { grid-template-columns: 1fr; }
+    .school-plan-choice-hint { display: none; }
+    .school-plan-cycle { min-height: 3.8rem; }
+    .school-plan-screen { min-height: 3.8rem; }
     .plan-filter-shell { grid-template-columns: 1fr; }
     .plan-price-filters { grid-column: 1; }
     .payment-method-selector { grid-template-columns: 1fr; }
@@ -1669,9 +2277,28 @@
     }
     .tamara-modal-card {
       width: 100%;
-      max-height: 92vh;
-      border-radius: 1.5rem 1.5rem 0 0;
-      padding: 1.25rem;
+      max-height: 94vh;
+      max-height: 94dvh;
+      border-radius: 1.75rem 1.75rem 0 0;
+    }
+    .tamara-modal-handle {
+      display: block;
+      width: 3rem;
+      height: .3rem;
+      flex: 0 0 auto;
+      margin: .65rem auto .1rem;
+      border-radius: 999px;
+      background: #cbd5e1;
+    }
+    .tamara-modal-header {
+      padding: 1rem 1.1rem .9rem;
+    }
+    .tamara-modal-body {
+      padding: 1rem 1.1rem;
+    }
+    .tamara-modal-actions {
+      grid-template-columns: 1fr;
+      padding: .85rem 1.1rem max(1rem, env(safe-area-inset-bottom));
     }
   }
   @media (prefers-reduced-motion: reduce) {

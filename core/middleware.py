@@ -387,6 +387,37 @@ class DisplayTokenMiddleware:
                     resp["Cache-Control"] = "no-store"
                 return resp
 
+        # ======================================================
+        # ✅ Subscription gate
+        #
+        # The screen row and the token→school map are cached for hours, so a
+        # lapsed subscription must be enforced here on every request rather
+        # than relying on a screen being flipped inactive at some later point.
+        # The lookup itself is cached per school and invalidated on any
+        # subscription change, so this stays cheap at fleet scale.
+        # ======================================================
+        if getattr(dj_settings, "DISPLAY_REQUIRE_ACTIVE_SUBSCRIPTION", True):
+            try:
+                from subscriptions.access import school_subscription_is_active
+
+                subscription_ok = school_subscription_is_active(getattr(screen, "school_id", None))
+            except Exception:
+                # Never black out a paying customer's screens because the
+                # billing lookup itself failed.
+                logger.exception("display_subscription_gate_failed token_hash=%s", token_hash[:12])
+                subscription_ok = True
+
+            if not subscription_ok:
+                resp = JsonResponse(
+                    {
+                        "error": "subscription_inactive",
+                        "message": "اشتراك المدرسة غير نشط. الرجاء تجديد الاشتراك لاستئناف العرض.",
+                    },
+                    status=402,
+                )
+                resp["Cache-Control"] = "no-store"
+                return resp
+
         request.display_screen = screen
         if not hasattr(request, "school") or not request.school:
              # Should be set above, but safe fallback (though caching dummy object avoids DB here)
@@ -529,6 +560,10 @@ class SecurityHeadersMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        # Generated before the view runs so templates can read it, and unique
+        # per response so it cannot be replayed.
+        request.csp_nonce = secrets.token_urlsafe(16)
+
         response = self.get_response(request)
         response["X-Content-Type-Options"] = "nosniff"
         response["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -541,19 +576,30 @@ class SecurityHeadersMiddleware:
             report_uri = str(
                 getattr(dj_settings, "CONTENT_SECURITY_POLICY_REPORT_URI", "/csp-report/") or ""
             ).strip()
+            # Templates that still carry an inline <script> opt in with
+            # nonce="{{ csp_nonce }}". Without this, enforcing the policy would
+            # silently break every such page.
+            nonce = getattr(request, "csp_nonce", "")
+            script_src = "script-src 'self' https://static.cloudflareinsights.com https://cdn.jsdelivr.net"
+            if nonce:
+                script_src = f"{script_src} 'nonce-{nonce}'"
+            # Card checkout hands off to the gateway for 3-D Secure, which
+            # renders in an iframe and posts back. Omitting these hosts makes
+            # an enforced policy silently block payments.
+            payment_hosts = "https://*.moyasar.com https://*.tamara.co"
             directives = [
                 "default-src 'self'",
                 "base-uri 'self'",
                 "object-src 'none'",
                 "frame-ancestors 'self'",
-                "form-action 'self'",
-                "script-src 'self' https://static.cloudflareinsights.com https://cdn.jsdelivr.net",
+                f"form-action 'self' {payment_hosts}",
+                script_src,
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net",
                 "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com",
                 "img-src 'self' data: blob: https:",
                 "media-src 'self' data: blob: https:",
                 "connect-src 'self' ws: wss: https:",
-                "frame-src 'self' https://www.youtube-nocookie.com",
+                f"frame-src 'self' https://www.youtube-nocookie.com {payment_hosts}",
                 "worker-src 'self' blob:",
                 "manifest-src 'self'",
             ]

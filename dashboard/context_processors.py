@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from django.apps import apps
+from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
 
 from core.models import SupportTicket
 from core.system_access import NAV_PERMISSION_MAP, role_label
@@ -12,6 +16,70 @@ from .access import (
     has_system_permission,
     is_system_staff_user,
 )
+
+
+WHATSAPP_SUPPORT_NUMBER = "966537720207"
+WHATSAPP_PLATFORM_NAME = "منصة لوحة العرض الذكية"
+
+
+def school_whatsapp_contact(request):
+    """Build the manager's WhatsApp support link from the active tenant."""
+
+    path = str(getattr(request, "path", "") or "")
+    user = getattr(request, "user", None)
+    if (
+        not path.startswith("/dashboard/")
+        or not user
+        or not getattr(user, "is_authenticated", False)
+        or is_system_staff_user(user)
+    ):
+        return {}
+
+    school = getattr(request, "school", None)
+    if school is None:
+        return {}
+
+    Subscription = apps.get_model("subscriptions", "SchoolSubscription")
+    today = timezone.localdate()
+    subscriptions = Subscription.objects.filter(school=school).select_related("plan")
+    current_subscription = (
+        subscriptions.filter(status="active", starts_at__lte=today)
+        .filter(Q(ends_at__isnull=True) | Q(ends_at__gte=today))
+        .order_by("-starts_at", "-created_at")
+        .first()
+    )
+    subscription = current_subscription or subscriptions.order_by("-created_at").first()
+    request.school_subscription = subscription
+
+    if current_subscription is not None:
+        status_text = "ساري"
+        days_left = current_subscription.days_left
+        if days_left is not None:
+            status_text += f" — متبقي {days_left} يوم"
+    elif subscription is None:
+        status_text = "بدون اشتراك"
+    elif subscription.status == "active":
+        status_text = "منتهي"
+    else:
+        status_text = subscription.get_status_display()
+
+    message_lines = [
+        f"المنصة: {WHATSAPP_PLATFORM_NAME}",
+        f"اسم المدرسة: {school.name}",
+        f"حالة الاشتراك: {status_text}",
+    ]
+    if subscription is not None and getattr(subscription, "plan", None) is not None:
+        message_lines.append(f"الباقة: {subscription.plan.name}")
+    message_lines.extend(("", "السلام عليكم، أحتاج المساعدة في: "))
+    message = "\n".join(message_lines)
+
+    return {
+        "school_whatsapp_url": (
+            f"https://wa.me/{WHATSAPP_SUPPORT_NUMBER}?text={quote(message, safe='')}"
+        ),
+        "school_whatsapp_status": status_text,
+        "school_whatsapp_platform_name": WHATSAPP_PLATFORM_NAME,
+    }
 
 
 def _is_active_link(current_url_name: str, *, exact: tuple[str, ...] = (), startswith: tuple[str, ...] = ()) -> bool:

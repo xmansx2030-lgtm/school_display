@@ -145,7 +145,7 @@
       <a href="{% url 'dashboard:ann_list' %}" class="ann-form-secondary">إلغاء</a>
 
       {% if form.instance.pk %}
-        <button type="button" onclick="confirmDelete()" class="ann-form-danger">
+        <button type="button" data-role="confirm-delete" class="ann-form-danger">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
           <span>حذف التنبيه</span>
         </button>
@@ -154,7 +154,7 @@
   </form>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
   const fieldClass = 'ann-input';
   document.querySelectorAll('.ann-form-shell input:not([type="checkbox"]), .ann-form-shell select, .ann-form-shell textarea').forEach(input => {
@@ -238,6 +238,12 @@ function confirmDelete() {
   form.submit();
 }
 {% endif %}
+
+// Bound here rather than with an inline onclick so the page satisfies CSP.
+document.addEventListener('click', function (event) {
+  var trigger = event.target.closest('[data-role="confirm-delete"]');
+  if (trigger) { confirmDelete(); }
+});
 </script>
 
 <style>
@@ -472,12 +478,13 @@ textarea.ann-input {
   font-size: .68rem;
   font-weight: 900;
 }
-.ann-preview-card[data-occasion-theme="national_day"] { border-color: #86efac; background: linear-gradient(135deg, #ecfdf5, #fff); }
-.ann-preview-card[data-occasion-theme="founding_day"] { border-color: #d6b48b; background: linear-gradient(135deg, #fff7ed, #fff); }
-.ann-preview-card[data-occasion-theme="teachers_day"] { border-color: #93c5fd; background: linear-gradient(135deg, #eff6ff, #fff); }
-.ann-preview-card[data-occasion-theme="back_to_school"] { border-color: #67e8f9; background: linear-gradient(135deg, #ecfeff, #fff); }
-.ann-preview-card[data-occasion-theme="graduation"] { border-color: #c4b5fd; background: linear-gradient(135deg, #f5f3ff, #fff); }
-.ann-preview-card[data-occasion-theme="weather"] { border-color: #7dd3fc; background: linear-gradient(135deg, #f0f9ff, #fff); }
+{# ألوان المعاينة مشتقة من سجل المناسبات، فتطابق ما يظهر على التلفاز. #}
+{% for item in occasion_cards %}
+.ann-preview-card[data-occasion-theme="{{ item.key }}"] {
+  border-color: color-mix(in srgb, {{ item.accent }} 45%, #fff);
+  background: linear-gradient(135deg, color-mix(in srgb, {{ item.accent }} 8%, #fff), #fff);
+}
+{% endfor %}
 
 .ann-preview-card[data-level="urgent"] .ann-preview-level {
   background: #fee2e2;

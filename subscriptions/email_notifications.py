@@ -12,6 +12,8 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 
+from core.email_verification import max_age_seconds
+
 from .models import (
     SchoolSubscription,
     SubscriptionEmailNotification,
@@ -27,6 +29,7 @@ WORKER_HEARTBEAT_TTL_SECONDS = 180
 @dataclass(frozen=True)
 class DeliveryResult:
     sent: int = 0
+    skipped: int = 0
     retried: int = 0
     failed: int = 0
 
@@ -52,6 +55,14 @@ def _school_recipient_emails(subscription: SchoolSubscription) -> list[str]:
     return recipients
 
 
+def _recipient_account_is_active(notification: SubscriptionEmailNotification) -> bool:
+    return notification.subscription.school.users.filter(
+        user__is_active=True,
+        user__is_superuser=False,
+        user__email__iexact=notification.recipient,
+    ).exists()
+
+
 def queue_invoice_email(invoice: SubscriptionInvoice) -> int:
     queued = 0
     for recipient in _school_recipient_emails(invoice.subscription):
@@ -66,6 +77,47 @@ def queue_invoice_email(invoice: SubscriptionInvoice) -> int:
         )
         queued += int(created)
     return queued
+
+
+def queue_email_verification(subscription: SchoolSubscription, user) -> bool:
+    """Queue an ownership-proof email for a newly registered account.
+
+    Uses the same durable outbox as invoices so a slow or unavailable SMTP
+    server can never block or fail the signup request itself.
+    """
+    recipient = (getattr(user, "email", "") or "").strip().casefold()
+    if not recipient:
+        return False
+
+    _, created = SubscriptionEmailNotification.objects.get_or_create(
+        dedupe_key=f"verify_email:{user.pk}:{recipient}"[:255],
+        defaults={
+            "event_type": SubscriptionEmailNotification.EventType.VERIFY_EMAIL,
+            "subscription": subscription,
+            "recipient": recipient,
+        },
+    )
+    return created
+
+
+def requeue_email_verification(subscription: SchoolSubscription, user) -> bool:
+    """Let a customer ask for the verification email again."""
+    recipient = (getattr(user, "email", "") or "").strip().casefold()
+    if not recipient:
+        return False
+
+    updated = SubscriptionEmailNotification.objects.filter(
+        dedupe_key=f"verify_email:{user.pk}:{recipient}"[:255],
+    ).update(
+        status=SubscriptionEmailNotification.Status.PENDING,
+        available_at=timezone.now(),
+        locked_at=None,
+        attempts=0,
+        last_error="",
+    )
+    if updated:
+        return True
+    return queue_email_verification(subscription, user)
 
 
 def enqueue_expiry_email_reminders(*, on_date: date | None = None) -> int:
@@ -111,6 +163,17 @@ def _absolute_url(path: str) -> str:
     return f"{base}{path}"
 
 
+def _verification_recipient_user(notification: SubscriptionEmailNotification):
+    """The account whose address this verification message proves."""
+    profile = (
+        notification.subscription.school.users.select_related("user")
+        .filter(user__is_active=True, user__email__iexact=notification.recipient)
+        .order_by("id")
+        .first()
+    )
+    return getattr(profile, "user", None)
+
+
 def _build_message(notification: SubscriptionEmailNotification) -> EmailMultiAlternatives:
     subscription = notification.subscription
     context = {
@@ -136,6 +199,28 @@ def _build_message(notification: SubscriptionEmailNotification) -> EmailMultiAlt
         subject = f"فاتورة اشتراك {invoice.invoice_number} | لوحة العرض الذكية"
         text_body = render_to_string("emails/subscription_invoice.txt", context)
         html_body = render_to_string("emails/subscription_invoice.html", context)
+    elif notification.event_type == SubscriptionEmailNotification.EventType.VERIFY_EMAIL:
+        from core.email_verification import make_token
+
+        user = _verification_recipient_user(notification)
+        if user is None:
+            raise ValueError("Verification notification has no matching account")
+
+        context.update(
+            {
+                "user": user,
+                "verify_url": _absolute_url(
+                    reverse(
+                        "website:verify_email",
+                        kwargs={"token": make_token(user)},
+                    )
+                ),
+                "valid_days": max(1, max_age_seconds() // 86400),
+            }
+        )
+        subject = "تأكيد بريدك الإلكتروني | لوحة العرض الذكية"
+        text_body = render_to_string("emails/verify_email.txt", context)
+        html_body = render_to_string("emails/verify_email.html", context)
     else:
         days_left = int(notification.reminder_days or 0)
         context["days_left"] = days_left
@@ -196,6 +281,16 @@ def _deliver_claimed(notification_id: int) -> str:
     notification = SubscriptionEmailNotification.objects.select_related(
         "subscription__school", "subscription__plan", "invoice"
     ).get(pk=notification_id)
+    if not _recipient_account_is_active(notification):
+        SubscriptionEmailNotification.objects.filter(
+            pk=notification.pk,
+            status=SubscriptionEmailNotification.Status.PROCESSING,
+        ).update(
+            status=SubscriptionEmailNotification.Status.SKIPPED,
+            locked_at=None,
+            last_error="Recipient account is inactive or no longer linked to the school.",
+        )
+        return "skipped"
     try:
         sent_count = _build_message(notification).send(fail_silently=False)
         if sent_count != 1:
@@ -254,16 +349,22 @@ def process_pending_email_notifications(*, limit: int | None = None) -> Delivery
     if not email_notifications_enabled():
         return DeliveryResult()
     batch_size = max(1, min(100, int(limit or settings.EMAIL_NOTIFICATION_BATCH_SIZE)))
-    sent = retried = failed = 0
+    sent = skipped = retried = failed = 0
     for _ in range(batch_size):
         notification_id = _claim_next_notification()
         if notification_id is None:
             break
         outcome = _deliver_claimed(notification_id)
         sent += int(outcome == "sent")
+        skipped += int(outcome == "skipped")
         retried += int(outcome == "retried")
         failed += int(outcome == "failed")
-    return DeliveryResult(sent=sent, retried=retried, failed=failed)
+    return DeliveryResult(
+        sent=sent,
+        skipped=skipped,
+        retried=retried,
+        failed=failed,
+    )
 
 
 def touch_worker_heartbeat(*, state: str = "running") -> None:

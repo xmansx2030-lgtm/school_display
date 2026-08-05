@@ -556,6 +556,66 @@
     .home-timeline-item { align-items: flex-start; }
     .home-timeline-time { white-space: normal; }
   }
+
+  /* ── اقتراح المناسبة القادمة ── */
+  .home-occasion-suggestions {
+    display: grid;
+    gap: .6rem;
+    margin-bottom: .25rem;
+  }
+  .home-occasion-suggestions h2 {
+    margin: 0 0 .1rem;
+    color: #7a6a52;
+    font-size: .72rem;
+    font-weight: 900;
+    letter-spacing: .04em;
+  }
+  .home-occasion-row {
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+    padding: .85rem 1rem;
+    border: 1px solid rgba(97, 83, 64, .14);
+    border-inline-start: 3px solid var(--occasion-accent);
+    border-radius: 1rem;
+    background: #fff;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, .05);
+  }
+  .home-occasion-mark {
+    display: grid;
+    place-items: center;
+    width: 2.7rem;
+    height: 2.7rem;
+    flex: none;
+    border-radius: .8rem;
+    background: color-mix(in srgb, var(--occasion-accent) 13%, #fff);
+    color: var(--occasion-accent);
+    font-size: 1.2rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .home-occasion-copy { flex: 1; min-width: 0; }
+  .home-occasion-copy strong { display: block; color: #0f172a; font-size: .88rem; font-weight: 900; }
+  .home-occasion-copy small { display: block; margin-top: .18rem; color: #64748b; font-size: .74rem; font-weight: 600; line-height: 1.7; }
+  .home-occasion-action {
+    flex: none;
+    padding: .55rem 1.05rem;
+    border-radius: .75rem;
+    background: var(--occasion-accent);
+    color: #fff;
+    font-size: .76rem;
+    font-weight: 900;
+    white-space: nowrap;
+    transition: filter .16s ease;
+  }
+  .home-occasion-action:hover { filter: brightness(1.12); }
+  .home-occasion-action:focus-visible { outline: 3px solid rgba(99, 102, 241, .3); outline-offset: 2px; }
+
+  @media (max-width: 640px) {
+    .home-occasion-row { flex-wrap: wrap; }
+    .home-occasion-copy { flex-basis: 100%; }
+    .home-occasion-action { flex: 1; text-align: center; }
+  }
 </style>
 {% endblock %}
 
@@ -570,25 +630,33 @@
       </h1>
       <p class="home-hero-detail">{{ screen_hub.detail }}</p>
       <div class="home-hero-actions">
-        <a href="{{ screen_hub.primary_url }}" class="home-primary-action"{% if screen_hub.exists %} target="_blank" rel="noopener"{% endif %}>
-          <i class="fa-solid {% if screen_hub.exists %}fa-up-right-from-square{% else %}fa-plus{% endif %}" aria-hidden="true"></i>
+        <a href="{{ screen_hub.primary_url }}" class="home-primary-action"{% if screen_hub.exists and not screen_hub.is_fleet %} target="_blank" rel="noopener"{% endif %}>
+          <i class="fa-solid {% if screen_hub.is_fleet %}fa-display{% elif screen_hub.exists %}fa-up-right-from-square{% else %}fa-plus{% endif %}" aria-hidden="true"></i>
           {{ screen_hub.primary_label }}
         </a>
+        {% if screen_hub.is_fleet %}
+        <a href="{% url 'dashboard:screens_customize_all' %}" class="home-secondary-action">
+          <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+          تخصيص جميع الشاشات
+        </a>
+        {% else %}
         <a href="{% url 'dashboard:screen_list' %}" class="home-secondary-action">
           <i class="fa-solid fa-display" aria-hidden="true"></i>
           إدارة الشاشات
         </a>
+        {% endif %}
       </div>
     </div>
 
-    <div class="home-screen-panel" aria-label="حالة الشاشة الرئيسية">
+    <div class="home-screen-panel" aria-label="{% if screen_hub.is_fleet %}حالة شاشات المدرسة{% else %}حالة الشاشة{% endif %}">
       <div>
         <div class="home-screen-panel-head">
-          <span class="home-screen-icon"><i class="fa-solid fa-tv" aria-hidden="true"></i></span>
+          <span class="home-screen-icon"><i class="fa-solid {% if screen_hub.is_fleet %}fa-display{% else %}fa-tv{% endif %}" aria-hidden="true"></i></span>
           <span class="home-status-pill home-status-pill--{{ screen_hub.tone }}">{{ screen_hub.status }}</span>
         </div>
-        <div class="home-screen-name">{{ screen_hub.name|default:"شاشة المدرسة الرئيسية" }}</div>
+        <div class="home-screen-name">{{ screen_hub.name|default:"شاشة المدرسة" }}</div>
         {% if screen_hub.short_code %}<div class="home-screen-code">رمز الشاشة: {{ screen_hub.short_code }}</div>{% endif %}
+        {% if screen_hub.is_fleet %}<div class="home-screen-code">لكل شاشة رابطها وتخصيصها المستقل</div>{% endif %}
       </div>
       <div class="home-screen-metrics">
         <div class="home-screen-metric">
@@ -602,6 +670,22 @@
       </div>
     </div>
   </section>
+
+  {% if occasion_suggestions %}
+  <section class="home-occasion-suggestions" aria-labelledby="occasion-suggestion-heading">
+    <h2 id="occasion-suggestion-heading">مناسبة قادمة</h2>
+    {% for item in occasion_suggestions %}
+    <div class="home-occasion-row" style="--occasion-accent:{{ item.occasion.accent }};--occasion-deep:{{ item.occasion.deep }}">
+      <span class="home-occasion-mark" aria-hidden="true">{{ item.occasion.mark }}</span>
+      <div class="home-occasion-copy">
+        <strong>{{ item.occasion.name }} · {{ item.countdown_label }}</strong>
+        <small>{{ item.occurs_on|date:"l j F Y" }} — فعّل القالب لتظهر المناسبة على شاشاتك تلقائيًا في وقتها.</small>
+      </div>
+      <a href="{% url 'dashboard:ann_create' %}?template={{ item.occasion.key }}" class="home-occasion-action">تفعيل القالب</a>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
 
   <section aria-labelledby="quick-actions-heading">
     <div class="home-section-heading">
