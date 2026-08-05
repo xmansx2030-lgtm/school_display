@@ -25,11 +25,20 @@ TRANSACTIONAL_EMAIL_ENABLED=True       # وإلا لن تصل الفواتير
 |---|---|
 | `subscriptions.E001` | ميسر مفعّلة بدون `MOYASAR_WEBHOOK_SECRET` |
 | `subscriptions.W001` | ميسر مفعّلة لكنها في وضع الاختبار — العملاء لا يستطيعون الدفع |
+| `subscriptions.W003` | Google Pay مفعّل لكن `MOYASAR_GOOGLE_PAY_MERCHANT_ID` مفقود |
 | `subscriptions.W002` | بوابة دفع مفعّلة والبريد المعاملاتي متوقف — الفواتير لن تُسلَّم |
 
 ### وسائل الدفع
 
-`MOYASAR_PAYMENT_METHODS=creditcard,applepay,stcpay`
+`MOYASAR_PAYMENT_METHODS=creditcard,applepay,stcpay,googlepay`
+
+`MOYASAR_LIVE_MODE=True`
+`MOYASAR_GOOGLE_PAY_MERCHANT_ID=...`
+
+Google Pay يحتاج `MOYASAR_GOOGLE_PAY_MERCHANT_ID` قبل ظهوره في نموذج Moyasar.
+
+Apple Pay needs the Moyasar dashboard domain registration and certificate to be
+completed before it will actually validate in the browser.
 
 > Apple Pay يتطلب توثيق النطاق من لوحة تحكم ميسر قبل أن يظهر الزر.
 

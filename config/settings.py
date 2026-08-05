@@ -1006,20 +1006,27 @@ MOYASAR_HTTP_TIMEOUT_SECONDS = env_int_clamped(
 )
 
 # Every value must be a method Moyasar accepts for a hosted payment form.
-_MOYASAR_SUPPORTED_METHODS = {"creditcard", "applepay", "stcpay"}
-# Wallet methods make Moyasar validate an extra config block (apple_pay:
-# {country,label,validateMerchantURL,…}) and reject the ENTIRE form with
-# "Form configuration issue!" when it is missing. The app has no such block —
-# Apple Pay also needs Apple merchant-ID domain verification we do not run — so
-# any wallet method is dropped until its configuration actually exists, rather
-# than silently breaking checkout. creditcard and stcpay need no extra config.
-_MOYASAR_WALLET_METHODS = {"applepay"}
+_MOYASAR_SUPPORTED_METHODS = {"creditcard", "applepay", "stcpay", "googlepay"}
 MOYASAR_PAYMENT_METHODS = [
     method
-    for method in env_list("MOYASAR_PAYMENT_METHODS", "creditcard,stcpay")
-    if method in _MOYASAR_SUPPORTED_METHODS and method not in _MOYASAR_WALLET_METHODS
+    for method in env_list("MOYASAR_PAYMENT_METHODS", "creditcard,applepay,stcpay,googlepay")
+    if method in _MOYASAR_SUPPORTED_METHODS
 ] or ["creditcard"]
-MOYASAR_SUPPORTED_NETWORKS = env_list("MOYASAR_SUPPORTED_NETWORKS", "mada,visa,mastercard")
+MOYASAR_SUPPORTED_NETWORKS = env_list("MOYASAR_SUPPORTED_NETWORKS", "mada,visa,mastercard,unionpay")
+MOYASAR_APPLE_PAY_COUNTRY = os.getenv("MOYASAR_APPLE_PAY_COUNTRY", "SA").strip().upper() or "SA"
+MOYASAR_APPLE_PAY_LABEL = os.getenv("MOYASAR_APPLE_PAY_LABEL", "لوحة العرض الذكية").strip() or "لوحة العرض الذكية"
+MOYASAR_APPLE_PAY_VALIDATE_MERCHANT_URL = (
+    os.getenv(
+        "MOYASAR_APPLE_PAY_VALIDATE_MERCHANT_URL",
+        f"{MOYASAR_API_BASE_URL}/applepay/initiate",
+    )
+    .strip()
+    .rstrip("/")
+)
+MOYASAR_GOOGLE_PAY_MERCHANT_ID = os.getenv("MOYASAR_GOOGLE_PAY_MERCHANT_ID", "").strip()
+MOYASAR_GOOGLE_PAY_COUNTRY = os.getenv("MOYASAR_GOOGLE_PAY_COUNTRY", "SA").strip().upper() or "SA"
+MOYASAR_GOOGLE_PAY_LABEL = os.getenv("MOYASAR_GOOGLE_PAY_LABEL", "لوحة العرض الذكية").strip() or "لوحة العرض الذكية"
+MOYASAR_GOOGLE_PAY_ENVIRONMENT = os.getenv("MOYASAR_GOOGLE_PAY_ENVIRONMENT", "PRODUCTION").strip().upper() or "PRODUCTION"
 
 # Reconciliation closes the "customer paid but the callback never arrived" gap.
 MOYASAR_RECONCILIATION_INTERVAL_SECONDS = env_int_clamped(
