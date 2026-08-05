@@ -200,6 +200,12 @@
       fill: currentColor;
       filter: drop-shadow(0 1px 1px rgba(6,66,36,.35));
     }
+    /* The button is pinned, so the last row of a page would otherwise sit
+       underneath it and be unreachable. Reserve its height plus the gap. */
+    .dashboard-main-inner {
+      padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+    }
+
     .dashboard-whatsapp-copy {
       line-height: 1.25;
       text-align: start;
@@ -284,7 +290,7 @@
       .dashboard-whatsapp-copy small { font-size: .64rem; }
     }
   </style>
-  <link rel="stylesheet" href="{% static 'css/dashboard-luxury.css' %}?v=2026-06-01a">
+  <link rel="stylesheet" href="{% static 'css/dashboard-luxury.css' %}?v=2026-08-05-wa1">
   {% comment %} Styles only the Tamara CTA uses, and it pulls a logo from tamara's CDN.
      Load it where that button actually renders instead of on every page. {% endcomment %}
   {% if tamara_available %}
@@ -292,6 +298,7 @@
   {% endif %}
   {% block extra_css %}{% endblock %}
   {% block extra_head %}{% endblock %}
+  <link rel="stylesheet" href="{% static 'css/mobile.css' %}?v=2026-08-05-m1">
 </head>
 
 <body class="dashboard-shell min-h-full bg-[#f1f5f9] text-slate-900">

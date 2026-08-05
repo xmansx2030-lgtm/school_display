@@ -13,7 +13,8 @@
   </div>
 
   <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-    <table class="w-full text-right">
+    <div class="table-scroll">
+    <table class="w-full min-w-[560px] text-right">
       <thead class="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
         <tr>
           <th class="p-4">الموضوع</th>
@@ -49,6 +50,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 {% endblock %}
