@@ -1367,8 +1367,17 @@
             background: linear-gradient(to right, var(--mesh2), transparent) !important;
         }
         /* 2026-03 Adaptive Glass + Theme-Driven Cards
-           كل الألوان مرتبطة بمتغيرات الثيم (--accent-main/--accent-sub/--mesh1/--mesh2). */
-        :root {
+           كل الألوان مرتبطة بمتغيرات الثيم (--accent-main/--accent-sub/--mesh1/--mesh2).
+
+           These tokens MUST be declared on `body.display-board`, not on `:root`.
+           app.css declares --accent-main/--accent-sub/--mesh1/--mesh2 on
+           `body.display-board` (and per theme on `body.display-board[data-theme=…]`),
+           so at `:root` they are simply not defined: every `var(--mesh1, <indigo>)`
+           below would silently resolve to its indigo fallback and then inherit
+           that down to the whole board. The result was a board whose 2026 layer —
+           hero wash, panel gradients, orbs, accent border — stayed indigo no
+           matter which theme the school picked. */
+        body.display-board {
             --board-surface: var(--glass-surface, rgba(15, 23, 42, 0.74));
             --board-surface-strong: var(--glass-surface, rgba(15, 23, 42, 0.88));
             --board-border: var(--glass-border, rgba(148, 163, 184, 0.24));
@@ -1382,7 +1391,8 @@
         }
 
         @supports (color: color-mix(in srgb, white, black)) {
-            :root {
+            /* Same scope rule as the block above: these read theme variables. */
+            body.display-board {
                 --board-surface: color-mix(in srgb, var(--glass-surface, rgba(15, 23, 42, 0.74)) 76%, var(--bg-deep, #020617) 24%);
                 --board-surface-strong: color-mix(in srgb, var(--glass-surface, rgba(15, 23, 42, 0.88)) 88%, var(--bg-deep, #020617) 12%);
                 --board-border: color-mix(in srgb, var(--glass-border, rgba(148, 163, 184, 0.24)) 88%, transparent);
@@ -2928,4 +2938,45 @@
         body[data-lite="1"] #alertContainer,
         body[data-lite="1"] .binding-blocker__status-dot {
             animation: none !important;
+        }
+
+        /* ===================================================================
+           Theme coverage for palette classes left in the markup.
+           ===================================================================
+           The board's markup still carries a few fixed Tailwind palette classes
+           from before it was theme-driven. Most already have overrides earlier
+           in this file; these three were missed, so a school that picked a theme
+           still saw an orange standby card and a purple glow behind the duty
+           board.
+
+           Emergency red (`bg-red-500`, `text-red-200` on #alertContainer) is
+           deliberately left alone: it is a state colour that has to read as an
+           alarm regardless of the school's palette.
+           =================================================================== */
+
+        /* Standby card carries its accent on itself, so the descendant-scoped
+           overrides above never reach it. */
+        #standbyCard.border-orange-500\/20 {
+            border-color: var(--accent-sub, rgba(99, 102, 241, 0.4)) !important;
+        }
+
+        /* The standby header's own `bg-orange-500/5` is already neutralised:
+           `aside .glass-panel > div:first-child` (higher specificity, !important)
+           gives both side-panel headers the same white wash. Overriding the
+           utility here would be dead code, and tinting only the standby header
+           would break the symmetry with the period-classes card. */
+
+        /* Decorative glow on the duty board — the badge right beside it already
+           uses var(--accent-main), so the hard-coded purple simply never got
+           updated with it. */
+        #dutyCard .bg-purple-500\/30 {
+            background-color: var(--mesh1, rgba(99, 102, 241, 0.3)) !important;
+        }
+
+        /* The honour panel's gradient wash is hidden today (see the
+           `#exSlot > .absolute:first-child` rule above), but it keeps its amber
+           stop in the markup. Theme it so un-hiding it can never reintroduce a
+           colour the school did not choose. */
+        #exSlot > .from-amber-500\/5 {
+            --tw-gradient-from: var(--mesh2, rgba(99, 102, 241, 0.12));
         }
