@@ -3953,6 +3953,661 @@
             .form-navigation .btn-outline { order: 2; width: 100%; }
         }
 
+        /* ==========================================================
+           Premium layer
+           Sits last in the sheet so it wins ties with the base rules
+           above, while the reduced-motion block that follows still
+           strips every animation it introduces.
+           ========================================================== */
+
+        :root {
+            --gold-300: #e9cd8f;
+            --gold-600: #96691c;
+            --grad-gold: linear-gradient(135deg, #f2ddad 0%, #c99a48 34%, #9a6d21 60%, #e6c489 100%);
+            --grad-ink: linear-gradient(150deg, #12304f 0%, #0d1c32 55%, #07111f 100%);
+            --ring-gold: 0 0 0 1px rgba(201, 154, 72, 0.32);
+            --ease-lux: cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        /* Reading progress — a thin gilt rule that tracks the scroll. */
+        .scroll-progress {
+            position: fixed;
+            inset: 0 0 auto 0;
+            height: 3px;
+            z-index: 1400;
+            background: var(--grad-gold);
+            transform: scaleX(0);
+            transform-origin: right center;
+            will-change: transform;
+            pointer-events: none;
+        }
+
+        /* Ambient depth behind the whole page. */
+        body::before {
+            width: 420px;
+            height: 420px;
+            background: radial-gradient(circle, rgba(24, 160, 125, 0.16), transparent 68%);
+            animation: lux-drift 22s ease-in-out infinite alternate;
+        }
+
+        body::after {
+            width: 520px;
+            height: 520px;
+            background: radial-gradient(circle, rgba(201, 154, 72, 0.18), transparent 68%);
+            animation: lux-drift 26s ease-in-out infinite alternate-reverse;
+        }
+
+        @keyframes lux-drift {
+            from { transform: translate3d(0, 0, 0) scale(1); }
+            to   { transform: translate3d(-30px, 46px, 0) scale(1.12); }
+        }
+
+        /* ---------- Navigation ---------- */
+
+        .nav-shell {
+            box-shadow: 0 18px 46px rgba(7, 17, 31, 0.09);
+        }
+
+        header.scrolled .nav-shell {
+            background: rgba(255, 255, 255, 0.78);
+            border-color: rgba(201, 154, 72, 0.18);
+        }
+
+        .logo-mark {
+            position: relative;
+            overflow: hidden;
+            background: var(--grad-ink);
+            box-shadow: 0 14px 30px rgba(13, 28, 50, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        }
+
+        .logo-mark::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(140deg, transparent 42%, rgba(233, 205, 143, 0.5) 50%, transparent 58%);
+            transform: translateX(-120%);
+            animation: lux-sweep 6s ease-in-out infinite;
+        }
+
+        .logo-mark i {
+            position: relative;
+            z-index: 1;
+            color: var(--gold-300);
+        }
+
+        @keyframes lux-sweep {
+            0%, 62% { transform: translateX(-120%); }
+            88%, 100% { transform: translateX(120%); }
+        }
+
+        .nav-links a {
+            position: relative;
+            padding-bottom: 3px;
+        }
+
+        .nav-links a::after {
+            content: "";
+            position: absolute;
+            inset: auto 0 0 0;
+            height: 2px;
+            border-radius: 999px;
+            background: var(--grad-gold);
+            transform: scaleX(0);
+            transform-origin: right center;
+            transition: transform 0.32s var(--ease-lux);
+        }
+
+        .nav-links a:hover::after {
+            transform: scaleX(1);
+        }
+
+        /* ---------- Buttons ---------- */
+
+        .btn {
+            position: relative;
+            overflow: hidden;
+            background: var(--grad-ink);
+            box-shadow: 0 18px 38px rgba(7, 17, 31, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+        }
+
+        .btn::after,
+        .btn-gold::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, 0.32) 48%, transparent 64%);
+            transform: translateX(-130%);
+            transition: transform 0.75s var(--ease-lux);
+        }
+
+        .btn:hover::after,
+        .btn-gold:hover::after {
+            transform: translateX(130%);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 24px 50px rgba(7, 17, 31, 0.28), var(--ring-gold), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-gold {
+            position: relative;
+            overflow: hidden;
+            color: #33230a;
+            background: var(--grad-gold);
+            box-shadow: 0 18px 42px rgba(184, 133, 45, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+        }
+
+        .btn-gold:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 26px 56px rgba(184, 133, 45, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        }
+
+        .btn-outline:hover {
+            border-color: rgba(201, 154, 72, 0.42);
+            box-shadow: 0 16px 34px rgba(7, 17, 31, 0.1);
+        }
+
+        .btn:focus-visible,
+        .btn-gold:focus-visible,
+        .btn-outline:focus-visible {
+            outline: 2px solid var(--gold-500);
+            outline-offset: 3px;
+        }
+
+        /* ---------- Hero ---------- */
+
+        .hero-shell {
+            border-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 46px 110px rgba(7, 17, 31, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        }
+
+        .hero-aurora {
+            position: absolute;
+            inset: -30% -10%;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.9;
+            background:
+                radial-gradient(38% 44% at 78% 18%, rgba(201, 154, 72, 0.24), transparent 70%),
+                radial-gradient(34% 40% at 14% 78%, rgba(24, 160, 125, 0.22), transparent 70%),
+                radial-gradient(30% 34% at 46% 6%, rgba(18, 48, 79, 0.14), transparent 70%);
+            filter: blur(12px);
+            animation: lux-aurora 18s ease-in-out infinite alternate;
+        }
+
+        @keyframes lux-aurora {
+            from { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+            to   { transform: translate3d(2%, -3%, 0) rotate(6deg) scale(1.1); }
+        }
+
+        .hero-copy h1 span {
+            background: linear-gradient(100deg, #b8852d 0%, #e9cd8f 20%, #fbf1da 32%, #c99a48 46%, #9a6d21 68%, #e6c489 100%);
+            background-size: 230% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            -webkit-text-fill-color: transparent;
+            animation: lux-gold-sheen 8s ease-in-out infinite;
+        }
+
+        @keyframes lux-gold-sheen {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .hero-copy .eyebrow {
+            border-color: rgba(201, 154, 72, 0.34);
+            background: linear-gradient(120deg, rgba(255, 255, 255, 0.92), rgba(250, 240, 220, 0.82));
+            box-shadow: 0 12px 28px rgba(184, 133, 45, 0.14);
+        }
+
+        .hero-assurance span,
+        .hero-meta-item {
+            transition: transform 0.35s var(--ease-lux), box-shadow 0.35s ease, border-color 0.35s ease;
+        }
+
+        .hero-meta-item:hover {
+            transform: translateY(-4px);
+            border-color: rgba(201, 154, 72, 0.3);
+            box-shadow: 0 20px 42px rgba(7, 17, 31, 0.1);
+        }
+
+        .display-frame {
+            animation: lux-float 9s ease-in-out infinite;
+        }
+
+        @keyframes lux-float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        /* Re-stage the hero collage: the floating cards used to sit on top
+           of the mock screen and clip its text. They now hug the frame's
+           outer corners so every layer stays readable. */
+        .hero-visual {
+            height: 676px;
+        }
+
+        .display-frame {
+            inset: 40px 0 118px 116px;
+        }
+
+        .screen-live {
+            white-space: nowrap;
+        }
+
+        .ops-card {
+            top: 124px;
+            left: 0;
+            width: 172px;
+            padding: 16px;
+        }
+
+        .ops-card .ops-item {
+            font-size: 0.84rem;
+        }
+
+        .support-card {
+            right: 26px;
+            bottom: 2px;
+            width: 232px;
+        }
+
+        .support-card span {
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .floating-pill {
+            top: 2px;
+            right: 20px;
+            border: 1px solid rgba(233, 205, 143, 0.28);
+            background: linear-gradient(135deg, rgba(7, 17, 31, 0.96), rgba(18, 48, 79, 0.94));
+        }
+
+        .floating-pill i {
+            color: #34d399;
+        }
+
+        /* The marquee and the stat band read as one dark plinth
+           closing the hero. */
+        .marquee-strip {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background:
+                radial-gradient(circle at 94% 0%, rgba(201, 154, 72, 0.22), transparent 48%),
+                var(--grad-ink);
+            box-shadow: 0 32px 74px rgba(7, 17, 31, 0.22);
+        }
+
+        .marquee-list span {
+            transition: border-color 0.3s ease, background 0.3s ease, transform 0.3s var(--ease-lux);
+        }
+
+        .marquee-list span:hover {
+            transform: translateY(-2px);
+            border-color: rgba(233, 205, 143, 0.34);
+            background: rgba(201, 154, 72, 0.14);
+        }
+
+        /* ---------- Signature stat band ---------- */
+
+        .lux-stats {
+            position: relative;
+            overflow: hidden;
+            margin-top: 14px;
+            padding: 30px;
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background:
+                radial-gradient(circle at 6% 0%, rgba(201, 154, 72, 0.28), transparent 42%),
+                radial-gradient(circle at 94% 100%, rgba(24, 160, 125, 0.24), transparent 44%),
+                var(--grad-ink);
+            box-shadow: 0 40px 96px rgba(7, 17, 31, 0.26);
+        }
+
+        .lux-stats::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+                linear-gradient(90deg, transparent 0 96%, rgba(255, 255, 255, 0.05) 96% 97%, transparent 97%),
+                linear-gradient(transparent 0 96%, rgba(255, 255, 255, 0.05) 96% 97%, transparent 97%);
+            background-size: 96px 96px;
+        }
+
+        .lux-stats-head {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .lux-stats-head strong {
+            display: block;
+            font-family: 'Changa', sans-serif;
+            font-size: 1.5rem;
+            color: #fff;
+        }
+
+        .lux-stats-head p {
+            margin-top: 4px;
+            color: rgba(255, 255, 255, 0.66);
+            font-size: 0.95rem;
+        }
+
+        .lux-stats-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 16px;
+            border-radius: 999px;
+            border: 1px solid rgba(233, 205, 143, 0.34);
+            background: rgba(201, 154, 72, 0.14);
+            color: var(--gold-300);
+            font-size: 0.86rem;
+            font-weight: 800;
+        }
+
+        .lux-stats-grid {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .lux-stat {
+            padding: 22px 20px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            background: rgba(255, 255, 255, 0.05);
+            transition: transform 0.4s var(--ease-lux), border-color 0.4s ease, background 0.4s ease;
+        }
+
+        .lux-stat:hover {
+            transform: translateY(-5px);
+            border-color: rgba(233, 205, 143, 0.36);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .lux-stat-figure {
+            display: flex;
+            align-items: baseline;
+            gap: 5px;
+            font-family: 'Changa', sans-serif;
+            font-size: clamp(1.9rem, 3vw, 2.6rem);
+            font-weight: 800;
+            line-height: 1;
+            background: var(--grad-gold);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .lux-stat-figure small {
+            font-size: 0.9rem;
+            font-weight: 800;
+        }
+
+        .lux-stat strong {
+            display: block;
+            margin: 12px 0 5px;
+            color: #fff;
+            font-size: 0.98rem;
+        }
+
+        .lux-stat span {
+            display: block;
+            color: rgba(255, 255, 255, 0.62);
+            font-size: 0.82rem;
+            line-height: 1.7;
+        }
+
+        /* ---------- Section rhythm ---------- */
+
+        .section-header h2::after,
+        .pricing-head h2::after {
+            content: "";
+            display: block;
+            width: 78px;
+            height: 3px;
+            margin: 18px auto 0;
+            border-radius: 999px;
+            background: var(--grad-gold);
+        }
+
+        .eyebrow {
+            border-color: rgba(201, 154, 72, 0.26);
+            background: linear-gradient(120deg, rgba(255, 255, 255, 0.9), rgba(250, 242, 226, 0.78));
+        }
+
+        /* ---------- Cards ---------- */
+
+        .feature-card,
+        .benefit-card,
+        .journey-card,
+        .pricing-value-card,
+        .problem-card,
+        .outcome-item,
+        .assurance-stat,
+        .capability-card,
+        .trust-card {
+            transition: transform 0.45s var(--ease-lux), box-shadow 0.45s ease, border-color 0.45s ease;
+        }
+
+        .feature-card:hover,
+        .benefit-card:hover,
+        .journey-card:hover,
+        .pricing-value-card:hover,
+        .problem-card:hover,
+        .capability-card:hover,
+        .trust-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(201, 154, 72, 0.3);
+            box-shadow: var(--shadow-md);
+        }
+
+        .outcome-item:hover,
+        .assurance-stat:hover {
+            transform: translateY(-4px);
+        }
+
+        /* A gilt hairline that ignites along the top edge on hover.
+           Journey cards use ::after here — their ::before already renders
+           the oversized step numeral. */
+        .feature-card::before,
+        .benefit-card::before,
+        .pricing-value-card::before,
+        .journey-card::after {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 2px;
+            background: var(--grad-gold);
+            transform: scaleX(0);
+            transform-origin: right center;
+            transition: transform 0.5s var(--ease-lux);
+        }
+
+        .feature-card:hover::before,
+        .benefit-card:hover::before,
+        .pricing-value-card:hover::before,
+        .journey-card:hover::after,
+        .feature-card.dark::before {
+            transform: scaleX(1);
+        }
+
+        .benefit-card,
+        .journey-card,
+        .pricing-value-card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .journey-card::before {
+            background: var(--grad-gold);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            -webkit-text-fill-color: transparent;
+            opacity: 0.42;
+            font-weight: 800;
+        }
+
+        .feature-card.dark:hover,
+        .problem-card.solution:hover {
+            border-color: rgba(233, 205, 143, 0.34);
+            box-shadow: 0 40px 90px rgba(7, 17, 31, 0.26);
+        }
+
+        /* ---------- Pricing ---------- */
+
+        .pricing-selector-shell {
+            box-shadow: 0 40px 96px rgba(7, 17, 31, 0.14);
+        }
+
+        .pricing-cycle-option.active {
+            box-shadow: 0 18px 40px rgba(184, 133, 45, 0.18), var(--ring-gold);
+        }
+
+        .pricing-live-price {
+            background: var(--grad-gold);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .price-card {
+            transition: transform 0.45s var(--ease-lux), box-shadow 0.45s ease, border-color 0.45s ease;
+        }
+
+        .price-card:hover {
+            transform: translateY(-6px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* ---------- FAQ ---------- */
+
+        details.faq-item {
+            transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.35s var(--ease-lux);
+        }
+
+        details.faq-item:hover,
+        details.faq-item[open] {
+            border-color: rgba(201, 154, 72, 0.28);
+            box-shadow: 0 22px 50px rgba(7, 17, 31, 0.1);
+        }
+
+        /* ---------- Closing CTA ---------- */
+
+        .cta-panel {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(233, 205, 143, 0.18);
+        }
+
+        .cta-panel::before {
+            content: "";
+            position: absolute;
+            inset: -40% -20%;
+            pointer-events: none;
+            background:
+                radial-gradient(34% 46% at 82% 12%, rgba(201, 154, 72, 0.3), transparent 70%),
+                radial-gradient(30% 40% at 12% 92%, rgba(24, 160, 125, 0.26), transparent 70%);
+            animation: lux-aurora 20s ease-in-out infinite alternate;
+        }
+
+        .cta-panel > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ---------- Footer ---------- */
+
+        .footer-shell {
+            position: relative;
+            overflow: hidden;
+            color: rgba(255, 255, 255, 0.74);
+            border-color: rgba(255, 255, 255, 0.08);
+            background:
+                radial-gradient(circle at 6% 0%, rgba(201, 154, 72, 0.2), transparent 44%),
+                radial-gradient(circle at 96% 110%, rgba(24, 160, 125, 0.16), transparent 46%),
+                var(--grad-ink);
+            box-shadow: 0 34px 84px rgba(7, 17, 31, 0.24);
+        }
+
+        .footer-shell .logo-copy strong,
+        .footer-col h4 {
+            color: #fff;
+        }
+
+        .footer-shell .logo-copy span {
+            color: var(--gold-300);
+        }
+
+        .footer-shell p,
+        .footer-links a {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .footer-links a {
+            transition: color 0.25s ease, padding-inline-start 0.25s var(--ease-lux);
+        }
+
+        .footer-links a:hover {
+            color: var(--gold-300);
+            padding-inline-start: 6px;
+        }
+
+        .footer-grid {
+            border-bottom-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .copyright {
+            color: rgba(255, 255, 255, 0.52);
+        }
+
+        @media (max-width: 1180px) {
+            .lux-stats-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            .lux-stats {
+                margin-top: 18px;
+                padding: 22px 18px;
+            }
+
+            .lux-stats-head strong {
+                font-size: 1.2rem;
+            }
+
+            .lux-stats-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .lux-stat {
+                padding: 18px 16px;
+            }
+
+            .section-header h2::after,
+            .pricing-head h2::after {
+                width: 58px;
+                margin-top: 14px;
+            }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             html {
                 scroll-behavior: auto;
@@ -3975,6 +4630,7 @@
 <body>
     {% url 'dashboard:login' as login_url %}
     <a class="skip-link" href="#mainContent">تجاوز إلى المحتوى الرئيسي</a>
+    <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
 
     <header id="header">
         <div class="container">
@@ -4016,6 +4672,7 @@
         <section class="hero">
             <div class="container">
                 <div class="hero-shell reveal">
+                    <div class="hero-aurora" aria-hidden="true"></div>
                     <div class="hero-grid">
                         <div class="hero-copy">
                             <div class="eyebrow">
@@ -4033,7 +4690,7 @@
                             </p>
 
                             <div class="hero-actions">
-                                <button type="button" class="btn" id="heroTrialCta" data-role="open-trial" data-plan="{{ landing_trial.name }}" data-period="{{ landing_trial.duration_label }}" data-price="{{ landing_trial.price|floatformat:'-2' }}">
+                                <button type="button" class="btn btn-gold" id="heroTrialCta" data-role="open-trial" data-plan="{{ landing_trial.name }}" data-period="{{ landing_trial.duration_label }}" data-price="{{ landing_trial.price|floatformat:'-2' }}">
                                     ابدأ التجربة المجانية
                                 </button>
                                 <button type="button" class="btn-outline" data-scroll="#demo-video">
@@ -4160,6 +4817,39 @@
                         <span><i class="fa-solid fa-shield-halved"></i> مصادقة ثنائية</span>
                         <span><i class="fa-solid fa-gift"></i> قوالب مناسبات</span>
                         <span><i class="fa-solid fa-display"></i> تشغيل متعدد الشاشات</span>
+                    </div>
+                </div>
+
+                <div class="lux-stats reveal" aria-label="ملخص التجربة والتشغيل">
+                    <div class="lux-stats-head">
+                        <div>
+                            <strong>بداية سريعة، وتشغيل يدوم طوال العام</strong>
+                            <p>لا حاجة إلى مشروع تقني ولا أجهزة خاصة — فقط حساب المدرسة والتلفاز الموجود لديك.</p>
+                        </div>
+                        <span class="lux-stats-badge"><i class="fa-solid fa-shield-halved"></i> بلا بطاقة بنكية</span>
+                    </div>
+
+                    <div class="lux-stats-grid">
+                        <div class="lux-stat">
+                            <div class="lux-stat-figure"><span data-count-to="{{ landing_trial.duration_days }}">{{ landing_trial.duration_days }}</span><small>يوماً</small></div>
+                            <strong>تجربة كاملة المزايا</strong>
+                            <span>كل ما في المنصة مفتوح أمامك من اللحظة الأولى.</span>
+                        </div>
+                        <div class="lux-stat">
+                            <div class="lux-stat-figure"><span data-count-to="5">5</span><small>شاشات</small></div>
+                            <strong>ضمن الباقة الواحدة</strong>
+                            <span>لكل شاشة محتواها المستقل من اللوحة نفسها.</span>
+                        </div>
+                        <div class="lux-stat">
+                            <div class="lux-stat-figure"><span data-count-to="3">3</span><small>خطوات</small></div>
+                            <strong>من التسجيل إلى العرض</strong>
+                            <span>أنشئ الحساب، أدخل البيانات، افتح رابط الشاشة.</span>
+                        </div>
+                        <div class="lux-stat">
+                            <div class="lux-stat-figure"><span dir="ltr">24/7</span></div>
+                            <strong>عرض لا يتوقف</strong>
+                            <span>تستمر الشاشة بآخر بيانات محفوظة عند ضعف الاتصال.</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -4695,7 +5385,7 @@
                         <p>أنشئ حساب التجربة، خصّص أول شاشة خلال دقائق، ثم أضف شاشات أخرى بمحتوى يناسب كل موقع عندما تحتاج.</p>
                     </div>
                     <div style="display:flex; gap:12px; flex-wrap:wrap;">
-                        <button type="button" class="btn" data-role="open-trial" data-plan="{{ landing_trial.name }}" data-period="{{ landing_trial.duration_label }}" data-price="{{ landing_trial.price|floatformat:'-2' }}">أنشئ تجربتك المجانية</button>
+                        <button type="button" class="btn btn-gold" data-role="open-trial" data-plan="{{ landing_trial.name }}" data-period="{{ landing_trial.duration_label }}" data-price="{{ landing_trial.price|floatformat:'-2' }}">أنشئ تجربتك المجانية</button>
                         <a class="btn-outline" href="https://wa.me/966537720207" target="_blank" rel="noreferrer">تواصل واتساب</a>
                     </div>
                 </div>
@@ -4925,6 +5615,9 @@
             });
         }
 
+        const scrollProgress = document.getElementById('scrollProgress');
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
         function updateScrollChrome() {
             if (window.scrollY > 24) {
                 header.classList.add('scrolled');
@@ -4935,6 +5628,50 @@
             if (mobileCta) {
                 mobileCta.classList.toggle('is-visible', window.scrollY > 520);
             }
+
+            if (scrollProgress) {
+                const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+                const ratio = scrollable > 0 ? Math.min(1, window.scrollY / scrollable) : 0;
+                scrollProgress.style.transform = 'scaleX(' + ratio + ')';
+            }
+        }
+
+        // Count the headline figures up once they scroll into view.
+        const counters = document.querySelectorAll('[data-count-to]');
+
+        function runCounter(element) {
+            const target = Number(element.dataset.countTo);
+            if (!Number.isFinite(target)) return;
+
+            if (prefersReducedMotion) {
+                element.textContent = String(target);
+                return;
+            }
+
+            const duration = 1100;
+            const started = performance.now();
+
+            function step(now) {
+                const progress = Math.min(1, (now - started) / duration);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                element.textContent = String(Math.round(target * eased));
+                if (progress < 1) requestAnimationFrame(step);
+            }
+
+            element.textContent = '0';
+            requestAnimationFrame(step);
+        }
+
+        if (counters.length && 'IntersectionObserver' in window) {
+            const counterObserver = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    counterObserver.unobserve(entry.target);
+                    runCounter(entry.target);
+                });
+            }, { threshold: 0.5 });
+
+            counters.forEach((counter) => counterObserver.observe(counter));
         }
 
         window.addEventListener('scroll', updateScrollChrome, { passive: true });

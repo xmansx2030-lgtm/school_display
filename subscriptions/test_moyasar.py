@@ -7,6 +7,8 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.core.checks import Warning as CheckWarning
+from django.core.checks import run_checks
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -42,6 +44,13 @@ from .utils import school_has_active_subscription
     MOYASAR_SECRET_KEY="sk_test_secret",
     MOYASAR_WEBHOOK_SECRET="webhook-test-secret",
     MOYASAR_CALLBACK_BASE_URL="https://school-display.com",
+    MOYASAR_APPLE_PAY_COUNTRY="SA",
+    MOYASAR_APPLE_PAY_LABEL="لوحة العرض الذكية",
+    MOYASAR_APPLE_PAY_VALIDATE_MERCHANT_URL="https://api.moyasar.com/v1/applepay/initiate",
+    MOYASAR_GOOGLE_PAY_MERCHANT_ID="test-merchant-id",
+    MOYASAR_GOOGLE_PAY_COUNTRY="SA",
+    MOYASAR_GOOGLE_PAY_LABEL="لوحة العرض الذكية",
+    MOYASAR_GOOGLE_PAY_ENVIRONMENT="TEST",
     MOYASAR_HTTP_TIMEOUT_SECONDS=5,
 )
 class MoyasarCheckoutTests(TestCase):
@@ -127,10 +136,9 @@ class MoyasarCheckoutTests(TestCase):
         self.assertNotContains(page, "sk_test_secret")
         self.assertContains(page, "بيئة اختبار")
 
-    def test_checkout_config_never_offers_a_wallet_without_its_config(self):
-        """Apple Pay in ``methods`` without an ``apple_pay`` block makes Moyasar
-        reject the whole form with "Form configuration issue!". The app ships no
-        wallet configuration, so the rendered config must not request one."""
+    def test_checkout_config_includes_all_supported_moyasar_methods(self):
+        """The checkout config should pass through all supported Moyasar methods
+        and include the Apple Pay configuration block when Apple Pay is enabled."""
         self.client.force_login(self.manager)
 
         start = self.client.post(
@@ -151,28 +159,52 @@ class MoyasarCheckoutTests(TestCase):
         blob = raw[raw.index(">", marker) + 1 : raw.index("</script>", marker)]
         config = json.loads(blob)
 
-        self.assertNotIn("applepay", config["methods"])
-        self.assertEqual(config["methods"], ["creditcard", "stcpay"])
+        self.assertEqual(config["methods"], ["creditcard", "applepay", "stcpay", "googlepay"])
+        self.assertEqual(
+            config["apple_pay"],
+            {
+                "country": "SA",
+                "label": "لوحة العرض الذكية",
+                "validate_merchant_url": "https://api.moyasar.com/v1/applepay/initiate",
+            },
+        )
+        self.assertEqual(
+            config["google_pay"],
+            {
+                "merchant_id": "test-merchant-id",
+                "country": "SA",
+                "label": "لوحة العرض الذكية",
+                "environment": "TEST",
+            },
+        )
         # Every field the form validates as always-required must be present.
         for required in ("amount", "currency", "description", "publishable_api_key", "callback_url"):
             self.assertTrue(config.get(required), f"missing required config: {required}")
         self.assertTrue(config["callback_url"].startswith("https://"))
 
-    def test_wallet_methods_are_treated_as_needing_config(self):
-        # The guard's contract: applepay is a wallet method (needs an extra
-        # config block) while creditcard and stcpay are not. Resolving any input
-        # that names applepay must drop it, never the whole form.
+    def test_wallet_methods_are_passed_through_for_moyasar(self):
+        # The checkout layer should keep all supported methods and add the
+        # extra Apple Pay config separately.
         from config import settings as settings_module
 
-        self.assertIn("applepay", settings_module._MOYASAR_WALLET_METHODS)
         resolved = [
             method
-            for method in ("creditcard", "applepay", "stcpay")
+            for method in ("creditcard", "applepay", "stcpay", "googlepay")
             if method in settings_module._MOYASAR_SUPPORTED_METHODS
-            and method not in settings_module._MOYASAR_WALLET_METHODS
         ] or ["creditcard"]
-        self.assertEqual(resolved, ["creditcard", "stcpay"])
-        self.assertNotIn("applepay", settings_module.MOYASAR_PAYMENT_METHODS)
+        self.assertEqual(resolved, ["creditcard", "applepay", "stcpay", "googlepay"])
+        self.assertEqual(settings_module.MOYASAR_PAYMENT_METHODS, ["creditcard", "applepay", "stcpay", "googlepay"])
+
+    @override_settings(
+        DEBUG=False,
+        RUNNING_TESTS=False,
+        MOYASAR_ENABLED=True,
+        MOYASAR_LIVE_MODE=True,
+        MOYASAR_GOOGLE_PAY_MERCHANT_ID="",
+    )
+    def test_deploy_checks_warn_when_google_pay_merchant_id_is_missing(self):
+        issues = run_checks(tags=["subscriptions"])
+        self.assertTrue(any(isinstance(issue, CheckWarning) and issue.id == "subscriptions.W003" for issue in issues))
 
     def test_start_is_blocked_until_the_email_is_verified(self):
         """An unverified address means the invoice may never reach the buyer."""

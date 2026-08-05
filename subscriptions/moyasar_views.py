@@ -236,6 +236,35 @@ def moyasar_checkout(request, reference: str):
             "plan_id": str(checkout.plan_id),
         },
     }
+    if "applepay" in config["methods"]:
+        config["apple_pay"] = {
+            "country": str(getattr(settings, "MOYASAR_APPLE_PAY_COUNTRY", "SA") or "SA").strip().upper() or "SA",
+            "label": str(getattr(settings, "MOYASAR_APPLE_PAY_LABEL", "لوحة العرض الذكية") or "لوحة العرض الذكية").strip()
+            or "لوحة العرض الذكية",
+            "validate_merchant_url": str(
+                getattr(
+                    settings,
+                    "MOYASAR_APPLE_PAY_VALIDATE_MERCHANT_URL",
+                    "https://api.moyasar.com/v1/applepay/initiate",
+                )
+                or "https://api.moyasar.com/v1/applepay/initiate"
+            ).strip().rstrip("/"),
+        }
+    if "googlepay" in config["methods"]:
+        google_pay_merchant_id = str(getattr(settings, "MOYASAR_GOOGLE_PAY_MERCHANT_ID", "") or "").strip()
+        if google_pay_merchant_id:
+            config["google_pay"] = {
+                "merchant_id": google_pay_merchant_id,
+                "country": str(getattr(settings, "MOYASAR_GOOGLE_PAY_COUNTRY", "SA") or "SA").strip().upper() or "SA",
+                "label": str(getattr(settings, "MOYASAR_GOOGLE_PAY_LABEL", "لوحة العرض الذكية") or "لوحة العرض الذكية").strip()
+                or "لوحة العرض الذكية",
+                "environment": str(
+                    getattr(settings, "MOYASAR_GOOGLE_PAY_ENVIRONMENT", "PRODUCTION") or "PRODUCTION"
+                ).strip().upper()
+                or "PRODUCTION",
+            }
+        else:
+            config["methods"] = [method for method in config["methods"] if method != "googlepay"]
     return render(
         request,
         "subscriptions/moyasar_checkout.html",

@@ -130,6 +130,16 @@
       if (v === "0" || v === "false" || v === "no") return false;
     } catch (e) {}
 
+    // The server already resolved lite mode from the User-Agent and rendered it
+    // into the body, so the heavy design never painted. Honour that decision
+    // instead of re-deciding it and flipping the attribute back to "0".
+    try {
+      var serverLite = document.body && document.body.dataset
+        ? String(document.body.dataset.lite || "").trim()
+        : "";
+      if (serverLite === "1") return true;
+    } catch (e) {}
+
     // ✅ كشف شاشات التلفاز الذكية بناءً على User Agent
     try {
       const ua = String(navigator.userAgent || "").toLowerCase();

@@ -39,6 +39,19 @@ def check_payment_configuration(app_configs, **kwargs):
                     id=f"{ID_PREFIX}.W001",
                 )
             )
+        if "googlepay" in list(getattr(settings, "MOYASAR_PAYMENT_METHODS", [])) and not str(
+            getattr(settings, "MOYASAR_GOOGLE_PAY_MERCHANT_ID", "") or ""
+        ).strip():
+            issues.append(
+                CheckWarning(
+                    "Moyasar is configured to offer Google Pay but the merchant ID is missing.",
+                    hint=(
+                        "Set MOYASAR_GOOGLE_PAY_MERCHANT_ID so the Moyasar form can render "
+                        "the Google Pay button in production."
+                    ),
+                    id=f"{ID_PREFIX}.W003",
+                )
+            )
         if not str(getattr(settings, "MOYASAR_WEBHOOK_SECRET", "") or ""):
             issues.append(
                 Error(

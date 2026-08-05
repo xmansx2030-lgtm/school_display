@@ -13,10 +13,10 @@
     <link rel="icon" type="image/png" sizes="1024x1024" href="/favicon.png?v=20260723-logo1">
     <link rel="apple-touch-icon" href="/favicon.png?v=20260723-logo1">
 
-    <!-- Fonts: IBM Plex Sans Arabic for modernity & readability -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Fonts: IBM Plex Sans Arabic, served from our own origin so a screen on a
+         slow or filtered school network never waits on fonts.googleapis.com to
+         paint. Regenerate with: python manage.py sync_display_font -->
+    <link rel="stylesheet" href="{% static 'css/fonts.css' %}?v=2026-08-05-perf1">
 
     <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-04-15b">
 
