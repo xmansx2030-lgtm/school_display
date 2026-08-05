@@ -263,3 +263,81 @@ class DisplayBoardStylesheetTests(SimpleTestCase):
             [],
             f"these classes render a fixed colour the theme cannot reach: {unthemed}",
         )
+
+
+class DisplayEndOfDayPanelTests(SimpleTestCase):
+    """Day-scoped panels must switch off once the school day is over.
+
+    Verified end to end in headless Chrome against a stubbed `after` snapshot:
+    with the previous bundle the honour board stayed VISIBLE and featuredEmpty
+    was "0"; it now reports HIDDEN and "1", alongside the standby card, the
+    period-classes card and the whole side column.
+
+    These assertions pin the source-level invariants behind that result, in the
+    same style as the other display.js guards in this suite — the project has no
+    JavaScript test runner, so the browser check is a manual step and these keep
+    the wiring from silently regressing.
+    """
+
+    def setUp(self):
+        self.js = (
+            Path(settings.BASE_DIR) / "static" / "js" / "display.js"
+        ).read_text(encoding="utf-8")
+
+    def _body(self, name):
+        """Return the source of a top-level `function name(...) { ... }`."""
+        start = self.js.index(f"function {name}(")
+        depth, i = 0, self.js.index("{", start)
+        for j in range(i, len(self.js)):
+            if self.js[j] == "{":
+                depth += 1
+            elif self.js[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    return self.js[start : j + 1]
+        raise AssertionError(f"could not delimit {name}")
+
+    def test_featured_panel_is_gated_on_day_over(self):
+        """The honour and duty boards were the only panels with no day-over gate."""
+        body = self._body("renderFeaturedPanel")
+
+        self.assertIn("rt.dayOver", body)
+        for flag in ("screenShowDuty", "screenShowExcellence"):
+            with self.subTest(flag=flag):
+                self.assertRegex(
+                    body,
+                    rf"!dayOver && screenFlag\(\"{flag}\"",
+                    f"{flag} must be combined with the day-over gate",
+                )
+
+    def test_featured_panel_renders_the_gated_lists(self):
+        """A hidden honour board must not keep its rotation interval running."""
+        body = self._body("renderFeaturedPanel")
+
+        self.assertIn("renderDuty({ items: dutyRaw })", body)
+        self.assertIn("renderExcellence(excellenceRaw)", body)
+
+    def test_standby_and_period_lists_clear_when_the_day_is_over(self):
+        for name in ("renderStandby", "renderPeriodClasses"):
+            with self.subTest(function=name):
+                self.assertIn("if (rt.dayOver) arr = [];", self._body(name))
+
+    def test_day_over_transition_clears_every_day_scoped_panel(self):
+        """The local clock, not the next poll, must clear the board.
+
+        dayEngineApplyDayOver fires the moment the last block ends. Without
+        these calls the board kept showing standby rows and the honour board
+        until the next payload — up to a full out-of-hours poll interval.
+        """
+        body = self._body("dayEngineApplyDayOver")
+
+        for call in ("renderPeriodClasses([])", "renderStandby([])", "renderFeaturedPanel("):
+            with self.subTest(call=call):
+                self.assertIn(call, body)
+
+    def test_day_over_excludes_states_where_the_day_has_not_finished(self):
+        """`holiday` and `before_hours` are not "the day ended"."""
+        body = self._body("computeDayOver")
+
+        self.assertIn('if (stType === "holiday" || stateReason === "holiday" || stateReason === "before_hours") return false;', body)
+        self.assertIn('if (stType === "off" || stType === "after" || stateReason === "after_hours") return true;', body)

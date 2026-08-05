@@ -2327,7 +2327,13 @@
     lastZeroHandledCoreSig = lastStateCoreSig;
     try { renderCurrentChips("after", { label: afterCopy.title, from: null, to: null }, null); } catch (e) {}
     try { renderNextLabel(null); } catch (e) {}
+    // Clear every day-scoped panel at the moment the day ends, not on the next
+    // payload. This path fires from the local clock, so without it the board
+    // could keep showing standby rows and the honour board for minutes after
+    // the last bell — up to a full poll interval out of hours.
     try { renderPeriodClasses([]); } catch (e) {}
+    try { renderStandby([]); } catch (e) {}
+    try { renderFeaturedPanel(lastPayloadForFiltering); } catch (e) {}
     return true;
   }
 
@@ -5059,8 +5065,16 @@
   // ===== Featured panel toggle =====
   function renderFeaturedPanel(snap) {
     const s = (snap && snap.settings) || {};
-    const showDutyPanel = screenFlag("screenShowDuty", true);
-    const showExcellencePanel = screenFlag("screenShowExcellence", true);
+    // Once the school day is over, the honour board and the duty/supervision
+    // board describe a day that has finished. The standby and period lists
+    // already empty themselves on rt.dayOver; these two never did, so they were
+    // the only panels still lit on an out-of-hours screen. Treating day-over
+    // like the per-screen flags being off keeps the adaptive layout in charge:
+    // featuredEmpty flips to "1" and the board falls back to its ambient mode
+    // instead of leaving a hole where the card used to be.
+    const dayOver = !!(rt && rt.dayOver);
+    const showDutyPanel = !dayOver && screenFlag("screenShowDuty", true);
+    const showExcellencePanel = !dayOver && screenFlag("screenShowExcellence", true);
     let mode = safeText(screenSetting("screenFeaturedPanel", "") || s.featured_panel || "excellence");
     if (mode === "duty" && !showDutyPanel && showExcellencePanel) mode = "excellence";
     if (mode !== "duty" && !showExcellencePanel && showDutyPanel) mode = "duty";
@@ -5090,10 +5104,13 @@
     toggleHidden(dom.exCard, showDuty || !hasFeatured);
     toggleHidden(dom.dutyCard, !showDuty || !hasFeatured);
 
+    // Feed the already-gated lists rather than the raw payload: a hidden
+    // honour board would otherwise keep its rotation interval running all
+    // night against a card nobody can see.
     if (showDuty) {
-      renderDuty(snap.duty || { items: [] });
+      renderDuty({ items: dutyRaw });
     } else {
-      renderExcellence(snap.excellence || []);
+      renderExcellence(excellenceRaw);
     }
     refreshAdaptiveLayout();
   }
