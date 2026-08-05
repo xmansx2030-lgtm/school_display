@@ -245,7 +245,54 @@ class RootAssetTests(SimpleTestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response["Content-Type"], "application/javascript; charset=utf-8")
                 self.assertIn(b"self.addEventListener", response.content)
-                self.assertIn(b"school-display-runtime-v5", response.content)
+                # Match the release constant rather than a literal cache name, so
+                # bumping the version does not require editing this assertion.
+                self.assertRegex(
+                    response.content.decode("utf-8"),
+                    r"const RELEASE = '(v\d+)'",
+                )
+
+    def test_service_worker_respects_asset_versioning(self):
+        """A `?v=` bump must reach the screen.
+
+        The worker previously matched cached assets with `{ignoreSearch: true}`,
+        so a new release resolved to the previously cached file and screens ran
+        the old bundle indefinitely. Version-agnostic lookup is now allowed in
+        exactly one place: the offline fallback inside `handleAsset`'s catch.
+        """
+        source = self.client.get(reverse("sw_js")).content.decode("utf-8")
+
+        offline_branch = source.split("} catch (offline) {", 1)
+        self.assertEqual(len(offline_branch), 2, "handleAsset lost its offline fallback branch")
+
+        online_path = offline_branch[0]
+        self.assertNotIn(
+            "ignoreSearch",
+            online_path,
+            "the online asset path must key the cache on the full URL, query string included",
+        )
+        self.assertIn("ignoreSearch", offline_branch[1])
+
+    def test_service_worker_precaches_the_bundle_the_page_actually_loads(self):
+        """The shell list must track what display.html links.
+
+        It used to precache `display.js` while the page loaded `display.min.js`,
+        so every screen downloaded 296 KB it never executed and the bundle it did
+        execute was never available offline.
+        """
+        source = self.client.get(reverse("sw_js")).content.decode("utf-8")
+        shell = source.split("const SHELL_ASSETS = [", 1)[1].split("]", 1)[0]
+        display_template = (
+            Path(settings.BASE_DIR) / "templates" / "website" / "display.html"
+        ).read_text(encoding="utf-8")
+
+        for asset in re.findall(r"'(/static/[^']+)'", shell):
+            with self.subTest(asset=asset):
+                self.assertIn(
+                    asset.removeprefix("/static/"),
+                    display_template,
+                    f"{asset} is precached but no longer linked by the display page",
+                )
 
     def test_display_shell_contains_scheduled_occasion_theme_runtime(self):
         display_template = (

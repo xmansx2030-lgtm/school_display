@@ -58,6 +58,18 @@ services:
   web:
     <<: *django
     mem_limit: ${WEB_MEMORY_LIMIT:-1024m}
+    # Deliberately no --max-requests / --max-requests-jitter here.
+    #
+    # Worker recycling is a request-counted safety net designed for synchronous
+    # HTTP workers. This is an ASGI worker that also holds every display screen's
+    # WebSocket: recycling closes all of them at once, and each screen then
+    # reconnects on a 5-90s backoff (see _wsReconnectDelaySec in display.js) and
+    # falls back to slow polling in the meantime. Because the screens themselves
+    # generate the request count, the recycle fires on a schedule set by fleet
+    # size — the more screens, the more often every screen goes stale.
+    #
+    # Memory is bounded by mem_limit above plus `restart: unless-stopped`, which
+    # is the right backstop for a process holding long-lived connections.
     command: >-
       sh -c "python manage.py migrate --noinput &&
       python manage.py collectstatic --noinput &&
@@ -67,8 +79,7 @@ services:
       --workers=$${WEB_CONCURRENCY:-2}
       --timeout=120
       --keep-alive=5
-      --max-requests=5000
-      --max-requests-jitter=500
+      --graceful-timeout=30
       --error-logfile=-"
     volumes:
       - static-data:/app/staticfiles

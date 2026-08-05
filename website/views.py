@@ -239,6 +239,44 @@ def _abs_media_url(request, maybe_url: str | None) -> str | None:
         return s
 
 
+# Smart-TV and set-top browsers, matched against the User-Agent. Kept in sync
+# with the client-side list in ``static/js/display.js`` (``isLiteMode``).
+_LITE_MODE_USER_AGENTS = (
+    "smarttv", "hbbtv", "tizen", "web0s", "webos", "netcast", "viera", "nettv",
+    "philipstv", "googletv", "crkey", "firetv", "aftm", "aftt", "roku", "vidaa",
+    "saphi", "bravia", "mitv", "android tv",
+)
+
+
+def _display_lite_mode(request) -> str:
+    """Decide the board's lite mode before the first byte of HTML is sent.
+
+    ``display.js`` can work this out on its own, but only once a deferred 132 KB
+    bundle has parsed and DOMContentLoaded has fired — by which time the screen
+    has usually painted the full design once, blurred orbs and all, and then
+    thrown it away. Resolving it here means a TV never renders the heavy frame
+    at all.
+
+    Returns ``"1"``/``"0"`` when the answer is known server-side, or ``""`` to
+    leave the decision to the client's hardware heuristics (core count, device
+    memory), which are not visible from here.
+    """
+    override = (request.GET.get("lite") or request.GET.get("liteMode") or "").strip().lower()
+    if override in {"1", "true", "yes"}:
+        return "1"
+    if override in {"0", "false", "no"}:
+        return "0"
+
+    try:
+        user_agent = str(request.META.get("HTTP_USER_AGENT", "") or "").lower()
+    except Exception:
+        return ""
+    if not user_agent:
+        return ""
+
+    return "1" if any(marker in user_agent for marker in _LITE_MODE_USER_AGENTS) else ""
+
+
 def _resolve_screen_and_settings(
     key: str | None,
 ) -> tuple[DisplayScreen | None, SchoolSettings | None, str | None]:
@@ -515,7 +553,9 @@ def home(request):
                 "landing_trial": landing_trial,
             },
         )
-    return render(request, "website/display.html", ctx)
+    # Never fold this into ``ctx``: that dict is cached per token+revision, while
+    # lite mode depends on the requesting device.
+    return render(request, "website/display.html", {**ctx, "lite_mode": _display_lite_mode(request)})
 
 
 def subscriptions(request):
@@ -684,7 +724,8 @@ def display_view(request, screen_key: str):
             status=402,
         )
 
-    return render(request, "website/display.html", ctx)
+    # See ``home``: lite mode is per-device, so it stays out of the cached ctx.
+    return render(request, "website/display.html", {**ctx, "lite_mode": _display_lite_mode(request)})
 
 
 @never_cache
