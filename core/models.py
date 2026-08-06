@@ -7,6 +7,14 @@ import secrets
 import uuid
 
 from .occasions import screen_choices as occasion_screen_choices
+from .screen_diagnostics import (
+    CAUSE_CHOICES as SCREEN_OUTAGE_CAUSE_CHOICES,
+    CAUSE_UNKNOWN as SCREEN_OUTAGE_CAUSE_UNKNOWN,
+    CONFIDENCE_CHOICES as SCREEN_OUTAGE_CONFIDENCE_CHOICES,
+    CONFIDENCE_LIKELY as SCREEN_OUTAGE_CONFIDENCE_LIKELY,
+    SCOPE_CHOICES as SCREEN_OUTAGE_SCOPE_CHOICES,
+    SCOPE_SCREEN as SCREEN_OUTAGE_SCOPE_SCREEN,
+)
 from .system_access import ROLE_CHOICES
 
 
@@ -304,6 +312,11 @@ class DisplayScreen(models.Model):
         default=False,
         verbose_name="موقوف تلقائياً بسبب الحد",
     )
+    monitor_always_on = models.BooleanField(
+        "مراقبة على مدار الساعة",
+        default=False,
+        help_text="فعّله للشاشات التي يُفترض بقاؤها تعمل خارج أوقات الدوام أيضًا.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     last_seen = models.DateTimeField(
         null=True,
@@ -433,6 +446,35 @@ class ScreenOutage(models.Model):
     last_seen_at = models.DateTimeField("آخر ظهور قبل التعطل", null=True, blank=True)
     alert_sent_at = models.DateTimeField("وقت إرسال التنبيه", null=True, blank=True)
     resolved_at = models.DateTimeField("وقت عودة الاتصال", null=True, blank=True)
+    cause = models.CharField(
+        "السبب",
+        max_length=32,
+        choices=SCREEN_OUTAGE_CAUSE_CHOICES,
+        default=SCREEN_OUTAGE_CAUSE_UNKNOWN,
+    )
+    cause_detail = models.CharField("تفاصيل السبب", max_length=255, blank=True, default="")
+    cause_confidence = models.CharField(
+        "درجة الثقة",
+        max_length=12,
+        choices=SCREEN_OUTAGE_CONFIDENCE_CHOICES,
+        default=SCREEN_OUTAGE_CONFIDENCE_LIKELY,
+    )
+    scope = models.CharField(
+        "نطاق العطل",
+        max_length=16,
+        choices=SCREEN_OUTAGE_SCOPE_CHOICES,
+        default=SCREEN_OUTAGE_SCOPE_SCREEN,
+    )
+    close_code = models.IntegerField("رمز إغلاق الاتصال", null=True, blank=True)
+    suppressed_reason = models.CharField(
+        "سبب عدم الإرسال",
+        max_length=32,
+        blank=True,
+        default="",
+        help_text="يُسجَّل العطل دائمًا للتقارير حتى لو لم يُرسل عنه تنبيه.",
+    )
+    recovery_notified_at = models.DateTimeField("وقت إشعار عودة الاتصال", null=True, blank=True)
+    alert_count = models.PositiveSmallIntegerField("عدد التنبيهات المرسلة", default=0)
 
     class Meta:
         verbose_name = "تعطل شاشة"
@@ -441,6 +483,8 @@ class ScreenOutage(models.Model):
         indexes = [
             models.Index(fields=("screen", "resolved_at"), name="screen_outage_open_idx"),
             models.Index(fields=("detected_at",), name="screen_outage_detect_idx"),
+            # Powers the per-screen cooldown and daily-cap lookups on every scan.
+            models.Index(fields=("screen", "alert_sent_at"), name="screen_outage_alert_idx"),
         ]
 
     def __str__(self):

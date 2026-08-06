@@ -415,6 +415,31 @@
                                     {{ form.screen_offline_email_enabled }}
                                     <span><strong class="block text-sm text-slate-800">{{ form.screen_offline_email_enabled.label }}</strong><small class="text-xs text-slate-500">يرسل إلى عناوين البريد المسجلة لمدراء المدرسة.</small></span>
                                 </label>
+                                <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                                    {{ form.screen_offline_school_hours_only }}
+                                    <span><strong class="block text-sm text-slate-800">{{ form.screen_offline_school_hours_only.label }}</strong><small class="text-xs text-slate-500">{{ form.screen_offline_school_hours_only.help_text }}</small></span>
+                                </label>
+                                <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
+                                    {{ form.screen_recovery_notice_enabled }}
+                                    <span><strong class="block text-sm text-slate-800">{{ form.screen_recovery_notice_enabled.label }}</strong><small class="text-xs text-slate-500">{{ form.screen_recovery_notice_enabled.help_text }}</small></span>
+                                </label>
+                                <div>
+                                    <label for="{{ form.screen_offline_grace_minutes.id_for_label }}" class="block mb-2 text-sm font-bold text-slate-700">{{ form.screen_offline_grace_minutes.label }}</label>
+                                    {{ form.screen_offline_grace_minutes }}
+                                    <p class="mt-2 text-xs text-slate-400 font-medium leading-relaxed">{{ form.screen_offline_grace_minutes.help_text }}</p>
+                                    {% if form.screen_offline_grace_minutes.errors %}<div class="settings-field-error">{{ form.screen_offline_grace_minutes.errors }}</div>{% endif %}
+                                </div>
+                                <div>
+                                    <label for="{{ form.screen_offline_cooldown_minutes.id_for_label }}" class="block mb-2 text-sm font-bold text-slate-700">{{ form.screen_offline_cooldown_minutes.label }}</label>
+                                    {{ form.screen_offline_cooldown_minutes }}
+                                    <p class="mt-2 text-xs text-slate-400 font-medium leading-relaxed">{{ form.screen_offline_cooldown_minutes.help_text }}</p>
+                                    {% if form.screen_offline_cooldown_minutes.errors %}<div class="settings-field-error">{{ form.screen_offline_cooldown_minutes.errors }}</div>{% endif %}
+                                </div>
+                                <div>
+                                    <label for="{{ form.screen_offline_max_alerts_per_day.id_for_label }}" class="block mb-2 text-sm font-bold text-slate-700">{{ form.screen_offline_max_alerts_per_day.label }}</label>
+                                    {{ form.screen_offline_max_alerts_per_day }}
+                                    {% if form.screen_offline_max_alerts_per_day.errors %}<div class="settings-field-error">{{ form.screen_offline_max_alerts_per_day.errors }}</div>{% endif %}
+                                </div>
                             </div>
                         </div>
                         {% endif %}

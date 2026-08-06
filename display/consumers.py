@@ -39,6 +39,7 @@ from display.ws_cluster_metrics import register_disconnect as ws_cluster_registe
 from display.ws_groups import school_group_name, token_group_name
 from display.ws_metrics import ws_metrics
 from core.display_presence import touch_display_presence
+from core.screen_diagnostics import record_disconnect_signal
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +328,15 @@ class DisplayConsumer(AsyncWebsocketConsumer):
                     cache.set(school_ws_key, 0, timeout=86400)
             except Exception:
                 pass
+
+        # Remember how this connection ended so the offline monitor can name a
+        # cause instead of guessing (see core.screen_diagnostics).
+        if self.screen and getattr(self.screen, "pk", None):
+            record_disconnect_signal(
+                int(self.screen.pk),
+                source="ws_close",
+                code=close_code,
+            )
 
         # Track disconnection
         ws_metrics.connection_closed(close_code)

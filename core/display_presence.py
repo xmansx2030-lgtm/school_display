@@ -123,6 +123,56 @@ def latest_display_presence(screen) -> datetime | None:
     return db_seen
 
 
+def presence_map(screens: Iterable) -> dict[int, datetime | None]:
+    """Batch version of :func:`latest_display_presence` for monitoring scans.
+
+    The monitor walks every screen on every pass, so one cache round-trip per
+    screen would dominate the scan. ``get_many`` keeps it to a single call.
+    """
+    screens = list(screens)
+    keys: dict[str, int] = {}
+    for screen in screens:
+        try:
+            keys[_presence_key(int(screen.pk), getattr(screen, "token", None))] = int(screen.pk)
+        except (TypeError, ValueError):
+            continue
+
+    cached: dict[str, object] = {}
+    if keys:
+        try:
+            cached = cache.get_many(list(keys.keys())) or {}
+        except Exception:
+            cached = {}
+
+    tz = timezone.get_current_timezone()
+    cache_seen: dict[int, datetime] = {}
+    for key, raw in cached.items():
+        screen_id = keys.get(key)
+        if screen_id is None or raw is None:
+            continue
+        try:
+            cache_seen[screen_id] = datetime.fromtimestamp(float(raw), tz=tz)
+        except (TypeError, ValueError, OSError, OverflowError):
+            continue
+
+    out: dict[int, datetime | None] = {}
+    for screen in screens:
+        try:
+            screen_id = int(screen.pk)
+        except (TypeError, ValueError):
+            continue
+        db_seen = None
+        for field_name in ("last_seen", "last_seen_at"):
+            value = getattr(screen, field_name, None)
+            if value is not None and (db_seen is None or value > db_seen):
+                db_seen = value
+        seen = cache_seen.get(screen_id)
+        if seen is None or (db_seen is not None and db_seen > seen):
+            seen = db_seen
+        out[screen_id] = seen
+    return out
+
+
 def display_is_live(screen, *, now: datetime | None = None, require_bound: bool = True) -> bool:
     if not bool(getattr(screen, "is_active", False)):
         return False

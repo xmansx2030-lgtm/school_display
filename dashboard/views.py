@@ -667,6 +667,11 @@ def school_settings(request):
             "screen_offline_alerts_enabled",
             "screen_offline_threshold_minutes",
             "screen_offline_email_enabled",
+            "screen_offline_school_hours_only",
+            "screen_offline_grace_minutes",
+            "screen_offline_cooldown_minutes",
+            "screen_offline_max_alerts_per_day",
+            "screen_recovery_notice_enabled",
         }
         contact_fields = {"email", "mobile"}
         if error_fields & contact_fields:

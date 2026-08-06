@@ -4,7 +4,8 @@ from __future__ import annotations
 from django.contrib import admin
 from django.utils import timezone
 
-from .models import School, DisplayScreen, UserProfile
+from .models import School, DisplayScreen, ScreenOutage, UserProfile
+from .screen_monitoring import SUPPRESSION_LABELS
 
 
 class SchoolScopedAdmin(admin.ModelAdmin):
@@ -124,3 +125,41 @@ class DisplayScreenAdmin(SchoolScopedAdmin):
             return timezone.localtime(val).strftime("%Y-%m-%d %H:%M:%S")
         except Exception:
             return str(val)
+
+
+@admin.register(ScreenOutage)
+class ScreenOutageAdmin(SchoolScopedAdmin):
+    """Read-only outage log.
+
+    Every outage is recorded, including the ones deliberately kept silent
+    (after hours, inside a cooldown, during a platform incident). This view is
+    where "why didn't I get a message?" gets an answer.
+    """
+
+    list_display = (
+        "screen",
+        "detected_at",
+        "cause",
+        "cause_confidence",
+        "scope",
+        "alert_state",
+        "resolved_at",
+    )
+    list_filter = ("cause", "scope", "suppressed_reason", "screen__school")
+    search_fields = ("screen__name", "cause_detail")
+    list_select_related = ("screen", "screen__school")
+    date_hierarchy = "detected_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def get_readonly_fields(self, request, obj=None):
+        return tuple(field.name for field in ScreenOutage._meta.fields)
+
+    @admin.display(description="حالة التنبيه")
+    def alert_state(self, obj):
+        if obj.alert_sent_at:
+            return f"أُرسل ({obj.alert_count})"
+        if obj.suppressed_reason:
+            return SUPPRESSION_LABELS.get(obj.suppressed_reason, obj.suppressed_reason)
+        return "—"

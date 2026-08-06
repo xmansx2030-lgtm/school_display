@@ -237,7 +237,7 @@ class DisplayTokenMiddleware:
     API_PREFIX = "/api/display/"
     TOKEN_RE = re.compile(r"^(?:[0-9a-fA-F]{32}|[0-9a-fA-F]{64})$")
     TOKEN_PATH_RE = re.compile(
-        r"^/api/display/(?:snapshot|today|live|status)/(?P<token>[0-9a-fA-F]{32}|[0-9a-fA-F]{64})/?$"
+        r"^/api/display/(?:snapshot|today|live|status|goodbye)/(?P<token>[0-9a-fA-F]{32}|[0-9a-fA-F]{64})/?$"
     )
 
     # مسارات لا تتطلب توكن (اختياري)
@@ -299,6 +299,11 @@ class DisplayTokenMiddleware:
             or path.startswith("/api/display/today/")
             or path == "/api/display/live/"
             or path.startswith("/api/display/live/")
+            # The farewell beacon comes from the television itself on teardown:
+            # the token is its identity, and re-running the device-binding dance
+            # (or attaching Set-Cookie) on a dying page would only lose the hint.
+            or path == "/api/display/goodbye/"
+            or path.startswith("/api/display/goodbye/")
         )
 
         if not path.startswith(self.API_PREFIX):

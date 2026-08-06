@@ -20,6 +20,10 @@ urlpatterns = [
     path("live/", api_views.snapshot, name="live"),
     path("live/<str:token>/", api_views.snapshot, name="live_token"),
 
+    # Farewell beacon — lets an outage alert name its cause
+    path("goodbye/", api_views.goodbye, name="goodbye"),
+    path("goodbye/<str:token>/", api_views.goodbye, name="goodbye_token"),
+
     # Health (keep original if simple)
     path("ping/", api_views.ping, name="ping"),
 
