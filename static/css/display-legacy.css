@@ -1,0 +1,492 @@
+/* Legacy fallbacks for the display board — GENERATED FILE, do not edit.
+ *
+ * Regenerate with:  python manage.py build_legacy_css
+ *
+ * Every block here sits behind `@supports not (…)`, so browsers that implement
+ * the feature apply none of it. Load this file *after* display-board.css.
+ *
+ * Why it exists: display.js is deliberately built for Chrome 49+ so it runs on
+ * Samsung Tizen 3.0/4.0 (Chrome 56) and LG webOS 4 (Chrome 53). The stylesheet
+ * was not — clamp(), color-mix(), grid and flex gap all arrived later, and none
+ * of them had a fallback, so the very panels the JS supported rendered a broken
+ * board.
+ *
+ * Values for viewport units are evaluated against the 1920x1080 design canvas
+ * the board is drawn on and then scaled by #fitStage, so they keep the intended
+ * proportions on any panel size.
+ */
+
+
+/* ---------------------------------------------------------------------------
+ * clamp() -> px (Chrome 79)
+ * ------------------------------------------------------------------------ */
+@supports not (font-size: clamp(1px, 2px, 3px)) {
+  .emergency-symbol {
+    font-size: 192px;
+  }
+
+  #emergencyTitle {
+    font-size: 128px;
+  }
+
+  #emergencyMessage {
+    font-size: 67.2px;
+  }
+
+  #emergencyKind {
+    font-size: 35.2px;
+  }
+
+  #occasionHeroTitle {
+    font-size: 118.4px;
+  }
+
+  #occasionHeroBody {
+    font-size: 36px;
+  }
+
+  #occasionHeroIcon {
+    font-size: 172.8px;
+  }
+
+  #occasionHero[data-mark-text="1"] #occasionHeroIcon {
+    font-size: 134.4px;
+  }
+
+  #clock {
+    font-size: 60px;
+  }
+
+  #heroTitle {
+    font-size: 64px;
+  }
+
+  h2, h3 {
+    font-size: 32px;
+  }
+
+  #pcCount, #sbCount {
+    font-size: 22.4px;
+  }
+
+  .slot-item {
+    font-size: 32px;
+  }
+
+  .honor-name {
+    font-size: 35.2px;
+  }
+
+  .honor-reason {
+    font-size: 24px;
+  }
+
+  #heroTitle {
+    font-size: 64px !important;
+  }
+
+  #countdown {
+    font-size: 32px !important;
+  }
+
+  #heroRange {
+    font-size: 19.2px !important;
+  }
+
+  #currentScheduleList {
+    font-size: 20.8px !important;
+  }
+
+  main .glass-panel.rounded-3xl.flex-1 > .relative.z-10 {
+    padding: 40px !important;
+    gap: 24px !important;
+  }
+
+  #pcCount, #sbCount {
+    font-size: 22.4px;
+  }
+
+  .header-shell {
+    gap: 19.2px;
+  }
+
+  #schoolName {
+    font-size: 48px !important;
+  }
+
+  .header-clock {
+    min-width: 288px;
+    padding-inline-start: 16px !important;
+  }
+
+  .header-clock #clock {
+    font-size: 53.6px !important;
+  }
+
+  #heroRange {
+    font-size: 18.4px !important;
+  }
+
+  #exCard {
+    min-height: 280.8px;
+  }
+
+  #exCard .honor-side {
+    width: 300px !important;
+    padding: 24px;
+  }
+
+  #exCard .honor-title {
+    font-size: 24.8px;
+  }
+
+  #exCard .honor-subtitle {
+    font-size: 15.2px;
+  }
+
+  #exSlot {
+    padding: 20px !important;
+  }
+
+  .honor-wrap {
+    gap: 20.8px;
+  }
+
+  .honor-name {
+    font-size: 23.2px;
+  }
+
+  .honor-reason {
+    font-size: 16px;
+  }
+
+  #alertTitle {
+    font-size: 19.2px !important;
+  }
+
+  #alertDetails {
+    font-size: 18.9px !important;
+  }
+
+  .hero-card > .relative.z-10 {
+    padding: 46.1px !important;
+  }
+
+  #heroTitle {
+    font-size: 81.6px !important;
+  }
+
+  .hero-empty-message {
+    font-size: 20.8px;
+  }
+
+  body[data-layout-mode="ambient"] #heroCard > .relative.z-10 {
+    padding-inline: 134.4px !important;
+  }
+
+  body[data-layout-mode="ambient"] #heroTitle {
+    font-size: 112px !important;
+  }
+
+  .binding-blocker__body {
+    gap: 64px;
+    padding: 56px;
+  }
+
+  .binding-blocker__title {
+    font-size: 68px;
+  }
+
+  .binding-blocker__details {
+    font-size: 20px;
+  }
+
+  .binding-blocker__guide {
+    padding: 32px;
+  }
+
+  .binding-blocker__guide h3 {
+    font-size: 24.8px;
+  }
+
+  @media (max-width: 1200px), (max-height: 720px) {
+    #occasionHeroTitle {
+      font-size: 88px;
+    }
+
+    #occasionHeroBody {
+      font-size: 28.8px;
+    }
+  }
+
+  @media (max-width: 1366px), (max-height: 768px) {
+    #schoolName {
+      font-size: 35.2px !important;
+    }
+
+    .header-clock {
+      min-width: 240px;
+    }
+
+    .header-clock #clock {
+      font-size: 40.8px !important;
+    }
+
+    #heroTitle {
+      font-size: 48px !important;
+    }
+
+    .slot-item {
+      font-size: 21.6px !important;
+    }
+
+    #heroTitle {
+      font-size: 68px !important;
+    }
+
+    body[data-layout-mode="ambient"] #heroTitle {
+      font-size: 92.8px !important;
+    }
+  }
+}
+
+
+/* ---------------------------------------------------------------------------
+ * color-mix() -> base colour (Chrome 111)
+ * ------------------------------------------------------------------------ */
+@supports not (color: color-mix(in srgb, red, blue)) {
+  body[data-occasion-theme] #fitRoot {
+    background: radial-gradient(circle at 12% 5%, var(--occasion-highlight), transparent 30%),
+          radial-gradient(circle at 88% 92%, var(--occasion-accent), transparent 42%),
+          linear-gradient(145deg, var(--occasion-deep), var(--occasion-deep));
+  }
+
+  body[data-occasion-theme] .bg-mesh {
+    background-image: radial-gradient(circle at 50% 0%, var(--occasion-accent), transparent 58%),
+          radial-gradient(circle at 10% 100%, var(--occasion-highlight), transparent 45%);
+  }
+
+  body[data-occasion-theme] .glass-panel {
+    border-color: var(--occasion-highlight) !important;
+  }
+
+  body[data-occasion-theme] #heroCard {
+    box-shadow: 0 28px 80px rgba(0,0,0,.34),
+          0 0 0 1px var(--occasion-highlight),
+          0 0 70px var(--occasion-glow);
+  }
+
+  #occasionThemeBadge {
+    border: 1px solid var(--occasion-highlight);
+    background: var(--occasion-deep);
+  }
+
+  .occasion-hero {
+    background: radial-gradient(circle at 12% 14%, var(--occasion-highlight), transparent 32%),
+          radial-gradient(circle at 86% 82%, var(--occasion-accent), transparent 42%),
+          linear-gradient(135deg, var(--occasion-deep), var(--occasion-deep));
+  }
+
+  .occasion-hero::before {
+    border: 1px solid var(--occasion-highlight);
+  }
+
+  .occasion-hero::after {
+    border: 1px solid var(--occasion-highlight);
+    box-shadow: 0 0 0 5rem var(--occasion-accent);
+  }
+
+  .occasion-hero__eyebrow {
+    border: 1px solid var(--occasion-highlight);
+    background: var(--occasion-deep);
+  }
+
+  .occasion-hero__eyebrow-dot {
+    box-shadow: 0 0 18px var(--occasion-highlight);
+  }
+
+  #occasionHeroBody {
+    color: var(--occasion-soft);
+  }
+
+  .occasion-hero__mark {
+    border: 1px solid var(--occasion-highlight);
+    background: radial-gradient(circle, var(--occasion-accent), transparent 68%),
+          var(--occasion-deep);
+    box-shadow: inset 0 0 0 1.4rem var(--occasion-highlight),
+          0 30px 80px var(--occasion-glow);
+  }
+
+  .occasion-hero__mark::before, .occasion-hero__mark::after {
+    border: 1px dashed var(--occasion-highlight);
+  }
+
+  .binding-blocker__status {
+    border: 1px solid var(--blocker-accent);
+    color: var(--blocker-accent);
+  }
+
+  .binding-blocker__device--current {
+    border-color: var(--blocker-accent);
+  }
+
+  .binding-blocker__connection strong {
+    border: 1px solid var(--blocker-accent);
+  }
+
+  .binding-blocker__eyebrow {
+    color: var(--blocker-accent);
+  }
+
+  .binding-blocker__step span {
+    border: 1px solid var(--blocker-accent);
+    color: var(--blocker-accent);
+  }
+
+  .binding-blocker__retry {
+    border: 1px solid var(--blocker-accent);
+    background: var(--blocker-accent);
+  }
+
+  .binding-blocker__retry:hover, .binding-blocker__retry:focus-visible {
+    border-color: var(--blocker-accent);
+    background: var(--blocker-accent);
+  }
+}
+
+
+/* ---------------------------------------------------------------------------
+ * Layout: CSS grid -> flexbox            (grid landed in Chrome 57)
+ * ------------------------------------------------------------------------ */
+@supports not (display: grid) {
+  /* The board shell is Tailwind's `grid grid-cols-12 gap-5`; without grid the
+     column spans are ignored and both sections stack full width. */
+  main.grid {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  #boardMainColumn {
+    flex: 0 0 66.4%;
+    max-width: 66.4%;
+  }
+
+  #boardSideColumn {
+    flex: 0 0 32.6%;
+    max-width: 32.6%;
+    margin-inline-start: 1%;
+  }
+
+  /* Two-column card interiors. */
+  .header-shell,
+  .honor-wrap,
+  .occasion-hero,
+  .binding-blocker__body,
+  .binding-blocker__step {
+    display: flex !important;
+    align-items: center;
+  }
+
+  .header-shell {
+    justify-content: space-between;
+  }
+
+  .honor-wrap > :last-child,
+  .occasion-hero > :last-child,
+  .binding-blocker__body > :last-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .binding-blocker__step {
+    align-items: flex-start;
+  }
+
+  .binding-blocker__step > :last-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .binding-blocker__steps {
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  /* `place-items: center` containers. */
+  .occasion-hero__mark,
+  .board-empty-state,
+  .board-empty-state::before,
+  .binding-blocker__brand-mark,
+  .binding-blocker__device,
+  .binding-blocker__connection strong,
+  .binding-blocker__step span {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Spacing: flex `gap` -> margins         (flex gap landed in Chrome 84)
+ * ---------------------------------------------------------------------------
+ * `@supports (gap: 1px)` is true from Chrome 57 because grid accepted the
+ * property first, so this cannot be feature-queried. display.js measures a
+ * probe element and sets data-nogap; see supportsFlexGap().
+ * ------------------------------------------------------------------------ */
+body[data-nogap="1"] #boardMainColumn > * + *,
+body[data-nogap="1"] #boardSideColumn > * + * {
+  margin-block-start: 1.25rem;
+}
+
+body[data-nogap="1"] .slot-item + .slot-item,
+body[data-nogap="1"] .duty-item + .duty-item {
+  margin-block-start: 0.5rem;
+}
+
+body[data-nogap="1"] #standbyTrack > * + *,
+body[data-nogap="1"] #periodClassesTrack > * + *,
+body[data-nogap="1"] #dutyTrack > * + * {
+  margin-block-start: 0.5rem;
+}
+
+body[data-nogap="1"] .header-live-status > * + *,
+body[data-nogap="1"] .board-status > * + * {
+  margin-inline-start: 0.6rem;
+}
+
+/* `margin-block-start` / `margin-inline-start` are Chrome 87. Anything old
+   enough to need the gap fallback may also predate logical margins, so repeat
+   the rules physically. The board is RTL, hence margin-right for inline-start. */
+@supports not (margin-block-start: 1px) {
+  body[data-nogap="1"] #boardMainColumn > * + *,
+  body[data-nogap="1"] #boardSideColumn > * + * {
+    margin-top: 1.25rem;
+  }
+
+  body[data-nogap="1"] .slot-item + .slot-item,
+  body[data-nogap="1"] .duty-item + .duty-item,
+  body[data-nogap="1"] #standbyTrack > * + *,
+  body[data-nogap="1"] #periodClassesTrack > * + *,
+  body[data-nogap="1"] #dutyTrack > * + * {
+    margin-top: 0.5rem;
+  }
+
+  body[data-nogap="1"] .header-live-status > * + *,
+  body[data-nogap="1"] .board-status > * + * {
+    margin-right: 0.6rem;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Logical properties -> physical         (inset-inline landed in Chrome 87)
+ * ------------------------------------------------------------------------ */
+@supports not (inset-inline-end: 0) {
+  .hero-card__orb--one {
+    right: -120px;
+  }
+
+  .hero-card__orb--two {
+    left: 25%;
+  }
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from decimal import Decimal
 from pathlib import Path
@@ -341,3 +342,133 @@ class DisplayEndOfDayPanelTests(SimpleTestCase):
 
         self.assertIn('if (stType === "holiday" || stateReason === "holiday" || stateReason === "before_hours") return false;', body)
         self.assertIn('if (stType === "off" || stType === "after" || stateReason === "after_hours") return true;', body)
+
+
+class LegacyBrowserSupportTests(SimpleTestCase):
+    """The board must survive the TV browsers display.js is built for.
+
+    display.js is deliberately compiled for old panels — Samsung Tizen 3.0/4.0
+    (Chrome 56) and LG webOS 4 (Chrome 53) — and carries polyfills to match. The
+    stylesheet had no such floor: clamp() (Chrome 79), color-mix() (Chrome 111),
+    grid (Chrome 57) and flex gap (Chrome 84) all shipped without a fallback, so
+    the panels the JS supported still rendered a broken board.
+
+    Verified in headless Chrome: the legacy sheet leaves a modern browser's
+    computed styles byte-identical, and with its @supports gates stripped the
+    board switches to flex, keeps the same pixel font sizes and picks up
+    margin-based spacing.
+    """
+
+    def setUp(self):
+        base = Path(settings.BASE_DIR)
+        self.js = (base / "static" / "js" / "display.js").read_text(encoding="utf-8")
+        self.bundle = (base / "static" / "js" / "display.min.js").read_text(
+            encoding="utf-8", errors="replace"
+        )
+        self.legacy = (base / "static" / "css" / "display-legacy.css").read_text(encoding="utf-8")
+
+    def test_bundle_is_built_for_es2015(self):
+        """async/await is a syntax error below Chrome 55 and kills the whole bundle."""
+        package = json.loads((Path(settings.BASE_DIR) / "package.json").read_text(encoding="utf-8"))
+
+        self.assertIn("--target=es2015", package["scripts"]["build:display"])
+        self.assertNotRegex(
+            self.bundle,
+            r"\basync\s+function|\basync\s*\(|\bawait\s",
+            "the shipped bundle still contains async/await; rebuild with npm run build:display",
+        )
+
+    def test_post_chrome_49_apis_are_polyfilled_or_guarded(self):
+        for api in ("Promise.prototype.finally", "String.prototype.padStart", "Object.entries"):
+            with self.subTest(api=api):
+                self.assertIn(f'typeof {api} !== "function"', self.js)
+
+        # AbortController (Chrome 66) has no polyfill; it must stay optional.
+        self.assertIn("window.AbortController ? new AbortController() : null", self.js)
+
+    def test_flex_gap_is_feature_detected_rather_than_feature_queried(self):
+        """`@supports (gap: 1px)` is true from Chrome 57 but flex ignored it until 84."""
+        self.assertIn("function supportsFlexGap()", self.js)
+        self.assertIn('body.dataset.nogap = "1"', self.js)
+        self.assertIn('body[data-nogap="1"]', self.legacy)
+
+    def test_legacy_rules_are_gated_so_modern_browsers_apply_nothing(self):
+        """Everything except the JS-driven gap fallback must sit behind @supports."""
+        stripped = re.sub(r"/\*.*?\*/", "", self.legacy, flags=re.S)
+
+        # Remove every @supports block, then whatever is left must be keyed on
+        # data-nogap — the one case @supports cannot express.
+        def drop_supports(text):
+            out, i = [], 0
+            while True:
+                match = re.search(r"@supports[^{]*\{", text[i:])
+                if not match:
+                    out.append(text[i:])
+                    return "".join(out)
+                start, body_start = i + match.start(), i + match.end()
+                out.append(text[i:start])
+                depth, j = 1, body_start
+                while j < len(text) and depth:
+                    if text[j] == "{":
+                        depth += 1
+                    elif text[j] == "}":
+                        depth -= 1
+                    j += 1
+                i = j
+
+        remaining = drop_supports(stripped)
+        for selector, _ in re.findall(r"([^{}]+)\{([^{}]*)\}", remaining):
+            with self.subTest(selector=selector.strip()[:60]):
+                self.assertIn(
+                    'data-nogap="1"',
+                    selector,
+                    "ungated legacy rule would change modern rendering",
+                )
+
+    def test_legacy_sheet_is_regenerated_from_the_current_board_css(self):
+        """Fails when display-board.css changes without rebuilding the fallbacks."""
+        from core.management.commands.build_legacy_css import Command
+
+        source = (
+            Path(settings.BASE_DIR) / "static" / "css" / "display-board.css"
+        ).read_text(encoding="utf-8")
+        generated, _ = Command().build(source)
+
+        self.assertEqual(
+            generated,
+            self.legacy,
+            "display-legacy.css is stale. Run: python manage.py build_legacy_css",
+        )
+
+    def test_clamp_fallbacks_reproduce_the_design_width_values(self):
+        """A spot check that the evaluator is right, not just deterministic.
+
+        #heroTitle is clamp(2.5rem, 5vw, 4rem): at the 1920px design canvas the
+        preferred 96px is above the 64px ceiling, so the fallback must be 64px.
+        """
+        from core.management.commands.build_legacy_css import resolve_clamp
+
+        self.assertEqual(resolve_clamp("clamp(2.5rem, 5vw, 4rem)"), "64px")
+        self.assertEqual(resolve_clamp("clamp(2.15rem, 3vw, 3.35rem) !important"), "53.6px !important")
+        # Percentages depend on the parent box and must be refused, not guessed.
+        self.assertIsNone(resolve_clamp("clamp(10%, 5vw, 40%)"))
+
+    def test_color_mix_fallback_keeps_nested_var_intact(self):
+        """A non-greedy regex stops at the inner `var(` and mangles the value."""
+        from core.management.commands.build_legacy_css import resolve_color_mix
+
+        self.assertEqual(
+            resolve_color_mix("color-mix(in srgb, var(--accent-main, #6366f1) 54%, #ffffff 16%)"),
+            "var(--accent-main, #6366f1)",
+        )
+        self.assertEqual(
+            resolve_color_mix("border-color: color-mix(in srgb, var(--x) 24%, transparent)"),
+            "border-color: var(--x)",
+        )
+
+    def test_grid_layout_has_a_flex_fallback(self):
+        """Without it the two board columns stack full width on Chrome 56."""
+        self.assertIn("@supports not (display: grid)", self.legacy)
+        for selector in ("main.grid", "#boardMainColumn", "#boardSideColumn", ".header-shell"):
+            with self.subTest(selector=selector):
+                self.assertIn(selector, self.legacy)

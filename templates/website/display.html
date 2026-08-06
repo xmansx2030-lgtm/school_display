@@ -23,6 +23,13 @@
   <link rel="stylesheet" href="{% static 'css/display-controls.css' %}?v=2026-07-23-b4">
   <link rel="stylesheet" href="{% static 'css/app.css' %}?v=2026-02-08-standby-chip-contrast-v2">
   <link rel="stylesheet" href="{% static 'css/display-board.css' %}?v=2026-08-05-theme1">
+  {% comment %}
+    احتياطيات المتصفحات القديمة (Tizen 3/4، webOS 4). كل قواعدها داخل
+    ‎@supports not(...)‎ فلا يطبّق منها المتصفح الحديث شيئًا، وموضعها بعد
+    display-board.css شرط لتفوز على التصريحات التي تعجز عن تحليلها.
+    تُولَّد بأمر: python manage.py build_legacy_css
+  {% endcomment %}
+  <link rel="stylesheet" href="{% static 'css/display-legacy.css' %}?v=2026-08-06-legacy1">
 
   {% comment %}
     الجزء الوحيد الذي يبقى داخل الصفحة: ألوان المناسبات وأنماطها، لأنها تُولَّد
