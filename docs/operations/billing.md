@@ -30,7 +30,9 @@ TRANSACTIONAL_EMAIL_ENABLED=True       # وإلا لن تصل الفواتير
 
 ### وسائل الدفع
 
-`MOYASAR_PAYMENT_METHODS=creditcard,applepay,stcpay,googlepay`
+`MOYASAR_PAYMENT_METHODS=creditcard,applepay,googlepay`
+
+STC Pay مُخفاة حاليًا. لإعادتها أضف `stcpay` إلى القائمة في `.env.production` وأعد تشغيل `web` — لا يلزم تعديل كود، فهي ما تزال ضمن الوسائل المدعومة.
 
 `MOYASAR_LIVE_MODE=True`
 `MOYASAR_GOOGLE_PAY_MERCHANT_ID=...`
