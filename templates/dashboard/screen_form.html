@@ -47,6 +47,17 @@
                     <span class="text-sm font-medium text-slate-700">{{ form.is_active.label }}</span>
                 </label>
               </div>
+              {% if form.monitor_always_on %}
+              <div class="space-y-2">
+                <label for="{{ form.monitor_always_on.id_for_label }}" class="flex items-start space-x-2 space-x-reverse cursor-pointer">
+                    {{ form.monitor_always_on }}
+                    <span>
+                      <span class="block text-sm font-medium text-slate-700">{{ form.monitor_always_on.label }}</span>
+                      <span class="block text-xs text-slate-500">{{ form.monitor_always_on.help_text }}</span>
+                    </span>
+                </label>
+              </div>
+              {% endif %}
             </section>
 
             <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 px-4 py-3 text-sm leading-7 text-cyan-900">

@@ -156,6 +156,33 @@ class SchoolSettings(models.Model):
         "إرسال تنبيه التعطل بالبريد",
         default=True,
     )
+    screen_offline_school_hours_only = models.BooleanField(
+        "التنبيه أثناء الدوام فقط",
+        default=True,
+        help_text="لا يُرسل تنبيه بعد انتهاء الدوام أو في الإجازات، ويبقى الانقطاع مسجّلًا في التقرير الأسبوعي.",
+    )
+    screen_offline_grace_minutes = models.PositiveSmallIntegerField(
+        "مهلة بداية الدوام (دقائق)",
+        default=15,
+        validators=[MaxValueValidator(120)],
+        help_text="فترة سماح بعد بداية اليوم الدراسي قبل إرسال أول تنبيه.",
+    )
+    screen_offline_cooldown_minutes = models.PositiveSmallIntegerField(
+        "أقل فاصل بين تنبيهين (دقائق)",
+        default=120,
+        validators=[MinValueValidator(10), MaxValueValidator(720)],
+        help_text="يمنع تكرار التنبيه عن الشاشة نفسها خلال هذه المدة.",
+    )
+    screen_offline_max_alerts_per_day = models.PositiveSmallIntegerField(
+        "أقصى عدد تنبيهات لكل شاشة يوميًا",
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(20)],
+    )
+    screen_recovery_notice_enabled = models.BooleanField(
+        "إشعار عند عودة الاتصال",
+        default=True,
+        help_text="يرسل رسالة قصيرة عند عودة الشاشة مع مدة الانقطاع.",
+    )
     weekly_uptime_report_enabled = models.BooleanField(
         "إرسال تقرير التشغيل الأسبوعي",
         default=True,

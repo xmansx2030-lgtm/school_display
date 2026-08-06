@@ -43,10 +43,12 @@ def _resolve_tz(school_settings) -> ZoneInfo:
         return ZoneInfo("Asia/Riyadh")
 
 
-def compute_active_start_for_today(school_settings) -> Optional[datetime]:
-    """Return today's `active_start` (= first period start − 30min) or None.
+def compute_active_window_for_today(school_settings) -> Optional[tuple[datetime, datetime]]:
+    """Return today's ``(active_start, active_end)`` or None on a non-school day.
 
-    Returns None when there is no active timetable for today (holiday/weekend).
+    ``active_start`` is 30 minutes before the first period and ``active_end`` is
+    15 minutes after the last one — the same bounds the display itself uses to
+    decide whether it should be awake.
     """
     tz = _resolve_tz(school_settings)
     now = timezone.localtime(timezone.now(), tz)
@@ -78,8 +80,17 @@ def compute_active_start_for_today(school_settings) -> Optional[datetime]:
     if not timeline:
         return None
 
-    _, _, active_start, _ = _active_window_bounds(timeline)
-    return active_start
+    _, _, active_start, active_end = _active_window_bounds(timeline)
+    return active_start, active_end
+
+
+def compute_active_start_for_today(school_settings) -> Optional[datetime]:
+    """Return today's `active_start` (= first period start − 30min) or None.
+
+    Returns None when there is no active timetable for today (holiday/weekend).
+    """
+    window = compute_active_window_for_today(school_settings)
+    return window[0] if window else None
 
 
 def _active_start_cache_key(school_settings, *, day_iso: str) -> str:
@@ -87,6 +98,51 @@ def _active_start_cache_key(school_settings, *, day_iso: str) -> str:
     revision = int(getattr(school_settings, "schedule_revision", 0) or 0)
     override = int(getattr(school_settings, "test_mode_weekday_override", 0) or 0)
     return f"display:wake:active_start:{school_id}:{day_iso}:r{revision}:o{override}"
+
+
+def _active_window_cache_key(school_settings, *, day_iso: str) -> str:
+    school_id = int(getattr(school_settings, "school_id", 0) or 0)
+    revision = int(getattr(school_settings, "schedule_revision", 0) or 0)
+    override = int(getattr(school_settings, "test_mode_weekday_override", 0) or 0)
+    return f"display:wake:active_window:{school_id}:{day_iso}:r{revision}:o{override}"
+
+
+def cached_active_window_for_today(school_settings) -> Optional[tuple[datetime, datetime]]:
+    """Cache today's active window by schedule revision.
+
+    The offline monitor asks for this once per screen on every scan, so the
+    timetable queries behind it must not be repeated per pass.
+    """
+    tz = _resolve_tz(school_settings)
+    now = timezone.localtime(timezone.now(), tz)
+    key = _active_window_cache_key(school_settings, day_iso=now.date().isoformat())
+
+    try:
+        cached = cache.get(key)
+        if cached == _NO_ACTIVE_START:
+            return None
+        if cached is not None:
+            start_ts, end_ts = cached
+            return (
+                datetime.fromtimestamp(float(start_ts), tz=tz),
+                datetime.fromtimestamp(float(end_ts), tz=tz),
+            )
+    except Exception:
+        pass
+
+    window = compute_active_window_for_today(school_settings)
+    next_day = datetime.combine(now.date() + timedelta(days=1), datetime.min.time())
+    next_day = timezone.make_aware(next_day, tz) if timezone.is_naive(next_day) else next_day
+    ttl = max(300, min(30 * 60 * 60, int((next_day - now).total_seconds()) + 2 * 60 * 60))
+    try:
+        cache.set(
+            key,
+            (window[0].timestamp(), window[1].timestamp()) if window is not None else _NO_ACTIVE_START,
+            timeout=ttl,
+        )
+    except Exception:
+        pass
+    return window
 
 
 def cached_active_start_for_today(school_settings) -> Optional[datetime]:

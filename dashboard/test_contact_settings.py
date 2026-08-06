@@ -45,6 +45,9 @@ class SchoolContactSettingsTests(TestCase):
             "standby_scroll_speed": "0.8",
             "periods_scroll_speed": "0.5",
             "screen_offline_threshold_minutes": "10",
+            "screen_offline_grace_minutes": "15",
+            "screen_offline_cooldown_minutes": "120",
+            "screen_offline_max_alerts_per_day": "3",
             "email": "manager@example.com",
             "mobile": "+966 50 222 3333",
         }

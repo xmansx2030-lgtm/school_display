@@ -20,6 +20,7 @@ from django.db import models
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse, HttpResponseNotModified
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
 
 from core.models import School, DisplayScreen
@@ -1983,7 +1984,7 @@ def _extract_token(request, token_from_path: str | None) -> str | None:
     if not t:
         try:
             p = (getattr(request, "path_info", "") or getattr(request, "path", "") or "").strip()
-            m = re.search(r"/api/display/(?:snapshot|today|live|status)/([^/]+)/?$", p, flags=re.IGNORECASE)
+            m = re.search(r"/api/display/(?:snapshot|today|live|status|goodbye)/([^/]+)/?$", p, flags=re.IGNORECASE)
             if m and m.group(1):
                 t = (m.group(1) or "").strip()
         except Exception:
@@ -2965,6 +2966,73 @@ def _merge_real_data_into_snapshot(request, snap: dict, settings_obj: SchoolSett
 def ping(request):
     now = timezone.localtime()
     return JsonResponse({"ok": True, "now": now.isoformat()}, json_dumps_params={"ensure_ascii": False})
+
+
+_GOODBYE_REASONS = {
+    "pagehide",
+    "unload",
+    "beforeunload",
+    "offline",
+    "binding_lost",
+    "heartbeat_timeout",
+}
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def goodbye(request, token: str | None = None):
+    """Farewell beacon from a display that is about to stop.
+
+    A television being switched off and a school losing its internet look
+    identical from the server's side — both simply go quiet. This one-shot
+    `sendBeacon` on `pagehide` is what separates them, so the offline alert can
+    say "the device was switched off" instead of "the screen is unreachable".
+
+    Deliberately cheap and forgiving: no session, no CSRF (the token is the
+    identity), and any failure is silent. It only ever writes a cache hint.
+    """
+    token_value = _extract_token(request, token)
+    if not token_value:
+        return JsonResponse({"ok": False}, status=400)
+
+    reason = ""
+    online = None
+    code = None
+    try:
+        payload = json.loads((request.body or b"").decode("utf-8") or "{}")
+        if isinstance(payload, dict):
+            reason = str(payload.get("reason") or "").strip().lower()[:64]
+            code = payload.get("code")
+            code = int(code) if isinstance(code, (int, float)) else None
+            if isinstance(payload.get("online"), bool):
+                online = bool(payload["online"])
+    except Exception:
+        pass
+
+    if reason not in _GOODBYE_REASONS:
+        reason = "pagehide"
+
+    try:
+        screen = (
+            DisplayScreen.objects.filter(token=token_value, is_active=True)
+            .only("id")
+            .first()
+        )
+        if screen is None:
+            return JsonResponse({"ok": False}, status=404)
+        from core.screen_diagnostics import record_disconnect_signal
+
+        record_disconnect_signal(
+            int(screen.pk),
+            source="pagehide",
+            code=code,
+            reason=reason,
+            online=online,
+        )
+    except Exception:
+        logger.debug("goodbye beacon failed", exc_info=True)
+
+    return JsonResponse({"ok": True})
 
 
 def _call_build_day_snapshot(settings_obj: SchoolSettings) -> dict:

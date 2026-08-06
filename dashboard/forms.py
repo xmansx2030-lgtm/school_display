@@ -112,6 +112,11 @@ class SchoolSettingsForm(forms.ModelForm):
         "screen_offline_alerts_enabled",
         "screen_offline_threshold_minutes",
         "screen_offline_email_enabled",
+        "screen_offline_school_hours_only",
+        "screen_offline_grace_minutes",
+        "screen_offline_cooldown_minutes",
+        "screen_offline_max_alerts_per_day",
+        "screen_recovery_notice_enabled",
     }
     email = forms.EmailField(
         label="البريد الإلكتروني",
@@ -183,6 +188,11 @@ class SchoolSettingsForm(forms.ModelForm):
             "screen_offline_alerts_enabled",
             "screen_offline_threshold_minutes",
             "screen_offline_email_enabled",
+            "screen_offline_school_hours_only",
+            "screen_offline_grace_minutes",
+            "screen_offline_cooldown_minutes",
+            "screen_offline_max_alerts_per_day",
+            "screen_recovery_notice_enabled",
         ]
         widgets = {
             "featured_panel": forms.Select(),
@@ -208,6 +218,9 @@ class SchoolSettingsForm(forms.ModelForm):
             
             "test_mode_weekday_override": forms.Select(),
             "screen_offline_threshold_minutes": forms.NumberInput(attrs={"min": 5, "max": 60}),
+            "screen_offline_grace_minutes": forms.NumberInput(attrs={"min": 0, "max": 120}),
+            "screen_offline_cooldown_minutes": forms.NumberInput(attrs={"min": 10, "max": 720}),
+            "screen_offline_max_alerts_per_day": forms.NumberInput(attrs={"min": 1, "max": 20}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -1266,7 +1279,7 @@ class DutyAssignmentForm(forms.ModelForm):
 class DisplayScreenForm(forms.ModelForm):
     class Meta:
         model = DisplayScreen
-        fields = ["name", "is_active"]
+        fields = ["name", "is_active", "monitor_always_on"]
         widgets = {
             "name": forms.TextInput(attrs={"maxlength": "100"}),
         }
