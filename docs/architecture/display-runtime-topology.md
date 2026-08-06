@@ -9,7 +9,9 @@
 - `Dockerfile`: بناء صورة التطبيق.
 - `compose.production.yaml`: تعريف خدمات الإنتاج والشبكات والأحجام الدائمة.
 - `deploy/Caddyfile`: TLS وتوجيه HTTP وWebSocket.
+- `deploy/deploy.sh`: نص النشر إلى الإنتاج (النسخة الخاضعة للمراجعة).
 - `.env.production.example`: أسماء متغيرات البيئة المطلوبة فقط.
+- `docs/operations/deployments.md`: إجراء النشر والتحقق منه والتراجع عنه.
 - `docs/operations/backups.md`: سياسة النسخ الاحتياطي والاستعادة.
 
 ملف `.env.production` وأسرار الخادم لا تُحفظ في Git. رابط لوحة Hetzner ووضع Rescue أدوات إدارية للوصول إلى الخادم، وليسا جزءًا من إعداد التطبيق.
