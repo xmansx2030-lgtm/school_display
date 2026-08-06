@@ -24,6 +24,7 @@ const SHELL_ASSETS = [
   '/static/css/tailwind.generated.css',
   '/static/css/app.css',
   '/static/css/display-board.css',
+  '/static/css/display-legacy.css',
   '/static/css/display-controls.css',
   '/static/css/fonts.css',
   '/static/js/display-controls.js',

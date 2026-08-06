@@ -2,12 +2,19 @@
   "use strict";
 
   // ===========================================================================
-  // ===== Compatibility Polyfills (ES2017-era APIs missing on old TV browsers)
+  // ===== Compatibility Polyfills (APIs missing on old TV browsers)
   // ===========================================================================
-  // Samsung Smart TV Tizen 3.0 (2017) uses Chrome 56 internally.
-  // Chrome 56 is missing:
+  // The bundle is built with `--target=es2015` (see package.json), so async
+  // functions are lowered to generators and nothing here needs a syntax level
+  // above ES2015. That puts the floor at const/let and URLSearchParams —
+  // Chrome 49 — which covers Samsung Tizen 3.0/4.0 (Chrome 56) and LG webOS 4
+  // (Chrome 53). Anything below that (webOS 3.x on Chrome 38, Tizen 2.4 on
+  // Chrome 47) cannot run this bundle at all.
+  //
+  // The APIs below post-date Chrome 49, so they are filled in here:
   //   • Promise.prototype.finally  → added Chrome 63  (breaks ALL fetch calls)
   //   • String.prototype.padStart  → added Chrome 57  (breaks accent-color theme)
+  //   • Object.entries             → added Chrome 54  (breaks Arabic digits)
   //
   // These polyfills must come first so every function below can rely on them.
   // Written in ES5 syntax intentionally to survive even older engines.
@@ -45,6 +52,19 @@
       var result = "";
       while (result.length < needed) result += fill;
       return result.slice(0, needed) + str;
+    };
+  }
+
+  // Polyfill: Object.entries
+  // Absence throws inside the Arabic-digit mapping, which runs on every clock
+  // tick, so the board would stop updating its time on Chrome 49-53.
+  if (typeof Object.entries !== "function") {
+    Object.entries = function entriesPolyfill(obj) {
+      var out = [];
+      for (var key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) out.push([key, obj[key]]);
+      }
+      return out;
     };
   }
 
@@ -120,6 +140,39 @@
     } catch (e) {
       return false;
     }
+  }
+
+  /**
+   * Does this browser honour `gap` on a flex container?
+   *
+   * Chrome shipped `gap` for grid in 57 but only for flex in 84, and `@supports
+   * (gap: 1px)` returns true across that whole range — the property exists, it
+   * just does nothing in flex. So the only reliable test is to measure it: a
+   * two-item column flex box with a 1px gap is 2px tall without support and 3px
+   * tall with it. The result feeds `body[data-nogap="1"]`, which
+   * display-legacy.css turns into margin-based spacing.
+   */
+  var _flexGapSupported = null;
+  function supportsFlexGap() {
+    if (_flexGapSupported !== null) return _flexGapSupported;
+    try {
+      var probe = document.createElement("div");
+      probe.style.display = "flex";
+      probe.style.flexDirection = "column";
+      probe.style.rowGap = "1px";
+      probe.style.position = "absolute";
+      probe.style.visibility = "hidden";
+      probe.appendChild(document.createElement("div"));
+      probe.appendChild(document.createElement("div"));
+      document.body.appendChild(probe);
+      _flexGapSupported = probe.scrollHeight === 1;
+      probe.parentNode.removeChild(probe);
+    } catch (e) {
+      // If the probe cannot run, assume support: adding margins to a browser
+      // that already honours gap would double every spacing on the board.
+      _flexGapSupported = true;
+    }
+    return _flexGapSupported;
   }
 
   function isLiteMode() {
@@ -2415,6 +2468,47 @@
     const t = getToken();
     if (t) return "/api/display/status/" + encodeURIComponent(t) + "/";
     return "/api/display/status/";
+  }
+
+  // ===== Farewell beacon =====================================================
+  // A television being switched off and a school losing its internet look
+  // identical from the server: the heartbeat simply stops. One beacon on the
+  // way out is what lets the offline alert name the cause instead of listing
+  // every possibility. Fire-and-forget — it never blocks teardown or retries.
+  var _goodbyeSent = false;
+
+  function sendGoodbyeBeacon(reason) {
+    if (_goodbyeSent) return;
+    var t = "";
+    try {
+      t = (getToken() || "").toString().trim();
+    } catch (e) {
+      t = "";
+    }
+    if (!t) return;
+    _goodbyeSent = true;
+
+    var url = "/api/display/goodbye/" + encodeURIComponent(t) + "/";
+    var online = null;
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.onLine === "boolean") online = navigator.onLine;
+    } catch (e) {}
+    var payload = JSON.stringify({ reason: String(reason || "pagehide"), online: online });
+
+    // text/plain keeps this a simple request: no preflight, no cookies needed.
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+        if (navigator.sendBeacon(url, new Blob([payload], { type: "text/plain;charset=UTF-8" }))) return;
+      }
+    } catch (e) {}
+    try {
+      fetch(url, {
+        method: "POST",
+        body: payload,
+        keepalive: true,
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
+      }).catch(function () {});
+    } catch (e) {}
   }
 
   function resolveImageURL(raw) {
@@ -7897,6 +7991,10 @@
       body.dataset.lite = lite ? "1" : "0";
     } catch (e) {}
 
+    try {
+      if (!supportsFlexGap()) body.dataset.nogap = "1";
+    } catch (e) {}
+
     cfg.REFRESH_EVERY = clamp(parseFloat(body.dataset.refresh || "30") || 30, 5, 120);
     cfg.WS_FALLBACK_POLL_EVERY = clamp(parseFloat(body.dataset.wsFallbackPoll || "180") || 180, 30, 600);
     cfg.WS_LIVE_STATUS_CHECK_SEC = clamp(
@@ -7951,7 +8049,17 @@
   }, listenerOpts({ once: true }));
 
   try {
+    // pagehide is the reliable teardown signal on TV browsers, where
+    // beforeunload is often skipped entirely.
+    window.addEventListener("pagehide", () => {
+      sendGoodbyeBeacon("pagehide");
+      cleanupPageRuntime("pagehide");
+    }, listenerOpts({ once: true }));
+  } catch (e) {}
+
+  try {
     window.addEventListener("beforeunload", () => {
+      sendGoodbyeBeacon("beforeunload");
       cleanupPageRuntime("beforeunload");
     }, listenerOpts({ once: true }));
   } catch (e) {}

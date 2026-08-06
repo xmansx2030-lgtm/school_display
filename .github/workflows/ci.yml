@@ -79,5 +79,15 @@ jobs:
           git diff --exit-code -- static/js/display.min.js \
             || (echo "static/js/display.min.js is stale. Run: npm run build:display" && exit 1)
 
+      - name: Verify the generated display assets are current
+        env:
+          DEBUG: "True"
+        run: |
+          # The legacy stylesheet is derived from display-board.css, and the
+          # self-hosted font faces are referenced by fonts.css. Both go stale
+          # silently — an old TV just renders wrong, nothing errors.
+          python manage.py build_legacy_css --check
+          python manage.py sync_display_font --check
+
       - name: Build production image
         run: docker build --tag school-display:ci .
