@@ -159,7 +159,7 @@ class MoyasarCheckoutTests(TestCase):
         blob = raw[raw.index(">", marker) + 1 : raw.index("</script>", marker)]
         config = json.loads(blob)
 
-        self.assertEqual(config["methods"], ["creditcard", "applepay", "stcpay", "googlepay"])
+        self.assertEqual(config["methods"], ["creditcard", "applepay", "googlepay"])
         self.assertEqual(
             config["apple_pay"],
             {
@@ -183,17 +183,28 @@ class MoyasarCheckoutTests(TestCase):
         self.assertTrue(config["callback_url"].startswith("https://"))
 
     def test_wallet_methods_are_passed_through_for_moyasar(self):
-        # The checkout layer should keep all supported methods and add the
-        # extra Apple Pay config separately.
+        # The checkout layer should keep every enabled method and add the extra
+        # Apple Pay config separately.
         from config import settings as settings_module
 
         resolved = [
             method
-            for method in ("creditcard", "applepay", "stcpay", "googlepay")
+            for method in ("creditcard", "applepay", "googlepay")
             if method in settings_module._MOYASAR_SUPPORTED_METHODS
         ] or ["creditcard"]
-        self.assertEqual(resolved, ["creditcard", "applepay", "stcpay", "googlepay"])
-        self.assertEqual(settings_module.MOYASAR_PAYMENT_METHODS, ["creditcard", "applepay", "stcpay", "googlepay"])
+        self.assertEqual(resolved, ["creditcard", "applepay", "googlepay"])
+        self.assertEqual(settings_module.MOYASAR_PAYMENT_METHODS, ["creditcard", "applepay", "googlepay"])
+
+    def test_stc_pay_is_off_by_default_but_can_be_restored_by_configuration(self):
+        """STC Pay is hidden, not removed.
+
+        It stays in the supported set so bringing it back is an environment
+        change; only the default list drops it.
+        """
+        from config import settings as settings_module
+
+        self.assertNotIn("stcpay", settings_module.MOYASAR_PAYMENT_METHODS)
+        self.assertIn("stcpay", settings_module._MOYASAR_SUPPORTED_METHODS)
 
     @override_settings(
         DEBUG=False,

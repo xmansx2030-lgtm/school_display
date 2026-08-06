@@ -1006,10 +1006,14 @@ MOYASAR_HTTP_TIMEOUT_SECONDS = env_int_clamped(
 )
 
 # Every value must be a method Moyasar accepts for a hosted payment form.
+# `stcpay` stays in this set but is deliberately absent from the default below:
+# it is switched off for now, and keeping it supported means bringing it back is
+# a one-line environment change rather than a code change.
+#   MOYASAR_PAYMENT_METHODS=creditcard,applepay,stcpay,googlepay
 _MOYASAR_SUPPORTED_METHODS = {"creditcard", "applepay", "stcpay", "googlepay"}
 MOYASAR_PAYMENT_METHODS = [
     method
-    for method in env_list("MOYASAR_PAYMENT_METHODS", "creditcard,applepay,stcpay,googlepay")
+    for method in env_list("MOYASAR_PAYMENT_METHODS", "creditcard,applepay,googlepay")
     if method in _MOYASAR_SUPPORTED_METHODS
 ] or ["creditcard"]
 MOYASAR_SUPPORTED_NETWORKS = env_list("MOYASAR_SUPPORTED_NETWORKS", "mada,visa,mastercard,unionpay")
