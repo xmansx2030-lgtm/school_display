@@ -170,11 +170,20 @@ DISPLAY_PAIRING_CODE_ATTEMPTS = env_int_clamped("DISPLAY_PAIRING_CODE_ATTEMPTS",
 
 # A healthy WebSocket remains the primary update path. This sparse HTTP check
 # is only a safety net for missed cross-process events.
+#
+# It is deliberately hourly. A socket that dies silently is caught in 75 seconds
+# by the client's own heartbeat watchdog (it stops seeing the server ping and
+# drops to fallback polling), and the screen reconciles once right after every
+# reconnect — so this check is the third line of defence, not the first. At one
+# check per minute it was the single largest source of display traffic: roughly
+# 420 requests per screen per school day, all of them answering "nothing
+# changed". Screens running an older bundle clamp this to their own 300s
+# ceiling, which keeps a mixed-version fleet safe during a rollout.
 DISPLAY_WS_LIVE_STATUS_CHECK_SEC = env_int_clamped(
     "DISPLAY_WS_LIVE_STATUS_CHECK_SEC",
-    60,
+    3600,
     15,
-    300,
+    3600,
 )
 
 # Display presence shown in the manager dashboard. WebSocket/HTTP heartbeats
@@ -185,11 +194,43 @@ DASHBOARD_SCREEN_LIVE_THRESHOLD_SEC = env_int_clamped(
     60,
     86400,
 )
+
+# How often a connected screen refreshes the shared presence cache. The
+# dashboard calls a screen live within DASHBOARD_SCREEN_LIVE_THRESHOLD_SEC
+# (120s), so touching it once a minute keeps that indicator exact while cutting
+# the work the WebSocket ping loop used to do on every single ping (every 20s).
+DISPLAY_PRESENCE_TOUCH_INTERVAL_SEC = env_int_clamped(
+    "DISPLAY_PRESENCE_TOUCH_INTERVAL_SEC",
+    60,
+    20,
+    300,
+)
+
+# Presence survives a cache restart through this periodic DB write — the single
+# heaviest write in the system, one row per connected screen per minute, around
+# the clock.
+#
+# The ceiling is not a preference. When the cache is empty the monitor falls
+# back to this column, and a school may set its offline threshold as low as five
+# minutes: a value at or above that would make every screen in such a school
+# look dead for the moment after a Redis restart. Four minutes keeps a clear
+# margin under the floor while still cutting the write rate four-fold.
+# core.display_presence enforces the same ceiling.
 DISPLAY_LAST_SEEN_DB_INTERVAL_SEC = env_int_clamped(
     "DISPLAY_LAST_SEEN_DB_INTERVAL_SEC",
-    60,
+    240,
     30,
-    900,
+    240,
+)
+
+# Operational history kept before pruning: resolved screen outages and delivered
+# alerts. Both are append-only logs that nothing reads after the fact, and
+# neither had any retention policy at all.
+DISPLAY_OPERATIONAL_RETENTION_DAYS = env_int_clamped(
+    "DISPLAY_OPERATIONAL_RETENTION_DAYS",
+    180,
+    30,
+    1095,
 )
 
 

@@ -236,10 +236,20 @@ services:
     mem_limit: ${REDIS_CACHE_MEMORY_LIMIT:-640m}
     env_file:
       - ${ENV_FILE:-.env.production}
+    # No AOF here, deliberately. This instance holds nothing that must survive a
+    # restart: snapshots rebuild, rate limits and dedupe keys re-arm, and its
+    # own `allkeys-lru` policy already evicts entries whenever it feels like it,
+    # so every reader is written to tolerate a miss. Alert throttling in
+    # core/screen_monitoring.py reads the outage log rather than a cache counter
+    # for exactly this reason. Sessions are in Postgres, not here.
+    #
+    # What it cost: every presence heartbeat from every connected screen became
+    # a disk write, permanently, for data that is disposable by definition.
+    # `redis-channels` keeps its AOF — that one carries undelivered messages.
     command: >-
       sh -c 'exec redis-server
-      --appendonly yes
-      --appendfsync everysec
+      --appendonly no
+      --save ""
       --maxmemory "$${REDIS_CACHE_MAXMEMORY:-512mb}"
       --maxmemory-policy allkeys-lru
       --requirepass "$${REDIS_CACHE_PASSWORD}"'

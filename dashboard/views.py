@@ -636,7 +636,9 @@ def school_settings(request):
             .first()
         )
         if scr:
-            preview_url = f"/s/{scr.short_code}/"
+            # ?preview=1 keeps this read-only: the manager's browser must never
+            # take the screen's single device slot away from the TV.
+            preview_url = f"/s/{scr.short_code}/?preview=1"
     except Exception:
         preview_url = None
 

@@ -86,18 +86,46 @@ def _ws_group_refresh_interval_seconds() -> int:
     return max(60, min(12 * 60 * 60, v))
 
 
-def _ws_metric_incr(name: str) -> None:
+def _presence_touch_interval_seconds() -> int:
+    try:
+        v = int(getattr(settings, "DISPLAY_PRESENCE_TOUCH_INTERVAL_SEC", 60) or 60)
+    except Exception:
+        v = 60
+    return max(20, min(300, v))
+
+
+# Pings are counted in batches rather than one Redis round trip each. These
+# counters are read by the ws-metrics endpoint, so the *totals* must stay exact:
+# the batch is flushed by its full size, never sampled or estimated.
+_PING_METRIC_BATCH = 15
+
+
+def _ws_metric_incr(name: str, delta: int = 1) -> None:
+    """Add ``delta`` to a metric counter.
+
+    Called from the consumer's async paths, where every Redis round trip runs on
+    the event loop. Keeping it to one call per batch is what makes it affordable
+    at fleet scale — a per-ping increment costs two round trips per screen per
+    ping, on the same loop that has to deliver every broadcast.
+    """
+    try:
+        step = int(delta)
+    except (TypeError, ValueError):
+        step = 1
+    if step <= 0:
+        return
+
     key = f"metrics:ws:{str(name or '').strip()}"
     try:
         cache.add(key, 0, timeout=_ws_metric_ttl_seconds())
     except Exception:
         pass
     try:
-        cache.incr(key)
+        cache.incr(key, step)
     except Exception:
         try:
             cur = int(cache.get(key) or 0)
-            cache.set(key, cur + 1, timeout=_ws_metric_ttl_seconds())
+            cache.set(key, cur + step, timeout=_ws_metric_ttl_seconds())
         except Exception:
             pass
 
@@ -124,11 +152,28 @@ class DisplayConsumer(AsyncWebsocketConsumer):
         self.token_value = None
         self._server_ping_task = None
         self._last_group_refresh_at = 0.0
+        self._last_presence_touch_at = 0.0
+        self._pending_ping_metric = 0
 
     def _start_server_ping_task(self) -> None:
         if self._server_ping_task and not self._server_ping_task.done():
             return
         self._server_ping_task = asyncio.create_task(self._server_ping_loop())
+
+    def _presence_touch_is_due(self, now: float) -> bool:
+        """Rate-limit presence refreshes to one per configured interval.
+
+        The ping loop runs every 20s because that is what keeps the socket alive
+        through school proxies — but presence does not need refreshing that
+        often, and every refresh is a thread hop plus two cache writes per
+        screen. The first call after connecting always passes.
+        """
+        interval = _presence_touch_interval_seconds()
+        last = float(self._last_presence_touch_at or 0.0)
+        if last and (now - last) < interval:
+            return False
+        self._last_presence_touch_at = now
+        return True
 
     async def _touch_presence(self) -> None:
         if not self.screen or not getattr(self.screen, "pk", None):
@@ -147,6 +192,7 @@ class DisplayConsumer(AsyncWebsocketConsumer):
         task = self._server_ping_task
         self._server_ping_task = None
         if not task:
+            self._flush_ping_metric()
             return
         task.cancel()
         try:
@@ -155,22 +201,38 @@ class DisplayConsumer(AsyncWebsocketConsumer):
             pass
         except Exception:
             pass
+        # Cancellation usually lands while the loop is sleeping, outside its own
+        # try block, so the batch is flushed here rather than there.
+        self._flush_ping_metric()
 
     async def _server_ping_loop(self) -> None:
         interval = _ws_ping_interval_seconds()
         while True:
             await asyncio.sleep(interval)
             try:
-                if time.monotonic() - self._last_group_refresh_at >= _ws_group_refresh_interval_seconds():
+                now = time.monotonic()
+                if now - self._last_group_refresh_at >= _ws_group_refresh_interval_seconds():
                     await self._refresh_group_memberships()
                 await self.send(text_data=json.dumps({"type": "heartbeat"}))
-                await self._touch_presence()
-                _ws_metric_incr("server_ping_sent")
+                if self._presence_touch_is_due(now):
+                    await self._touch_presence()
+                self._pending_ping_metric += 1
+                if self._pending_ping_metric >= _PING_METRIC_BATCH:
+                    _ws_metric_incr("server_ping_sent", self._pending_ping_metric)
+                    self._pending_ping_metric = 0
             except asyncio.CancelledError:
+                # Flush what this connection counted so a shutdown does not lose it.
+                self._flush_ping_metric()
                 raise
             except Exception:
+                self._flush_ping_metric()
                 _ws_metric_incr("server_ping_send_failed")
                 break
+
+    def _flush_ping_metric(self) -> None:
+        pending, self._pending_ping_metric = self._pending_ping_metric, 0
+        if pending > 0:
+            _ws_metric_incr("server_ping_sent", pending)
 
     async def _refresh_group_memberships(self) -> None:
         """Keep long-lived TV sockets addressable by dashboard broadcasts."""

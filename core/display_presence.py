@@ -24,12 +24,19 @@ def _presence_ttl_seconds() -> int:
     return max(180, display_live_threshold_seconds() + 60)
 
 
+# The persisted column is what the monitor reads when the presence cache is
+# cold, and the lowest offline threshold a school can configure is five minutes.
+# Writing less often than this would let a cache restart present every screen as
+# offline for the moment before the cache warms again.
+LAST_SEEN_DB_INTERVAL_CEILING_SEC = 240
+
+
 def _db_touch_interval_seconds() -> int:
     try:
-        value = int(getattr(settings, "DISPLAY_LAST_SEEN_DB_INTERVAL_SEC", 60) or 60)
+        value = int(getattr(settings, "DISPLAY_LAST_SEEN_DB_INTERVAL_SEC", 240) or 240)
     except (TypeError, ValueError):
-        value = 60
-    return max(30, min(15 * 60, value))
+        value = 240
+    return max(30, min(LAST_SEEN_DB_INTERVAL_CEILING_SEC, value))
 
 
 def _identity_fragment(token: str | None) -> str:

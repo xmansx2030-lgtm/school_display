@@ -68,6 +68,7 @@
   data-theme="{% if theme %}{{ theme }}{% else %}indigo{% endif %}"
     data-accent-color="{% if display_accent_color %}{{ display_accent_color }}{% endif %}"
     data-preview-lock="{% if preview_lock %}1{% else %}0{% endif %}"
+    data-preview-mode="{% if preview_mode %}1{% else %}0{% endif %}"
   data-display-state="loading"
   data-layout-mode="standard"
   data-side-empty="0"
@@ -218,6 +219,20 @@
         </button>
 
         <!-- Auto-fit root: viewport container (NOT transformed) -->
+        {% if preview_mode %}
+        {% comment %}
+          معاينة للمدير: تُطمئنه أن ما يراه هو الشاشة نفسها، وتوضّح أن هذه
+          النافذة لا تحجز الشاشة عن التلفاز.
+        {% endcomment %}
+        <div class="display-preview-badge" role="status">
+          <span class="display-preview-badge__dot" aria-hidden="true"></span>
+          <span class="display-preview-badge__copy">
+            <strong>وضع المعاينة</strong>
+            <small>هذه النافذة لا تشغل الشاشة على التلفاز</small>
+          </span>
+        </div>
+        {% endif %}
+
         <div id="fitRoot" class="h-full w-full">
     <div id="occasionThemeDecor" class="u-hidden" aria-hidden="true">
       <div class="occasion-theme-pattern"></div>
@@ -547,9 +562,9 @@
 
     <script defer src="{% static 'js/display-controls.js' %}?v=2026-07-23-b4"></script>
     {% if display_use_minified_js %}
-    <script defer src="{% static 'js/display.min.js' %}?v=2026-08-06-endofday1"></script>
+    <script defer src="{% static 'js/display.min.js' %}?v=2026-08-08-pushfirst1"></script>
     {% else %}
-    <script defer src="{% static 'js/display.js' %}?v=2026-08-06-endofday1"></script>
+    <script defer src="{% static 'js/display.js' %}?v=2026-08-08-pushfirst1"></script>
     {% endif %}
     <script defer src="{% static 'js/display-sw-register.js' %}?v=2026-08-04-a1"></script>
 </body>

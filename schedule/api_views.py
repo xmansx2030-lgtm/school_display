@@ -2094,6 +2094,15 @@ def status(request, token: str | None = None):
     if not device_key:
         device_key = (request.GET.get("dk") or request.GET.get("device_key") or "").strip()
 
+    # A manager previewing the screen from the dashboard must not claim the
+    # device, and must not be counted as the screen being live.
+    from display.services import resolve_preview_screen
+
+    preview_screen = resolve_preview_screen(request, token_value)
+    if preview_screen is not None:
+        device_key = ""
+        school_id = int(getattr(preview_screen, "school_id", 0) or 0) or None
+
     if device_key:
         try:
             from display.services import (
@@ -3521,7 +3530,12 @@ def _build_snapshot_payload(
         st_reason = str(st.get("reason") or "").strip().lower()
 
         base_refresh = int((day_snap.get("settings") or {}).get("refresh_interval_sec") or 3600)
-        if not is_school_day:
+        if st_reason == "awaiting_setup":
+            # A school still entering its timetable is the one case that needs a
+            # tight cycle: the manager is watching the TV while typing, and the
+            # ten-minute floor below would make the board look broken.
+            refresh = max(30, min(base_refresh, 120))
+        elif not is_school_day:
             refresh = max(base_refresh, 3600)
         elif st_type == "before" or st_reason == "before_hours":
             refresh = max(base_refresh, 60)
@@ -3530,7 +3544,14 @@ def _build_snapshot_payload(
 
         refresh = max(5, min(86400, int(refresh)))
 
-        if not is_school_day:
+        if st_reason == "awaiting_setup":
+            # Keep the setup wording intact. Relabelling it "after hours" would
+            # tell a school with no timetable that its school day has ended.
+            snap["state"]["type"] = "AWAITING_SETUP"
+            snap["state"]["label"] = str(st.get("label") or "").strip()
+            snap["state"]["badge"] = str(st.get("badge") or "").strip()
+            snap["state"]["reason"] = "awaiting_setup"
+        elif not is_school_day:
             snap["state"]["type"] = "NO_SCHEDULE_TODAY"
             snap["state"]["label"] = str(st.get("label") or "").strip() or settings_obj.get_display_holiday_title()
             snap["state"]["badge"] = str(st.get("badge") or "").strip() or settings_obj.get_display_holiday_badge()
@@ -3803,12 +3824,18 @@ def snapshot(request, token: str | None = None):
             )
 
         device_key = ""
+        is_preview = False
         if is_snapshot_path:
             device_key = (request.headers.get("X-Display-Device") or "").strip()
             if not device_key:
                 device_key = (request.GET.get("dk") or request.GET.get("device_key") or "").strip()
 
-            if not device_key:
+            # A dashboard preview reads the board without claiming the screen.
+            from display.services import resolve_preview_screen
+
+            is_preview = resolve_preview_screen(request, token_value) is not None
+
+            if not device_key and not is_preview:
                 resp = JsonResponse({"detail": "device_required"}, status=403)
                 return _finalize(
                     resp,
@@ -3818,7 +3845,9 @@ def snapshot(request, token: str | None = None):
                     rev=None,
                 )
 
-            device_hash = _sha256(device_key)
+            # Previews still share the per-screen rate limit; they simply do not
+            # get a device identity of their own.
+            device_hash = _sha256(device_key or f"preview:{token_hash}")
 
             if transition_requested:
                 try:
@@ -3844,8 +3873,11 @@ def snapshot(request, token: str | None = None):
                     bind_device_atomic,
                 )
 
-                screen = bind_device_atomic(token=token_value, device_id=device_key)
-                touch_display_presence(screen.pk, token=token_value)
+                if is_preview:
+                    screen = None
+                else:
+                    screen = bind_device_atomic(token=token_value, device_id=device_key)
+                    touch_display_presence(screen.pk, token=token_value)
             except ScreenNotFoundError:
                 resp = JsonResponse(
                     {

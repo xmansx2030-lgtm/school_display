@@ -543,6 +543,18 @@ def scan_screens(*, now=None) -> dict:
         state.screen.pk for bucket in schools.values() for state in bucket.states
     )
 
+    # One query answers "which screens have an outage on file at all". Without
+    # it every screen in the fleet cost a transaction and a SELECT ... FOR UPDATE
+    # on every pass — once a minute, around the clock — just to learn that a
+    # healthy screen is still healthy. A screen that is neither offline now nor
+    # carrying an open outage needs no row-level work of any kind.
+    #
+    # The set is a snapshot: an outage opened by a concurrent pass after this
+    # read is simply resolved on the next pass, one minute later.
+    screens_with_open_outage = set(
+        ScreenOutage.objects.filter(resolved_at__isnull=True).values_list("screen_id", flat=True)
+    )
+
     for bucket in schools.values():
         school = bucket.school
         school_settings = bucket.school_settings
@@ -555,6 +567,9 @@ def scan_screens(*, now=None) -> dict:
 
         for state in bucket.states:
             screen = state.screen
+            if not state.is_offline and screen.pk not in screens_with_open_outage:
+                continue
+
             with transaction.atomic():
                 outage = (
                     ScreenOutage.objects.select_for_update()
@@ -839,3 +854,75 @@ def send_weekly_uptime_reports(*, week_start=None, now=None) -> dict:
         "schools_sent": len(school_reports),
         "reports_created": reports_created,
     }
+
+
+# ---------------------------------------------------------------------------
+# Retention
+# ---------------------------------------------------------------------------
+
+PRUNE_BATCH_SIZE = 1000
+PRUNE_MAX_BATCHES = 20
+
+
+def _retention_days() -> int:
+    try:
+        value = int(getattr(settings, "DISPLAY_OPERATIONAL_RETENTION_DAYS", 180) or 180)
+    except (TypeError, ValueError):
+        value = 180
+    return max(30, min(1095, value))
+
+
+def _delete_in_batches(queryset, *, order_field: str) -> int:
+    """Delete a queryset in bounded chunks.
+
+    The first run on a table that has never been pruned can face a large
+    backlog, and one statement over all of it would hold locks for as long as it
+    takes. Chunking keeps every transaction short; whatever the cap leaves
+    behind is taken by the next daily pass.
+    """
+    deleted = 0
+    for _ in range(PRUNE_MAX_BATCHES):
+        pks = list(queryset.order_by(order_field).values_list("pk", flat=True)[:PRUNE_BATCH_SIZE])
+        if not pks:
+            break
+        removed, _detail = queryset.model.objects.filter(pk__in=pks).delete()
+        deleted += int(removed or 0)
+        if len(pks) < PRUNE_BATCH_SIZE:
+            break
+    return deleted
+
+
+def prune_operational_data(*, now=None, retention_days: int | None = None) -> dict:
+    """Drop operational history nothing reads any more.
+
+    Two append-only logs grew without any retention policy: resolved screen
+    outages and alerts that have already been delivered. Both are evidence for
+    an incident that is over.
+
+    What is deliberately never touched:
+
+    * outages still open — they are live state, whatever their age;
+    * alerts still pending or in flight — deleting one loses a message;
+    * weekly uptime reports — one small row per screen per week, and they are
+      the only long-term record of how a screen has behaved.
+    """
+    now = now or timezone.now()
+    days = int(retention_days) if retention_days is not None else _retention_days()
+    days = max(30, min(1095, days))
+    cutoff = now - timedelta(days=days)
+
+    from telegram_alerts.models import TelegramAlert
+
+    outages = _delete_in_batches(
+        ScreenOutage.objects.filter(resolved_at__isnull=False, resolved_at__lt=cutoff),
+        order_field="resolved_at",
+    )
+    alerts = _delete_in_batches(
+        TelegramAlert.objects.filter(
+            status__in=(TelegramAlert.Status.SENT, TelegramAlert.Status.FAILED),
+            updated_at__lt=cutoff,
+        ),
+        order_field="updated_at",
+    )
+
+    return {"outages": outages, "alerts": alerts, "cutoff": cutoff.isoformat(), "days": days}

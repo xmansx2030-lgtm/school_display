@@ -2980,3 +2980,85 @@
         #exSlot > .from-amber-500\/5 {
             --tw-gradient-from: var(--mesh2, rgba(99, 102, 241, 0.12));
         }
+
+/* ===========================================================================
+   وضع المعاينة
+   ---------------------------------------------------------------------------
+   يفتحها المدير من لوحة التحكم للاطمئنان على الشاشة. الشارة تخبره أن ما يراه
+   هو العرض الحقيقي، وأن هذه النافذة لا تحجز الشاشة عن التلفاز — وكلاهما سؤال
+   يطرحه المدير في يومه الأول.
+   =========================================================================== */
+.display-preview-badge {
+    position: fixed;
+    inset-block-start: 18px;
+    inset-inline-start: 18px;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(92vw, 420px);
+    padding: 11px 18px 11px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(10, 18, 32, 0.82);
+    box-shadow: 0 18px 44px rgba(3, 8, 18, 0.34);
+    backdrop-filter: blur(14px);
+    color: #f4f7ff;
+    pointer-events: none;
+    animation: display-preview-badge-in 0.5s ease both;
+}
+
+.display-preview-badge__dot {
+    position: relative;
+    flex: 0 0 auto;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--accent-main, #6366f1);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.22);
+}
+
+.display-preview-badge__dot::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: inherit;
+    border: 1px solid currentColor;
+    opacity: 0.45;
+    animation: display-preview-badge-pulse 2.4s ease-out infinite;
+}
+
+.display-preview-badge__copy {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+}
+
+.display-preview-badge__copy strong {
+    font-size: 0.95rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.display-preview-badge__copy small {
+    color: rgba(244, 247, 255, 0.68);
+    font-size: 0.76rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+@keyframes display-preview-badge-in {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes display-preview-badge-pulse {
+    0%   { opacity: 0.5; transform: scale(1); }
+    70%  { opacity: 0;   transform: scale(1.9); }
+    100% { opacity: 0;   transform: scale(1.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .display-preview-badge { animation: none; }
+    .display-preview-badge__dot::after { animation: none; }
+}

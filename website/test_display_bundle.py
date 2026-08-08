@@ -266,6 +266,186 @@ class DisplayBoardStylesheetTests(SimpleTestCase):
         )
 
 
+def _function_source(js: str, name: str) -> str:
+    """Return the source of a top-level `function name(...) { ... }` in `js`."""
+    start = js.index(f"function {name}(")
+    depth, i = 0, js.index("{", start)
+    for j in range(i, len(js)):
+        if js[j] == "{":
+            depth += 1
+        elif js[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return js[start : j + 1]
+    raise AssertionError(f"could not delimit {name}")
+
+
+class DisplaySleepEngineTests(SimpleTestCase):
+    """The sleep engine decides when a television goes dark and when it comes back.
+
+    Every assertion here stands for a screen that stayed dark when it should not
+    have, or a fleet that hammered the server when it should have been quiet.
+    The project has no JavaScript test runner, so these pin the wiring at source
+    level in the same style as the other display.js guards in this suite.
+    """
+
+    def setUp(self):
+        self.js = (
+            Path(settings.BASE_DIR) / "static" / "js" / "display.js"
+        ).read_text(encoding="utf-8")
+
+    def _body(self, name):
+        return _function_source(self.js, name)
+
+    def test_sleep_is_entered_only_for_a_reason_the_server_named(self):
+        """A school day whose timetable is empty is a fault, not a night.
+
+        `state.type == "off"` also covers `no_timeline`, so any misconfigured day
+        used to put the screen to sleep until tomorrow's wake — an admin fixing
+        the schedule at 10:00 could not get the board back before the next day.
+        """
+        body = self._body("sleepEvaluate")
+
+        self.assertIn('stateReason === "before_hours" || stateReason === "after_hours"', body)
+        self.assertNotIn('stateType === "off" || stateReason === "before_hours"', body)
+
+    def test_a_windowless_off_state_never_sleeps(self):
+        """The legacy `off` path needs both edges of the window to place itself."""
+        body = self._body("sleepEvaluate")
+
+        self.assertIn(
+            'stateType === "off" && rt.activeWindowStartMs && rt.activeWindowEndMs',
+            body,
+        )
+
+    def test_a_window_start_already_behind_us_is_not_a_wake_target(self):
+        """Otherwise sleep→wake→fetch→sleep spins for as long as it is sent."""
+        body = self._body("sleepEvaluate")
+
+        self.assertIn("rt.activeWindowStartMs > now", body)
+
+    def test_both_sleep_entry_points_arm_the_wake_through_one_path(self):
+        """A throttle honoured on one path and bypassed on the other is no throttle."""
+        for name in ("sleepEnter", "sleepSafetyCheck"):
+            with self.subTest(function=name):
+                self.assertIn("_armSleepWake(", self._body(name))
+
+    def test_a_wake_target_in_the_past_wakes_at_most_once_per_floor(self):
+        body = self._body("_armSleepWake")
+
+        self.assertIn("recheckMs = wakeMs ? STALE_WAKE_MIN_INTERVAL_MS : SLEEP_CHECK_MS", body)
+        self.assertIn("rt.lastSleepWakeAt = now", body)
+
+    def test_every_wake_taken_while_asleep_anchors_the_throttle(self):
+        """A scheduled re-check and the throttle would each fire at the boundary."""
+        self.assertIn("rt.lastSleepWakeAt = nowMs();", self._body("_scheduleCappedWake"))
+        self.assertIn("rt.lastSleepWakeAt = nowMs();", self._body("sleepEnter"))
+
+    def test_a_payload_naming_no_wake_moment_still_gets_re_checked(self):
+        """Sleeping forever on it would need a power cycle to recover."""
+        body = self._body("_armSleepWake")
+
+        self.assertIn(": SLEEP_CHECK_MS", body)
+        self.assertIn('setMode("waking"', body)
+
+    def test_a_socket_lost_during_sleep_is_re_established(self):
+        """The pre-active wake is a server push; polling is off until it lands.
+
+        `_scheduleSleepReconnect` existed but was never called, and
+        `initWebSocket` refused to connect while sleeping — so one overnight
+        disconnect left the screen unreachable until its own timer fired.
+        """
+        self.assertGreaterEqual(self.js.count("_scheduleSleepReconnect();"), 4)
+        self.assertIn("_scheduleSleepReconnect();", self._body("_closeWsForSleep"))
+        self.assertIn("initWebSocket({ duringSleep: true })", self._body("_scheduleSleepReconnect"))
+        self.assertIn('rt.mode === "sleeping" && !duringSleep', self._body("initWebSocket"))
+
+    def test_sleep_reconnects_back_off_to_a_ceiling(self):
+        """A server down at 02:00 must not meet the whole fleet on a 5s retry."""
+        body = self._body("_sleepReconnectDelayMs")
+
+        self.assertIn("SLEEP_RECONNECT_CAP_MS", body)
+        self.assertIn("Math.pow(2,", body)
+
+    def test_a_night_of_failed_reconnects_does_not_delay_the_morning_connect(self):
+        """Ten overnight failures would put the first connect of the day behind
+        the 120s slow-retry timer, on the one morning the board must be live."""
+        body = self._body("_onModeEnter")
+
+        self.assertIn("rt.wsRetryCount = 0;", body)
+        self.assertIn("rt.sleepReconnectAttempts = 0;", body)
+
+    def test_the_keepalive_ping_is_restored_when_a_socket_survives_sleep(self):
+        """Sleep pauses the client ping; waking with the same socket must resume it."""
+        self.assertIn('_startWsKeepalive("wake")', self._body("_onModeEnter"))
+        self.assertIn('_log("ws_keepalive_skipped", { reason: "sleeping" });', self.js)
+
+
+class DisplayPushFirstCadenceTests(SimpleTestCase):
+    """The board is driven by pushes, not by polling.
+
+    Content changes when a manager saves something, and that arrives over the
+    WebSocket; period and break transitions are computed from the day plan the
+    screen already holds. The HTTP checks that remain are proof of life, and at
+    one per minute they were the single largest source of display traffic in the
+    system — about 420 requests per screen per school day, each one answered
+    "nothing changed".
+    """
+
+    def setUp(self):
+        self.js = (
+            Path(settings.BASE_DIR) / "static" / "js" / "display.js"
+        ).read_text(encoding="utf-8")
+
+    def _body(self, name):
+        return _function_source(self.js, name)
+
+    def test_the_safety_check_can_be_configured_up_to_an_hour(self):
+        """The client used to clamp this to five minutes whatever the server said."""
+        self.assertIn("WS_LIVE_STATUS_CHECK_SEC: 3600", self.js)
+        self.assertIn("Math.max(5, Math.min(3600, sec))", self._body("_wsLiveStatusIntervalMs"))
+        self.assertIn('parseFloat(body.dataset.wsLiveStatusCheck || "3600") || 3600', self.js)
+
+    def test_the_server_default_matches_the_client_ceiling(self):
+        """A mismatch here silently reinstates the old traffic on every screen."""
+        self.assertEqual(settings.DISPLAY_WS_LIVE_STATUS_CHECK_SEC, 3600)
+
+    def test_a_live_socket_replaces_the_periodic_poll(self):
+        body = self._body("basePollEverySec")
+
+        self.assertIn("Math.max(300, Number(cfg.WS_LIVE_STATUS_CHECK_SEC) || 3600)", body)
+        for stale in ("if (_dayEngine.blocks.length > 0) return 300;", "return 1800;\n        // ws-live"):
+            with self.subTest(stale=stale):
+                self.assertNotIn(stale, body)
+
+    def test_the_first_check_after_reconnecting_stays_immediate(self):
+        """A push sent while the socket was down is gone; this is what recovers it."""
+        self.assertIn("WS_LIVE_STATUS_FIRST_CHECK_SEC = 5", self.js)
+        self.assertIn(
+            '_startWsLiveStatusSafeguard("ws_live_entered", { firstCheck: true })',
+            self._body("_onModeEnter"),
+        )
+        self.assertIn("if (firstCheck) {", self._body("_wsLiveStatusIntervalMs"))
+
+    def test_the_hourly_check_is_spread_across_the_fleet(self):
+        """Fixed seconds of jitter on an hourly timer still lands everyone together."""
+        body = self._body("_wsLiveStatusIntervalMs")
+
+        self.assertIn("Math.min(600, sec * 0.4)", body)
+
+    def test_a_clock_jump_still_forces_a_resync_over_a_live_socket(self):
+        """WebSocket frames carry no server time, so the socket cannot fix a jump.
+
+        Skipping the re-sync while connected was harmless when the display
+        polled every minute. At one poll an hour it would leave the bell and
+        every countdown running on the television's own wrong clock.
+        """
+        body = self._body("requestReSyncIfNeeded")
+
+        self.assertIn("rt.wsConnected && !clockDriftDetected", body)
+        self.assertIn("if (!clockDriftDetected && lastServerSyncAt > 0", body)
+
+
 class DisplayEndOfDayPanelTests(SimpleTestCase):
     """Day-scoped panels must switch off once the school day is over.
 
@@ -286,17 +466,7 @@ class DisplayEndOfDayPanelTests(SimpleTestCase):
         ).read_text(encoding="utf-8")
 
     def _body(self, name):
-        """Return the source of a top-level `function name(...) { ... }`."""
-        start = self.js.index(f"function {name}(")
-        depth, i = 0, self.js.index("{", start)
-        for j in range(i, len(self.js)):
-            if self.js[j] == "{":
-                depth += 1
-            elif self.js[j] == "}":
-                depth -= 1
-                if depth == 0:
-                    return self.js[start : j + 1]
-        raise AssertionError(f"could not delimit {name}")
+        return _function_source(self.js, name)
 
     def test_featured_panel_is_gated_on_day_over(self):
         """The honour and duty boards were the only panels with no day-over gate."""

@@ -1,11 +1,12 @@
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from asgiref.sync import async_to_sync
 from django.conf import settings
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 
-from display.consumers import DisplayConsumer
+from core.display_presence import display_live_threshold_seconds
+from display.consumers import DisplayConsumer, _presence_touch_interval_seconds
 
 
 class DisplayClientTimingRegressionTests(SimpleTestCase):
@@ -188,3 +189,200 @@ class DisplayConsumerEventTests(SimpleTestCase):
             "token_0123456789abcdef", "test-channel"
         )
         self.assertGreater(consumer._last_group_refresh_at, 0)
+
+
+class PresenceTouchThrottleTests(SimpleTestCase):
+    """The ping loop must not turn into a presence write loop.
+
+    Pings run every 20s because that is what holds the socket open through
+    school proxies. Presence only has to stay inside the dashboard's live
+    threshold (120s), and each refresh costs a thread hop plus cache writes for
+    every connected screen in the fleet.
+    """
+
+    def _consumer(self):
+        consumer = DisplayConsumer()
+        consumer.screen = SimpleNamespace(pk=1, id=1, school_id=7)
+        return consumer
+
+    @override_settings(DISPLAY_PRESENCE_TOUCH_INTERVAL_SEC=60)
+    def test_first_touch_after_connecting_always_runs(self):
+        consumer = self._consumer()
+
+        self.assertTrue(consumer._presence_touch_is_due(1000.0))
+
+    @override_settings(DISPLAY_PRESENCE_TOUCH_INTERVAL_SEC=60)
+    def test_pings_inside_the_interval_do_not_touch_presence(self):
+        consumer = self._consumer()
+        consumer._presence_touch_is_due(1000.0)
+
+        # The next two pings of the 20s loop fall inside the 60s interval.
+        self.assertFalse(consumer._presence_touch_is_due(1020.0))
+        self.assertFalse(consumer._presence_touch_is_due(1040.0))
+
+    @override_settings(DISPLAY_PRESENCE_TOUCH_INTERVAL_SEC=60)
+    def test_presence_is_refreshed_once_the_interval_elapses(self):
+        consumer = self._consumer()
+        consumer._presence_touch_is_due(1000.0)
+
+        self.assertTrue(consumer._presence_touch_is_due(1060.0))
+        # ...and the window restarts from there.
+        self.assertFalse(consumer._presence_touch_is_due(1080.0))
+
+    @override_settings(DISPLAY_PRESENCE_TOUCH_INTERVAL_SEC=60)
+    def test_the_interval_stays_inside_the_dashboard_live_threshold(self):
+        """A screen must never look offline to its manager while it is connected."""
+        interval = _presence_touch_interval_seconds()
+
+        self.assertLessEqual(interval, display_live_threshold_seconds() / 2)
+
+
+class PingMetricBatchingTests(SimpleTestCase):
+    """Counting pings must stay exact while costing far fewer round trips.
+
+    `_ws_metric_incr` runs on the event loop that also delivers every broadcast,
+    so one increment per ping per screen is the wrong place to spend it. The
+    batch changes when the counter is written, never what it totals.
+    """
+
+    def test_pending_pings_are_flushed_by_their_full_count(self):
+        consumer = DisplayConsumer()
+        consumer._pending_ping_metric = 7
+        calls = []
+
+        with patch("display.consumers._ws_metric_incr", side_effect=lambda name, delta=1: calls.append((name, delta))):
+            consumer._flush_ping_metric()
+
+        self.assertEqual(calls, [("server_ping_sent", 7)])
+        self.assertEqual(consumer._pending_ping_metric, 0)
+
+    def test_flushing_nothing_writes_nothing(self):
+        consumer = DisplayConsumer()
+        calls = []
+
+        with patch("display.consumers._ws_metric_incr", side_effect=lambda name, delta=1: calls.append((name, delta))):
+            consumer._flush_ping_metric()
+
+        self.assertEqual(calls, [])
+
+    def test_a_closing_connection_does_not_lose_its_count(self):
+        """Cancellation lands while the loop sleeps, outside its own try block."""
+        consumer = DisplayConsumer()
+        consumer._pending_ping_metric = 3
+        calls = []
+
+        with patch("display.consumers._ws_metric_incr", side_effect=lambda name, delta=1: calls.append((name, delta))):
+            async_to_sync(consumer._stop_server_ping_task)()
+
+        self.assertEqual(calls, [("server_ping_sent", 3)])
+
+
+class DashboardPreviewNeverClaimsTheScreenTests(TestCase):
+    """فتح المعاينة من اللوحة يجب ألا يسحب الشاشة من التلفاز.
+
+    زرّا «معاينة» و«فتح المعاينة» يفتحان رابط العرض نفسه الذي يفتحه التلفاز.
+    وبما أن أول جهاز يفتحه يحجز ``bound_device_id``، كان متصفح المدير يفوز
+    بالمكان فيُقابَل التلفاز برسالة «هذه الشاشة مفعّلة على جهاز آخر» — وهو أكثر
+    ما يعطّل المدرسة في يومها الأول.
+    """
+
+    def setUp(self):
+        from core.models import DisplayScreen, School, SubscriptionPlan, UserProfile
+        from django.contrib.auth import get_user_model
+        from django.utils import timezone
+        from schedule.models import SchoolSettings
+        from subscriptions.models import SchoolSubscription
+
+        self.school = School.objects.create(name="مدرسة المعاينة", slug="preview-school")
+        SchoolSettings.objects.create(school=self.school, name=self.school.name)
+        plan = SubscriptionPlan.objects.create(
+            code="preview-plan", name="خطة", price=100, duration_days=365, max_screens=3
+        )
+        SchoolSubscription.objects.create(
+            school=self.school, plan=plan, starts_at=timezone.localdate(), status="active"
+        )
+        self.screen = DisplayScreen.objects.create(
+            school=self.school, name="الشاشة الرئيسية", is_active=True
+        )
+        self.manager = get_user_model().objects.create_user(
+            username="preview_mgr", password="StrongPass123!"
+        )
+        profile = UserProfile.objects.create(user=self.manager, active_school=self.school)
+        profile.schools.add(self.school)
+
+    def _snapshot(self, device, *, preview=False):
+        headers = {
+            "HTTP_X_DISPLAY_TOKEN": self.screen.token,
+            "HTTP_X_DISPLAY_DEVICE": device,
+        }
+        if preview:
+            headers["HTTP_X_DISPLAY_PREVIEW"] = "1"
+        return self.client.get(
+            "/api/display/snapshot/",
+            {"token": self.screen.token, "dk": device},
+            **headers,
+        )
+
+    def test_manager_preview_leaves_the_device_slot_free_for_the_tv(self):
+        self.client.force_login(self.manager)
+        self.assertEqual(self._snapshot("manager-laptop", preview=True).status_code, 200)
+
+        self.screen.refresh_from_db()
+        self.assertFalse(self.screen.bound_device_id)
+
+        self.client.logout()
+        self.assertEqual(self._snapshot("tv-device").status_code, 200)
+
+        self.screen.refresh_from_db()
+        self.assertEqual(self.screen.bound_device_id, "tv-device")
+
+    def test_preview_keeps_working_while_the_tv_owns_the_screen(self):
+        self.assertEqual(self._snapshot("tv-device").status_code, 200)
+
+        self.client.force_login(self.manager)
+        self.assertEqual(self._snapshot("manager-laptop", preview=True).status_code, 200)
+
+        self.screen.refresh_from_db()
+        self.assertEqual(self.screen.bound_device_id, "tv-device")
+
+    def test_preview_does_not_report_the_screen_as_live(self):
+        from core.display_presence import display_is_live
+
+        self.client.force_login(self.manager)
+        self._snapshot("manager-laptop", preview=True)
+
+        self.screen.refresh_from_db()
+        self.assertFalse(display_is_live(self.screen))
+
+    def test_the_flag_alone_grants_nothing_to_a_token_holder(self):
+        self.assertEqual(self._snapshot("tv-device").status_code, 200)
+
+        response = self._snapshot("stranger-device", preview=True)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"], "screen_bound")
+
+    def test_a_manager_of_another_school_gets_no_preview(self):
+        from core.models import School, UserProfile
+        from django.contrib.auth import get_user_model
+
+        other = School.objects.create(name="مدرسة أخرى", slug="preview-other")
+        stranger = get_user_model().objects.create_user(
+            username="other_mgr", password="StrongPass123!"
+        )
+        profile = UserProfile.objects.create(user=stranger, active_school=other)
+        profile.schools.add(other)
+
+        self.assertEqual(self._snapshot("tv-device").status_code, 200)
+        self.client.force_login(stranger)
+
+        self.assertEqual(self._snapshot("stranger-device", preview=True).status_code, 403)
+
+    def test_preview_mode_is_only_rendered_for_an_authorised_manager(self):
+        url = f"/s/{self.screen.short_code}/?preview=1"
+
+        self.client.force_login(self.manager)
+        self.assertContains(self.client.get(url), 'data-preview-mode="1"')
+
+        self.client.logout()
+        self.assertNotContains(self.client.get(url), 'data-preview-mode="1"')

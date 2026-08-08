@@ -608,7 +608,9 @@ def _build_dashboard_onboarding_context(request, school, settings_obj=None):
     screens_count = screens_qs.count()
     launch_screen = screens_qs.filter(is_active=True).order_by("id").first()
     launch_screen_url = (
-        reverse("website:short_display", args=[launch_screen.short_code])
+        # Opened from the dashboard, so it is a preview: looking at the board
+        # from here must never take the device slot away from the TV.
+        reverse("website:short_display", args=[launch_screen.short_code]) + "?preview=1"
         if launch_screen is not None and getattr(launch_screen, "short_code", "")
         else reverse("dashboard:screen_list")
     )
@@ -633,10 +635,27 @@ def _build_dashboard_onboarding_context(request, school, settings_obj=None):
             return ("اختياري", "amber")
         return ("ابدأ الآن", "slate")
 
+    # The old checklist ended at "choose a theme", so it could read 100% while
+    # nothing was on the TV at all. Completion has to mean what the manager came
+    # here for: a screen that is actually playing.
+    bound_screens = [
+        screen
+        for screen in screens_qs.filter(is_active=True)
+        if (getattr(screen, "bound_device_id", "") or "").strip()
+    ]
+    screen_is_live = any(display_is_live(screen) for screen in bound_screens)
+    if screen_is_live:
+        activation_metric = "تعرض الآن"
+    elif bound_screens:
+        activation_metric = "مرتبطة بلا اتصال"
+    else:
+        activation_metric = "لم تُشغَّل بعد"
+
     screens_status, screens_tone = _step_status(screens_count > 0)
     data_status, data_tone = _step_status(classes_count > 0 and subjects_count > 0 and teachers_count > 0)
     schedule_status, schedule_tone = _step_status(periods_count > 0)
     settings_status, settings_tone = _step_status(settings_customized, optional=True)
+    activate_status, activate_tone = _step_status(screen_is_live)
 
     setup_steps = [
         {
@@ -697,6 +716,29 @@ def _build_dashboard_onboarding_context(request, school, settings_obj=None):
                 "فعّل الأيام الدراسية وألغِ أيام الإجازة.",
                 "من داخل كل يوم اضبط عدد الحصص والأوقات.",
                 "بعد ذلك افتح الجدول اليومي لإسناد المادة والمعلم لكل توقيت.",
+            ],
+        },
+        {
+            "key": "activate",
+            "title": "تشغيل الشاشة على التلفاز",
+            "eyebrow": "الخطوة 4",
+            "description": (
+                "افتح رابط الشاشة على التلفاز — أو اربطه برمز من صفحة الربط — "
+                "ولا تُعدّ الخطوة مكتملة حتى يصل الجهاز فعليًا."
+            ),
+            "image_url": _dashboard_help_image("activate", "img/dashboard-help/create-screen.svg"),
+            "cta_url": reverse("dashboard:screen_pairing"),
+            "cta_label": "ربط التلفاز برمز",
+            "metric_value": activation_metric,
+            "metric_label": "حالة التشغيل",
+            "status_label": activate_status,
+            "status_tone": activate_tone,
+            "is_complete": screen_is_live,
+            "required": True,
+            "tips": [
+                "أسهل طريقة: افتح school-display.com/tv على التلفاز وأدخل الرمز الظاهر في اللوحة.",
+                "زر «معاينة» في صفحة الشاشات للاطلاع فقط ولا يحجز الشاشة عن التلفاز.",
+                "إن ظهرت رسالة «مفعّلة على جهاز آخر»، اضغط فك ارتباط الجهاز ثم أعد المحاولة.",
             ],
         },
         {
