@@ -1,11 +1,12 @@
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from asgiref.sync import async_to_sync
 from django.conf import settings
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
-from display.consumers import DisplayConsumer
+from core.display_presence import display_live_threshold_seconds
+from display.consumers import DisplayConsumer, _presence_touch_interval_seconds
 
 
 class DisplayClientTimingRegressionTests(SimpleTestCase):
@@ -188,3 +189,91 @@ class DisplayConsumerEventTests(SimpleTestCase):
             "token_0123456789abcdef", "test-channel"
         )
         self.assertGreater(consumer._last_group_refresh_at, 0)
+
+
+class PresenceTouchThrottleTests(SimpleTestCase):
+    """The ping loop must not turn into a presence write loop.
+
+    Pings run every 20s because that is what holds the socket open through
+    school proxies. Presence only has to stay inside the dashboard's live
+    threshold (120s), and each refresh costs a thread hop plus cache writes for
+    every connected screen in the fleet.
+    """
+
+    def _consumer(self):
+        consumer = DisplayConsumer()
+        consumer.screen = SimpleNamespace(pk=1, id=1, school_id=7)
+        return consumer
+
+    @override_settings(DISPLAY_PRESENCE_TOUCH_INTERVAL_SEC=60)
+    def test_first_touch_after_connecting_always_runs(self):
+        consumer = self._consumer()
+
+        self.assertTrue(consumer._presence_touch_is_due(1000.0))
+
+    @override_settings(DISPLAY_PRESENCE_TOUCH_INTERVAL_SEC=60)
+    def test_pings_inside_the_interval_do_not_touch_presence(self):
+        consumer = self._consumer()
+        consumer._presence_touch_is_due(1000.0)
+
+        # The next two pings of the 20s loop fall inside the 60s interval.
+        self.assertFalse(consumer._presence_touch_is_due(1020.0))
+        self.assertFalse(consumer._presence_touch_is_due(1040.0))
+
+    @override_settings(DISPLAY_PRESENCE_TOUCH_INTERVAL_SEC=60)
+    def test_presence_is_refreshed_once_the_interval_elapses(self):
+        consumer = self._consumer()
+        consumer._presence_touch_is_due(1000.0)
+
+        self.assertTrue(consumer._presence_touch_is_due(1060.0))
+        # ...and the window restarts from there.
+        self.assertFalse(consumer._presence_touch_is_due(1080.0))
+
+    @override_settings(DISPLAY_PRESENCE_TOUCH_INTERVAL_SEC=60)
+    def test_the_interval_stays_inside_the_dashboard_live_threshold(self):
+        """A screen must never look offline to its manager while it is connected."""
+        interval = _presence_touch_interval_seconds()
+
+        self.assertLessEqual(interval, display_live_threshold_seconds() / 2)
+
+
+class PingMetricBatchingTests(SimpleTestCase):
+    """Counting pings must stay exact while costing far fewer round trips.
+
+    `_ws_metric_incr` runs on the event loop that also delivers every broadcast,
+    so one increment per ping per screen is the wrong place to spend it. The
+    batch changes when the counter is written, never what it totals.
+    """
+
+    def test_pending_pings_are_flushed_by_their_full_count(self):
+        consumer = DisplayConsumer()
+        consumer._pending_ping_metric = 7
+        calls = []
+
+        with patch("display.consumers._ws_metric_incr", side_effect=lambda name, delta=1: calls.append((name, delta))):
+            consumer._flush_ping_metric()
+
+        self.assertEqual(calls, [("server_ping_sent", 7)])
+        self.assertEqual(consumer._pending_ping_metric, 0)
+
+    def test_flushing_nothing_writes_nothing(self):
+        consumer = DisplayConsumer()
+        calls = []
+
+        with patch("display.consumers._ws_metric_incr", side_effect=lambda name, delta=1: calls.append((name, delta))):
+            consumer._flush_ping_metric()
+
+        self.assertEqual(calls, [])
+
+    def test_a_closing_connection_does_not_lose_its_count(self):
+        """Cancellation lands while the loop sleeps, outside its own try block."""
+        consumer = DisplayConsumer()
+        consumer._pending_ping_metric = 3
+        calls = []
+
+        with patch("display.consumers._ws_metric_incr", side_effect=lambda name, delta=1: calls.append((name, delta))):
+            async_to_sync(consumer._stop_server_ping_task)()
+
+        self.assertEqual(calls, [("server_ping_sent", 3)])
+
+

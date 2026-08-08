@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from datetime import time as dt_time
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 from django.conf import settings
 from django.http import JsonResponse
@@ -40,6 +41,7 @@ from core.screen_monitoring import (
     SUPPRESSED_COOLDOWN,
     SUPPRESSED_OUTSIDE_SCHOOL_DAY,
     SUPPRESSED_PLATFORM,
+    prune_operational_data,
     scan_screens,
     send_weekly_uptime_reports,
 )
@@ -81,6 +83,26 @@ class DisplayPresenceTests(TestCase):
 
         self.assertAlmostEqual(self.screen.last_seen.timestamp(), first_seen.timestamp(), delta=1)
         self.assertAlmostEqual(latest_display_presence(self.screen).timestamp(), later_seen.timestamp(), delta=1)
+
+    def test_the_persisted_heartbeat_stays_fresher_than_the_strictest_alert_threshold(self):
+        """The column the monitor falls back to when the cache is cold.
+
+        A school may set its offline threshold to five minutes. If presence were
+        written to the database less often than that, the first scan after a
+        Redis restart would read a stale column and declare a wall of healthy
+        screens dead.
+        """
+        from core.display_presence import _db_touch_interval_seconds
+
+        strictest_threshold_sec = 5 * 60
+
+        self.assertLess(_db_touch_interval_seconds(), strictest_threshold_sec)
+
+    @override_settings(DISPLAY_LAST_SEEN_DB_INTERVAL_SEC=900)
+    def test_the_ceiling_holds_even_if_the_environment_asks_for_more(self):
+        from core.display_presence import LAST_SEEN_DB_INTERVAL_CEILING_SEC, _db_touch_interval_seconds
+
+        self.assertEqual(_db_touch_interval_seconds(), LAST_SEEN_DB_INTERVAL_CEILING_SEC)
 
 
 @override_settings(
@@ -378,6 +400,176 @@ class ScreenMonitoringTests(TestCase):
     DEFAULT_FROM_EMAIL="alerts@example.com",
     TELEGRAM_ALERTS_ENABLED=False,
     # These suites are about monitoring, not billing.
+    DISPLAY_REQUIRE_ACTIVE_SUBSCRIPTION=False,
+)
+class ScreenMonitorScanCostTests(TestCase):
+    """The scan runs every minute, for every screen, forever.
+
+    It used to open a transaction and take a row lock for each screen on every
+    pass — including the healthy ones, which are almost all of them. That is the
+    load that grows with the fleet even when nothing is wrong, so its cost per
+    healthy screen has to be zero, and it has to stay zero.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.school = School.objects.create(name="مدرسة الكلفة", slug="scan-cost-school")
+        self.settings = SchoolSettings.objects.create(
+            school=self.school,
+            name=self.school.name,
+            screen_offline_threshold_minutes=5,
+            screen_offline_alerts_enabled=True,
+            screen_offline_school_hours_only=False,
+        )
+
+    def _screen(self, name, *, last_seen):
+        return DisplayScreen.objects.create(
+            school=self.school,
+            name=name,
+            is_active=True,
+            bound_device_id=f"device-{name}",
+            last_seen=last_seen,
+        )
+
+    def _query_count(self, now):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as captured:
+            scan_screens(now=now)
+        return len(captured.captured_queries)
+
+    def test_healthy_screens_do_not_scale_the_query_count(self):
+        now = timezone.now()
+        self._screen("شاشة ١", last_seen=now)
+        scan_screens(now=now)  # warm the per-school caches first
+
+        one_screen = self._query_count(now)
+        for index in range(2, 7):
+            self._screen(f"شاشة {index}", last_seen=now)
+        six_screens = self._query_count(now)
+
+        self.assertEqual(
+            six_screens,
+            one_screen,
+            "a healthy screen still costs the scan a query; the fleet-sized load is back",
+        )
+
+    def test_a_screen_that_recovers_is_still_resolved(self):
+        """The skip must never apply to a screen carrying an open outage."""
+        now = timezone.now()
+        screen = self._screen("شاشة متعطلة", last_seen=now - timedelta(minutes=20))
+
+        opened = scan_screens(now=now)
+        self.assertEqual(opened["opened"], 1)
+
+        screen.last_seen = now + timedelta(minutes=1)
+        screen.save(update_fields=("last_seen",))
+        recovered = scan_screens(now=now + timedelta(minutes=1))
+
+        self.assertEqual(recovered["resolved"], 1)
+        self.assertIsNotNone(ScreenOutage.objects.get(screen=screen).resolved_at)
+
+    def test_an_offline_screen_is_still_detected_among_healthy_ones(self):
+        now = timezone.now()
+        self._screen("سليمة", last_seen=now)
+        broken = self._screen("معطلة", last_seen=now - timedelta(minutes=30))
+
+        result = scan_screens(now=now)
+
+        self.assertEqual(result["opened"], 1)
+        self.assertTrue(ScreenOutage.objects.filter(screen=broken, resolved_at__isnull=True).exists())
+
+
+class OperationalRetentionTests(TestCase):
+    """Two append-only logs had no retention policy at all."""
+
+    def setUp(self):
+        cache.clear()
+        self.school = School.objects.create(name="مدرسة التقليم", slug="prune-school")
+        self.screen = DisplayScreen.objects.create(
+            school=self.school,
+            name="شاشة",
+            is_active=True,
+            bound_device_id="prune-device",
+        )
+        self.now = timezone.now()
+        self.old = self.now - timedelta(days=400)
+
+    def _outage(self, *, detected_at, resolved_at):
+        return ScreenOutage.objects.create(
+            screen=self.screen, detected_at=detected_at, resolved_at=resolved_at
+        )
+
+    def _alert(self, *, key, status, updated_at):
+        alert = TelegramAlert.objects.create(
+            event_type="screen-offline", dedupe_key=key, message="x", status=status
+        )
+        # `updated_at` is auto_now, so it can only be set after the fact.
+        TelegramAlert.objects.filter(pk=alert.pk).update(updated_at=updated_at)
+        return alert
+
+    def test_closed_outages_past_retention_are_removed(self):
+        stale = self._outage(detected_at=self.old, resolved_at=self.old + timedelta(hours=1))
+
+        result = prune_operational_data(now=self.now, retention_days=180)
+
+        self.assertEqual(result["outages"], 1)
+        self.assertFalse(ScreenOutage.objects.filter(pk=stale.pk).exists())
+
+    def test_an_open_outage_is_never_removed_however_old(self):
+        """It is live state, not history — deleting it loses a running incident."""
+        open_outage = self._outage(detected_at=self.old, resolved_at=None)
+
+        prune_operational_data(now=self.now, retention_days=180)
+
+        self.assertTrue(ScreenOutage.objects.filter(pk=open_outage.pk).exists())
+
+    def test_recent_history_is_kept(self):
+        recent = self._outage(
+            detected_at=self.now - timedelta(days=3), resolved_at=self.now - timedelta(days=3)
+        )
+
+        prune_operational_data(now=self.now, retention_days=180)
+
+        self.assertTrue(ScreenOutage.objects.filter(pk=recent.pk).exists())
+
+    def test_delivered_alerts_are_removed_but_queued_ones_are_not(self):
+        sent = self._alert(key="sent-old", status=TelegramAlert.Status.SENT, updated_at=self.old)
+        failed = self._alert(key="failed-old", status=TelegramAlert.Status.FAILED, updated_at=self.old)
+        pending = self._alert(key="pending-old", status=TelegramAlert.Status.PENDING, updated_at=self.old)
+        processing = self._alert(
+            key="processing-old", status=TelegramAlert.Status.PROCESSING, updated_at=self.old
+        )
+
+        result = prune_operational_data(now=self.now, retention_days=180)
+
+        self.assertEqual(result["alerts"], 2)
+        self.assertFalse(TelegramAlert.objects.filter(pk__in=[sent.pk, failed.pk]).exists())
+        self.assertEqual(
+            set(TelegramAlert.objects.values_list("pk", flat=True)),
+            {pending.pk, processing.pk},
+            "an undelivered alert was deleted; that is a lost message",
+        )
+
+    def test_a_large_backlog_is_cleared_across_batches(self):
+        """The first run faces everything the system ever recorded."""
+        for index in range(5):
+            self._outage(
+                detected_at=self.old, resolved_at=self.old + timedelta(minutes=index)
+            )
+
+        with patch("core.screen_monitoring.PRUNE_BATCH_SIZE", 2):
+            result = prune_operational_data(now=self.now, retention_days=180)
+
+        self.assertEqual(result["outages"], 5)
+        self.assertEqual(ScreenOutage.objects.count(), 0)
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    DEFAULT_FROM_EMAIL="alerts@example.com",
+    TELEGRAM_ALERTS_ENABLED=False,
     DISPLAY_REQUIRE_ACTIVE_SUBSCRIPTION=False,
 )
 class ScreenSchoolHoursGateTests(TestCase):
