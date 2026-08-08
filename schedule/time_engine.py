@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, time as dt_time, timedelta
 from zoneinfo import ZoneInfo
 
 from django.db.models import Prefetch
@@ -362,6 +362,26 @@ def _next_school_day_info(settings, start_date, tz, *, include_today: bool = Fal
     return None
 
 
+def _wake_at(next_school_day, now, tz) -> str:
+    """موعد الإيقاظ التالي للشاشة — ولا يجوز أن يكون فارغًا أبدًا.
+
+    ``_next_school_day_info`` يبحث أسبوعين فقط. الإجازة الأطول من ذلك — أو مدرسة
+    عطّلت أيامها طوال الإجازة — تجعله ``None``، ولقطة بلا نافذة نشطة وبلا موعد
+    إيقاظ لا تنام عندها الشاشة إطلاقًا: تبقى مستيقظة تستطلع كل ربع ساعة طوال
+    الإجازة. وفي حالة "بعد الدوام" الأسوأ من ذلك: تعود الشاشة إلى بداية نافذة
+    اليوم المنقضية فتدور بين نوم واستيقاظ بلا توقف.
+
+    بداية اليوم المحلي التالي تُبقي البيانات مكتملة: تنام الشاشة طوال الإجازة
+    وتراجع الجدول مرة كل يوم، وهو ما يكفي لالتقاط جدول أُعيد تفعيله أثناءها.
+    """
+    active_start = (next_school_day or {}).get("active_start")
+    if active_start:
+        return active_start
+
+    midnight = datetime.combine((now + timedelta(days=1)).date(), dt_time.min)
+    return timezone.make_aware(midnight, tz).isoformat()
+
+
 def _after_hours_copy(settings_payload: dict[str, str], next_school_day):
     if next_school_day and int(next_school_day.get("days_ahead") or 0) == 1:
         return {
@@ -504,7 +524,7 @@ def _build_day_snapshot(settings, now=None, *, active_days_index: dict[int, list
                 "is_active_window": False,
                 "active_window": None,
                 "next_school_day": next_school_day,
-                "next_wake_at": (next_school_day or {}).get("active_start"),
+                "next_wake_at": _wake_at(next_school_day, now, tz),
             },
             "settings": settings_payload,
             "state": {
@@ -538,7 +558,7 @@ def _build_day_snapshot(settings, now=None, *, active_days_index: dict[int, list
                 "is_active_window": False,
                 "active_window": None,
                 "next_school_day": next_school_day,
-                "next_wake_at": (next_school_day or {}).get("active_start"),
+                "next_wake_at": _wake_at(next_school_day, now, tz),
             },
             "settings": settings_payload,
             "state": {
@@ -616,7 +636,7 @@ def _build_day_snapshot(settings, now=None, *, active_days_index: dict[int, list
                     "end": active_end.isoformat(),
                 },
                 "next_school_day": next_school_day,
-                "next_wake_at": (next_school_day or {}).get("active_start"),
+                "next_wake_at": _wake_at(next_school_day, now, tz),
             },
             "settings": settings_payload,
             "state": {

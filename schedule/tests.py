@@ -850,6 +850,83 @@ class WebSocketMetricsAccessTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
 
 
+class SnapshotWakeTargetTests(TestCase):
+    """كل لقطة خارج النافذة النشطة يجب أن تحمل موعد إيقاظ في المستقبل.
+
+    الشاشة ترفض النوم على لقطة بلا نافذة نشطة وبلا ``next_wake_at`` (تبقى
+    مستيقظة تستطلع)، وتدور بين نوم واستيقاظ إن كان الموعد في الماضي. الحالتان
+    كانتا ممكنتين حين لا يجد المحرك يومًا دراسيًا قادمًا خلال أسبوعين.
+    """
+
+    def setUp(self):
+        self.settings = SchoolSettings.objects.create(
+            name="مدرسة مواعيد الإيقاظ",
+            timezone_name="Asia/Riyadh",
+        )
+        monday = DaySchedule.objects.create(settings=self.settings, weekday=1, is_active=True)
+        Period.objects.create(day=monday, index=1, starts_at=dt_time(7, 0), ends_at=dt_time(7, 45))
+        Period.objects.create(day=monday, index=2, starts_at=dt_time(7, 50), ends_at=dt_time(8, 35))
+
+    def _meta(self, now_iso):
+        return build_day_snapshot(self.settings, now=datetime.fromisoformat(now_iso))["meta"]
+
+    def test_holiday_wakes_at_the_next_school_day(self):
+        # الثلاثاء إجازة والاثنين القادم دوام: الإيقاظ عند بداية نافذته.
+        meta = self._meta("2026-06-02T10:00:00+03:00")
+
+        self.assertFalse(meta["is_school_day"])
+        self.assertEqual(meta["next_wake_at"], meta["next_school_day"]["active_start"])
+        self.assertEqual(datetime.fromisoformat(meta["next_wake_at"]).date().isoformat(), "2026-06-08")
+
+    def test_after_hours_wakes_at_the_next_school_day(self):
+        meta = self._meta("2026-06-01T20:00:00+03:00")
+
+        self.assertTrue(meta["is_school_day"])
+        self.assertFalse(meta["is_active_window"])
+        self.assertEqual(meta["next_wake_at"], meta["next_school_day"]["active_start"])
+
+    def test_a_holiday_with_no_school_day_in_sight_still_names_a_wake_moment(self):
+        # مدرسة عطّلت كل أيامها للإجازة الطويلة: لا يوم قادم خلال أسبوعين.
+        # بلا موعد إيقاظ تبقى الشاشة مستيقظة تستطلع طوال الإجازة.
+        DaySchedule.objects.update(is_active=False)
+
+        meta = self._meta("2026-06-01T10:00:00+03:00")
+
+        self.assertFalse(meta["is_school_day"])
+        self.assertIsNone(meta["active_window"])
+        self.assertIsNone(meta["next_school_day"])
+        self.assertEqual(
+            datetime.fromisoformat(meta["next_wake_at"]),
+            datetime.fromisoformat("2026-06-02T00:00:00+03:00"),
+        )
+
+    def test_a_day_without_a_timeline_still_names_a_wake_moment(self):
+        DaySchedule.objects.filter(weekday=1).update(is_active=True)
+        Period.objects.all().delete()
+
+        meta = self._meta("2026-06-01T10:00:00+03:00")
+
+        self.assertIsNone(meta["active_window"])
+        self.assertTrue(meta["next_wake_at"])
+
+    def test_no_inactive_snapshot_ever_points_at_a_past_moment(self):
+        """العقد الذي تعتمد عليه الشاشة: خارج النافذة، الإيقاظ دائمًا أمامنا."""
+        for now_iso in (
+            "2026-06-01T04:00:00+03:00",  # قبل الدوام
+            "2026-06-01T20:00:00+03:00",  # بعد الدوام
+            "2026-06-03T12:00:00+03:00",  # إجازة والدوام القادم معروف
+        ):
+            with self.subTest(now=now_iso):
+                meta = self._meta(now_iso)
+
+                self.assertFalse(meta["is_active_window"])
+                self.assertTrue(meta["next_wake_at"], "لقطة خامدة بلا موعد إيقاظ")
+                self.assertGreater(
+                    datetime.fromisoformat(meta["next_wake_at"]),
+                    datetime.fromisoformat(now_iso),
+                )
+
+
 class WeekPlanOfflineResilienceTests(TestCase):
     """خطة الأسبوع هي ما يُبقي شاشةً مقطوعة عن الإنترنت على جدول صحيح لأيام."""
 
