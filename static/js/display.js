@@ -708,8 +708,10 @@
   // ===== Config =====
   const cfg = {
     REFRESH_EVERY: 30, // conservative default for large fleets; can be overridden from server
-    WS_FALLBACK_POLL_EVERY: 180, // when WS is healthy, keep only a sparse safety poll
-    WS_LIVE_STATUS_CHECK_SEC: 60, // sparse safety net when WS/cache misses cross-process updates
+    // Superseded by the fallback ladder in _FALLBACK_TIERS, which paces the
+    // WS-down path now. Still parsed so an older server payload keeps working.
+    WS_FALLBACK_POLL_EVERY: 180,
+    WS_LIVE_STATUS_CHECK_SEC: 3600, // proof of life while the push path is healthy
     STANDBY_SPEED: 0.8,
     PERIODS_SPEED: 0.5,
     MEDIA_PREFIX: "/media/",
@@ -835,9 +837,11 @@
     wsLastMessageAt: 0,
     wsHeartbeatTimeoutMs: 75000,
     wsLiveStatusGen: 0,
+    sleepReconnectAttempts: 0, // backoff counter for reconnects made while asleep
 
     // Sleep/Wake
     sleepReason: "", // "before_hours" | "after_hours" | "holiday"
+    lastSleepWakeAt: 0, // last re-sync wake performed during the current sleep
 
     // Adaptive Fallback Polling (improvement #2)
     // Tracks escalation level when WS is down and mode is fallback-poll.
@@ -1460,8 +1464,17 @@
       rt.statusEverySec = 0;
       resetFallbackPollLevel("waking");
 
+      // Sleep paced its own reconnects; the awake counters must not carry a
+      // night of failures into the morning, where they would push the first
+      // connect of the school day behind a two-minute slow-retry timer.
+      rt.sleepReconnectAttempts = 0;
+      rt.wsRetryCount = 0;
       if (rt.wsEnabled && !rt.wsConnected) {
         initWebSocket();
+      } else if (rt.wsConnected) {
+        // The socket came through sleep with its keepalive paused; the awake
+        // side of the app expects to be pinging.
+        _startWsKeepalive("wake");
       }
 
       // Determine target mode
@@ -1491,7 +1504,7 @@
       clearNamedTimer("sleep_reconnect");
       resetFallbackPollLevel("ws_live");
       _startWsHeartbeat("ws_live_entered");
-      _startWsLiveStatusSafeguard("ws_live_entered");
+      _startWsLiveStatusSafeguard("ws_live_entered", { firstCheck: true });
       _log("ws_live_entered", {
         reason: reason,
         wsConnected: rt.wsConnected,
@@ -1598,6 +1611,7 @@
 
   var SLEEP_RECONNECT_MIN_MS = 5 * 1000;   // 5s floor
   var SLEEP_RECONNECT_MAX_MS = 30 * 1000;  // 30s ceiling
+  var SLEEP_RECONNECT_CAP_MS = 10 * 60 * 1000; // 10m ceiling once attempts keep failing
 
   function _sleepReconnectJitterMs() {
     // Deterministic base from per-device fraction (0..25s spread)
@@ -1610,8 +1624,23 @@
   }
 
   /**
+   * Delay before the next sleep-mode reconnect attempt.
+   *
+   * A sleeping screen polls nothing, so a reconnect loop is the only traffic it
+   * can generate — and a server that is down at 02:00 would otherwise be met by
+   * the whole fleet retrying on the same short jitter until morning. Each failed
+   * attempt doubles the wait up to a 10-minute ceiling, which still leaves ample
+   * room to recover before the pre-active wake broadcast.
+   */
+  function _sleepReconnectDelayMs(attempt) {
+    var n = Math.max(1, parseInt(attempt, 10) || 1);
+    var exp = Math.min(6, n - 1);
+    return Math.min(SLEEP_RECONNECT_CAP_MS, _sleepReconnectJitterMs() * Math.pow(2, exp));
+  }
+
+  /**
    * Schedule a WS reconnect attempt during sleep mode.
-   * Uses dedicated jitter and named timer to prevent reconnect storms.
+   * Uses dedicated backoff and named timer to prevent reconnect storms.
    * If WS comes back before the timer fires, it will be safely cancelled by
    * clearNamedTimer("sleep_reconnect") in the WS onopen handler.
    */
@@ -1629,8 +1658,11 @@
     // Guard: don't schedule if WS is disabled
     if (!rt.wsEnabled) return;
 
-    var jitter = _sleepReconnectJitterMs();
+    var attempt = (Number(rt.sleepReconnectAttempts) || 0) + 1;
+    rt.sleepReconnectAttempts = attempt;
+    var jitter = _sleepReconnectDelayMs(attempt);
     _log("sleep_reconnect_scheduled", {
+      attempt: attempt,
       jitterMs: jitter,
       jitterSec: (jitter / 1000).toFixed(1),
     });
@@ -1651,8 +1683,8 @@
         _log("sleep_reconnect_skipped", { reason: "ws_already_connected" });
         return;
       }
-      _log("sleep_reconnect_fired", {});
-      initWebSocket();
+      _log("sleep_reconnect_fired", { attempt: attempt });
+      initWebSocket({ duringSleep: true });
     }, jitter, "sleep_ws_reconnect");
   }
 
@@ -1886,17 +1918,35 @@
     }
   }
 
-  function _wsLiveStatusIntervalMs() {
-    var sec = Number(cfg.WS_LIVE_STATUS_CHECK_SEC) || 45;
-    sec = Math.max(5, Math.min(60, sec));
+  // The first check after entering ws-live reconciles anything the socket may
+  // have missed while it was down — a push sent during a reconnect is gone for
+  // good, and this is what catches it. Every later check is the sparse safety
+  // net configured by the server.
+  var WS_LIVE_STATUS_FIRST_CHECK_SEC = 5;
+
+  function _wsLiveStatusIntervalMs(firstCheck) {
+    var sec;
+    var jf = 0;
     try {
-      var jf = Math.abs(Number(rt.refreshJitterFrac) || 0);
-      sec += Math.round(jf * 3);
+      jf = Math.abs(Number(rt.refreshJitterFrac) || 0);
     } catch (e) {}
+
+    if (firstCheck) {
+      sec = WS_LIVE_STATUS_FIRST_CHECK_SEC + Math.round(jf * 10);
+      return sec * 1000;
+    }
+
+    sec = Number(cfg.WS_LIVE_STATUS_CHECK_SEC) || 3600;
+    sec = Math.max(5, Math.min(3600, sec));
+    // Jitter proportional to the interval: a few seconds when the check is
+    // frequent, minutes when it is hourly. A fleet that reconnects together
+    // after a deploy must not then poll together every hour for the rest of
+    // the day.
+    sec += Math.round(jf * Math.min(600, sec * 0.4));
     return sec * 1000;
   }
 
-  function _startWsLiveStatusSafeguard(reason) {
+  function _startWsLiveStatusSafeguard(reason, opts) {
     if (isTerminalBlockedMode()) {
       _log("ws_live_status_blocked_due_to_binding_loss", _logContext({
         sourcePath: "_startWsLiveStatusSafeguard",
@@ -1908,7 +1958,8 @@
 
     rt.wsLiveStatusGen++;
     var gen = rt.wsLiveStatusGen;
-    var delayMs = _wsLiveStatusIntervalMs();
+    var firstCheck = !!(opts && opts.firstCheck);
+    var delayMs = _wsLiveStatusIntervalMs(firstCheck);
 
     setNamedTimer("ws_live_status", function () {
       _wsLiveStatusSafeguardTick(gen);
@@ -1916,6 +1967,7 @@
 
     _log("ws_live_status_started", {
       intervalSec: Math.round(delayMs / 1000),
+      firstCheck: firstCheck,
       reason: reason || "",
       gen: gen,
     });
@@ -2624,7 +2676,12 @@
       return;
     }
     if (isBlocked) return;
-    if (rt && rt.wsConnected) {
+    // A detected clock jump is the one case the WebSocket cannot answer: its
+    // frames carry no server time, and the display polls only about once an
+    // hour while the socket is healthy. Left unsynced, the bell and every
+    // countdown on the board follow the television's own wrong clock until the
+    // next poll. The cooldown below still bounds how often this can fire.
+    if (rt && rt.wsConnected && !clockDriftDetected) {
       _log("resync_skipped", { reason: "ws_connected" });
       return;
     }
@@ -2638,7 +2695,7 @@
     // If sync is still fresh, skip extra re-sync requests completely.
     const pollEveryMs = Math.max(1000, Math.round((Number(rt && rt.statusEverySec) || Number(cfg.REFRESH_EVERY) || 20) * 1000));
     const freshSyncWindowMs = Math.max(30000, Math.round(pollEveryMs * 1.5));
-    if (lastServerSyncAt > 0 && now - lastServerSyncAt < freshSyncWindowMs) return;
+    if (!clockDriftDetected && lastServerSyncAt > 0 && now - lastServerSyncAt < freshSyncWindowMs) return;
 
     // Avoid piling re-sync while a status request is already in-flight.
     if (inflightStatus) return;
@@ -6918,14 +6975,23 @@
   //
   // Guarantees:
   //  1. Zero HTTP requests while sleeping.
-  //  2. WebSocket is closed during sleep and reopened on wake.
+  //  2. The WebSocket stays open through sleep — and is re-established on the
+  //     sleep backoff if it drops — so the server can still push a wake.
   //  3. Scheduled wakes use the authoritative server-provided next_wake_at.
-  //  4. WS invalidate wakes immediately only while the screen is awake.
+  //  4. WS invalidate wakes the screen immediately, asleep or awake.
   //  5. First page load always fetches (never sleeps before first payload).
   //  6. If meta validation fails, display stays active (safe default).
+  //  7. Sleep is only ever entered for a reason the server named: the school day
+  //     being over, not yet begun, or absent. A misconfigured day is not sleep.
   // ===========================================================================
 
   const SLEEP_CHECK_MS = 15 * 60 * 1000; // coarse local safety re-check every 15 min
+
+  // Minimum spacing between wakes triggered by a wake target that has already
+  // passed. Such a payload is self-contradictory — "not active" while pointing
+  // at a moment in the past — and without a floor the screen would spin
+  // sleep → wake → fetch → sleep for as long as the server keeps sending it.
+  const STALE_WAKE_MIN_INTERVAL_MS = 5 * 60 * 1000;
 
   function _parseIsoToMs(iso) {
     if (!iso) return null;
@@ -6975,30 +7041,38 @@
       rt.activeWindowStartMs = null;
       rt.activeWindowEndMs = null;
     }
+    var now = nowMs();
     rt.nextWakeMs = _parseIsoToMs(meta.next_wake_at || null);
-    if (!rt.nextWakeMs && rt.activeWindowStartMs && !rt.isActiveWindow) {
+    // Today's window start is a usable wake target only while it is still
+    // ahead of us. Falling back to one that has already passed produces the
+    // contradictory target STALE_WAKE_MIN_INTERVAL_MS exists to contain.
+    if (!rt.nextWakeMs && rt.activeWindowStartMs && !rt.isActiveWindow && rt.activeWindowStartMs > now) {
       rt.nextWakeMs = rt.activeWindowStartMs;
     }
 
-    // Determine sleep reason
+    // Determine sleep reason.
+    // Only the three states the server names as "the school day is not running"
+    // may sleep. Anything else — a day whose timetable is empty or broken, say —
+    // keeps the screen awake on its slow poll, so an admin fixing the schedule
+    // at 10:00 sees the board recover without waiting for tomorrow's wake.
     var stateType = normalizeDisplayStateType(state.type || "");
     var stateReason = getStateReason(state);
     var sleepReason = "";
 
     if (!rt.isSchoolDay) {
       sleepReason = "holiday";
-    } else if (!rt.isActiveWindow && (stateType === "off" || stateReason === "before_hours" || stateReason === "after_hours")) {
-      var now = nowMs();
-      if (stateReason === "before_hours" || (rt.activeWindowStartMs && now < rt.activeWindowStartMs)) {
-        sleepReason = "before_hours";
-      } else {
-        sleepReason = "after_hours";
-      }
+    } else if (!rt.isActiveWindow && (stateReason === "before_hours" || stateReason === "after_hours")) {
+      sleepReason = stateReason;
+    } else if (!rt.isActiveWindow && stateType === "off" && rt.activeWindowStartMs && rt.activeWindowEndMs) {
+      // Older payloads carry no reason; the window itself still says which side
+      // of the school day we are on.
+      sleepReason = now < rt.activeWindowStartMs ? "before_hours" : "after_hours";
     }
 
     if (sleepReason) {
       sleepEnter(sleepReason);
     } else if (rt.mode === "sleeping") {
+      rt.lastSleepWakeAt = 0;
       setMode("waking", "active_window_entered");
     }
   }
@@ -7007,11 +7081,16 @@
   // `snapshot_refresh` events to wake the screen ahead of the school day.
   // Only the client-side keepalive ping and the in-app heartbeat watchdog are
   // paused — the socket stays open and `onmessage` continues to fire.
+  //
+  // If the socket is not up when sleep begins, a reconnect is scheduled on the
+  // sleep backoff instead of being abandoned: with polling stopped, the socket
+  // is the only channel left that can reach this screen before its local timer.
   function _closeWsForSleep(reason) {
     clearNamedTimer("ws_reconnect");
     clearNamedTimer("sleep_reconnect");
     clearNamedTimer("ws_ping");
     _stopWsHeartbeat("sleep_pause");
+    rt.sleepReconnectAttempts = 0;
 
     var wsAlive = false;
     try {
@@ -7036,6 +7115,7 @@
     rt.ws = null;
     rt.wsConnected = false;
     _log("ws_sleep_paused", { reason: reason || "sleep_pause" });
+    _scheduleSleepReconnect();
   }
 
   /**
@@ -7055,38 +7135,73 @@
 
     // Transition mode (if not already sleeping)
     if (rt.mode !== "sleeping") {
+      // Sleep is always entered straight after a render, so the re-sync clock
+      // starts here: a wake target that is already behind us must not burn a
+      // fetch on the very payload we just rendered.
+      rt.lastSleepWakeAt = nowMs();
       // setMode will clear poll timer via _onModeEnter
       setMode("sleeping", reason);
     }
 
-    // Clear previous wake timers
+    if (_armSleepWake("sleep_enter")) return;
+
+    _log("sleep_entered", { reason: reason, wakeTarget: rt.nextWakeMs || null });
+
+    // Start safety check interval
+    setNamedInterval("safety_check", sleepSafetyCheck, SLEEP_CHECK_MS, "sleep_safety");
+  }
+
+  /**
+   * Point the wake timers at the current `rt.nextWakeMs`.
+   *
+   * Returns true when the screen is already waking, so the caller must stop.
+   * Both entry points into sleep — sleepEnter and the periodic safety check —
+   * go through here, otherwise the throttle on already-passed wake targets
+   * would hold on one path and be bypassed on the other.
+   */
+  function _armSleepWake(source) {
     clearNamedTimer("wake");
     clearNamedTimer("wake_chunk");
 
     var now = nowMs();
     var wakeMs = Number(rt.nextWakeMs) || null;
 
-    if (wakeMs && wakeMs <= now) {
-      setMode("waking", "already_near_active");
-      return;
-    }
-
     if (wakeMs && wakeMs > now) {
       // Add per-device jitter to prevent thundering herd
-      var delayMs = (wakeMs - now) + _wakeJitterMs();
+      rt.lastSleepWakeAt = 0;
+      var jitterMs = _wakeJitterMs();
+      var delayMs = (wakeMs - now) + jitterMs;
       _scheduleCappedWake(delayMs);
-
-      _log("sleep_entered", {
-        reason: reason,
+      _log("wake_armed", {
+        source: source,
         wakeInMin: Math.round(delayMs / 60000),
-        jitterMs: Math.round(_wakeJitterMs()),
+        jitterMs: Math.round(jitterMs),
       });
-    } else {
-      _log("sleep_entered", { reason: reason, wakeTarget: "none" });
+      return false;
     }
 
-    // Start safety check interval
-    setNamedInterval("safety_check", sleepSafetyCheck, SLEEP_CHECK_MS, "sleep_safety");
+    // The target is behind us, or the payload named none at all. Both are
+    // answered the same way: re-sync with the server on a fixed interval —
+    // never faster, so a payload that keeps pointing backwards cannot spin the
+    // screen, and never "not at all", because sleeping on a payload with no
+    // wake moment would take a power cycle to recover from.
+    var recheckMs = wakeMs ? STALE_WAKE_MIN_INTERVAL_MS : SLEEP_CHECK_MS;
+    var sinceWake = now - (Number(rt.lastSleepWakeAt) || 0);
+
+    if (sinceWake >= recheckMs) {
+      rt.lastSleepWakeAt = now;
+      setMode("waking", source === "sleep_enter" ? "already_near_active" : "safety_check_near_active");
+      return true;
+    }
+
+    var retryMs = Math.max(1000, recheckMs - sinceWake);
+    _scheduleCappedWake(retryMs);
+    _log("wake_recheck_scheduled", {
+      source: source,
+      target: wakeMs ? "passed" : "none",
+      retryInMin: Math.round(retryMs / 60000),
+    });
+    return false;
   }
 
   /**
@@ -7111,6 +7226,10 @@
           return;
         }
         if (rt.mode === "sleeping") {
+          // Every wake this sleep performs anchors the re-sync throttle, not
+          // just the ones taken immediately — otherwise a scheduled re-check
+          // and the throttle would each fire once at the same boundary.
+          rt.lastSleepWakeAt = nowMs();
           setMode("waking", "timer");
         }
       }, delayMs, "scheduled_wake");
@@ -7149,20 +7268,7 @@
       setNamedInterval("safety_check", sleepSafetyCheck, SLEEP_CHECK_MS, "sleep_safety");
     }
 
-    var now = nowMs();
-    var wakeTarget = Number(rt.nextWakeMs) || null;
-
-    if (wakeTarget) {
-      if (now >= wakeTarget) {
-        setMode("waking", "safety_check_near_active");
-        return;
-      }
-      // Reschedule precise timer for remaining time
-      var remaining = wakeTarget - now + _wakeJitterMs();
-      clearNamedTimer("wake");
-      clearNamedTimer("wake_chunk");
-      _scheduleCappedWake(remaining);
-    }
+    if (_armSleepWake("safety_check")) return;
 
     _log("safety_check_passed", { sleepReason: rt.sleepReason });
   }
@@ -7207,11 +7313,11 @@
     try {
       var wsOpen = !!(rt.ws && rt.ws.readyState === WebSocket.OPEN);
       if (wsOpen) {
-        // Off-hours with WS: 30-min heartbeat
-        if (!rt.isActiveWindow) return 1800;
-        // ws-live with dayEngine: 5-min heartbeat
-        if (_dayEngine.blocks.length > 0) return 300;
-        return Number(cfg.WS_FALLBACK_POLL_EVERY) || 90;
+        // A live socket makes every one of these polls redundant: content
+        // changes arrive as a push, and period/break transitions are computed
+        // locally from the day plan. What remains is a slow proof of life,
+        // matched to the ws-live safety check rather than to the clock.
+        return Math.max(300, Number(cfg.WS_LIVE_STATUS_CHECK_SEC) || 3600);
       }
     } catch (e) {}
 
@@ -7287,14 +7393,50 @@
     return true;
   }
 
-  function initWebSocket() {
+  /**
+   * Client keepalive ping.
+   *
+   * Deliberately not started while sleeping: the server sends its own heartbeat,
+   * which holds the connection open through the night without the television
+   * transmitting every 20 seconds for hours.
+   */
+  function _startWsKeepalive(source) {
+    setNamedInterval("ws_ping", function () {
+      if (isTerminalBlockedMode()) {
+        _log("heartbeat_blocked_due_to_binding_loss", _logContext({
+          sourcePath: "ws_ping_interval",
+        }));
+        clearNamedTimer("ws_ping");
+        return;
+      }
+      if (rt.ws && rt.ws.readyState === WebSocket.OPEN) {
+        try {
+          rt.ws.send(JSON.stringify({ type: "ping" }));
+        } catch (e) {
+          _log("ws_ping_failed", { error: String(e) });
+        }
+      }
+    }, 20000, "ws_keepalive");
+    _log("ws_keepalive_started", { source: source || "" });
+  }
+
+  /**
+   * @param {{duringSleep?: boolean}} [opts] `duringSleep` lets the sleep
+   *        reconnect scheduler re-establish the socket without leaving sleep.
+   *        Retries started from inside this call inherit the flag, and while
+   *        asleep they hand pacing back to the sleep backoff so the awake
+   *        schedules (15s offline, 120s slow retry) cannot outpace it.
+   */
+  function initWebSocket(opts) {
+    var duringSleep = !!(opts && opts.duringSleep);
+
     if (isTerminalBlockedMode()) {
       _log("reconnect_blocked_due_to_binding_loss", _logContext({
         sourcePath: "initWebSocket",
       }));
       return;
     }
-    if (rt.mode === "sleeping") {
+    if (rt.mode === "sleeping" && !duringSleep) {
       _log("ws_connect_skipped", { reason: "sleeping" });
       return;
     }
@@ -7308,6 +7450,10 @@
       if (rt.mode === "ws-live") {
         setMode("fallback-poll", "browser_offline");
       }
+      if (rt.mode === "sleeping") {
+        _scheduleSleepReconnect();
+        return;
+      }
       setNamedTimer("ws_reconnect", function () {
         if (isTerminalBlockedMode()) {
           _log("reconnect_blocked_due_to_binding_loss", _logContext({
@@ -7315,7 +7461,7 @@
           }));
           return;
         }
-        initWebSocket();
+        initWebSocket(opts);
       }, 15000, "ws_offline_retry");
       return;
     }
@@ -7325,6 +7471,10 @@
     if (rt.wsSuppressedUntilTs && nowTs < rt.wsSuppressedUntilTs) {
       var waitMs = Math.max(1000, rt.wsSuppressedUntilTs - nowTs);
       _log("ws_suppressed", { waitSec: Math.round(waitMs / 1000) });
+      if (rt.mode === "sleeping") {
+        _scheduleSleepReconnect();
+        return;
+      }
       setNamedTimer("ws_reconnect", function () {
         if (isTerminalBlockedMode()) {
           _log("reconnect_blocked_due_to_binding_loss", _logContext({
@@ -7332,7 +7482,7 @@
           }));
           return;
         }
-        initWebSocket();
+        initWebSocket(opts);
       }, waitMs, "ws_suppressed_retry");
       return;
     }
@@ -7341,6 +7491,10 @@
     if (rt.wsRetryCount >= rt.wsMaxRetries) {
       var longDelayMs = 120 * 1000;
       _log("ws_max_retries", { delay: 120 });
+      if (rt.mode === "sleeping") {
+        _scheduleSleepReconnect();
+        return;
+      }
       setNamedTimer("ws_reconnect", function () {
         if (isTerminalBlockedMode()) {
           _log("reconnect_blocked_due_to_binding_loss", _logContext({
@@ -7348,7 +7502,7 @@
           }));
           return;
         }
-        initWebSocket();
+        initWebSocket(opts);
       }, longDelayMs, "ws_slow_retry");
       return;
     }
@@ -7363,12 +7517,12 @@
     
     var token = getToken();
     var deviceId = getDeviceId();
-    
+
     if (!token || !deviceId) {
       _log("ws_no_credentials", {});
       return;
     }
-    
+
     var proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     var host = window.location.host;
     var wsUrl = proto + "//" + host + "/ws/display/?token=" + encodeURIComponent(token) + "&dk=" + encodeURIComponent(deviceId);
@@ -7404,6 +7558,7 @@
 
         // Cancel any pending sleep reconnect timer (improvement #1)
         clearNamedTimer("sleep_reconnect");
+        rt.sleepReconnectAttempts = 0;
 
         // Reset adaptive fallback (improvement #2)
         resetFallbackPollLevel("ws_connected");
@@ -7426,23 +7581,14 @@
           heartbeatGen: _heartbeatGen,
         });
         
-        // Start keepalive ping (every 30s) via named interval
-        setNamedInterval("ws_ping", function () {
-          if (isTerminalBlockedMode()) {
-            _log("heartbeat_blocked_due_to_binding_loss", _logContext({
-              sourcePath: "ws_ping_interval",
-            }));
-            clearNamedTimer("ws_ping");
-            return;
-          }
-          if (rt.ws && rt.ws.readyState === WebSocket.OPEN) {
-            try {
-              rt.ws.send(JSON.stringify({ type: "ping" }));
-            } catch (e) {
-              _log("ws_ping_failed", { error: String(e) });
-            }
-          }
-        }, 20000, "ws_keepalive");
+        // Start keepalive ping — except during sleep, where the server's own
+        // heartbeat keeps the socket warm. The wake path restarts it.
+        if (rt.mode === "sleeping") {
+          clearNamedTimer("ws_ping");
+          _log("ws_keepalive_skipped", { reason: "sleeping" });
+        } else {
+          _startWsKeepalive("ws_open");
+        }
       };
       
       rt.ws.onmessage = function(event) {
@@ -7589,9 +7735,12 @@
         if (rt.mode === "ws-live") {
           setMode("fallback-poll", "ws_closed_code_" + code);
         }
-        // Advance fallback escalation on each WS close (improvement #2)
-        advanceFallbackPollLevel();
-        
+        // Advance fallback escalation on each WS close (improvement #2).
+        // Sleep has no polling to escalate, and the level is reset on wake anyway.
+        if (rt.mode !== "sleeping") {
+          advanceFallbackPollLevel();
+        }
+
         // Don't reconnect on auth failures
         if (code === 4400 || code === 4403 || code === 4408) {
           _log("ws_auth_failure", { code: code });
@@ -7608,6 +7757,15 @@
         }
         
         rt.wsRetryCount++;
+
+        // Asleep: the socket is the only channel that can still reach this
+        // screen before its local wake timer — polling is stopped and the
+        // pre-active wake is a server push. Reconnect on the sleep backoff
+        // rather than abandoning the socket until morning.
+        if (rt.mode === "sleeping") {
+          _scheduleSleepReconnect();
+          return;
+        }
 
         // Suppress if endpoint seems unavailable
         if (!rt.wsEverConnected && rt.wsRetryCount >= 3) {
@@ -7998,9 +8156,9 @@
     cfg.REFRESH_EVERY = clamp(parseFloat(body.dataset.refresh || "30") || 30, 5, 120);
     cfg.WS_FALLBACK_POLL_EVERY = clamp(parseFloat(body.dataset.wsFallbackPoll || "180") || 180, 30, 600);
     cfg.WS_LIVE_STATUS_CHECK_SEC = clamp(
-      parseFloat(body.dataset.wsLiveStatusCheck || "45") || 45,
+      parseFloat(body.dataset.wsLiveStatusCheck || "3600") || 3600,
       15,
-      300
+      3600
     );
     cfg.STANDBY_SPEED = normSpeed(body.dataset.standby || "0.8", 0.8);
     cfg.PERIODS_SPEED = normSpeed(body.dataset.periodsSpeed || "0.5", 0.5);
