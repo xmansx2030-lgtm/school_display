@@ -31,7 +31,7 @@ h11==0.16.0
 h2==4.4.1
 hijri-converter==2.3.2.post1
 hijridate==2.3.0
-hpack==4.1.0
+hpack==4.2.0
 httpcore==1.0.9
 httptools==0.6.4
 httpx==0.28.1
