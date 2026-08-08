@@ -382,6 +382,25 @@ def _wake_at(next_school_day, now, tz) -> str:
     return timezone.make_aware(midnight, tz).isoformat()
 
 
+def _school_is_awaiting_setup(settings, active_days_index: dict[int, list] | None = None) -> bool:
+    """True only for a school that has never entered a timetable.
+
+    Deliberately narrower than "no active day today". A school that switches
+    every day off for a long holiday still has its timetable, and must keep the
+    holiday behaviour — including sleeping until the next school day. What this
+    catches is the brand-new school whose screen is already on the wall while
+    the manager is still filling in the schedule.
+    """
+    if _active_weekdays(settings, active_days_index):
+        return False
+
+    try:
+        return not Period.objects.filter(day__settings=settings).exists()
+    except Exception:
+        logger.exception("awaiting_setup probe failed settings_id=%s", getattr(settings, "pk", None))
+        return False
+
+
 def _after_hours_copy(settings_payload: dict[str, str], next_school_day):
     if next_school_day and int(next_school_day.get("days_ahead") or 0) == 1:
         return {
@@ -511,6 +530,47 @@ def _build_day_snapshot(settings, now=None, *, active_days_index: dict[int, list
             weekday_legacy,
             active_days_index=active_days_index,
         )
+
+    if not days and _school_is_awaiting_setup(settings, active_days_index):
+        # A school that has never marked a single school day is not on holiday —
+        # it is still being set up. Reporting a holiday here puts the screen to
+        # sleep until midnight, and a sleeping screen never polls, so the
+        # timetable the manager enters minutes later cannot reach the TV until
+        # the next wake. Keep it awake on a short cycle and say plainly what it
+        # is waiting for.
+        settings_payload["refresh_interval_sec"] = 120
+        return {
+            "now": now.isoformat(),
+            "meta": {
+                "date": str(today),
+                "weekday": weekday,
+                "is_school_day": True,
+                "is_active_window": False,
+                "active_window": None,
+                "next_school_day": None,
+                # Sleep is driven by the state reason below, not by this field;
+                # it exists because the client rejects a payload that offers no
+                # wake target at all while outside the active window.
+                "next_wake_at": (now + timedelta(minutes=5)).isoformat(),
+                "awaiting_setup": True,
+            },
+            "settings": settings_payload,
+            "state": {
+                "type": "off",
+                "label": "بانتظار إعداد الجدول الدراسي",
+                "badge": "الشاشة جاهزة",
+                "reason": "awaiting_setup",
+                "from": None,
+                "to": None,
+                "remaining_seconds": None,
+            },
+            "current_period": None,
+            "next_period": None,
+            "day_path": [],
+            "period_classes": [],
+            "standby": {"items": []},
+            "excellence": {"items": []},
+        }
 
     if not days:
         # Optimization: Strict stop on holidays (reduced to 15m to allow updates/wake-up)

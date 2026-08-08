@@ -530,7 +530,11 @@ def screens_customize_all(request):
     preview_screen = (
         _display_screen_model().objects.filter(school=school, is_active=True).order_by("id").first()
     )
-    preview_url = f"/s/{preview_screen.short_code}/" if preview_screen and preview_screen.short_code else None
+    preview_url = (
+        f"/s/{preview_screen.short_code}/?preview=1"
+        if preview_screen and preview_screen.short_code
+        else None
+    )
     logo_url = None
     try:
         logo_url = school.logo.url if school.logo else None
@@ -618,7 +622,7 @@ def screen_edit(request, pk: int):
     except Exception:
         pass
 
-    preview_url = f"/s/{screen.short_code}/" if screen.short_code else None
+    preview_url = f"/s/{screen.short_code}/?preview=1" if screen.short_code else None
 
     # القيم المعروضة في مفاتيح "اتباع إعداد جميع الشاشات": ما أرسله المدير عند
     # وجود أخطاء، وإلا حالة الشاشة المحفوظة.

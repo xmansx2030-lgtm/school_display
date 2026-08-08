@@ -232,10 +232,82 @@ def bind_device_atomic(
     return _mark_screen_present(screen, token=token)
 
 
+PREVIEW_HEADER = "X-Display-Preview"
+PREVIEW_PARAM = "preview"
+
+
+def _preview_requested(request) -> bool:
+    try:
+        raw = (request.headers.get(PREVIEW_HEADER) or "").strip().lower()
+    except Exception:
+        raw = ""
+    if not raw:
+        try:
+            raw = (request.GET.get(PREVIEW_PARAM) or "").strip().lower()
+        except Exception:
+            raw = ""
+    return raw in {"1", "true", "yes", "on"}
+
+
+def resolve_preview_screen(request, token: str):
+    """Return the screen when a signed-in manager is previewing it, else ``None``.
+
+    The dashboard offers "فتح" and "فتح المعاينة" next to every screen, and both
+    open the very same display URL the TV uses. Without this path the manager's
+    own browser wins the race for ``bound_device_id`` and the TV is met with
+    "هذه الشاشة مفعّلة على جهاز آخر" — the most common first-day failure.
+
+    A preview therefore claims nothing: no binding, and deliberately no presence
+    touch either, so the dashboard never reports a screen as live because a
+    manager glanced at it from a laptop.
+
+    The flag alone grants nothing. It is honoured only for an authenticated user
+    who already has access to that screen's school, so the single-device rule
+    stays intact for anyone holding just the token.
+    """
+    if not _preview_requested(request):
+        return None
+
+    user = getattr(request, "user", None)
+    if user is None or not getattr(user, "is_authenticated", False):
+        return None
+
+    token = (token or "").strip()
+    if not token:
+        return None
+
+    try:
+        screen = (
+            DisplayScreen.objects
+            .select_related("school")
+            .get(token__iexact=token, is_active=True)
+        )
+    except DisplayScreen.DoesNotExist:
+        return None
+    except Exception:
+        logger.exception("resolve_preview_screen lookup failed")
+        return None
+
+    if bool(getattr(user, "is_superuser", False)):
+        return screen
+
+    try:
+        profile = getattr(user, "profile", None)
+        if profile is None:
+            return None
+        if not profile.schools.filter(pk=screen.school_id).exists():
+            return None
+    except Exception:
+        logger.exception("resolve_preview_screen membership check failed")
+        return None
+
+    return screen
+
+
 def unbind_device(screen_id: int) -> bool:
     """
     Unbind device from screen (for admin/debug purposes).
-    
+
     Returns:
         True if unbound, False if screen not found
     """

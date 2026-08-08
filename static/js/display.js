@@ -100,6 +100,30 @@
     return value !== "0" && value !== "false" && value !== "no" && value !== "off";
   }
 
+  // A manager opening the board from the dashboard is looking, not broadcasting.
+  // Preview mode tells the server not to hand this browser the screen's single
+  // device slot — otherwise the laptop wins it and the TV is locked out — and
+  // keeps the WebSocket closed, since that channel binds a device too.
+  var IS_PREVIEW = (function readPreviewMode() {
+    try {
+      return screenSetting("previewMode", "0") === "1";
+    } catch (e) {
+      return false;
+    }
+  })();
+
+  function applyPreviewHeaders(headers) {
+    if (IS_PREVIEW) headers["X-Display-Preview"] = "1";
+    return headers;
+  }
+
+  function applyPreviewParam(url) {
+    try {
+      if (IS_PREVIEW) url.searchParams.set("preview", "1");
+    } catch (e) {}
+    return url;
+  }
+
   function setTextIfChanged(el, next) {
     if (!el) return false;
     const v = safeText(next);
@@ -761,6 +785,11 @@
     if (t === "before_school") return "before";
     if (t === "off_hours") return "off";
     if (t === "no_schedule_today") return "holiday";
+    // A school still entering its timetable is not on holiday and its day has
+    // not ended. Mapping it to either would put the screen to sleep, and a
+    // sleeping screen never polls — so the schedule being typed right now could
+    // not reach the TV until the next wake.
+    if (t === "awaiting_setup") return "setup";
     return t;
   }
 
@@ -6054,7 +6083,7 @@
     const token = getToken();
     const baseUrl = resolveSnapshotUrl();
 
-    const u = new URL(baseUrl, window.location.origin);
+    const u = applyPreviewParam(new URL(baseUrl, window.location.origin));
     // Always provide a stable device identifier.
     // Some CDNs/proxies may strip non-standard request headers, so also include it in the query.
     const deviceId = getOrCreateDeviceId();
@@ -6115,14 +6144,14 @@
     }
     ctrl = window.AbortController ? new AbortController() : null;
 
-    const headers = {
+    const headers = applyPreviewHeaders({
       Accept: "application/json",
       "X-Display-Token": token || "",
       "X-Display-Device": deviceId,
       // HTTP/1.0 caches and many TV browsers honor Pragma over Cache-Control.
       "Pragma": "no-cache",
       "Cache-Control": "no-cache, no-store, max-age=0",
-    };
+    });
 
     if (!opts.bypassEtag) {
       try {
@@ -6321,7 +6350,7 @@
     const token = getToken();
     const baseUrl = resolveStatusUrl();
 
-    const u = new URL(baseUrl, window.location.origin);
+    const u = applyPreviewParam(new URL(baseUrl, window.location.origin));
     // Keep device id consistent across endpoints (useful for server-side binding/diagnostics).
     const deviceId = getOrCreateDeviceId();
     u.searchParams.set("dk", deviceId);
@@ -6343,7 +6372,7 @@
     }
     ctrlStatus = window.AbortController ? new AbortController() : null;
 
-    const headers = {
+    const headers = applyPreviewHeaders({
       Accept: "application/json",
       "X-Display-Token": token || "",
       "X-Display-Device": deviceId,
@@ -6351,7 +6380,7 @@
       // TV/proxy cache hardening (Tizen ≤3, WebOS ≤3, school proxies).
       "Pragma": "no-cache",
       "Cache-Control": "no-cache, no-store, max-age=0",
-    };
+    });
 
     // Intentionally do NOT send If-None-Match for /status.
 
@@ -7515,6 +7544,14 @@
     
     clearNamedTimer("ws_reconnect");
     
+    // The socket binds a device server-side, so a preview must never open one.
+    // Polling alone is plenty for a manager looking at the board in a tab.
+    if (IS_PREVIEW) {
+      rt.wsEnabled = false;
+      _log("ws_skipped_in_preview", {});
+      return;
+    }
+
     var token = getToken();
     var deviceId = getDeviceId();
 

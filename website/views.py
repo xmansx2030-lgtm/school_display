@@ -343,6 +343,13 @@ def _build_display_context(request, key: str | None) -> dict | None:
     if not screen or not settings_obj or not effective_token:
         return None
 
+    # A manager opening "فتح" or "فتح المعاينة" from the dashboard gets a
+    # read-only view that never claims the screen's device slot. The context is
+    # per-viewer, so it must stay out of the shared render cache.
+    from display.services import resolve_preview_screen
+
+    preview_mode = resolve_preview_screen(request, effective_token) is not None
+
     try:
         schedule_revision = int(getattr(settings_obj, "schedule_revision", 0) or 0)
     except Exception:
@@ -350,7 +357,7 @@ def _build_display_context(request, key: str | None) -> dict | None:
 
     # ✅ اربط الكاش بـ revision حتى ينعكس أي تحديث إعدادات فورًا.
     cache_key = f"display_ctx:{effective_token}:rev:{schedule_revision}"
-    if not bypass_cache:
+    if not bypass_cache and not preview_mode:
         cached = cache.get(cache_key)
         if cached:
             return cached
@@ -421,6 +428,7 @@ def _build_display_context(request, key: str | None) -> dict | None:
         "now_hour": timezone.localtime().hour,
         "theme": theme,
         "theme_key": raw_theme,
+        "preview_mode": preview_mode,
         "screen_theme_override": screen_theme_override,
         "screen_occasion_theme": getattr(screen, "occasion_theme", "auto") or "auto",
         "screen_featured_panel": (
@@ -464,7 +472,8 @@ def _build_display_context(request, key: str | None) -> dict | None:
         ),
     }
 
-    cache.set(cache_key, ctx, 60)
+    if not preview_mode:
+        cache.set(cache_key, ctx, 60)
     return ctx
 
 

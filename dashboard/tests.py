@@ -805,7 +805,7 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertEqual(bound_screen.pk, screen.pk)
         self.assertIsNotNone(latest_display_presence(screen))
 
-    def test_completed_guide_opens_the_school_display(self):
+    def _complete_guide_data(self):
         screen = DisplayScreen.objects.create(name="الشاشة الرئيسية", school=self.school, is_active=True)
         school_class = SchoolClass.objects.create(settings=self.settings, name="1/أ")
         subject = Subject.objects.create(school=self.school, name="الرياضيات")
@@ -820,12 +820,47 @@ class CustomerExperienceRegressionTests(TestCase):
             starts_at=time(8, 0),
             ends_at=time(8, 45),
         )
+        return screen
+
+    def test_guide_is_not_complete_while_no_screen_is_playing(self):
+        """Entering the data is not the goal — a school day on the wall is."""
+        self._complete_guide_data()
+
+        response = self.client.get(reverse("dashboard:help_getting_started"))
+
+        summary = response.context["setup_summary"]
+        self.assertEqual(summary["completed_required"], 3)
+        self.assertEqual(summary["total_required"], 4)
+        self.assertEqual(summary["next_step_title"], "تشغيل الشاشة على التلفاز")
+        self.assertContains(response, "لم تُشغَّل بعد")
+
+    def test_completed_guide_opens_the_school_display(self):
+        screen = self._complete_guide_data()
+        screen.bound_device_id = "tv-device-1"
+        screen.bound_at = timezone.now()
+        screen.save(update_fields=["bound_device_id", "bound_at"])
+        touch_display_presence(screen.pk, token=screen.token)
 
         response = self.client.get(reverse("dashboard:help_getting_started"))
 
         self.assertContains(response, "100%")
         self.assertContains(response, "افتح شاشة مدرستك الآن")
         self.assertContains(response, reverse("website:short_display", args=[screen.short_code]))
+
+    def test_guide_launch_link_previews_instead_of_claiming_the_tv(self):
+        """The dashboard's own link must not win the screen's single device slot."""
+        screen = self._complete_guide_data()
+        screen.bound_device_id = "tv-device-1"
+        screen.bound_at = timezone.now()
+        screen.save(update_fields=["bound_device_id", "bound_at"])
+        touch_display_presence(screen.pk, token=screen.token)
+
+        response = self.client.get(reverse("dashboard:help_getting_started"))
+
+        self.assertEqual(
+            response.context["setup_summary"]["launch_screen_url"],
+            reverse("website:short_display", args=[screen.short_code]) + "?preview=1",
+        )
 
     def test_dashboard_prioritizes_screen_operation_and_first_launch_state(self):
         screen = DisplayScreen.objects.create(name="شاشة المدخل", school=self.school, is_active=True)

@@ -850,6 +850,58 @@ class WebSocketMetricsAccessTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
 
 
+class BrandNewSchoolStaysAwakeTests(TestCase):
+    """مدرسة لم تُدخل جدولها بعد يجب ألا تنام.
+
+    الشاشة النائمة لا تستطلع إطلاقًا، فلو عوملت المدرسة الجديدة كإجازة لبقي
+    الجدول الذي يكتبه المدير الآن بعيدًا عن التلفاز حتى إيقاظ اليوم التالي.
+    """
+
+    def setUp(self):
+        self.settings = SchoolSettings.objects.create(
+            name="مدرسة جديدة",
+            timezone_name="Asia/Riyadh",
+        )
+
+    def _snapshot(self, now_iso="2026-06-01T10:00:00+03:00"):
+        return build_day_snapshot(self.settings, now=datetime.fromisoformat(now_iso))
+
+    def test_school_without_any_timetable_is_awaiting_setup_not_on_holiday(self):
+        snap = self._snapshot()
+
+        self.assertTrue(snap["meta"]["is_school_day"])
+        self.assertTrue(snap["meta"]["awaiting_setup"])
+        self.assertEqual(snap["state"]["reason"], "awaiting_setup")
+        # ``is_school_day`` false is what sends the client to sleep.
+        self.assertNotEqual(snap["state"]["reason"], "holiday")
+
+    def test_awaiting_setup_still_names_a_wake_moment(self):
+        """The client rejects an inactive payload that offers no wake target."""
+        meta = self._snapshot()["meta"]
+
+        self.assertFalse(meta["is_active_window"])
+        self.assertTrue(meta["next_wake_at"])
+
+    def test_a_school_that_switched_every_day_off_keeps_holiday_behaviour(self):
+        """Turning the timetable off for a long break is not an unconfigured school."""
+        monday = DaySchedule.objects.create(settings=self.settings, weekday=1, is_active=True)
+        Period.objects.create(day=monday, index=1, starts_at=dt_time(7, 0), ends_at=dt_time(7, 45))
+        DaySchedule.objects.update(is_active=False)
+
+        snap = self._snapshot()
+
+        self.assertFalse(snap["meta"]["is_school_day"])
+        self.assertIsNone(snap["meta"].get("awaiting_setup"))
+
+    def test_entering_the_timetable_ends_the_awaiting_state(self):
+        monday = DaySchedule.objects.create(settings=self.settings, weekday=1, is_active=True)
+        Period.objects.create(day=monday, index=1, starts_at=dt_time(7, 0), ends_at=dt_time(7, 45))
+
+        snap = self._snapshot()
+
+        self.assertNotEqual(snap["state"]["reason"], "awaiting_setup")
+
+
 class SnapshotWakeTargetTests(TestCase):
     """كل لقطة خارج النافذة النشطة يجب أن تحمل موعد إيقاظ في المستقبل.
 

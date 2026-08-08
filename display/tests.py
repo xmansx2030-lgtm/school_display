@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 from asgiref.sync import async_to_sync
 from django.conf import settings
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from core.display_presence import display_live_threshold_seconds
 from display.consumers import DisplayConsumer, _presence_touch_interval_seconds
@@ -277,3 +277,112 @@ class PingMetricBatchingTests(SimpleTestCase):
         self.assertEqual(calls, [("server_ping_sent", 3)])
 
 
+class DashboardPreviewNeverClaimsTheScreenTests(TestCase):
+    """فتح المعاينة من اللوحة يجب ألا يسحب الشاشة من التلفاز.
+
+    زرّا «معاينة» و«فتح المعاينة» يفتحان رابط العرض نفسه الذي يفتحه التلفاز.
+    وبما أن أول جهاز يفتحه يحجز ``bound_device_id``، كان متصفح المدير يفوز
+    بالمكان فيُقابَل التلفاز برسالة «هذه الشاشة مفعّلة على جهاز آخر» — وهو أكثر
+    ما يعطّل المدرسة في يومها الأول.
+    """
+
+    def setUp(self):
+        from core.models import DisplayScreen, School, SubscriptionPlan, UserProfile
+        from django.contrib.auth import get_user_model
+        from django.utils import timezone
+        from schedule.models import SchoolSettings
+        from subscriptions.models import SchoolSubscription
+
+        self.school = School.objects.create(name="مدرسة المعاينة", slug="preview-school")
+        SchoolSettings.objects.create(school=self.school, name=self.school.name)
+        plan = SubscriptionPlan.objects.create(
+            code="preview-plan", name="خطة", price=100, duration_days=365, max_screens=3
+        )
+        SchoolSubscription.objects.create(
+            school=self.school, plan=plan, starts_at=timezone.localdate(), status="active"
+        )
+        self.screen = DisplayScreen.objects.create(
+            school=self.school, name="الشاشة الرئيسية", is_active=True
+        )
+        self.manager = get_user_model().objects.create_user(
+            username="preview_mgr", password="StrongPass123!"
+        )
+        profile = UserProfile.objects.create(user=self.manager, active_school=self.school)
+        profile.schools.add(self.school)
+
+    def _snapshot(self, device, *, preview=False):
+        headers = {
+            "HTTP_X_DISPLAY_TOKEN": self.screen.token,
+            "HTTP_X_DISPLAY_DEVICE": device,
+        }
+        if preview:
+            headers["HTTP_X_DISPLAY_PREVIEW"] = "1"
+        return self.client.get(
+            "/api/display/snapshot/",
+            {"token": self.screen.token, "dk": device},
+            **headers,
+        )
+
+    def test_manager_preview_leaves_the_device_slot_free_for_the_tv(self):
+        self.client.force_login(self.manager)
+        self.assertEqual(self._snapshot("manager-laptop", preview=True).status_code, 200)
+
+        self.screen.refresh_from_db()
+        self.assertFalse(self.screen.bound_device_id)
+
+        self.client.logout()
+        self.assertEqual(self._snapshot("tv-device").status_code, 200)
+
+        self.screen.refresh_from_db()
+        self.assertEqual(self.screen.bound_device_id, "tv-device")
+
+    def test_preview_keeps_working_while_the_tv_owns_the_screen(self):
+        self.assertEqual(self._snapshot("tv-device").status_code, 200)
+
+        self.client.force_login(self.manager)
+        self.assertEqual(self._snapshot("manager-laptop", preview=True).status_code, 200)
+
+        self.screen.refresh_from_db()
+        self.assertEqual(self.screen.bound_device_id, "tv-device")
+
+    def test_preview_does_not_report_the_screen_as_live(self):
+        from core.display_presence import display_is_live
+
+        self.client.force_login(self.manager)
+        self._snapshot("manager-laptop", preview=True)
+
+        self.screen.refresh_from_db()
+        self.assertFalse(display_is_live(self.screen))
+
+    def test_the_flag_alone_grants_nothing_to_a_token_holder(self):
+        self.assertEqual(self._snapshot("tv-device").status_code, 200)
+
+        response = self._snapshot("stranger-device", preview=True)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"], "screen_bound")
+
+    def test_a_manager_of_another_school_gets_no_preview(self):
+        from core.models import School, UserProfile
+        from django.contrib.auth import get_user_model
+
+        other = School.objects.create(name="مدرسة أخرى", slug="preview-other")
+        stranger = get_user_model().objects.create_user(
+            username="other_mgr", password="StrongPass123!"
+        )
+        profile = UserProfile.objects.create(user=stranger, active_school=other)
+        profile.schools.add(other)
+
+        self.assertEqual(self._snapshot("tv-device").status_code, 200)
+        self.client.force_login(stranger)
+
+        self.assertEqual(self._snapshot("stranger-device", preview=True).status_code, 403)
+
+    def test_preview_mode_is_only_rendered_for_an_authorised_manager(self):
+        url = f"/s/{self.screen.short_code}/?preview=1"
+
+        self.client.force_login(self.manager)
+        self.assertContains(self.client.get(url), 'data-preview-mode="1"')
+
+        self.client.logout()
+        self.assertNotContains(self.client.get(url), 'data-preview-mode="1"')

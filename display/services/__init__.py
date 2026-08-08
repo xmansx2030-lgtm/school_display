@@ -7,6 +7,7 @@ from .device_binding import (
     ScreenBoundError,
     ScreenNotFoundError,
     bind_device_atomic,
+    resolve_preview_screen,
     unbind_device,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "ScreenBoundError",
     "ScreenNotFoundError",
     "bind_device_atomic",
+    "resolve_preview_screen",
     "unbind_device",
 ]
