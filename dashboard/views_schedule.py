@@ -46,6 +46,11 @@ def days_list(request):
         d.day_name = WEEKDAY_MAP.get(d.weekday, str(d.weekday))
         d.breaks_count = d.breaks.count()
         periods = sorted(d.periods.all(), key=lambda p: p.starts_at)
+        # A day switched on but with no period times is the single most common
+        # reason a board shows nothing. The template flags it, so the count has
+        # to be the periods that actually exist — not the declared target.
+        d.periods_actual = len(periods)
+        d.needs_times = bool(d.is_active) and not periods
         if periods:
             d.first_period_time = periods[0].starts_at.strftime("%H:%M")
             d.last_period_time = periods[-1].ends_at.strftime("%H:%M")
@@ -61,7 +66,9 @@ def days_list(request):
             d.total_duration = "--:--"
         if d.is_active:
             active_days_count += 1
-            total_periods += d.periods_count or 0
+            # Count the periods that exist, not the declared target: the cards
+            # show the same number, and the screen only ever plays real periods.
+            total_periods += d.periods_actual
         else:
             holiday_days_count += 1
 

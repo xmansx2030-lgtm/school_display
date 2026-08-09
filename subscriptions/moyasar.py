@@ -88,7 +88,10 @@ class MoyasarClient:
             # by the offset and hide payments that fall in the gap.
             if timezone.is_aware(created_after):
                 created_after = created_after.astimezone(dt_timezone.utc)
-            params["created[gte]"] = created_after.strftime("%Y-%m-%d %H:%M:%S")
+            # Moyasar's Payments API documents this filter as ``created[gt]``.
+            # An unknown ``created[gte]`` parameter is silently ignored, which
+            # can make reconciliation scan the wrong ledger window.
+            params["created[gt]"] = created_after.strftime("%Y-%m-%d %H:%M:%S")
 
         data = self._get("/payments", action="list_payments", params=params)
 

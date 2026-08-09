@@ -1,557 +1,318 @@
 {% extends "dashboard/_base.html" %}
+{% load static %}
 
 {% block title %}حصص الانتظار{% endblock %}
 {% block page_title %}حصص الانتظار{% endblock %}
-{% block page_description %}إدارة حصص الانتظار للمعلمين{% endblock %}
+{% block page_description %}تكليفات الانتظار ليوم واحد — تظهر على شاشة العرض فور إضافتها.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .sb { display: grid; gap: 0.85rem; }
+
+  .sb-command {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.8rem;
+    padding: 0.9rem;
+  }
+  .sb-command__copy { display: flex; align-items: flex-start; gap: 0.7rem; min-width: 0; }
+  .sb-command__icon {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 auto;
+    border-radius: 12px;
+    color: var(--dp-teal);
+    background: var(--dp-teal-wash);
+  }
+
+  /* ── Day bar ─────────────────────────────────────────────────────────
+     Stepping a day at a time is the motion this page is used for, so it gets
+     buttons rather than a picker plus an "apply" press. */
+  .sb-daybar,
+  .sb-daybar__form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .sb-daybar { padding: 0.65rem 0.75rem; }
+  .sb-daybar__date { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+  .dashboard-main .sb-daybar input[type="date"] {
+    min-width: 9.5rem;
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: center;
+  }
+  .sb-daybar__label {
+    border-radius: 999px;
+    background: var(--dp-teal-wash);
+    padding: 0.25rem 0.6rem;
+    color: #0f5061;
+    font-size: 0.7rem;
+    font-weight: 900;
+  }
+  .sb-daybar__label:empty { display: none; }
+  .sb-daybar__spacer { flex: 1 1 auto; }
+  .sb-daybar .dp-btn.is-active { color: #fffaf3; border-color: var(--dp-teal-deep); background: var(--dp-teal-deep); }
+  .sb-daybar .dp-btn[disabled] { opacity: .5; }
+
+  .sb-search { flex: 1 1 12rem; min-width: 0; }
+
+  /* ── Cards ─────────────────────────────────────────────────────────── */
+  .sb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); gap: 0.7rem; }
+
+  .sb-card {
+    position: relative;
+    display: grid;
+    gap: 0.7rem;
+    overflow: hidden;
+    min-width: 0;
+    border: 1px solid var(--dp-line);
+    border-radius: 15px;
+    background: #fff;
+    padding: 0.85rem;
+    box-shadow: var(--dp-shadow);
+    transition: border-color .18s ease, box-shadow .18s ease;
+  }
+  .sb-card:hover { border-color: rgba(20, 90, 106, .24); box-shadow: var(--dp-shadow-lift); }
+  .sb-card[hidden] { display: none; }
+  .sb-card::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: 0; width: 3px; background: #94a3b8; }
+  .sb-card.is-today::before { background: #10b981; }
+
+  .sb-card__top { display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
+  .sb-card__period {
+    display: grid;
+    place-items: center;
+    width: 3.2rem;
+    height: 3.2rem;
+    flex: 0 0 auto;
+    border: 1px solid var(--dp-line);
+    border-radius: 13px;
+    background: linear-gradient(180deg, #fff, var(--dp-surface-tint));
+  }
+  .sb-card__period span { color: var(--dp-muted); font-size: 0.6rem; font-weight: 800; }
+  .sb-card__period strong {
+    display: block;
+    color: var(--dp-ink);
+    font-size: 1.25rem;
+    font-weight: 900;
+    line-height: 1.1;
+    direction: ltr;
+  }
+
+  .sb-card__who { min-width: 0; flex: 1 1 auto; }
+  .sb-card__who h3 {
+    margin: 0;
+    overflow: hidden;
+    color: var(--dp-ink);
+    font-size: 0.92rem;
+    font-weight: 900;
+    line-height: 1.5;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sb-card__who p { margin: 0.15rem 0 0; color: var(--dp-muted); font-size: 0.75rem; font-weight: 700; }
+
+  .sb-card__note {
+    border-radius: 10px;
+    background: var(--dp-surface-sunk);
+    padding: 0.55rem 0.65rem;
+    color: var(--dp-ink-soft);
+    font-size: 0.74rem;
+    font-weight: 700;
+    line-height: 1.7;
+  }
+  .sb-card__note span { display: block; color: var(--dp-faint); font-size: 0.64rem; font-weight: 800; }
+  .sb-card__note.is-empty { color: var(--dp-faint); font-weight: 600; }
+
+  .sb-card__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    border-top: 1px solid var(--dp-line-soft);
+    padding-top: 0.6rem;
+  }
+  .sb-card__date { color: var(--dp-muted); font-size: 0.7rem; font-weight: 800; direction: ltr; unicode-bidi: isolate; }
+
+  @media (min-width: 768px) {
+    .sb-command { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  }
+
+  @media (max-width: 767px) {
+    .sb-command { padding: 0.8rem; }
+    .sb-command .dp-btn { width: 100%; }
+    .sb-daybar { padding: 0.6rem; }
+    .sb-daybar__spacer { display: none; }
+    .sb-search { flex-basis: 100%; }
+    .sb-grid { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto pb-8 md:pb-12">
-  <section class="standby-command-panel mb-4">
-    <div class="min-w-0">
-      <h2>حصص الانتظار</h2>
-      <p>راجع تكليفات الانتظار حسب اليوم وأضف التكليفات التي تظهر على شاشة العرض.</p>
+<div class="sb">
+
+  <!-- ═══ Command bar ═══ -->
+  <section class="dp-surface dp-surface--crowned sb-command">
+    <div class="sb-command__copy">
+      <span class="sb-command__icon" aria-hidden="true"><i class="fa-solid fa-user-clock"></i></span>
+      <div class="dp-min0">
+        <span class="dp-eyebrow dp-eyebrow--plain">تكليفات اليوم</span>
+        <h2 style="margin:.25rem 0 0;font-size:.98rem;font-weight:900;color:var(--dp-ink)">حصص الانتظار</h2>
+        <p style="margin:.2rem 0 0;color:var(--dp-muted);font-size:.75rem;line-height:1.8">
+          كل بطاقة تعني حصة يغطيها معلم بديل. تظهر البطاقات على شاشة العرض في يومها.
+        </p>
+      </div>
     </div>
-    <a href="{% url 'dashboard:standby_create' %}?date={{ selected_date|date:'Y-m-d' }}" class="standby-primary-action">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
-      <span>إضافة حصة انتظار</span>
+    <a href="{% url 'dashboard:standby_create' %}?date={{ selected_date|date:'Y-m-d' }}" class="dp-btn dp-btn--primary">
+      <i class="fa-solid fa-plus" aria-hidden="true"></i>
+      إضافة حصة انتظار
     </a>
   </section>
 
-  <form method="get" class="standby-filter-panel mb-4">
-    <div>
-      <label for="standbyDate">التاريخ</label>
-      <input id="standbyDate" type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}">
-    </div>
-    <button type="submit" class="standby-secondary-action">تطبيق</button>
-  </form>
+  <!-- ═══ Day bar ═══ -->
+  {% comment %} The search box lives outside the GET form on purpose: inside it,
+     pressing Enter would submit and reload the very list it is filtering. {% endcomment %}
+  <section class="dp-surface sb-daybar">
+    <form method="get" class="sb-daybar__form" data-date-filter aria-label="اختيار اليوم">
+      <button type="button" class="dp-icon-btn" data-date-step="-1" title="اليوم السابق" aria-label="اليوم السابق">
+        <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+      </button>
 
-  <section class="standby-summary-strip mb-4" aria-label="ملخص حصص الانتظار">
-    <div class="standby-summary-item">
-      <span>إجمالي الحصص</span>
-      <strong>{{ total_count|default:0 }}</strong>
-    </div>
-    <div class="standby-summary-item">
-      <span>معلمون مختلفون</span>
-      <strong>{{ teachers_count|default:0 }}</strong>
-    </div>
-    <div class="standby-summary-item">
-      <span>في هذه الصفحة</span>
-      <strong>{{ page.object_list|length }}</strong>
-    </div>
-    <div class="standby-summary-item">
-      <span>اليوم المحدد</span>
-      <strong class="date-value">{{ selected_date|date:"Y-m-d" }}</strong>
-    </div>
-  </section>
+      <span class="sb-daybar__date">
+        <label for="standbyDate" class="sr-only">التاريخ</label>
+        <input id="standbyDate" type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}"
+               data-date-input dir="ltr" lang="en">
+        <span class="sb-daybar__label" data-date-label aria-live="polite"></span>
+      </span>
 
-  <section class="standby-list-section">
-    <div class="standby-section-heading">
-      <div>
-        <h3>بطاقات الانتظار</h3>
-        <p>كل بطاقة توضّح الحصة والفصل والمعلم والملاحظة الخاصة بها.</p>
-      </div>
-      <span>{{ page.object_list|length }} من {{ page.paginator.count }}</span>
-    </div>
+      <button type="button" class="dp-icon-btn" data-date-step="1" title="اليوم التالي" aria-label="اليوم التالي">
+        <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+      </button>
+
+      <button type="button" class="dp-btn dp-btn--ghost dp-btn--sm" data-date-today>اليوم</button>
+      <button type="submit" class="dp-btn dp-btn--soft dp-btn--sm" data-date-apply>تطبيق</button>
+    </form>
+
+    <span class="sb-daybar__spacer"></span>
 
     {% if page.object_list %}
-      <div class="standby-card-grid">
-        {% for s in page.object_list %}
-          <article class="standby-card {% if s.is_today %}is-today{% endif %}">
-            <div class="standby-card-top">
-              <div class="standby-period">
-                <span>الحصة</span>
-                <strong>{{ s.period_index }}</strong>
-              </div>
-              <div class="standby-teacher">
-                <div class="standby-avatar">{{ s.teacher_name|first }}</div>
-                <div class="min-w-0">
-                  <h3>{{ s.teacher_name }}</h3>
-                  <p>{{ s.class_name }}</p>
-                </div>
-              </div>
-              {% if s.is_today %}
-                <span class="standby-today-pill">اليوم</span>
-              {% endif %}
-            </div>
-
-            <div class="standby-card-meta">
-              <div>
-                <span>التاريخ</span>
-                <strong>{{ s.date|date:"Y-m-d" }}</strong>
-              </div>
-              <div>
-                <span>الملاحظة</span>
-                {% if s.notes %}
-                  <strong>{{ s.notes }}</strong>
-                {% else %}
-                  <strong>بدون ملاحظة</strong>
-                {% endif %}
-              </div>
-            </div>
-
-            <div class="standby-card-actions">
-              <form method="post" action="{% url 'dashboard:standby_delete' s.pk %}" data-confirm="هل تريد حذف حصة الانتظار؟&#10;&#10;المعلم/ـة: {{ s.teacher_name }}&#10;التاريخ: {{ s.date|date:'Y-m-d' }}&#10;الحصة: {{ s.period_index }}&#10;&#10;لا يمكن التراجع عن هذا الإجراء.">
-                {% csrf_token %}
-                <button type="submit" class="standby-danger-action">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                  <span>حذف</span>
-                </button>
-              </form>
-            </div>
-          </article>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="standby-empty-state">
-        <div class="standby-empty-icon">
-          <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5s3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18s-3.332.477-4.5 1.253"/></svg>
-        </div>
-        <h3>لا توجد حصص انتظار</h3>
-        <p>لم يتم إضافة تكليفات انتظار لهذا التاريخ.</p>
-        <a href="{% url 'dashboard:standby_create' %}?date={{ selected_date|date:'Y-m-d' }}" class="standby-primary-action">إضافة أول حصة</a>
-      </div>
+      <span class="dp-search sb-search">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input type="search" placeholder="بحث باسم المعلم أو الفصل…" aria-label="بحث في التكليفات" data-list-search="standby">
+      </span>
     {% endif %}
   </section>
 
+  <!-- ═══ Summary ═══ -->
+  <section class="dp-stat-grid" aria-label="ملخص حصص الانتظار">
+    <div class="dp-stat">
+      <div class="dp-stat__top">
+        <span class="dp-stat__label">حصص هذا اليوم</span>
+        <span class="dp-stat__icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
+      </div>
+      <div class="dp-stat__value">{{ total_count|default:0 }}</div>
+    </div>
+    <div class="dp-stat dp-stat--gold">
+      <div class="dp-stat__top">
+        <span class="dp-stat__label">معلمون مختلفون</span>
+        <span class="dp-stat__icon" aria-hidden="true"><i class="fa-solid fa-user-tie"></i></span>
+      </div>
+      <div class="dp-stat__value">{{ teachers_count|default:0 }}</div>
+    </div>
+    <div class="dp-stat dp-stat--slate">
+      <div class="dp-stat__top">
+        <span class="dp-stat__label">في هذه الصفحة</span>
+        <span class="dp-stat__icon" aria-hidden="true"><i class="fa-solid fa-table-list"></i></span>
+      </div>
+      <div class="dp-stat__value">{{ page.object_list|length }}</div>
+    </div>
+  </section>
+
+  <!-- ═══ Cards ═══ -->
+  {% if page.object_list %}
+    <section class="sb-grid" data-list="standby" aria-label="بطاقات الانتظار">
+      {% for s in page.object_list %}
+        <article class="sb-card {% if s.is_today %}is-today{% endif %}"
+                 data-list-item
+                 data-search="{{ s.teacher_name }} {{ s.class_name }} {{ s.notes|default:'' }}">
+          <div class="sb-card__top">
+            <div class="sb-card__period">
+              <span>الحصة</span>
+              <strong>{{ s.period_index }}</strong>
+            </div>
+            <div class="sb-card__who">
+              <h3 title="{{ s.teacher_name }}">{{ s.teacher_name }}</h3>
+              <p>{{ s.class_name }}</p>
+            </div>
+            {% if s.is_today %}<span class="dp-pill dp-pill--green dp-pill--dot">اليوم</span>{% endif %}
+          </div>
+
+          <div class="sb-card__note {% if not s.notes %}is-empty{% endif %}">
+            <span>ملاحظة</span>
+            {% if s.notes %}{{ s.notes }}{% else %}بدون ملاحظة{% endif %}
+          </div>
+
+          <div class="sb-card__foot">
+            <span class="sb-card__date">{{ s.date|date:"Y-m-d" }}</span>
+            <form method="post" action="{% url 'dashboard:standby_delete' s.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="dp-btn dp-btn--danger dp-btn--sm"
+                      data-confirm="حذف حصة الانتظار؟&#10;&#10;المعلم/ـة: {{ s.teacher_name }}&#10;التاريخ: {{ s.date|date:'Y-m-d' }}&#10;الحصة: {{ s.period_index }}&#10;&#10;لا يمكن التراجع.">
+                <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+                حذف
+              </button>
+            </form>
+          </div>
+        </article>
+      {% endfor %}
+    </section>
+
+    <div class="dp-empty" data-list-empty="standby" hidden>
+      <span class="dp-empty__icon" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
+      <h3>لا يوجد تكليف مطابق</h3>
+      <p>جرّب اسمًا أقصر، أو امسح البحث لعرض كل تكليفات اليوم.</p>
+    </div>
+  {% else %}
+    <div class="dp-empty">
+      <span class="dp-empty__icon" aria-hidden="true"><i class="fa-solid fa-user-clock"></i></span>
+      <h3>لا توجد حصص انتظار في هذا اليوم</h3>
+      <p>أضف تكليفًا ليظهر على شاشة العرض، أو تنقّل بين الأيام من الشريط أعلاه.</p>
+      <a href="{% url 'dashboard:standby_create' %}?date={{ selected_date|date:'Y-m-d' }}" class="dp-btn dp-btn--primary">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+        إضافة أول حصة
+      </a>
+    </div>
+  {% endif %}
+
+  <!-- ═══ Pagination ═══ -->
   {% if page.paginator.num_pages > 1 %}
-    <nav class="standby-pagination mt-5" aria-label="ترقيم حصص الانتظار">
-      <span>عرض {{ page.start_index }}-{{ page.end_index }} من {{ page.paginator.count }}</span>
-      <div>
+    <nav class="dp-pagination" aria-label="ترقيم حصص الانتظار">
+      <span>عرض {{ page.start_index }}–{{ page.end_index }} من {{ page.paginator.count }}</span>
+      <div class="dp-pagination__pages">
         {% if page.has_previous %}
-          <a href="?date={{ selected_date|date:'Y-m-d' }}&page={{ page.previous_page_number }}">السابق</a>
+          <a href="?date={{ selected_date|date:'Y-m-d' }}&page={{ page.previous_page_number }}" rel="prev">السابق</a>
         {% endif %}
         {% for num in page.paginator.page_range %}
           {% if num == page.number %}
-            <strong>{{ num }}</strong>
+            <strong aria-current="page">{{ num }}</strong>
           {% else %}
             <a href="?date={{ selected_date|date:'Y-m-d' }}&page={{ num }}">{{ num }}</a>
           {% endif %}
         {% endfor %}
         {% if page.has_next %}
-          <a href="?date={{ selected_date|date:'Y-m-d' }}&page={{ page.next_page_number }}">التالي</a>
+          <a href="?date={{ selected_date|date:'Y-m-d' }}&page={{ page.next_page_number }}" rel="next">التالي</a>
         {% endif %}
       </div>
     </nav>
   {% endif %}
 </div>
+{% endblock %}
 
-
-<style>
-.standby-command-panel,
-.standby-filter-panel,
-.standby-summary-strip,
-.standby-section-heading {
-  border-radius: 14px;
-}
-
-.standby-command-panel,
-.standby-filter-panel,
-.standby-section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.1rem;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-}
-
-.standby-command-panel h2,
-.standby-section-heading h3 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-.standby-command-panel p,
-.standby-section-heading p {
-  margin: 0.25rem 0 0;
-  color: #64748b;
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.standby-filter-panel > div {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.standby-filter-panel label {
-  color: #334155;
-  font-size: 0.78rem;
-  font-weight: 900;
-}
-
-.standby-filter-panel input {
-  min-height: 2.35rem;
-  border: 1px solid #dbe3ea;
-  border-radius: 0.65rem;
-  padding: 0.45rem 0.7rem;
-  color: #0f172a;
-  font-weight: 800;
-}
-
-.standby-primary-action,
-.standby-secondary-action,
-.standby-danger-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-height: 2.35rem;
-  border-radius: 0.65rem;
-  padding: 0 0.9rem;
-  font-size: 0.78rem;
-  font-weight: 900;
-  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
-}
-
-.standby-primary-action {
-  background: #0f172a;
-  color: #ffffff;
-}
-
-.standby-primary-action:hover {
-  background: #1e293b;
-}
-
-.standby-secondary-action {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #334155;
-}
-
-.standby-secondary-action:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-}
-
-.standby-danger-action {
-  background: #ffffff;
-  border: 1px solid #fecdd3;
-  color: #be123c;
-}
-
-.standby-danger-action:hover {
-  background: #fff1f2;
-  border-color: #fda4af;
-}
-
-.standby-summary-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-}
-
-.standby-summary-item {
-  padding: 0.95rem 1rem;
-  border-inline-start: 1px solid #e2e8f0;
-}
-
-.standby-summary-item:first-child {
-  border-inline-start: 0;
-}
-
-.standby-summary-item span,
-.standby-card-meta span,
-.standby-period span {
-  display: block;
-  color: #64748b;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.standby-summary-item strong {
-  display: block;
-  margin-top: 0.25rem;
-  color: #0f172a;
-  font-size: 1.25rem;
-  font-weight: 950;
-}
-
-.standby-summary-item .date-value {
-  font-size: 0.95rem;
-  direction: ltr;
-  text-align: right;
-}
-
-.standby-list-section {
-  display: grid;
-  gap: 1rem;
-}
-
-.standby-section-heading > span {
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #475569;
-  padding: 0.35rem 0.7rem;
-  font-size: 0.72rem;
-  font-weight: 900;
-}
-
-.standby-card-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.standby-card {
-  position: relative;
-  display: grid;
-  gap: 1rem;
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 1rem;
-  box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
-}
-
-.standby-card::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: 4px;
-  background: #94a3b8;
-}
-
-.standby-card.is-today::before {
-  background: #10b981;
-}
-
-.standby-card-top {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-}
-
-.standby-period {
-  display: grid;
-  place-items: center;
-  width: 4.2rem;
-  height: 4.2rem;
-  border-radius: 1rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  flex: 0 0 auto;
-}
-
-.standby-period strong {
-  color: #0f172a;
-  font-size: 1.45rem;
-  font-weight: 950;
-}
-
-.standby-teacher {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.standby-avatar {
-  display: grid;
-  place-items: center;
-  width: 2.6rem;
-  height: 2.6rem;
-  border-radius: 0.8rem;
-  background: #f1f5f9;
-  color: #0f172a;
-  font-weight: 950;
-  flex: 0 0 auto;
-}
-
-.standby-teacher h3 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 0.98rem;
-  font-weight: 950;
-}
-
-.standby-teacher p {
-  margin: 0.25rem 0 0;
-  color: #64748b;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.standby-today-pill {
-  border-radius: 999px;
-  background: #ecfdf5;
-  border: 1px solid #bbf7d0;
-  color: #047857;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.72rem;
-  font-weight: 900;
-}
-
-.standby-card-meta {
-  display: grid;
-  grid-template-columns: 10rem minmax(0, 1fr);
-  gap: 0.65rem;
-}
-
-.standby-card-meta > div {
-  border-radius: 0.8rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 0.7rem 0.8rem;
-}
-
-.standby-card-meta strong {
-  display: block;
-  margin-top: 0.2rem;
-  color: #0f172a;
-  font-size: 0.8rem;
-  font-weight: 900;
-}
-
-.standby-card-actions {
-  display: flex;
-  justify-content: flex-end;
-  border-top: 1px solid #edf2f7;
-  padding-top: 0.85rem;
-}
-
-.standby-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  min-height: 18rem;
-  padding: 3rem 1rem;
-  text-align: center;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-}
-
-.standby-empty-icon {
-  display: grid;
-  place-items: center;
-  width: 4.75rem;
-  height: 4.75rem;
-  border-radius: 1rem;
-  background: #f8fafc;
-  color: #94a3b8;
-}
-
-.standby-empty-state h3 {
-  margin: 0.35rem 0 0;
-  color: #0f172a;
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-.standby-empty-state p {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.standby-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  color: #64748b;
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.standby-pagination div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.standby-pagination a,
-.standby-pagination strong {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.2rem;
-  min-height: 2.2rem;
-  border-radius: 0.65rem;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #334155;
-  padding: 0 0.7rem;
-  font-weight: 900;
-}
-
-.standby-pagination strong {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #ffffff;
-}
-
-@media (max-width: 1100px) {
-  .standby-command-panel,
-  .standby-filter-panel,
-  .standby-section-heading,
-  .standby-pagination {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .standby-summary-strip,
-  .standby-card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .standby-summary-item:nth-child(odd) {
-    border-inline-start: 0;
-  }
-
-  .standby-summary-item:nth-child(n + 3) {
-    border-top: 1px solid #e2e8f0;
-  }
-}
-
-@media (max-width: 720px) {
-  .standby-card-grid,
-  .standby-card-meta {
-    grid-template-columns: 1fr;
-  }
-
-  .standby-card-top {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .standby-period {
-    width: 100%;
-  }
-
-  .standby-card-actions,
-  .standby-card-actions form,
-  .standby-card-actions button {
-    width: 100%;
-  }
-}
-
-@media (max-width: 560px) {
-  .standby-summary-strip {
-    grid-template-columns: 1fr;
-  }
-
-  .standby-summary-item,
-  .standby-summary-item:nth-child(odd) {
-    border-inline-start: 0;
-  }
-
-  .standby-summary-item + .standby-summary-item {
-    border-top: 1px solid #e2e8f0;
-  }
-}
-</style>
+{% block extra_js %}
+<script defer src="{% static 'js/date-filter.js' %}?v=2026-08-09-a1"></script>
+<script defer src="{% static 'js/list-search.js' %}?v=2026-08-09-a1"></script>
 {% endblock %}
