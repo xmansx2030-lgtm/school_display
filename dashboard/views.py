@@ -778,6 +778,49 @@ def school_data_import(request):
         {"parsed": parsed, "import_token": import_token},
     )
 
+# Setting up a school means typing dozens of class, subject and teacher names.
+# One-at-a-time was a reload per name; the field now takes a pasted list too, so
+# a column copied out of a spreadsheet lands in a single request.
+_SCHOOL_DATA_NAME_SEPARATORS = re.compile(r"[\r\n,،;؛]+")
+_SCHOOL_DATA_MAX_NAMES = 200
+_SCHOOL_DATA_MAX_NAME_LENGTH = 120
+
+
+def _parse_names(raw: str) -> tuple[list[str], bool]:
+    """Split a pasted block into clean names.
+
+    Returns the names (deduplicated, original order preserved) and whether the
+    input had to be truncated, so the caller can say so instead of silently
+    dropping the tail of a long paste.
+    """
+    seen: set[str] = set()
+    names: list[str] = []
+    for chunk in _SCHOOL_DATA_NAME_SEPARATORS.split(raw or ""):
+        name = " ".join(chunk.split())[:_SCHOOL_DATA_MAX_NAME_LENGTH]
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        names.append(name)
+        if len(names) >= _SCHOOL_DATA_MAX_NAMES:
+            return names, True
+    return names, False
+
+
+def _report_added(request, created: int, skipped: int, truncated: bool, *, singular: str, plural: str) -> None:
+    if created == 1:
+        messages.success(request, f"تمت إضافة {singular}.")
+    elif created:
+        messages.success(request, f"تمت إضافة {created} {plural}.")
+
+    if skipped:
+        messages.info(request, f"{skipped} من الأسماء موجودة مسبقًا ولم تُضف مرة أخرى.")
+    if truncated:
+        messages.warning(
+            request,
+            f"تمت معالجة أول {_SCHOOL_DATA_MAX_NAMES} اسم فقط. أضف الباقي في دفعة تالية.",
+        )
+
+
 @manager_required
 @require_POST
 def add_class(request):
@@ -788,8 +831,8 @@ def add_class(request):
     if response:
         return response
 
-    name = (request.POST.get("name") or "").strip()
-    if not name:
+    names, truncated = _parse_names(request.POST.get("name"))
+    if not names:
         messages.error(request, "فضلاً أدخل اسم الفصل.")
         return redirect("dashboard:school_data")
 
@@ -798,9 +841,13 @@ def add_class(request):
         messages.error(request, "فضلاً أضف إعدادات المدرسة أولاً.")
         return redirect("dashboard:settings")
 
-    SchoolClass.objects.get_or_create(settings=settings_obj, name=name)
-    messages.success(request, "تمت إضافة الفصل.")
-    return redirect("dashboard:school_data")
+    created = 0
+    for name in names:
+        _, was_created = SchoolClass.objects.get_or_create(settings=settings_obj, name=name)
+        created += int(was_created)
+
+    _report_added(request, created, len(names) - created, truncated, singular="الفصل", plural="فصلاً")
+    return redirect(f"{reverse('dashboard:school_data')}?added=classes")
 
 @manager_required
 @require_POST
@@ -811,14 +858,18 @@ def add_subject(request):
     if response:
         return response
 
-    name = (request.POST.get("name") or "").strip()
-    if not name:
+    names, truncated = _parse_names(request.POST.get("name"))
+    if not names:
         messages.error(request, "فضلاً أدخل اسم المادة.")
         return redirect("dashboard:school_data")
 
-    Subject.objects.get_or_create(school=school, name=name)
-    messages.success(request, "تمت إضافة المادة.")
-    return redirect("dashboard:school_data")
+    created = 0
+    for name in names:
+        _, was_created = Subject.objects.get_or_create(school=school, name=name)
+        created += int(was_created)
+
+    _report_added(request, created, len(names) - created, truncated, singular="المادة", plural="مادة")
+    return redirect(f"{reverse('dashboard:school_data')}?added=subjects")
 
 @manager_required
 @require_POST
@@ -829,14 +880,18 @@ def add_teacher(request):
     if response:
         return response
 
-    name = (request.POST.get("name") or "").strip()
-    if not name:
+    names, truncated = _parse_names(request.POST.get("name"))
+    if not names:
         messages.error(request, "فضلاً أدخل اسم المعلم/ـة.")
         return redirect("dashboard:school_data")
 
-    Teacher.objects.get_or_create(school=school, name=name)
-    messages.success(request, "تمت إضافة المعلم/ـة.")
-    return redirect("dashboard:school_data")
+    created = 0
+    for name in names:
+        _, was_created = Teacher.objects.get_or_create(school=school, name=name)
+        created += int(was_created)
+
+    _report_added(request, created, len(names) - created, truncated, singular="المعلم/ـة", plural="معلمًا/ـة")
+    return redirect(f"{reverse('dashboard:school_data')}?added=teachers")
 
 @manager_required
 @require_POST

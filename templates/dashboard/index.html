@@ -1,4 +1,5 @@
 {% extends "dashboard/_base.html" %}
+{% load static %}
 
 {% block title %}إدارة شاشة المدرسة{% endblock %}
 {% block page_title %}إدارة شاشة المدرسة{% endblock %}
@@ -6,658 +7,521 @@
 
 {% block extra_css %}
 <style>
+  /* The hero carries the page title, so the generic intro band would repeat it. */
   .dashboard-page-intro { display: none; }
 
-  .home-command-center {
-    --home-ink: #173042;
-    --home-muted: #677788;
-    --home-line: rgba(97, 83, 64, 0.14);
+  .home {
+    --home-ink: #12303d;
+    --home-muted: #6b7a86;
+    --home-line: rgba(124, 116, 102, 0.16);
     --home-teal: #145a6a;
-    --home-teal-dark: #103e4c;
+    --home-teal-deep: #0e3b48;
     --home-gold: #b48b57;
+    display: grid;
+    gap: 1rem;
     color: var(--home-ink);
   }
 
-  .home-screen-hero {
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
+  /* ── Hero ───────────────────────────────────────────────────────────── */
+  .home-hero {
     display: grid;
-    grid-template-columns: minmax(0, 1.28fr) minmax(17rem, 0.72fr);
+    grid-template-columns: minmax(0, 1.3fr) minmax(17rem, 0.7fr);
     gap: 1.35rem;
-    min-height: 18rem;
-    padding: clamp(1.35rem, 3vw, 2.15rem);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 26px;
-    color: #fff;
-    background: linear-gradient(135deg, #0d3542 0%, #145a6a 62%, #8d7048 145%);
-    box-shadow: 0 24px 60px rgba(16, 62, 76, 0.2);
+    align-items: stretch;
   }
 
-  .home-screen-hero::before {
-    content: "";
-    position: absolute;
-    z-index: -1;
-    inset-inline-end: -9rem;
-    top: -13rem;
-    width: 28rem;
-    height: 28rem;
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    box-shadow: 0 0 0 4rem rgba(255, 255, 255, 0.025), 0 0 0 8rem rgba(255, 255, 255, 0.018);
-  }
-
-  .home-hero-copy {
+  .home-hero__copy {
     display: flex;
     flex-direction: column;
     justify-content: center;
     min-width: 0;
   }
 
-  .home-eyebrow {
-    display: inline-flex;
-    width: fit-content;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.8rem;
-    color: rgba(255, 255, 255, 0.72);
-    font-size: 0.73rem;
+  .home-hero__title {
+    margin: 0.7rem 0 0;
+    font-size: clamp(1.45rem, 3.4vw, 2.2rem);
     font-weight: 900;
-    letter-spacing: 0.02em;
-  }
-
-  .home-eyebrow span {
-    width: 1.55rem;
-    height: 1px;
-    background: var(--home-gold);
-  }
-
-  .home-hero-title {
-    max-width: 40rem;
-    font-size: clamp(1.55rem, 3.2vw, 2.35rem);
-    font-weight: 950;
     line-height: 1.35;
+    letter-spacing: -0.02em;
   }
 
-  .home-hero-title em {
+  .home-hero__title em {
     display: block;
-    margin-top: 0.3rem;
-    color: #d9bf94;
-    font-size: 0.55em;
+    margin-top: 0.35rem;
+    color: var(--dp-gold-soft);
+    font-size: 0.52em;
     font-style: normal;
     font-weight: 800;
+    letter-spacing: 0;
   }
 
-  .home-hero-detail {
-    max-width: 38rem;
-    margin-top: 0.85rem;
-    color: rgba(255, 255, 255, 0.75);
-    font-size: 0.9rem;
-    font-weight: 650;
-    line-height: 1.8;
-  }
-
-  .home-hero-actions {
+  .home-hero__actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.65rem;
-    margin-top: 1.25rem;
+    gap: 0.6rem;
+    margin-top: 1.3rem;
   }
 
-  .home-primary-action,
-  .home-secondary-action {
-    display: inline-flex;
-    min-height: 3rem;
-    align-items: center;
-    justify-content: center;
-    gap: 0.55rem;
-    border-radius: 13px;
-    padding: 0.72rem 1.05rem;
-    font-size: 0.82rem;
-    font-weight: 900;
-    transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
-  }
-
-  .home-primary-action {
-    color: var(--home-teal-dark);
-    background: #fff;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
-  }
-
-  .home-secondary-action {
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    color: #fff;
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .home-primary-action:hover,
-  .home-secondary-action:hover { transform: translateY(-1px); }
-  .home-secondary-action:hover { background: rgba(255, 255, 255, 0.14); }
-
-  .home-primary-action:focus-visible,
-  .home-secondary-action:focus-visible,
-  .home-action-card:focus-visible,
-  .home-text-link:focus-visible,
-  .home-stat-link:focus-visible {
-    outline: 3px solid rgba(56, 189, 248, 0.55);
-    outline-offset: 3px;
-  }
-
+  /* Glass status panel inside the hero. */
   .home-screen-panel {
-    align-self: stretch;
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    gap: 1rem;
     min-width: 0;
-    padding: 1.1rem;
-    border: 1px solid rgba(255, 255, 255, 0.13);
-    border-radius: 20px;
-    background: rgba(4, 27, 34, 0.27);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
-    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 17px;
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(4, 27, 34, 0.24));
+    padding: 1rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
   }
 
-  .home-screen-panel-head {
+  .home-screen-panel__head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 0.8rem;
+    gap: 0.75rem;
   }
 
-  .home-screen-icon {
+  .home-screen-panel__icon {
     display: grid;
-    flex: 0 0 auto;
-    width: 3rem;
-    height: 3rem;
     place-items: center;
-    border-radius: 14px;
+    width: 2.7rem;
+    height: 2.7rem;
+    flex: 0 0 auto;
+    border-radius: 13px;
     color: #fff;
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.13);
   }
 
   .home-status-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.42rem;
+    gap: 0.4rem;
     border-radius: 999px;
-    padding: 0.38rem 0.72rem;
-    font-size: 0.68rem;
+    padding: 0.34rem 0.65rem;
+    font-size: 0.66rem;
     font-weight: 900;
+    line-height: 1.4;
+    text-align: center;
   }
-
   .home-status-pill::before {
     content: "";
-    width: 0.45rem;
-    height: 0.45rem;
+    width: 0.42rem;
+    height: 0.42rem;
+    flex: 0 0 auto;
     border-radius: 50%;
     background: currentColor;
-    box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 14%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
   }
-
-  .home-status-pill--live { color: #6ee7b7; background: rgba(16, 185, 129, 0.12); }
-  .home-status-pill--waiting { color: #fcd34d; background: rgba(245, 158, 11, 0.12); }
+  .home-status-pill--live { color: #6ee7b7; background: rgba(16, 185, 129, 0.14); }
+  .home-status-pill--waiting { color: #fcd34d; background: rgba(245, 158, 11, 0.14); }
   .home-status-pill--offline,
-  .home-status-pill--paused { color: #fca5a5; background: rgba(244, 63, 94, 0.12); }
-  .home-status-pill--new { color: #cbd5e1; background: rgba(148, 163, 184, 0.13); }
+  .home-status-pill--paused { color: #fca5a5; background: rgba(244, 63, 94, 0.14); }
+  .home-status-pill--new { color: #cbd5e1; background: rgba(148, 163, 184, 0.15); }
 
-  .home-screen-name {
-    margin-top: 1.15rem;
-    color: #fff;
-    font-size: 1rem;
-    font-weight: 900;
-  }
-
+  .home-screen-name { margin-top: 0.9rem; color: #fff; font-size: 0.98rem; font-weight: 900; line-height: 1.55; }
   .home-screen-code {
-    margin-top: 0.28rem;
-    color: rgba(255, 255, 255, 0.56);
-    font-size: 0.72rem;
+    margin-top: 0.25rem;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.7rem;
     font-weight: 800;
-    direction: ltr;
-    text-align: right;
   }
+  .home-screen-code--code { direction: ltr; text-align: end; letter-spacing: 0.06em; }
 
   .home-screen-metrics {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
-    margin-top: 1rem;
+    gap: 0.5rem;
   }
-
   .home-screen-metric {
-    padding: 0.72rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.055);
+    background: rgba(255, 255, 255, 0.06);
+    padding: 0.65rem;
   }
-
-  .home-screen-metric small {
-    display: block;
-    color: rgba(255, 255, 255, 0.54);
-    font-size: 0.66rem;
-    font-weight: 800;
-  }
-
+  .home-screen-metric small { display: block; color: rgba(255, 255, 255, 0.56); font-size: 0.64rem; font-weight: 800; }
   .home-screen-metric strong {
     display: block;
-    margin-top: 0.25rem;
+    margin-top: 0.2rem;
     color: #fff;
-    font-size: 1.2rem;
-    font-weight: 950;
+    font-size: 1.15rem;
+    font-weight: 900;
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: start;
   }
 
-  .home-section-heading {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  .home-section-heading h2,
-  .home-section-heading h3 {
-    color: var(--home-ink);
-    font-size: 1.05rem;
-    font-weight: 950;
-  }
-
-  .home-section-heading p {
-    margin-top: 0.22rem;
-    color: var(--home-muted);
-    font-size: 0.74rem;
-    font-weight: 650;
-  }
-
-  .home-action-grid {
+  /* ── Live "now / next" strip ────────────────────────────────────────── */
+  .home-now {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.8rem;
-    margin-top: 0.8rem;
-  }
-
-  .home-action-card,
-  .home-section-card,
-  .home-stat-strip {
-    border: 1px solid var(--home-line);
-    background: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 10px 28px rgba(23, 48, 66, 0.06);
-  }
-
-  .home-action-card {
-    display: flex;
-    min-height: 6.2rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
     align-items: center;
-    gap: 0.78rem;
-    padding: 0.9rem;
-    border-radius: 17px;
-    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    gap: 0.9rem;
+    padding: 0.9rem 1rem;
   }
 
-  .home-action-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(20, 90, 106, 0.27);
-    box-shadow: 0 16px 34px rgba(23, 48, 66, 0.09);
-  }
-
-  .home-action-icon {
+  .home-now__slot { display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
+  .home-now__icon {
     display: grid;
-    flex: 0 0 auto;
-    width: 2.8rem;
-    height: 2.8rem;
     place-items: center;
-    border-radius: 13px;
+    width: 2.4rem;
+    height: 2.4rem;
+    flex: 0 0 auto;
+    border-radius: 12px;
     color: var(--home-teal);
     background: rgba(20, 90, 106, 0.09);
   }
-
-  .home-action-card.is-gold .home-action-icon { color: #906429; background: rgba(180, 139, 87, 0.13); }
-  .home-action-card.is-rose .home-action-icon { color: #b4534f; background: rgba(180, 83, 79, 0.1); }
-
-  .home-action-card strong {
+  .home-now__slot--next .home-now__icon { color: #8d6528; background: rgba(180, 139, 87, 0.14); }
+  .home-now__text { min-width: 0; }
+  .home-now__text small { display: block; color: var(--home-muted); font-size: 0.66rem; font-weight: 800; }
+  .home-now__text strong {
     display: block;
+    margin-top: 0.12rem;
     color: var(--home-ink);
-    font-size: 0.86rem;
+    font-size: 0.85rem;
     font-weight: 900;
+    line-height: 1.5;
   }
-
-  .home-action-card small {
-    display: block;
-    margin-top: 0.3rem;
-    color: var(--home-muted);
-    font-size: 0.69rem;
-    font-weight: 650;
-    line-height: 1.55;
-  }
-
-  .home-details-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
-    gap: 0.9rem;
-  }
-
-  .home-section-card {
-    padding: 1rem;
-    border-radius: 19px;
-  }
-
-  .home-text-link {
-    display: inline-flex;
-    min-height: 2.35rem;
-    align-items: center;
-    gap: 0.4rem;
-    border-radius: 10px;
-    padding: 0.5rem 0.72rem;
-    border: 1px solid rgba(20, 90, 106, 0.14);
-    color: var(--home-teal);
-    background: rgba(20, 90, 106, 0.045);
-    font-size: 0.72rem;
-    font-weight: 900;
-  }
-
-  .home-timeline {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.65rem;
-    margin-top: 0.85rem;
-  }
-
-  .home-timeline-item {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.7rem;
-    padding: 0.8rem;
-    border: 1px solid rgba(97, 83, 64, 0.1);
-    border-radius: 14px;
-    background: #fafbfb;
-  }
-
-  .home-timeline-icon {
-    display: grid;
-    flex: 0 0 auto;
-    width: 2.5rem;
-    height: 2.5rem;
-    place-items: center;
-    border-radius: 12px;
-    color: var(--home-teal);
-    background: rgba(20, 90, 106, 0.08);
-  }
-
-  .home-timeline-item small,
-  .home-progress-copy small {
-    display: block;
-    color: var(--home-muted);
-    font-size: 0.67rem;
-    font-weight: 750;
-  }
-
-  .home-timeline-item strong {
-    display: block;
-    margin-top: 0.2rem;
-    color: var(--home-ink);
-    font-size: 0.8rem;
-    font-weight: 900;
-  }
-
-  .home-timeline-time {
+  .home-now__time {
     margin-inline-start: auto;
-    color: #475569;
-    font-size: 0.69rem;
+    flex: 0 0 auto;
+    border-radius: 8px;
+    background: #f4f6f7;
+    padding: 0.2rem 0.45rem;
+    color: #46586a;
+    font-size: 0.68rem;
     font-weight: 900;
     direction: ltr;
+    unicode-bidi: isolate;
     white-space: nowrap;
   }
 
-  .home-progress-top {
+  /* Divider between "now" and "next" — a hairline, not a border box. */
+  .home-now__slot--next { border-inline-start: 1px solid var(--home-line); padding-inline-start: 0.9rem; }
+
+  .home-now__progress {
+    grid-column: 1 / -1;
+    overflow: hidden;
+    height: 0.32rem;
+    border-radius: 999px;
+    background: #e9eef0;
+  }
+  .home-now__progress span {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--home-teal), var(--home-gold));
+    transition: width 0.6s ease;
+  }
+
+  /* ── Quick actions ──────────────────────────────────────────────────── */
+  .home-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.7rem;
+  }
+
+  .home-action {
     display: flex;
     align-items: center;
-    gap: 0.8rem;
-    margin-top: 0.9rem;
+    gap: 0.7rem;
+    min-height: 5.4rem;
+    min-width: 0;
+    border: 1px solid var(--home-line);
+    border-radius: 15px;
+    background: linear-gradient(180deg, #fff, #fbfaf8);
+    padding: 0.85rem;
+    box-shadow: var(--dp-shadow);
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
   }
+  .home-action:hover {
+    transform: translateY(-2px);
+    border-color: rgba(20, 90, 106, 0.26);
+    box-shadow: var(--dp-shadow-lift);
+  }
+  .home-action:focus-visible { outline: 3px solid rgba(20, 90, 106, 0.32); outline-offset: 3px; }
 
-  .home-progress-value {
+  .home-action__icon {
     display: grid;
-    flex: 0 0 auto;
-    width: 3.65rem;
-    height: 3.65rem;
     place-items: center;
-    border-radius: 50%;
-    border: 1px solid rgba(20, 90, 106, 0.15);
-    color: var(--home-teal-dark);
-    background: linear-gradient(145deg, #fff, #edf5f5);
+    width: 2.6rem;
+    height: 2.6rem;
+    flex: 0 0 auto;
+    border-radius: 12px;
+    color: var(--home-teal);
+    background: rgba(20, 90, 106, 0.09);
     font-size: 0.95rem;
-    font-weight: 950;
+  }
+  .home-action--gold .home-action__icon { color: #8d6528; background: rgba(180, 139, 87, 0.14); }
+  .home-action--rose .home-action__icon { color: #b0504c; background: rgba(180, 83, 79, 0.11); }
+  .home-action--green .home-action__icon { color: #0d7a5f; background: rgba(16, 185, 129, 0.12); }
+
+  .home-action__body { min-width: 0; }
+  .home-action__body strong { display: block; color: var(--home-ink); font-size: 0.84rem; font-weight: 900; line-height: 1.45; }
+  .home-action__body small { display: block; margin-top: 0.25rem; color: var(--home-muted); font-size: 0.68rem; font-weight: 650; line-height: 1.6; }
+
+  /* ── Detail row ─────────────────────────────────────────────────────── */
+  .home-details {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(17rem, 0.75fr);
+    gap: 0.85rem;
+    align-items: start;
   }
 
+  .home-readiness { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.85rem; }
+  .home-readiness span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid var(--home-line);
+    border-radius: 999px;
+    background: #fbfcfc;
+    padding: 0.35rem 0.6rem;
+    color: #56676f;
+    font-size: 0.66rem;
+    font-weight: 800;
+  }
+  .home-readiness i { color: var(--home-teal); }
+  .home-readiness .is-off i { color: #9a7a49; }
+
+  /* ── Setup progress ─────────────────────────────────────────────────── */
+  .home-progress-top { display: flex; align-items: center; gap: 0.85rem; margin-top: 0.9rem; }
+
+  /* Conic ring beats a bar here: it reads as a gauge at a glance and keeps the
+     aside compact next to the wider "today" card. */
+  .home-progress-ring {
+    --value: 0;
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 4.1rem;
+    height: 4.1rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: conic-gradient(var(--home-gold) calc(var(--value) * 1%), #e8eef0 0);
+  }
+  .home-progress-ring::before {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border-radius: inherit;
+    background: #fff;
+    box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.06);
+  }
+  .home-progress-ring b {
+    position: relative;
+    z-index: 1;
+    color: var(--home-teal-deep);
+    font-size: 0.92rem;
+    font-weight: 900;
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+
+  .home-progress-copy { min-width: 0; }
+  .home-progress-copy small { display: block; color: var(--home-muted); font-size: 0.67rem; font-weight: 800; }
   .home-progress-copy strong {
     display: block;
     margin-top: 0.2rem;
     color: var(--home-ink);
-    font-size: 0.82rem;
+    font-size: 0.84rem;
     font-weight: 900;
-    line-height: 1.55;
+    line-height: 1.6;
   }
 
-  .home-progress-track {
-    overflow: hidden;
-    height: 0.45rem;
-    margin-top: 0.9rem;
-    border-radius: 999px;
-    background: #e8eeee;
-  }
-
-  .home-progress-track span {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, var(--home-teal), var(--home-gold));
-  }
-
-  .home-progress-action {
+  .home-progress-steps {
     display: flex;
-    min-height: 2.7rem;
-    align-items: center;
-    justify-content: center;
-    gap: 0.45rem;
-    margin-top: 0.85rem;
-    border-radius: 11px;
-    color: #fff;
-    background: var(--home-teal-dark);
-    font-size: 0.76rem;
-    font-weight: 900;
+    gap: 0.25rem;
+    margin-top: 0.9rem;
   }
+  .home-progress-steps span {
+    flex: 1;
+    height: 0.3rem;
+    border-radius: 999px;
+    background: #e8eef0;
+  }
+  .home-progress-steps span.is-done { background: linear-gradient(90deg, var(--home-teal), var(--home-gold)); }
 
-  .home-stat-strip {
+  /* ── Stat strip ─────────────────────────────────────────────────────── */
+  .home-stats {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     overflow: hidden;
-    border-radius: 18px;
   }
-
-  .home-stat-link {
+  .home-stat {
     display: flex;
     align-items: center;
-    gap: 0.68rem;
+    gap: 0.65rem;
     min-width: 0;
-    padding: 0.85rem 1rem;
-    border-inline-start: 1px solid rgba(97, 83, 64, 0.1);
+    border-inline-start: 1px solid var(--home-line);
+    padding: 0.85rem 0.95rem;
+    transition: background 0.16s ease;
   }
-
-  .home-stat-link:first-child { border-inline-start: 0; }
-
-  .home-stat-link i {
-    color: var(--home-gold);
-    font-size: 0.9rem;
-  }
-
-  .home-stat-link strong {
+  .home-stat:first-child { border-inline-start: 0; }
+  .home-stat:hover { background: #fbfcfc; }
+  .home-stat:focus-visible { outline: 3px solid rgba(20, 90, 106, 0.3); outline-offset: -3px; }
+  .home-stat i { flex: 0 0 auto; color: var(--home-gold); font-size: 0.92rem; }
+  .home-stat__body { min-width: 0; }
+  .home-stat__body strong {
     display: block;
     color: var(--home-ink);
-    font-size: 1rem;
-    font-weight: 950;
-  }
-
-  .home-stat-link small {
-    display: block;
-    margin-top: 0.1rem;
-    color: var(--home-muted);
-    font-size: 0.66rem;
-    font-weight: 750;
-  }
-
-  .home-readiness {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.55rem;
-    margin-top: 0.85rem;
-  }
-
-  .home-readiness span {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.38rem;
-    border: 1px solid rgba(97, 83, 64, 0.11);
-    border-radius: 999px;
-    padding: 0.42rem 0.68rem;
-    color: #596b7b;
-    background: #fafbfb;
-    font-size: 0.67rem;
-    font-weight: 800;
-  }
-
-  .home-readiness i { color: #0f766e; }
-
-  @media (max-width: 1023px) {
-    .home-screen-hero,
-    .home-details-grid { grid-template-columns: 1fr; }
-    .home-screen-hero { min-height: auto; }
-    .home-action-grid,
-    .home-stat-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .home-stat-link:nth-child(3) { border-inline-start: 0; border-top: 1px solid rgba(97, 83, 64, 0.1); }
-    .home-stat-link:nth-child(4) { border-top: 1px solid rgba(97, 83, 64, 0.1); }
-  }
-
-  @media (max-width: 640px) {
-    .dashboard-main-inner { padding-top: 0.9rem !important; }
-    .home-command-center { margin-inline: -0.1rem; }
-    .home-screen-hero { gap: 1rem; padding: 1.05rem; border-radius: 19px; }
-    .home-screen-panel { border-radius: 16px; }
-    .home-hero-detail { font-size: 0.78rem; }
-    .home-hero-actions { flex-direction: column; }
-    .home-primary-action,
-    .home-secondary-action { width: 100%; }
-    .home-action-grid,
-    .home-timeline,
-    .home-stat-strip { grid-template-columns: 1fr; }
-    .home-action-card { min-height: 5.4rem; }
-    .home-stat-link,
-    .home-stat-link:nth-child(3),
-    .home-stat-link:nth-child(4) { border-inline-start: 0; border-top: 1px solid rgba(97, 83, 64, 0.1); }
-    .home-stat-link:first-child { border-top: 0; }
-    .home-section-heading { align-items: flex-start; }
-    .home-timeline-item { align-items: flex-start; }
-    .home-timeline-time { white-space: normal; }
-  }
-
-  /* ── اقتراح المناسبة القادمة ── */
-  .home-occasion-suggestions {
-    display: grid;
-    gap: .6rem;
-    margin-bottom: .25rem;
-  }
-  .home-occasion-suggestions h2 {
-    margin: 0 0 .1rem;
-    color: #7a6a52;
-    font-size: .72rem;
+    font-size: 1.02rem;
     font-weight: 900;
-    letter-spacing: .04em;
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: start;
   }
-  .home-occasion-row {
+  .home-stat__body small { display: block; margin-top: 0.05rem; color: var(--home-muted); font-size: 0.66rem; font-weight: 750; }
+
+  /* ── Occasion suggestions ───────────────────────────────────────────── */
+  .home-occasions { display: grid; gap: 0.55rem; }
+  .home-occasion {
     display: flex;
     align-items: center;
-    gap: .9rem;
-    padding: .85rem 1rem;
-    border: 1px solid rgba(97, 83, 64, .14);
-    border-inline-start: 3px solid var(--occasion-accent);
-    border-radius: 1rem;
+    gap: 0.85rem;
+    border: 1px solid var(--home-line);
+    border-inline-start: 3px solid var(--occasion-accent, var(--home-gold));
+    border-radius: 14px;
     background: #fff;
-    box-shadow: 0 8px 22px rgba(15, 23, 42, .05);
+    padding: 0.75rem 0.9rem;
+    box-shadow: var(--dp-shadow);
   }
-  .home-occasion-mark {
+  .home-occasion__mark {
     display: grid;
     place-items: center;
-    width: 2.7rem;
-    height: 2.7rem;
-    flex: none;
-    border-radius: .8rem;
-    background: color-mix(in srgb, var(--occasion-accent) 13%, #fff);
-    color: var(--occasion-accent);
-    font-size: 1.2rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 auto;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--occasion-accent, #b48b57) 13%, #fff);
+    color: var(--occasion-accent, #b48b57);
+    font-size: 1.1rem;
     font-weight: 900;
     line-height: 1;
   }
-  .home-occasion-copy { flex: 1; min-width: 0; }
-  .home-occasion-copy strong { display: block; color: #0f172a; font-size: .88rem; font-weight: 900; }
-  .home-occasion-copy small { display: block; margin-top: .18rem; color: #64748b; font-size: .74rem; font-weight: 600; line-height: 1.7; }
-  .home-occasion-action {
-    flex: none;
-    padding: .55rem 1.05rem;
-    border-radius: .75rem;
-    background: var(--occasion-accent);
+  .home-occasion__copy { flex: 1; min-width: 0; }
+  .home-occasion__copy strong { display: block; color: var(--home-ink); font-size: 0.84rem; font-weight: 900; line-height: 1.55; }
+  .home-occasion__copy small { display: block; margin-top: 0.15rem; color: var(--home-muted); font-size: 0.71rem; font-weight: 650; line-height: 1.75; }
+  .home-occasion__action {
+    flex: 0 0 auto;
+    border-radius: 10px;
+    background: var(--occasion-accent, #b48b57);
+    padding: 0.5rem 0.9rem;
     color: #fff;
-    font-size: .76rem;
+    font-size: 0.74rem;
     font-weight: 900;
     white-space: nowrap;
-    transition: filter .16s ease;
+    transition: filter 0.16s ease;
   }
-  .home-occasion-action:hover { filter: brightness(1.12); }
-  .home-occasion-action:focus-visible { outline: 3px solid rgba(99, 102, 241, .3); outline-offset: 2px; }
+  .home-occasion__action:hover { filter: brightness(1.1); }
+  .home-occasion__action:focus-visible { outline: 3px solid rgba(20, 90, 106, 0.32); outline-offset: 2px; }
 
-  @media (max-width: 640px) {
-    .home-occasion-row { flex-wrap: wrap; }
-    .home-occasion-copy { flex-basis: 100%; }
-    .home-occasion-action { flex: 1; text-align: center; }
+  /* ── Responsive ─────────────────────────────────────────────────────── */
+  @media (max-width: 1023px) {
+    .home-hero,
+    .home-details { grid-template-columns: minmax(0, 1fr); }
+    .home-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .home-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .home-stat:nth-child(odd) { border-inline-start: 0; }
+    .home-stat:nth-child(n + 3) { border-top: 1px solid var(--home-line); }
+  }
+
+  @media (max-width: 767px) {
+    .home { gap: 0.75rem; }
+    .home-hero__actions { display: grid; grid-template-columns: 1fr; }
+    .home-hero__actions .dp-btn { width: 100%; }
+    .home-screen-panel { border-radius: 14px; padding: 0.8rem; }
+
+    /* The now/next pair stacks; the hairline divider becomes a top rule. */
+    .home-now { grid-template-columns: minmax(0, 1fr); gap: 0.65rem; padding: 0.8rem; }
+    .home-now__slot--next {
+      border-inline-start: 0;
+      border-top: 1px solid var(--home-line);
+      padding-inline-start: 0;
+      padding-top: 0.65rem;
+    }
+
+    .home-action { min-height: 4.6rem; padding: 0.7rem; gap: 0.55rem; border-radius: 13px; }
+    .home-action__icon { width: 2.2rem; height: 2.2rem; border-radius: 10px; font-size: 0.82rem; }
+    .home-action__body strong { font-size: 0.76rem; }
+    .home-action__body small { display: none; }
+
+    .home-progress-top { gap: 0.7rem; }
+    .home-progress-ring { width: 3.5rem; height: 3.5rem; }
+
+    .home-occasion { flex-wrap: wrap; padding: 0.7rem; }
+    .home-occasion__copy { flex-basis: 100%; }
+    .home-occasion__action { flex: 1; text-align: center; }
+  }
+
+  @media (max-width: 400px) {
+    .home-actions { grid-template-columns: 1fr; }
+    .home-stats { grid-template-columns: 1fr; }
+    .home-stat,
+    .home-stat:nth-child(odd) { border-inline-start: 0; }
+    .home-stat + .home-stat { border-top: 1px solid var(--home-line); }
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="home-command-center space-y-4 md:space-y-5">
-  <section class="home-screen-hero" aria-labelledby="school-screen-heading">
-    <div class="home-hero-copy">
-      <div class="home-eyebrow"><span aria-hidden="true"></span>مركز تشغيل المدرسة</div>
-      <h1 id="school-screen-heading" class="home-hero-title">
+<div class="home">
+
+  <!-- ═══ Hero ═══ -->
+  <section class="dp-hero home-hero" aria-labelledby="home-hero-title">
+    <div class="dp-hero__inner home-hero__copy">
+      <span class="dp-eyebrow">مركز تشغيل المدرسة</span>
+      <h1 id="home-hero-title" class="home-hero__title">
         {% if settings %}{{ settings.name }}{% else %}شاشة المدرسة{% endif %}
-        <em>كل ما تحتاجه لإدارة العرض اليومي بوضوح</em>
+        <em>كل ما تحتاجه لإدارة العرض اليومي في مكان واحد</em>
       </h1>
-      <p class="home-hero-detail">{{ screen_hub.detail }}</p>
-      <div class="home-hero-actions">
-        <a href="{{ screen_hub.primary_url }}" class="home-primary-action"{% if screen_hub.exists and not screen_hub.is_fleet %} target="_blank" rel="noopener"{% endif %}>
+      <p>{{ screen_hub.detail }}</p>
+
+      <div class="home-hero__actions">
+        <a href="{{ screen_hub.primary_url }}"
+           class="dp-btn dp-btn--gold"
+           {% if screen_hub.exists and not screen_hub.is_fleet %}target="_blank" rel="noopener"{% endif %}>
           <i class="fa-solid {% if screen_hub.is_fleet %}fa-display{% elif screen_hub.exists %}fa-up-right-from-square{% else %}fa-plus{% endif %}" aria-hidden="true"></i>
           {{ screen_hub.primary_label }}
         </a>
         {% if screen_hub.is_fleet %}
-        <a href="{% url 'dashboard:screens_customize_all' %}" class="home-secondary-action">
-          <i class="fa-solid fa-sliders" aria-hidden="true"></i>
-          تخصيص جميع الشاشات
-        </a>
+          <a href="{% url 'dashboard:screens_customize_all' %}" class="dp-btn dp-btn--onDark">
+            <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+            تخصيص جميع الشاشات
+          </a>
         {% else %}
-        <a href="{% url 'dashboard:screen_list' %}" class="home-secondary-action">
-          <i class="fa-solid fa-display" aria-hidden="true"></i>
-          إدارة الشاشات
-        </a>
+          <a href="{% url 'dashboard:screen_list' %}" class="dp-btn dp-btn--onDark">
+            <i class="fa-solid fa-display" aria-hidden="true"></i>
+            إدارة الشاشات
+          </a>
         {% endif %}
       </div>
     </div>
 
-    <div class="home-screen-panel" aria-label="{% if screen_hub.is_fleet %}حالة شاشات المدرسة{% else %}حالة الشاشة{% endif %}">
+    <div class="home-screen-panel"
+         aria-label="{% if screen_hub.is_fleet %}حالة شاشات المدرسة{% else %}حالة الشاشة{% endif %}">
       <div>
-        <div class="home-screen-panel-head">
-          <span class="home-screen-icon"><i class="fa-solid {% if screen_hub.is_fleet %}fa-display{% else %}fa-tv{% endif %}" aria-hidden="true"></i></span>
+        <div class="home-screen-panel__head">
+          <span class="home-screen-panel__icon" aria-hidden="true">
+            <i class="fa-solid {% if screen_hub.is_fleet %}fa-display{% else %}fa-tv{% endif %}"></i>
+          </span>
           <span class="home-status-pill home-status-pill--{{ screen_hub.tone }}">{{ screen_hub.status }}</span>
         </div>
         <div class="home-screen-name">{{ screen_hub.name|default:"شاشة المدرسة" }}</div>
-        {% if screen_hub.short_code %}<div class="home-screen-code">رمز الشاشة: {{ screen_hub.short_code }}</div>{% endif %}
-        {% if screen_hub.is_fleet %}<div class="home-screen-code">لكل شاشة رابطها وتخصيصها المستقل</div>{% endif %}
+        {% if screen_hub.short_code %}
+          <div class="home-screen-code home-screen-code--code">رمز الشاشة: {{ screen_hub.short_code }}</div>
+        {% endif %}
+        {% if screen_hub.is_fleet %}
+          <div class="home-screen-code">لكل شاشة رابطها وتخصيصها المستقل</div>
+        {% endif %}
       </div>
+
       <div class="home-screen-metrics">
         <div class="home-screen-metric">
           <small>متصلة الآن</small>
@@ -671,131 +535,209 @@
     </div>
   </section>
 
-  {% if occasion_suggestions %}
-  <section class="home-occasion-suggestions" aria-labelledby="occasion-suggestion-heading">
-    <h2 id="occasion-suggestion-heading">مناسبة قادمة</h2>
-    {% for item in occasion_suggestions %}
-    <div class="home-occasion-row" style="--occasion-accent:{{ item.occasion.accent }};--occasion-deep:{{ item.occasion.deep }}">
-      <span class="home-occasion-mark" aria-hidden="true">{{ item.occasion.mark }}</span>
-      <div class="home-occasion-copy">
-        <strong>{{ item.occasion.name }} · {{ item.countdown_label }}</strong>
-        <small>{{ item.occurs_on|date:"l j F Y" }} — فعّل القالب لتظهر المناسبة على شاشاتك تلقائيًا في وقتها.</small>
-      </div>
-      <a href="{% url 'dashboard:ann_create' %}?template={{ item.occasion.key }}" class="home-occasion-action">تفعيل القالب</a>
+  <!-- ═══ Now / Next ═══ -->
+  <section class="dp-surface dp-surface--crowned home-now"
+           aria-label="ما يعرض على الشاشة الآن"
+           data-home-now
+           data-from="{% if current_state.from %}{{ current_state.from }}{% endif %}"
+           data-to="{% if current_state.to %}{{ current_state.to }}{% endif %}"
+           {% comment %} Server-computed, so the bar stays right even when the
+              browser clock or timezone disagrees with the school's. {% endcomment %}
+           data-remaining="{% if current_state.remaining_seconds %}{{ current_state.remaining_seconds }}{% endif %}">
+    <div class="home-now__slot">
+      <span class="home-now__icon" aria-hidden="true"><i class="fa-solid fa-location-crosshairs"></i></span>
+      <span class="home-now__text">
+        <small>الآن · {{ today_weekday_label }}</small>
+        <strong>
+          {% if current_state.type == "period" %}الحصة {{ current_state.period_index }}
+          {% elif current_state.type == "break" %}{{ current_state.label|default:"فسحة" }}
+          {% else %}{{ current_state.label|default:"لا توجد حصة جارية" }}{% endif %}
+        </strong>
+      </span>
+      <span class="home-now__time">{% if current_state.from and current_state.to %}{{ current_state.from }} – {{ current_state.to }}{% else %}--:--{% endif %}</span>
     </div>
+
+    <div class="home-now__slot home-now__slot--next">
+      <span class="home-now__icon" aria-hidden="true"><i class="fa-solid fa-forward-step"></i></span>
+      <span class="home-now__text">
+        <small>التالي</small>
+        <strong>
+          {% if next_period %}
+            {% if next_period.kind == "period" %}الحصة {{ next_period.index }}{% else %}{{ next_period.label|default:"فسحة" }}{% endif %}
+          {% else %}لا يوجد نشاط تالٍ{% endif %}
+        </strong>
+      </span>
+      <span class="home-now__time">{% if next_period and next_period.from and next_period.to %}{{ next_period.from }} – {{ next_period.to }}{% else %}--:--{% endif %}</span>
+    </div>
+
+    <a href="{% url 'dashboard:timetable_day' %}" class="dp-btn dp-btn--soft dp-btn--sm dp-desktop-only">
+      <i class="fa-solid fa-table-cells-large" aria-hidden="true"></i>
+      الجدول اليومي
+    </a>
+
+    <div class="home-now__progress" role="presentation"><span data-home-now-bar></span></div>
+  </section>
+
+  <!-- ═══ Upcoming occasions ═══ -->
+  {% if occasion_suggestions %}
+  <section class="home-occasions" aria-labelledby="home-occasions-title">
+    <div class="dp-section-head">
+      <div>
+        <span class="dp-eyebrow dp-eyebrow--plain">مناسبة قادمة</span>
+        <h2 id="home-occasions-title">فعّل القالب قبل موعده</h2>
+      </div>
+    </div>
+    {% for item in occasion_suggestions %}
+      <div class="home-occasion" style="--occasion-accent:{{ item.occasion.accent }}">
+        <span class="home-occasion__mark" aria-hidden="true">{{ item.occasion.mark }}</span>
+        <div class="home-occasion__copy">
+          <strong>{{ item.occasion.name }} · {{ item.countdown_label }}</strong>
+          <small>{{ item.occurs_on|date:"l j F Y" }} — فعّل القالب لتظهر المناسبة على شاشاتك تلقائيًا في وقتها.</small>
+        </div>
+        <a href="{% url 'dashboard:ann_create' %}?template={{ item.occasion.key }}" class="home-occasion__action">تفعيل القالب</a>
+      </div>
     {% endfor %}
   </section>
   {% endif %}
 
-  <section aria-labelledby="quick-actions-heading">
-    <div class="home-section-heading">
+  <!-- ═══ Quick actions ═══ -->
+  <section aria-labelledby="home-actions-title">
+    <div class="dp-section-head" style="margin-bottom:.7rem">
       <div>
-        <h2 id="quick-actions-heading">ماذا تريد أن تفعل؟</h2>
-        <p>أكثر المهام استخدامًا أصبحت في خطوة واحدة</p>
+        <span class="dp-eyebrow dp-eyebrow--plain">اختصارات</span>
+        <h2 id="home-actions-title">ماذا تريد أن تفعل؟</h2>
+        <p>أكثر المهام استخدامًا في خطوة واحدة</p>
       </div>
+      <a href="{% url 'dashboard:help_getting_started' %}" class="dp-btn dp-btn--ghost dp-btn--sm dp-desktop-only">
+        <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
+        دليل الاستخدام
+      </a>
     </div>
-    <nav class="home-action-grid" aria-label="إجراءات الإدارة السريعة">
-      <a href="{% url 'dashboard:screen_list' %}" class="home-action-card">
-        <span class="home-action-icon"><i class="fa-solid fa-display" aria-hidden="true"></i></span>
-        <span><strong>إدارة الشاشات</strong><small>متابعة الاتصال والروابط</small></span>
+
+    <nav class="home-actions" aria-label="إجراءات الإدارة السريعة">
+      <a href="{% url 'dashboard:screen_list' %}" class="home-action">
+        <span class="home-action__icon" aria-hidden="true"><i class="fa-solid fa-display"></i></span>
+        <span class="home-action__body"><strong>إدارة الشاشات</strong><small>متابعة الاتصال والروابط</small></span>
       </a>
-      <a href="{% url 'dashboard:ann_create' %}" class="home-action-card is-rose">
-        <span class="home-action-icon"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i></span>
-        <span><strong>إضافة تنبيه</strong><small>رسالة تظهر فورًا على الشاشة</small></span>
+      <a href="{% url 'dashboard:ann_create' %}" class="home-action home-action--rose">
+        <span class="home-action__icon" aria-hidden="true"><i class="fa-solid fa-bullhorn"></i></span>
+        <span class="home-action__body"><strong>إضافة تنبيه</strong><small>رسالة تظهر فورًا على الشاشة</small></span>
       </a>
-      <a href="{% url 'dashboard:timetable_day' %}" class="home-action-card">
-        <span class="home-action-icon"><i class="fa-solid fa-table-cells-large" aria-hidden="true"></i></span>
-        <span><strong>الجدول اليومي</strong><small>تعديل الحصص والمعلمين</small></span>
+      <a href="{% url 'dashboard:timetable_day' %}" class="home-action home-action--green">
+        <span class="home-action__icon" aria-hidden="true"><i class="fa-solid fa-table-cells-large"></i></span>
+        <span class="home-action__body"><strong>الجدول اليومي</strong><small>تعديل الحصص والمعلمين</small></span>
       </a>
-      <a href="{% url 'dashboard:standby_create' %}?date={{ today|date:'Y-m-d' }}" class="home-action-card is-gold">
-        <span class="home-action-icon"><i class="fa-solid fa-user-clock" aria-hidden="true"></i></span>
-        <span><strong>إضافة انتظار</strong><small>تغطية حصة اليوم بسرعة</small></span>
+      <a href="{% url 'dashboard:standby_create' %}?date={{ today|date:'Y-m-d' }}" class="home-action home-action--gold">
+        <span class="home-action__icon" aria-hidden="true"><i class="fa-solid fa-user-clock"></i></span>
+        <span class="home-action__body"><strong>إضافة انتظار</strong><small>تغطية حصة اليوم بسرعة</small></span>
       </a>
     </nav>
   </section>
 
-  <div class="home-details-grid">
-    <section class="home-section-card" aria-labelledby="today-status-heading">
-      <div class="home-section-heading">
+  <!-- ═══ Today + setup progress ═══ -->
+  <div class="home-details">
+    <section class="dp-surface dp-surface--pad" aria-labelledby="home-today-title">
+      <div class="dp-section-head">
         <div>
-          <h2 id="today-status-heading">ما يظهر على الشاشة اليوم</h2>
-          <p>{{ today_weekday_label }}، {{ today|date:"Y-m-d" }}</p>
+          <span class="dp-eyebrow dp-eyebrow--plain">اليوم الدراسي</span>
+          <h2 id="home-today-title">ما يظهر على الشاشة اليوم</h2>
+          <p>{{ today_weekday_label }} · {{ today|date:"Y-m-d" }}</p>
         </div>
-        <a href="{% url 'dashboard:days_list' %}" class="home-text-link"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i>ضبط الأيام</a>
-      </div>
-
-      <div class="home-timeline">
-        <div class="home-timeline-item">
-          <span class="home-timeline-icon"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i></span>
-          <span class="min-w-0">
-            <small>الآن</small>
-            <strong>
-              {% if current_state.type == "period" %}الحصة {{ current_state.period_index }}
-              {% elif current_state.type == "break" %}{{ current_state.label|default:"فسحة" }}
-              {% else %}{{ current_state.label|default:"لا توجد حصة جارية" }}{% endif %}
-            </strong>
-          </span>
-          <span class="home-timeline-time">{% if current_state.from and current_state.to %}{{ current_state.from }} - {{ current_state.to }}{% else %}--{% endif %}</span>
-        </div>
-
-        <div class="home-timeline-item">
-          <span class="home-timeline-icon"><i class="fa-solid fa-forward-step" aria-hidden="true"></i></span>
-          <span class="min-w-0">
-            <small>التالي</small>
-            <strong>
-              {% if next_period %}{% if next_period.kind == "period" %}الحصة {{ next_period.index }}{% else %}{{ next_period.label|default:"فسحة" }}{% endif %}
-              {% else %}لا يوجد نشاط تالٍ{% endif %}
-            </strong>
-          </span>
-          <span class="home-timeline-time">{% if next_period and next_period.from and next_period.to %}{{ next_period.from }} - {{ next_period.to }}{% else %}--{% endif %}</span>
-        </div>
+        <a href="{% url 'dashboard:days_list' %}" class="dp-btn dp-btn--soft dp-btn--sm">
+          <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
+          ضبط الأيام
+        </a>
       </div>
 
       <div class="home-readiness" aria-label="جاهزية التشغيل">
-        <span><i class="fa-solid fa-circle-check" aria-hidden="true"></i>{% if day_snapshot.meta.is_active_window %}داخل وقت الدوام{% else %}خارج وقت الدوام{% endif %}</span>
+        <span class="{% if not day_snapshot.meta.is_active_window %}is-off{% endif %}">
+          <i class="fa-solid {% if day_snapshot.meta.is_active_window %}fa-circle-check{% else %}fa-moon{% endif %}" aria-hidden="true"></i>
+          {% if day_snapshot.meta.is_active_window %}داخل وقت الدوام{% else %}خارج وقت الدوام{% endif %}
+        </span>
         <span><i class="fa-solid fa-rotate" aria-hidden="true"></i>التحديث التلقائي مفعل</span>
         <span><i class="fa-solid fa-receipt" aria-hidden="true"></i>نسخة الجدول {{ schedule_revision|default:"0" }}</span>
+        <span><i class="fa-solid fa-user-clock" aria-hidden="true"></i>{{ stats.standby_today|default:"0" }} انتظار اليوم</span>
+      </div>
+
+      <div class="dp-note dp-note--gold" style="margin-top:.9rem">
+        <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
+        <div>
+          <strong>لا ترى الحصة الحالية على الشاشة؟</strong>
+          <p>تأكد أن اليوم مفعّل في «توقيت الحصص والأيام»، وأن الحصة أُسند إليها فصل ومادة ومعلم في «الجدول اليومي».</p>
+        </div>
       </div>
     </section>
 
-    <aside class="home-section-card" aria-labelledby="setup-progress-heading">
-      <div class="home-section-heading">
+    <aside class="dp-surface dp-surface--pad" aria-labelledby="home-setup-title">
+      <div class="dp-section-head">
         <div>
-          <h2 id="setup-progress-heading">جاهزية منصتك</h2>
+          <span class="dp-eyebrow dp-eyebrow--plain">التجهيز</span>
+          <h2 id="home-setup-title">جاهزية منصتك</h2>
           <p>{{ setup_summary.completed_required }} من {{ setup_summary.total_required }} خطوات أساسية</p>
         </div>
       </div>
+
       <div class="home-progress-top">
-        <div class="home-progress-value">{{ setup_summary.progress_percent }}%</div>
+        <div class="home-progress-ring"
+             style="--value: {{ setup_summary.progress_percent }}"
+             role="progressbar"
+             aria-label="تقدم إعداد المنصة"
+             aria-valuemin="0"
+             aria-valuemax="100"
+             aria-valuenow="{{ setup_summary.progress_percent }}">
+          <b>{{ setup_summary.progress_percent }}%</b>
+        </div>
         <div class="home-progress-copy">
           <small>{% if setup_summary.progress_percent == 100 %}المنصة جاهزة للتشغيل{% else %}الخطوة التالية{% endif %}</small>
           <strong>{{ setup_summary.next_step_title }}</strong>
         </div>
       </div>
-      <div class="home-progress-track" role="progressbar" aria-label="تقدم إعداد المنصة" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ setup_summary.progress_percent }}">
-        <span style="width: {{ setup_summary.progress_percent }}%"></span>
+
+      {% if setup_steps %}
+      {% comment %} One tick per *required* step, so the rail and the
+         "X من Y" counter above it can never disagree. {% endcomment %}
+      <div class="home-progress-steps" role="presentation">
+        {% for step in setup_steps %}{% if step.required %}
+          <span class="{% if step.is_complete %}is-done{% endif %}"></span>
+        {% endif %}{% endfor %}
       </div>
-      <a href="{{ setup_summary.next_step_url }}" class="home-progress-action"{% if setup_summary.progress_percent == 100 %} target="_blank" rel="noopener"{% endif %}>
+      {% endif %}
+
+      <a href="{{ setup_summary.next_step_url }}"
+         class="dp-btn dp-btn--primary dp-btn--block"
+         style="margin-top:.9rem"
+         {% if setup_summary.progress_percent == 100 %}target="_blank" rel="noopener"{% endif %}>
         {{ setup_summary.next_step_cta_label }}
         <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
       </a>
     </aside>
   </div>
 
-  <section class="home-stat-strip" aria-label="ملخص المحتوى">
-    <a href="{% url 'dashboard:ann_list' %}" class="home-stat-link">
-      <i class="fa-solid fa-bell" aria-hidden="true"></i><span><strong>{{ stats.ann_count|default:"0" }}</strong><small>تنبيهات</small></span>
+  <!-- ═══ Content summary ═══ -->
+  <section class="dp-surface home-stats" aria-label="ملخص المحتوى">
+    <a href="{% url 'dashboard:ann_list' %}" class="home-stat">
+      <i class="fa-solid fa-bell" aria-hidden="true"></i>
+      <span class="home-stat__body"><strong>{{ stats.ann_count|default:"0" }}</strong><small>تنبيهات</small></span>
     </a>
-    <a href="{% url 'dashboard:standby_list' %}" class="home-stat-link">
-      <i class="fa-solid fa-user-clock" aria-hidden="true"></i><span><strong>{{ stats.standby_today|default:"0" }}</strong><small>انتظار اليوم</small></span>
+    <a href="{% url 'dashboard:standby_list' %}" class="home-stat">
+      <i class="fa-solid fa-user-clock" aria-hidden="true"></i>
+      <span class="home-stat__body"><strong>{{ stats.standby_today|default:"0" }}</strong><small>انتظار اليوم</small></span>
     </a>
-    <a href="{% url 'dashboard:exc_list' %}" class="home-stat-link">
-      <i class="fa-solid fa-star" aria-hidden="true"></i><span><strong>{{ stats.exc_count|default:"0" }}</strong><small>بطاقات تميز</small></span>
+    <a href="{% url 'dashboard:exc_list' %}" class="home-stat">
+      <i class="fa-solid fa-star" aria-hidden="true"></i>
+      <span class="home-stat__body"><strong>{{ stats.exc_count|default:"0" }}</strong><small>بطاقات تميز</small></span>
     </a>
-    <a href="{% url 'dashboard:my_subscription' %}" class="home-stat-link">
+    <a href="{% url 'dashboard:my_subscription' %}" class="home-stat">
       <i class="fa-solid fa-credit-card" aria-hidden="true"></i>
-      <span><strong>{% if subscription and subscription.is_active %}نشط{% elif subscription %}متوقف{% else %}—{% endif %}</strong><small>حالة الاشتراك</small></span>
+      <span class="home-stat__body">
+        <strong>{% if subscription and subscription.is_active %}نشط{% elif subscription %}متوقف{% else %}—{% endif %}</strong>
+        <small>حالة الاشتراك</small>
+      </span>
     </a>
   </section>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script defer src="{% static 'js/dashboard-home.js' %}?v=2026-08-09-a1"></script>
 {% endblock %}

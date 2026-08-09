@@ -1,228 +1,361 @@
 {% extends "dashboard/_base.html" %}
+{% load static %}
 
-{% block title %}إدارة الجدول اليومي للفصول{% endblock %}
-{% block page_title %}إدارة الجدول اليومي للفصول{% endblock %}
-{% block page_description %}اختر الفصل واليوم ثم عدّل المواد والمعلم/ـة لكل حصة، وسيتم تطبيق التعديلات مباشرة على شاشة العرض.{% endblock %}
+{% block title %}الجدول اليومي للفصول{% endblock %}
+{% block page_title %}الجدول اليومي للفصول{% endblock %}
+{% block page_description %}اختر الفصل واليوم، ثم أسند المادة والمعلم/ـة لكل حصة. يظهر التعديل على شاشة العرض فور الحفظ.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .tt { display: grid; gap: 0.9rem; }
+
+  /* ── Picker ──────────────────────────────────────────────────────────
+     The old page asked for two dropdowns and a page reload to see a day.
+     The class stays a <select> (a school can have forty), but the six or
+     seven weekdays become chips: one tap, and you can see at a glance which
+     day you are on. */
+  .tt-picker { display: grid; gap: 0.8rem; padding: 0.9rem; }
+
+  .tt-picker__row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .tt-picker__label {
+    color: var(--dp-muted);
+    font-size: 0.73rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+  .tt-picker__row select { width: 100%; }
+
+  .tt-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    flex: 0 0 auto;
+    border: 1px solid var(--dp-line);
+    border-radius: 10px;
+    color: var(--dp-teal);
+    background: #fff;
+    transition: background .16s ease, border-color .16s ease, color .16s ease;
+  }
+  .tt-nav:hover { border-color: rgba(20, 90, 106, .28); background: var(--dp-teal-wash); }
+  .tt-nav.is-disabled { opacity: .35; pointer-events: none; }
+
+  .tt-days { margin-top: 0.1rem; }
+
+  /* ── Fill progress ───────────────────────────────────────────────── */
+  .tt-progress { display: grid; gap: 0.6rem; padding: 0.85rem 0.95rem; }
+  .tt-progress__top { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+  .tt-progress__copy { min-width: 0; }
+  .tt-progress__copy strong { display: block; color: var(--dp-ink); font-size: 0.85rem; font-weight: 900; }
+  .tt-progress__copy small { display: block; margin-top: 0.15rem; color: var(--dp-muted); font-size: 0.71rem; font-weight: 700; }
+  .tt-progress__bar { overflow: hidden; height: 0.35rem; border-radius: 999px; background: #e9eef0; }
+  .tt-progress__bar span {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--dp-teal), var(--dp-gold));
+    transition: width .25s ease;
+  }
+
+  /* ── Period rows ─────────────────────────────────────────────────────
+     A table needed 500px and a sideways scroll on a phone. A row grid gives
+     the same reading order and simply stacks. */
+  .tt-rows { display: grid; gap: 0.55rem; }
+
+  .tt-row {
+    display: grid;
+    grid-template-columns: 8.5rem minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.6rem;
+    border: 1px solid var(--dp-line);
+    border-radius: 13px;
+    background: #fff;
+    padding: 0.7rem 0.8rem;
+    box-shadow: var(--dp-shadow);
+    transition: border-color .18s ease, background .18s ease;
+  }
+  .tt-row.is-filled { border-color: rgba(20, 90, 106, .22); background: linear-gradient(140deg, rgba(20, 90, 106, .035), #fff 55%); }
+
+  /* Half-filled is the trap this page used to hide: the server drops a period
+     that has a subject but no teacher, so the manager saves and the entry just
+     disappears. Flagging it here is the whole point of the state. */
+  .tt-row.is-partial { border-color: rgba(245, 158, 11, .45); background: linear-gradient(140deg, rgba(245, 158, 11, .07), #fff 55%); }
+
+  .tt-row__period { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+  .tt-row__index {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: fit-content;
+    border-radius: 999px;
+    background: var(--dp-teal-wash);
+    padding: 0.22rem 0.6rem;
+    color: #0f5061;
+    font-size: 0.72rem;
+    font-weight: 900;
+  }
+  .tt-row__time {
+    color: var(--dp-muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: start;
+  }
+
+  .tt-row__field { min-width: 0; }
+  .tt-row__field select { width: 100%; }
+  .tt-row__field > span {
+    display: block;
+    margin-bottom: 0.2rem;
+    color: var(--dp-faint);
+    font-size: 0.65rem;
+    font-weight: 800;
+  }
+
+  .tt-row__actions { display: flex; align-items: center; gap: 0.35rem; flex: 0 0 auto; }
+
+  .tt-row__flag {
+    display: none;
+    grid-column: 1 / -1;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 8px;
+    background: rgba(245, 158, 11, .12);
+    padding: 0.35rem 0.55rem;
+    color: #a15c07;
+    font-size: 0.68rem;
+    font-weight: 800;
+  }
+  .tt-row.is-partial .tt-row__flag { display: flex; }
+
+  /* ── Legend ─────────────────────────────────────────────────────────── */
+  .tt-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+
+  @media (max-width: 900px) {
+    .tt-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.5rem 0.6rem;
+      padding: 0.75rem;
+    }
+    .tt-row__period { grid-column: 1; flex-direction: row; align-items: center; gap: 0.5rem; }
+    .tt-row__actions { grid-column: 2; grid-row: 1; }
+    .tt-row__field { grid-column: 1 / -1; }
+  }
+
+  @media (max-width: 767px) {
+    .tt-picker { padding: 0.75rem; gap: 0.65rem; }
+    .tt-picker__label { font-size: 0.68rem; }
+    .tt-progress { padding: 0.7rem 0.75rem; }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto space-y-5 md:space-y-6 dashboard-timetable-day">
+<div class="tt dashboard-timetable-day">
 
-    <!-- شريط علوي للأزرار العامة -->
-    <div class="dashboard-toolbar flex flex-col sm:flex-row sm:items-center sm:justify-between items-stretch gap-2.5 md:gap-3">
-        <a href="{% url 'dashboard:index' %}"
-           class="inline-flex w-full sm:w-auto justify-center items-center gap-1.5 rounded-xl border border-slate-200
-                  bg-white px-4 py-2 text-xs md:text-sm text-slate-700
-                  hover:bg-slate-50 transition shadow-sm">
-            <span class="text-lg leading-none">←</span>
-            الرجوع للوحة التحكم
-        </a>
+  <!-- ═══ Toolbar ═══ -->
+  <div class="dp-scroll-x" role="group" aria-label="روابط الجدول">
+    <a href="{% url 'dashboard:index' %}" class="dp-btn dp-btn--ghost dp-btn--sm">
+      <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+      لوحة التحكم
+    </a>
+    <a href="{% url 'dashboard:days_list' %}" class="dp-btn dp-btn--ghost dp-btn--sm">
+      <i class="fa-regular fa-clock" aria-hidden="true"></i>
+      توقيت الحصص
+    </a>
+    {% if selected_class %}
+      <a href="{% url 'dashboard:timetable_week' %}?class_id={{ selected_class.id }}" class="dp-btn dp-btn--ghost dp-btn--sm">
+        <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+        جدول الأسبوع
+      </a>
+      <a href="{% url 'dashboard:timetable_export_csv' %}?class_id={{ selected_class.id }}" class="dp-btn dp-btn--ghost dp-btn--sm">
+        <i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i>
+        تصدير CSV
+      </a>
+    {% endif %}
+  </div>
 
-        {% if selected_class %}
-        <div class="flex flex-wrap items-center gap-2 justify-center sm:justify-end">
-            <a href="{% url 'dashboard:timetable_week' %}?class_id={{ selected_class.id }}"
-               class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200
-                      bg-white px-3.5 py-2 text-xs md:text-sm text-slate-700
-                      hover:bg-slate-50 transition">
-                📅
-                <span>جدول الأسبوع للفصل</span>
-            </a>
-            <a href="{% url 'dashboard:timetable_export_csv' %}?class_id={{ selected_class.id }}"
-               class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200
-                      bg-white px-3.5 py-2 text-xs md:text-sm text-slate-700
-                      hover:bg-slate-50 transition">
-                <span>تصدير CSV</span>
-            </a>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- فلاتر الفصل / اليوم -->
-        <form method="get"
-            class="day-filters dashboard-section-card rounded-2xl border border-slate-200 bg-white
-                 px-4 py-3.5 md:px-5 md:py-4 shadow-sm
-                 flex flex-wrap items-center gap-3 md:gap-4">
-        <div class="day-filter-item flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center sm:gap-2 w-full sm:w-auto">
-            <label for="class-select" class="text-xs text-slate-600">الفصل</label>
-            <div class="relative w-full sm:w-auto">
-                <select id="class-select" name="class_id"
-                        data-autosubmit
-                        class="appearance-none rounded-xl border border-slate-200 bg-slate-50
-                               w-full sm:w-auto px-4 py-2 pr-4 text-xs md:text-sm text-slate-700
-                               focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    {% if classes %}
-                        {% for c in classes %}
-                            <option value="{{ c.id }}"
-                                    {% if selected_class and c.id == selected_class.id %}selected{% endif %}>
-                                {{ c.name }}
-                            </option>
-                        {% endfor %}
-                    {% else %}
-                        <option value="">لا توجد فصول</option>
-                    {% endif %}
-                </select>
-                <span class="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">▾</span>
-            </div>
-        </div>
-
-        <div class="day-filter-item flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center sm:gap-2 w-full sm:w-auto">
-            <label for="weekday-select" class="text-xs text-slate-600">اليوم</label>
-            <div class="relative w-full sm:w-auto">
-                <select id="weekday-select" name="weekday"
-                        data-autosubmit
-                        class="appearance-none rounded-xl border border-slate-200 bg-slate-50
-                               w-full sm:w-auto px-4 py-2 pr-4 text-xs md:text-sm text-slate-700
-                               focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    {% for code,label in weekdays %}
-                        <option value="{{ code }}" {% if code == weekday %}selected{% endif %}>
-                            {{ label }}
-                        </option>
-                    {% endfor %}
-                </select>
-                <span class="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">▾</span>
-            </div>
-        </div>
-
-
+  <!-- ═══ Class + day picker ═══ -->
+  <section class="dp-surface tt-picker" aria-label="اختيار الفصل واليوم">
+    <form method="get" class="tt-picker__row">
+      <label for="class-select" class="tt-picker__label">الفصل</label>
+      {% if classes %}
+        <select id="class-select" name="class_id" data-autosubmit data-tt-class aria-label="اختيار الفصل">
+          {% for c in classes %}
+            <option value="{{ c.id }}" {% if selected_class and c.id == selected_class.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      {% else %}
+        <select id="class-select" disabled aria-label="اختيار الفصل"><option>لا توجد فصول</option></select>
+      {% endif %}
+      <input type="hidden" name="weekday" value="{{ weekday }}">
+      {% comment %} Stepping through classes one at a time is the common motion
+         when filling a week; the arrows save a dropdown round-trip each time. {% endcomment %}
+      <span class="tt-row__actions">
+        <button type="button" class="tt-nav" data-tt-class-step="-1" title="الفصل السابق" aria-label="الفصل السابق">
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="tt-nav" data-tt-class-step="1" title="الفصل التالي" aria-label="الفصل التالي">
+          <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+        </button>
+      </span>
     </form>
 
-    <!-- رسائل الحالة -->
-    {% if not periods %}
-        <p class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs md:text-sm text-amber-700">
-            لا توجد حصص مسجَلة لهذا اليوم بعد. يرجى ضبط أوقات الحصص من إعدادات الجدول أولاً.
-        </p>
-    {% elif not classes %}
-        <p class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs md:text-sm text-amber-700">
-            لا توجد فصول مسجَلة بعد. يرجى إضافة الفصول من إعدادات المدرسة.
-        </p>
-    {% elif not selected_class %}
-        <p class="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs md:text-sm text-indigo-700">
-            يرجى اختيار فصل لعرض الجدول.
-        </p>
-    {% else %}
+    <div>
+      <span class="tt-picker__label" id="tt-days-label">اليوم</span>
+      <nav class="dp-seg tt-days" aria-labelledby="tt-days-label">
+        {% for code, label in weekdays %}
+          <a class="dp-seg__item {% if code == weekday %}is-active{% endif %}"
+             href="?weekday={{ code }}{% if selected_class %}&class_id={{ selected_class.id }}{% endif %}"
+             {% if code == weekday %}aria-current="true"{% endif %}
+             data-tt-day>{{ label }}</a>
+        {% endfor %}
+      </nav>
+    </div>
+  </section>
 
-        <!-- نموذج تعديل الجدول -->
-        <form method="post" class="space-y-4">
-            {% csrf_token %}
-            <input type="hidden" name="weekday" value="{{ weekday }}">
-            <input type="hidden" name="class_id" value="{{ selected_class.id }}">
+  <!-- ═══ States ═══ -->
+  {% if not periods %}
+    <div class="dp-empty">
+      <span class="dp-empty__icon" aria-hidden="true"><i class="fa-regular fa-clock"></i></span>
+      <h3>لا توجد حصص لهذا اليوم بعد</h3>
+      <p>اضبط أوقات بداية ونهاية الحصص لهذا اليوم أولاً، ثم عد إلى هنا لتوزيع المواد والمعلمين.</p>
+      <a href="{% url 'dashboard:days_list' %}" class="dp-btn dp-btn--primary">
+        <i class="fa-regular fa-calendar-days" aria-hidden="true"></i>
+        ضبط توقيت الحصص والأيام
+      </a>
+    </div>
 
-            <!-- مفتاح الألوان -->
-            <div class="flex flex-wrap items-center gap-2 text-xs">
-                <span
-                    class="inline-flex items-center gap-1 rounded-full border border-slate-200
-                           bg-white px-2.5 py-1 text-slate-600">
-                    <span class="h-1.5 w-1.5 rounded-full bg-indigo-400"></span>
-                    المادة
-                </span>
-                <span
-                    class="inline-flex items-center gap-1 rounded-full border border-slate-200
-                           bg-white px-2.5 py-1 text-slate-600">
-                    <span class="h-1.5 w-1.5 rounded-full bg-violet-400"></span>
-                    المعلم/ـة
-                </span>
-                <span class="text-[11px] text-slate-500">
-                    ترك الحصة بدون مادة ومعلم يعني عدم وجود حصة في هذا التوقيت لهذا الفصل.
-                </span>
-            </div>
+  {% elif not classes %}
+    <div class="dp-empty">
+      <span class="dp-empty__icon" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
+      <h3>لا توجد فصول مسجّلة</h3>
+      <p>الجدول يُبنى على الفصول. أضف فصلًا واحدًا على الأقل ثم عد إلى هذه الصفحة.</p>
+      <a href="{% url 'dashboard:school_data' %}" class="dp-btn dp-btn--primary">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+        إضافة الفصول
+      </a>
+    </div>
 
-            <!-- الجدول -->
-            <div class="dashboard-table-shell overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              {% comment %} The card clips its own rounded corners, so the table
-                 needs its own scroller — otherwise the 500px grid is cut off on
-                 a phone with no way to reach the hidden columns. {% endcomment %}
-              <div class="table-scroll">
-                <table class="w-full min-w-[500px] border-collapse text-[11px] sm:text-xs md:text-sm">
-                    <thead class="bg-slate-50 text-slate-600">
-                    <tr class="border-b border-slate-200">
-                        <th class="px-3 md:px-4 py-2.5 md:py-3 text-right w-40 md:w-48 text-xs md:text-sm font-semibold text-slate-600">
-                            الحصة
-                        </th>
-                        <th class="px-3 md:px-4 py-2.5 md:py-3 text-right text-xs md:text-sm font-semibold text-slate-600">
-                            جدول الفصل
-                            {% if selected_class %}
-                                {{ selected_class.name }}
-                            {% endif %}
-                        </th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {% for row in rows %}
-                        <tr class="hover:bg-slate-50 transition">
-                            <td class="border-t border-slate-100 px-3 md:px-4 py-2.5 md:py-3 align-top">
-                                <div class="flex flex-col gap-1">
-                                    <span
-                                        class="inline-flex items-center gap-1 rounded-full bg-indigo-50
-                                               px-2.5 md:px-3 py-1 text-[10px] md:text-[11px] font-semibold text-indigo-700">
-                                        <span class="h-1.5 w-1.5 rounded-full bg-indigo-400"></span>
-                                        الحصة {{ row.period.index }}
-                                    </span>
-                                    {% if row.period.starts_at %}
-                                        <span class="text-[10px] md:text-[11px] text-slate-500">
-                                            {{ row.period.starts_at }} – {{ row.period.ends_at }}
-                                        </span>
-                                    {% endif %}
-                                </div>
-                            </td>
-                            <td class="border-t border-slate-100 px-3 md:px-4 py-2.5 md:py-3 align-top">
-                                <div class="flex flex-col gap-2">
-                                    <!-- المادة -->
-                                    <select
-                                        name="subject-{{ selected_class.id }}-{{ row.period.index }}"
-                                        class="w-full rounded-xl border border-slate-200 bg-slate-50
-                                                   px-3 py-1.5 text-[11px] sm:text-xs md:text-sm
-                                               text-slate-700 focus:outline-none focus:ring-2
-                                               focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">— مادة —</option>
-                                        {% for subj in subjects %}
-                                            <option value="{{ subj.id }}"
-                                                {% if row.subject_id == subj.id %}selected{% endif %}>
-                                                {{ subj.name }}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
+  {% elif not selected_class %}
+    <div class="dp-empty">
+      <span class="dp-empty__icon" aria-hidden="true"><i class="fa-solid fa-hand-pointer"></i></span>
+      <h3>اختر فصلاً لعرض جدوله</h3>
+      <p>حدّد الفصل من القائمة أعلاه.</p>
+    </div>
 
-                                    <!-- المعلم/ـة -->
-                                    <select
-                                        name="teacher-{{ selected_class.id }}-{{ row.period.index }}"
-                                        class="w-full rounded-xl border border-slate-200 bg-slate-50
-                                               px-3 py-1.5 text-[11px] sm:text-xs md:text-sm
-                                               text-slate-700 focus:outline-none focus:ring-2
-                                               focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">— معلم —</option>
-                                        {% for teacher in teachers %}
-                                            <option value="{{ teacher.id }}"
-                                                {% if row.teacher_id == teacher.id %}selected{% endif %}>
-                                                {{ teacher.name }}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
-              </div>
-            </div>
+  {% else %}
 
-            <!-- أزرار الحفظ -->
-         <div class="day-save-actions flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5 md:gap-3 pt-1">
-                <button type="submit"
-               class="inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-xl bg-gradient-to-r
-                   from-indigo-600 to-violet-600 px-5 md:px-6 py-2.5 text-xs md:text-sm
-                               font-semibold text-white shadow-sm
-                               hover:from-indigo-700 hover:to-violet-700 transition">
-                    💾
-                    <span>حفظ جدول الفصل لليوم المحدد</span>
-                </button>
-                <p class="text-[11px] md:text-xs text-slate-400">
-                    يتم تطبيق أي تعديل على شاشة العرض وصفحة الحصة الحالية مباشرة بعد الحفظ.
-                </p>
-            </div>
-        </form>
+    {% if not subjects or not teachers %}
+      <div class="dp-note dp-note--amber">
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <div>
+          <strong>ينقصك {% if not subjects %}المواد{% endif %}{% if not subjects and not teachers %} و{% endif %}{% if not teachers %}المعلمون{% endif %}</strong>
+          <p>لا يمكن حفظ حصة بدون مادة ومعلم معًا.
+            <a href="{% url 'dashboard:school_data' %}" style="font-weight:900;text-decoration:underline;text-underline-offset:3px">أضفها من بيانات المدرسة</a>.</p>
+        </div>
+      </div>
     {% endif %}
-</div>
 
+    <form method="post" class="tt" data-tt-form>
+      {% csrf_token %}
+      <input type="hidden" name="weekday" value="{{ weekday }}">
+      <input type="hidden" name="class_id" value="{{ selected_class.id }}">
+
+      <!-- Fill progress -->
+      <section class="dp-surface dp-surface--crowned tt-progress" aria-label="نسبة اكتمال الجدول">
+        <div class="tt-progress__top">
+          <div class="tt-progress__copy">
+            <strong>{{ selected_class.name }}</strong>
+            <small data-tt-summary>جارٍ الحساب…</small>
+          </div>
+          <div class="tt-legend">
+            <span class="dp-pill dp-pill--teal dp-pill--dot">مكتملة</span>
+            <span class="dp-pill dp-pill--amber dp-pill--dot">ناقصة</span>
+            <span class="dp-pill dp-pill--slate dp-pill--dot">فارغة</span>
+          </div>
+        </div>
+        <div class="tt-progress__bar" role="presentation"><span data-tt-bar></span></div>
+      </section>
+
+      <!-- Period rows -->
+      <div class="tt-rows">
+        {% for row in rows %}
+          <div class="tt-row" data-tt-row>
+            <div class="tt-row__period">
+              <span class="tt-row__index">الحصة {{ row.period.index }}</span>
+              {% if row.period.starts_at %}
+                <span class="tt-row__time">{{ row.period.starts_at }} – {{ row.period.ends_at }}</span>
+              {% endif %}
+            </div>
+
+            <label class="tt-row__field">
+              <span>المادة</span>
+              <select name="subject-{{ selected_class.id }}-{{ row.period.index }}" data-tt-subject
+                      aria-label="مادة الحصة {{ row.period.index }}">
+                <option value="">— بدون —</option>
+                {% for subj in subjects %}
+                  <option value="{{ subj.id }}" {% if row.subject_id == subj.id %}selected{% endif %}>{{ subj.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+
+            <label class="tt-row__field">
+              <span>المعلم/ـة</span>
+              <select name="teacher-{{ selected_class.id }}-{{ row.period.index }}" data-tt-teacher
+                      aria-label="معلم الحصة {{ row.period.index }}">
+                <option value="">— بدون —</option>
+                {% for teacher in teachers %}
+                  <option value="{{ teacher.id }}" {% if row.teacher_id == teacher.id %}selected{% endif %}>{{ teacher.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+
+            <div class="tt-row__actions">
+              <button type="button" class="dp-icon-btn dp-icon-btn--danger" data-tt-clear
+                      title="تفريغ الحصة" aria-label="تفريغ الحصة {{ row.period.index }}">
+                <i class="fa-solid fa-eraser" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <p class="tt-row__flag" role="status">
+              <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+              اختر المادة والمعلم معًا، وإلا لن تُحفظ هذه الحصة.
+            </p>
+          </div>
+        {% endfor %}
+      </div>
+
+      <!-- Sticky save -->
+      <div class="dp-actionbar">
+        <div class="dp-actionbar__copy">
+          <strong data-tt-state>لا توجد تغييرات</strong>
+          <span>يظهر التعديل على شاشة العرض مباشرة بعد الحفظ.</span>
+        </div>
+        <div class="dp-actionbar__buttons">
+          <button type="button" class="dp-btn dp-btn--ghost" data-tt-reset>
+            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+            تراجع عن التعديلات
+          </button>
+          <button type="submit" class="dp-btn dp-btn--primary">
+            <i class="fa-regular fa-floppy-disk" aria-hidden="true"></i>
+            حفظ جدول {{ selected_class.name }}
+          </button>
+        </div>
+      </div>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script defer src="{% static 'js/timetable-day.js' %}?v=2026-08-09-a1"></script>
 {% endblock %}

@@ -359,108 +359,203 @@
                     </label>
                     {% endif %}
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+                    <div class="runtime-groups">
                         {% if show_display_settings %}
-                        <!-- Standby Speed -->
-                        <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group" data-inherit-group="motion">
-                             <label for="{{ form.standby_scroll_speed.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-3">{{ form.standby_scroll_speed.label }}</label>
-                             <div class="relative">
-                                {{ form.standby_scroll_speed }}
-                                <output id="standbyValue" for="{{ form.standby_scroll_speed.id_for_label }}" class="settings-speed-value">{{ form.standby_scroll_speed.value|default:'0.8' }}x</output>
-                             </div>
-                             <p id="{{ form.standby_scroll_speed.id_for_label }}_helptext" class="mt-3 text-xs text-slate-400 font-medium leading-relaxed">سرعة تحرك شريط الانتظار. القيمة المقترحة من 0.5 إلى 1.2.</p>
-                             <div id="standbyWarn" class="hidden mt-2 text-xs text-rose-600 font-bold bg-rose-50 p-2 rounded-lg">القيمة لا تقل عن 0.5</div>
-                             {% if form.standby_scroll_speed.errors %}<div class="settings-field-error" role="alert">{% for error in form.standby_scroll_speed.errors %}{{ error }}{% endfor %}</div>{% endif %}
-                        </div>
+                        <section class="runtime-group" data-inherit-group="motion" aria-labelledby="runtime-motion-title">
+                            <header class="runtime-group__head">
+                                <span class="runtime-group__index" aria-hidden="true">01</span>
+                                <div>
+                                    <h4 id="runtime-motion-title">سرعة حركة المحتوى</h4>
+                                    <p>القيمة أقرب إلى 0.5 = حركة أبطأ وقراءة أسهل من بعيد. أقرب إلى 1.2 = مرور أسرع لمحتوى أكثر.</p>
+                                </div>
+                            </header>
 
-                        <!-- Periods Speed -->
-                                <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group" data-inherit-group="motion">
-                             <label for="{{ form.periods_scroll_speed.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-3">{{ form.periods_scroll_speed.label }}</label>
-                             <div class="relative">
-                                {{ form.periods_scroll_speed }}
-                                <output id="periodsValue" for="{{ form.periods_scroll_speed.id_for_label }}" class="settings-speed-value">{{ form.periods_scroll_speed.value|default:'0.5' }}x</output>
-                             </div>
-                             <p id="{{ form.periods_scroll_speed.id_for_label }}_helptext" class="mt-3 text-xs text-slate-400 font-medium leading-relaxed">سرعة تحرك جدول الحصص. القيمة المقترحة من 0.5 إلى 1.0.</p>
-                             <div id="periodsWarn" class="hidden mt-2 text-xs text-rose-600 font-bold bg-rose-50 p-2 rounded-lg">القيمة لا تقل عن 0.5</div>
-                             {% if form.periods_scroll_speed.errors %}<div class="settings-field-error" role="alert">{% for error in form.periods_scroll_speed.errors %}{{ error }}{% endfor %}</div>{% endif %}
-                        </div>
+                            <div class="runtime-speed-grid">
+                                <article class="runtime-speed">
+                                    <div class="runtime-speed__top">
+                                        <label for="{{ form.standby_scroll_speed.id_for_label }}">{{ form.standby_scroll_speed.label }}</label>
+                                        <output id="standbyValue" for="{{ form.standby_scroll_speed.id_for_label }}" class="runtime-speed__value">{{ form.standby_scroll_speed.value|default:'0.8' }}x</output>
+                                    </div>
+                                    {{ form.standby_scroll_speed }}
+                                    {% comment %} Presets exist because "0.8" means nothing to a manager
+                                       standing in a corridor; "متوازن" does. The number stays editable
+                                       for anyone who does want to fine-tune it. {% endcomment %}
+                                    <div class="runtime-presets" role="group" aria-label="قيم مقترحة لسرعة شريط الانتظار">
+                                        <button type="button" data-speed-target="{{ form.standby_scroll_speed.id_for_label }}" data-speed-value="0.5">بطيء</button>
+                                        <button type="button" data-speed-target="{{ form.standby_scroll_speed.id_for_label }}" data-speed-value="0.8">متوازن</button>
+                                        <button type="button" data-speed-target="{{ form.standby_scroll_speed.id_for_label }}" data-speed-value="1.2">سريع</button>
+                                    </div>
+                                    <p id="{{ form.standby_scroll_speed.id_for_label }}_helptext" class="runtime-hint">سرعة تحرك شريط الانتظار على الشاشة.</p>
+                                    <div id="standbyWarn" class="settings-field-error hidden">القيمة لا تقل عن 0.5</div>
+                                    {% if form.standby_scroll_speed.errors %}<div class="settings-field-error" role="alert">{% for error in form.standby_scroll_speed.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                </article>
+
+                                <article class="runtime-speed">
+                                    <div class="runtime-speed__top">
+                                        <label for="{{ form.periods_scroll_speed.id_for_label }}">{{ form.periods_scroll_speed.label }}</label>
+                                        <output id="periodsValue" for="{{ form.periods_scroll_speed.id_for_label }}" class="runtime-speed__value">{{ form.periods_scroll_speed.value|default:'0.5' }}x</output>
+                                    </div>
+                                    {{ form.periods_scroll_speed }}
+                                    <div class="runtime-presets" role="group" aria-label="قيم مقترحة لسرعة جدول الحصص">
+                                        <button type="button" data-speed-target="{{ form.periods_scroll_speed.id_for_label }}" data-speed-value="0.5">بطيء</button>
+                                        <button type="button" data-speed-target="{{ form.periods_scroll_speed.id_for_label }}" data-speed-value="0.7">متوازن</button>
+                                        <button type="button" data-speed-target="{{ form.periods_scroll_speed.id_for_label }}" data-speed-value="1.0">سريع</button>
+                                    </div>
+                                    <p id="{{ form.periods_scroll_speed.id_for_label }}_helptext" class="runtime-hint">سرعة تحرك جدول الحصص على الشاشة.</p>
+                                    <div id="periodsWarn" class="settings-field-error hidden">القيمة لا تقل عن 0.5</div>
+                                    {% if form.periods_scroll_speed.errors %}<div class="settings-field-error" role="alert">{% for error in form.periods_scroll_speed.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                </article>
+                            </div>
+
+                            {% if display_preview_url %}
+                            <p class="runtime-tip">
+                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                                احفظ ثم افتح <a href="{{ display_preview_url }}" target="_blank" rel="noopener">المعاينة</a> وشاهد النتيجة على شاشة حقيقية قبل اعتمادها.
+                            </p>
+                            {% endif %}
+                        </section>
                         {% endif %}
 
                         {% if show_account_settings %}
-                        {% if form.test_mode_weekday_override %}
-                        <div class="dashboard-control-surface bg-slate-50/50 rounded-xl p-4 border border-slate-200 group sm:col-span-2">
-                            <label for="{{ form.test_mode_weekday_override.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-3">{{ form.test_mode_weekday_override.label }}</label>
-                            {{ form.test_mode_weekday_override }}
-                            {% if form.test_mode_weekday_override.help_text %}<p id="{{ form.test_mode_weekday_override.id_for_label }}_helptext" class="mt-3 text-xs text-slate-400 font-medium leading-relaxed">{{ form.test_mode_weekday_override.help_text|safe }}</p>{% endif %}
-                            {% if form.test_mode_weekday_override.errors %}<div class="mt-2 text-sm text-rose-600 font-bold bg-rose-50 px-3 py-1 rounded-lg inline-block">{% for error in form.test_mode_weekday_override.errors %}{{ error }}{% endfor %}</div>{% endif %}
-                        </div>
-                        {% endif %}
+                        <section class="runtime-group" aria-labelledby="runtime-monitor-title">
+                            <header class="runtime-group__head">
+                                <span class="runtime-group__index" aria-hidden="true">{% if show_display_settings %}02{% else %}01{% endif %}</span>
+                                <div>
+                                    <h4 id="runtime-monitor-title">مراقبة اتصال الشاشات</h4>
+                                    <p>يعرف النظام أن الشاشة توقفت عندما ينقطع نبضها. هذه الإعدادات تحدد متى يعتبرها منقطعة، وكيف يخبرك، وكم مرة.</p>
+                                </div>
+                            </header>
 
-                        <div class="dashboard-control-surface bg-blue-50/50 rounded-xl p-5 border border-blue-100 sm:col-span-2">
-                            <div class="mb-4">
-                                <h4 class="text-sm font-black text-slate-800">مراقبة اتصال الشاشات</h4>
-                                <p class="mt-1 text-xs text-slate-500">تنبيه تلقائي عند انقطاع اتصال إحدى شاشات المدرسة.</p>
-                            </div>
-                            <div class="grid md:grid-cols-2 gap-4">
-                                <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
-                                    {{ form.screen_offline_alerts_enabled }}
-                                    <span><strong class="block text-sm text-slate-800">{{ form.screen_offline_alerts_enabled.label }}</strong><small class="text-xs text-slate-500">يفتح سجل تعطل ويرسل التنبيه مرة واحدة حتى عودة الاتصال.</small></span>
-                                </label>
-                                <div>
-                                    <label for="{{ form.screen_offline_threshold_minutes.id_for_label }}" class="block mb-2 text-sm font-bold text-slate-700">{{ form.screen_offline_threshold_minutes.label }}</label>
-                                    {{ form.screen_offline_threshold_minutes }}
-                                    {% if form.screen_offline_threshold_minutes.errors %}<div class="settings-field-error">{{ form.screen_offline_threshold_minutes.errors }}</div>{% endif %}
-                                </div>
-                                <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
-                                    {{ form.screen_offline_email_enabled }}
-                                    <span><strong class="block text-sm text-slate-800">{{ form.screen_offline_email_enabled.label }}</strong><small class="text-xs text-slate-500">يرسل إلى عناوين البريد المسجلة لمدراء المدرسة.</small></span>
-                                </label>
-                                <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
-                                    {{ form.screen_offline_school_hours_only }}
-                                    <span><strong class="block text-sm text-slate-800">{{ form.screen_offline_school_hours_only.label }}</strong><small class="text-xs text-slate-500">{{ form.screen_offline_school_hours_only.help_text }}</small></span>
-                                </label>
-                                <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
-                                    {{ form.screen_recovery_notice_enabled }}
-                                    <span><strong class="block text-sm text-slate-800">{{ form.screen_recovery_notice_enabled.label }}</strong><small class="text-xs text-slate-500">{{ form.screen_recovery_notice_enabled.help_text }}</small></span>
-                                </label>
-                                <div>
-                                    <label for="{{ form.screen_offline_grace_minutes.id_for_label }}" class="block mb-2 text-sm font-bold text-slate-700">{{ form.screen_offline_grace_minutes.label }}</label>
-                                    {{ form.screen_offline_grace_minutes }}
-                                    <p class="mt-2 text-xs text-slate-400 font-medium leading-relaxed">{{ form.screen_offline_grace_minutes.help_text }}</p>
-                                    {% if form.screen_offline_grace_minutes.errors %}<div class="settings-field-error">{{ form.screen_offline_grace_minutes.errors }}</div>{% endif %}
-                                </div>
-                                <div>
-                                    <label for="{{ form.screen_offline_cooldown_minutes.id_for_label }}" class="block mb-2 text-sm font-bold text-slate-700">{{ form.screen_offline_cooldown_minutes.label }}</label>
-                                    {{ form.screen_offline_cooldown_minutes }}
-                                    <p class="mt-2 text-xs text-slate-400 font-medium leading-relaxed">{{ form.screen_offline_cooldown_minutes.help_text }}</p>
-                                    {% if form.screen_offline_cooldown_minutes.errors %}<div class="settings-field-error">{{ form.screen_offline_cooldown_minutes.errors }}</div>{% endif %}
-                                </div>
-                                <div>
-                                    <label for="{{ form.screen_offline_max_alerts_per_day.id_for_label }}" class="block mb-2 text-sm font-bold text-slate-700">{{ form.screen_offline_max_alerts_per_day.label }}</label>
-                                    {{ form.screen_offline_max_alerts_per_day }}
-                                    {% if form.screen_offline_max_alerts_per_day.errors %}<div class="settings-field-error">{{ form.screen_offline_max_alerts_per_day.errors }}</div>{% endif %}
+                            {% comment %} A plain-language read-back of the seven fields below. The
+                               numbers alone never added up to an answer for the one question the
+                               manager actually has: "so when exactly will you tell me?" {% endcomment %}
+                            <p class="runtime-summary" data-monitor-summary aria-live="polite"></p>
+
+                            <div class="runtime-block">
+                                <h5>متى نعتبر الشاشة منقطعة</h5>
+                                <div class="runtime-fields">
+                                    <div class="dp-field">
+                                        <label for="{{ form.screen_offline_threshold_minutes.id_for_label }}">{{ form.screen_offline_threshold_minutes.label }}</label>
+                                        <span class="dp-unit-field">
+                                            <span class="dp-unit-field__unit" aria-hidden="true">دقيقة</span>
+                                            {{ form.screen_offline_threshold_minutes }}
+                                        </span>
+                                        <span class="dp-field__hint">مدة الصمت التي بعدها تُعد الشاشة خارج الخدمة.</span>
+                                        {% if form.screen_offline_threshold_minutes.errors %}<div class="settings-field-error">{{ form.screen_offline_threshold_minutes.errors }}</div>{% endif %}
+                                    </div>
+                                    <div class="dp-field">
+                                        <label for="{{ form.screen_offline_grace_minutes.id_for_label }}">{{ form.screen_offline_grace_minutes.label }}</label>
+                                        <span class="dp-unit-field">
+                                            <span class="dp-unit-field__unit" aria-hidden="true">دقيقة</span>
+                                            {{ form.screen_offline_grace_minutes }}
+                                        </span>
+                                        <span class="dp-field__hint">{{ form.screen_offline_grace_minutes.help_text }}</span>
+                                        {% if form.screen_offline_grace_minutes.errors %}<div class="settings-field-error">{{ form.screen_offline_grace_minutes.errors }}</div>{% endif %}
+                                    </div>
+                                    <label class="dp-switch">
+                                        {{ form.screen_offline_school_hours_only }}
+                                        <span class="dp-switch__copy">
+                                            <strong>{{ form.screen_offline_school_hours_only.label }}</strong>
+                                            <small>{{ form.screen_offline_school_hours_only.help_text }}</small>
+                                        </span>
+                                    </label>
                                 </div>
                             </div>
-                        </div>
+
+                            <div class="runtime-block">
+                                <h5>كيف نُبلغك</h5>
+                                <div class="runtime-fields">
+                                    <label class="dp-switch">
+                                        {{ form.screen_offline_alerts_enabled }}
+                                        <span class="dp-switch__copy">
+                                            <strong>{{ form.screen_offline_alerts_enabled.label }}</strong>
+                                            <small>يفتح سجل تعطل ويرسل التنبيه مرة واحدة حتى عودة الاتصال.</small>
+                                        </span>
+                                    </label>
+                                    <label class="dp-switch">
+                                        {{ form.screen_offline_email_enabled }}
+                                        <span class="dp-switch__copy">
+                                            <strong>{{ form.screen_offline_email_enabled.label }}</strong>
+                                            <small>يرسل إلى عناوين البريد المسجلة لمدراء المدرسة.</small>
+                                        </span>
+                                    </label>
+                                    <label class="dp-switch">
+                                        {{ form.screen_recovery_notice_enabled }}
+                                        <span class="dp-switch__copy">
+                                            <strong>{{ form.screen_recovery_notice_enabled.label }}</strong>
+                                            <small>{{ form.screen_recovery_notice_enabled.help_text }}</small>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="runtime-block">
+                                <h5>حدود التكرار</h5>
+                                <div class="runtime-fields">
+                                    <div class="dp-field">
+                                        <label for="{{ form.screen_offline_cooldown_minutes.id_for_label }}">{{ form.screen_offline_cooldown_minutes.label }}</label>
+                                        <span class="dp-unit-field">
+                                            <span class="dp-unit-field__unit" aria-hidden="true">دقيقة</span>
+                                            {{ form.screen_offline_cooldown_minutes }}
+                                        </span>
+                                        <span class="dp-field__hint">{{ form.screen_offline_cooldown_minutes.help_text }}</span>
+                                        {% if form.screen_offline_cooldown_minutes.errors %}<div class="settings-field-error">{{ form.screen_offline_cooldown_minutes.errors }}</div>{% endif %}
+                                    </div>
+                                    <div class="dp-field">
+                                        <label for="{{ form.screen_offline_max_alerts_per_day.id_for_label }}">{{ form.screen_offline_max_alerts_per_day.label }}</label>
+                                        <span class="dp-unit-field">
+                                            <span class="dp-unit-field__unit" aria-hidden="true">تنبيه</span>
+                                            {{ form.screen_offline_max_alerts_per_day }}
+                                        </span>
+                                        <span class="dp-field__hint">سقف يومي يمنع إغراق بريدك عند تكرار الانقطاع.</span>
+                                        {% if form.screen_offline_max_alerts_per_day.errors %}<div class="settings-field-error">{{ form.screen_offline_max_alerts_per_day.errors }}</div>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        {% if form.test_mode_weekday_override %}
+                        <section class="runtime-group runtime-group--lab" aria-labelledby="runtime-test-title">
+                            <header class="runtime-group__head">
+                                <span class="runtime-group__index" aria-hidden="true">{% if show_display_settings %}03{% else %}02{% endif %}</span>
+                                <div>
+                                    <h4 id="runtime-test-title">{{ form.test_mode_weekday_override.label }}</h4>
+                                    {% if form.test_mode_weekday_override.help_text %}
+                                        <p id="{{ form.test_mode_weekday_override.id_for_label }}_helptext">{{ form.test_mode_weekday_override.help_text|safe }}</p>
+                                    {% endif %}
+                                </div>
+                            </header>
+                            <div class="runtime-fields">
+                                <div class="dp-field">
+                                    <label for="{{ form.test_mode_weekday_override.id_for_label }}">اليوم المحاكى</label>
+                                    {{ form.test_mode_weekday_override }}
+                                    {% if form.test_mode_weekday_override.errors %}<div class="settings-field-error">{% for error in form.test_mode_weekday_override.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                </div>
+                            </div>
+                        </section>
+                        {% endif %}
                         {% endif %}
 
                         {% if is_screen_scope %}
-                        <div class="dashboard-control-surface rounded-xl border border-slate-200 bg-white p-5 sm:col-span-2">
-                            <div class="mb-4">
-                                <h4 class="text-sm font-black text-slate-800">المحتوى الظاهر في هذه الشاشة</h4>
-                                <p class="mt-1 text-xs text-slate-500">يمكنك إخفاء الأقسام التي لا تناسب موقع الشاشة.</p>
-                            </div>
-                            <div class="grid gap-3 md:grid-cols-2">
+                        <section class="runtime-group" aria-labelledby="runtime-visibility-title">
+                            <header class="runtime-group__head">
+                                <span class="runtime-group__index" aria-hidden="true">04</span>
+                                <div>
+                                    <h4 id="runtime-visibility-title">المحتوى الظاهر في هذه الشاشة</h4>
+                                    <p>أخفِ الأقسام التي لا تناسب موقع هذه الشاشة — شاشة المدخل مثلًا لا تحتاج جدول الحصص.</p>
+                                </div>
+                            </header>
+                            <div class="runtime-fields">
                                 {% for field in form %}
                                     {% if field.name == 'show_announcements' or field.name == 'show_period_classes' or field.name == 'show_standby' or field.name == 'show_duty' or field.name == 'show_excellence' %}
-                                    <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                    <label class="dp-switch">
                                         {{ field }}
-                                        <span class="text-sm font-bold text-slate-800">{{ field.label }}</span>
+                                        <span class="dp-switch__copy"><strong>{{ field.label }}</strong></span>
                                     </label>
                                     {% endif %}
                                 {% endfor %}
                             </div>
-                        </div>
+                        </section>
                         {% endif %}
                     </div>
                 </section>
@@ -682,6 +777,87 @@ document.addEventListener('DOMContentLoaded', function() {
     if (standbyEl) standbyEl.addEventListener('input', () => updateSpeedOutput(standbyEl, standbyValue));
     if (periodsEl) periodsEl.addEventListener('input', () => updateSpeedOutput(periodsEl, periodsValue));
 
+    // ── Speed presets ──
+    // "0.8" carries no meaning on its own. The named presets write the number
+    // for you; the field stays editable for anyone who wants a value between.
+    function syncPresetState(group) {
+        const first = group.querySelector('button');
+        if (!first) return;
+        const target = document.getElementById(first.dataset.speedTarget);
+        if (!target) return;
+        const current = parseFloat(target.value);
+        group.querySelectorAll('button').forEach((btn) => {
+            const matches = Math.abs(parseFloat(btn.dataset.speedValue) - current) < 0.001;
+            btn.classList.toggle('is-active', matches);
+            btn.setAttribute('aria-pressed', matches ? 'true' : 'false');
+        });
+    }
+
+    const presetGroups = Array.from(document.querySelectorAll('.runtime-presets'));
+    presetGroups.forEach((group) => {
+        syncPresetState(group);
+        group.addEventListener('click', (event) => {
+            const btn = event.target.closest('button');
+            if (!btn) return;
+            const target = document.getElementById(btn.dataset.speedTarget);
+            if (!target) return;
+            target.value = btn.dataset.speedValue;
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+            target.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    });
+    [standbyEl, periodsEl].forEach((input) => {
+        if (!input) return;
+        input.addEventListener('input', () => presetGroups.forEach(syncPresetState));
+    });
+
+    // ── Plain-language read-back of the monitoring rules ──
+    // Seven numbers and toggles never answered the one question a manager has:
+    // "so when exactly will you tell me?" This sentence answers it, live.
+    const monitorSummary = document.querySelector('[data-monitor-summary]');
+    if (monitorSummary) {
+        const alertsOn = document.getElementById('id_screen_offline_alerts_enabled');
+        const emailOn = document.getElementById('id_screen_offline_email_enabled');
+        const hoursOnly = document.getElementById('id_screen_offline_school_hours_only');
+        const recoveryOn = document.getElementById('id_screen_recovery_notice_enabled');
+        const thresholdEl = document.getElementById('id_screen_offline_threshold_minutes');
+        const maxPerDayEl = document.getElementById('id_screen_offline_max_alerts_per_day');
+
+        const watched = [alertsOn, emailOn, hoursOnly, recoveryOn, thresholdEl, maxPerDayEl].filter(Boolean);
+
+        function numberOr(el, fallback) {
+            const value = parseInt(el && el.value, 10);
+            return Number.isFinite(value) ? value : fallback;
+        }
+
+        function renderMonitorSummary() {
+            if (alertsOn && !alertsOn.checked) {
+                monitorSummary.classList.add('is-off');
+                monitorSummary.textContent = 'تنبيهات الانقطاع موقوفة — لن يصلك إشعار عند توقف أي شاشة.';
+                return;
+            }
+            monitorSummary.classList.remove('is-off');
+
+            const parts = [
+                `سننبّهك عند انقطاع أي شاشة لأكثر من ${numberOr(thresholdEl, 10)} دقيقة`,
+                hoursOnly && hoursOnly.checked ? 'داخل وقت الدوام فقط' : 'في أي وقت',
+                emailOn && emailOn.checked ? 'عبر البريد الإلكتروني' : 'داخل لوحة التحكم فقط',
+                `بحد أقصى ${numberOr(maxPerDayEl, 3)} تنبيه في اليوم`,
+            ];
+            let sentence = parts.join('، ') + '.';
+            if (recoveryOn && recoveryOn.checked) {
+                sentence += ' وسنخبرك أيضًا عند عودة الاتصال.';
+            }
+            monitorSummary.textContent = sentence;
+        }
+
+        watched.forEach((el) => {
+            el.addEventListener('change', renderMonitorSummary);
+            el.addEventListener('input', renderMonitorSummary);
+        });
+        renderMonitorSummary();
+    }
+
     function markUnsaved() {
         if (!saveState) return;
         saveState.classList.add('has-changes');
@@ -865,6 +1041,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .settings-hero {
     position: relative;
+    isolation: isolate;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -872,13 +1049,26 @@ document.addEventListener('DOMContentLoaded', function() {
     margin-bottom: 1rem;
     padding: 1.6rem 1.75rem;
     overflow: hidden;
-    border: 1px solid rgba(15, 23, 42, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 1.35rem;
     color: #fff;
     background:
-        radial-gradient(circle at 15% 10%, rgba(214, 169, 74, 0.22), transparent 32%),
-        linear-gradient(125deg, #0f172a 0%, #164e63 58%, #155e75 100%);
-    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+        radial-gradient(120% 130% at 88% -20%, rgba(180, 139, 87, 0.34), transparent 58%),
+        linear-gradient(132deg, #0b2d38 0%, #124d5c 55%, #17646f 100%);
+    box-shadow: 0 26px 56px -26px rgba(11, 45, 56, 0.85);
+}
+
+/* Same dot field as the dashboard hero, so the two pages read as one product. */
+.settings-hero::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    opacity: .14;
+    background-image: radial-gradient(rgba(255, 255, 255, .55) .7px, transparent .7px);
+    background-size: 20px 20px;
+    -webkit-mask-image: linear-gradient(200deg, #000 5%, transparent 62%);
+    mask-image: linear-gradient(200deg, #000 5%, transparent 62%);
 }
 
 .settings-hero::after {
@@ -898,12 +1088,15 @@ document.addEventListener('DOMContentLoaded', function() {
 .settings-hero-copy { max-width: 42rem; }
 .settings-eyebrow {
     display: inline-flex;
+    align-items: center;
+    gap: .5rem;
     margin-bottom: 0.55rem;
-    color: #fde68a;
+    color: #d9bf94;
     font-size: 0.72rem;
     font-weight: 900;
     letter-spacing: 0.06em;
 }
+.settings-eyebrow::before { content: ""; width: 1.4rem; height: 1px; background: currentColor; opacity: .7; }
 .settings-hero h2 { margin: 0; font-size: clamp(1.25rem, 2vw, 1.75rem); font-weight: 900; letter-spacing: -0.02em; }
 .settings-hero p { max-width: 39rem; margin: 0.55rem 0 0; color: #cbd5e1; font-size: 0.86rem; line-height: 1.9; }
 .settings-hero-actions { display: flex; min-width: max-content; flex-direction: column; align-items: stretch; gap: 0.65rem; }
@@ -960,7 +1153,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 .settings-tab-btn svg { width: 1.05rem; height: 1.05rem; }
 .settings-tab-btn:hover { color: #0f172a; background: #f8fafc; }
-.settings-tab-btn.is-active { color: #fff; background: linear-gradient(135deg, #0f172a, #164e63); box-shadow: 0 7px 18px rgba(15,23,42,.18); }
+.settings-tab-btn.is-active { color: #fffaf3; background: linear-gradient(140deg, #16576a, #0e3b48); box-shadow: 0 10px 20px -10px rgba(14,59,72,.95); }
 .settings-tab-btn:focus-visible,
 .settings-preview-btn:focus-visible,
 .settings-card-action:focus-visible,
@@ -1041,6 +1234,131 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .settings-speed-value { position: absolute; inset-inline-start: .7rem; top: 50%; transform: translateY(-50%); min-width: 2.6rem; border-radius: .45rem; padding: .3rem .45rem; color: #155e75; background: #ecfeff; text-align: center; font-size: .72rem; font-weight: 900; pointer-events: none; }
 
+/* ── Runtime panel ───────────────────────────────────────────────────────
+   The old layout put seven monitoring inputs into one flat two-column grid,
+   so "how long before it counts as offline" sat beside "max alerts per day"
+   with nothing to say they answer different questions. These groups restore
+   that structure: when → how → how often. */
+.runtime-groups { display: grid; gap: 1rem; }
+
+.runtime-group {
+    border: 1px solid #e2e8f0;
+    border-radius: 1.05rem;
+    background: linear-gradient(180deg, #fff, #fbfaf8);
+    padding: 1.05rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 14px 32px -20px rgba(15, 23, 42, .45);
+}
+
+.runtime-group--lab {
+    border-style: dashed;
+    border-color: rgba(180, 139, 87, .38);
+    background: linear-gradient(180deg, #fffdf8, #fdf8ef);
+}
+
+.runtime-group__head { display: flex; align-items: flex-start; gap: .8rem; margin-bottom: .95rem; }
+.runtime-group__head > div { min-width: 0; }
+.runtime-group__index {
+    display: grid;
+    place-items: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    flex: 0 0 auto;
+    border-radius: .7rem;
+    color: #155e75;
+    background: #ecfeff;
+    font-size: .7rem;
+    font-weight: 900;
+    direction: ltr;
+}
+.runtime-group--lab .runtime-group__index { color: #8d6528; background: rgba(180, 139, 87, .15); }
+.runtime-group__head h4 { margin: 0; color: #0f172a; font-size: .92rem; font-weight: 900; line-height: 1.55; }
+.runtime-group__head p { margin: .25rem 0 0; color: #64748b; font-size: .74rem; font-weight: 600; line-height: 1.9; }
+
+.runtime-summary {
+    margin: 0 0 .95rem;
+    border: 1px solid rgba(16, 185, 129, .22);
+    border-inline-start: 3px solid #10b981;
+    border-radius: .85rem;
+    background: rgba(16, 185, 129, .06);
+    padding: .75rem .85rem;
+    color: #0f172a;
+    font-size: .78rem;
+    font-weight: 800;
+    line-height: 1.95;
+}
+.runtime-summary.is-off {
+    border-color: rgba(148, 163, 184, .35);
+    border-inline-start-color: #94a3b8;
+    background: #f8fafc;
+    color: #52616d;
+}
+.runtime-summary:empty { display: none; }
+
+.runtime-block + .runtime-block { margin-top: .95rem; padding-top: .95rem; border-top: 1px solid #eef2f7; }
+.runtime-block h5 {
+    margin: 0 0 .6rem;
+    color: #475569;
+    font-size: .7rem;
+    font-weight: 900;
+    letter-spacing: .04em;
+}
+
+.runtime-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .7rem; align-items: start; }
+
+.runtime-speed-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: .8rem; }
+.runtime-speed { border: 1px solid #e2e8f0; border-radius: .9rem; background: #fff; padding: .85rem; }
+.runtime-speed__top { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .55rem; }
+.runtime-speed__top label { color: #334155; font-size: .78rem; font-weight: 900; }
+.runtime-speed__value {
+    border-radius: .5rem;
+    padding: .22rem .5rem;
+    color: #155e75;
+    background: #ecfeff;
+    font-size: .78rem;
+    font-weight: 900;
+    direction: ltr;
+    unicode-bidi: isolate;
+}
+
+.runtime-presets { display: flex; gap: .35rem; margin-top: .6rem; }
+.runtime-presets button {
+    flex: 1;
+    min-height: 2.3rem;
+    border: 1px solid #e2e8f0;
+    border-radius: .6rem;
+    background: #f8fafc;
+    color: #52616d;
+    font-size: .72rem;
+    font-weight: 900;
+    transition: .16s ease;
+}
+.runtime-presets button:hover { border-color: rgba(20, 90, 106, .3); color: #0e3b48; background: #f1f8f9; }
+.runtime-presets button.is-active {
+    color: #fffaf3;
+    border-color: #0e3b48;
+    background: linear-gradient(140deg, #16576a, #0e3b48);
+}
+.runtime-presets button:focus-visible { outline: 3px solid rgba(20, 90, 106, .3); outline-offset: 2px; }
+
+.runtime-hint { margin: .55rem 0 0; color: #94a3b8; font-size: .68rem; font-weight: 600; line-height: 1.75; }
+
+.runtime-tip {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin: .85rem 0 0;
+    color: #64748b;
+    font-size: .72rem;
+    font-weight: 700;
+    line-height: 1.85;
+}
+.runtime-tip svg { width: 1rem; height: 1rem; flex: 0 0 auto; color: #b48b57; }
+.runtime-tip a { color: #155e75; font-weight: 900; text-decoration: underline; text-underline-offset: 3px; }
+
+/* The speed inputs sit inside a tight card, so the global 3.5 padding the
+   bootstrapping script applies would make them tower over the presets. */
+.dashboard-settings .runtime-speed input[type="number"] { padding: .6rem .8rem !important; }
+
 .settings-security-panel { padding: 1.4rem; }
 .settings-security-card { display: grid; grid-template-columns: 3rem 1fr; gap: .85rem; padding: 1rem; }
 .settings-security-card.is-secure { border-color: #a7f3d0; background: linear-gradient(145deg,#fff,#f0fdf4); }
@@ -1115,6 +1433,21 @@ document.addEventListener('DOMContentLoaded', function() {
     .dashboard-settings #settingsForm select,
     .dashboard-settings #settingsForm textarea { min-height: 2.65rem !important; padding: .68rem .75rem !important; font-size: .82rem !important; }
     .dashboard-settings #settingsForm select { padding-left: 2.25rem !important; }
+
+    /* Runtime panel on a phone */
+    .runtime-group { padding: .85rem; border-radius: .9rem; }
+    .runtime-group__head { gap: .6rem; margin-bottom: .8rem; }
+    .runtime-group__index { width: 1.9rem; height: 1.9rem; border-radius: .6rem; font-size: .65rem; }
+    .runtime-group__head h4 { font-size: .85rem; }
+    .runtime-group__head p { font-size: .71rem; }
+    .runtime-fields,
+    .runtime-speed-grid { grid-template-columns: minmax(0, 1fr); }
+    .runtime-summary { font-size: .74rem; line-height: 1.9; }
+    .runtime-presets { flex-wrap: wrap; }
+    .runtime-presets button { flex: 1 0 5rem; }
+
+    /* The unit chip keeps its own room even after the mobile padding override. */
+    .dashboard-settings #settingsForm .dp-unit-field input { padding-inline-start: 3.4rem !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {

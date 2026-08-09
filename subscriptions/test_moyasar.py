@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -706,3 +706,25 @@ class MoyasarPaginationTests(TestCase):
         for meta in (None, {}, "nonsense", {"cursor": "abc"}):
             with self.subTest(meta=meta):
                 self.assertTrue(MoyasarClient._has_next_page(meta, requested_page=1))
+
+    @override_settings(
+        MOYASAR_API_BASE_URL="https://api.moyasar.com/v1",
+        MOYASAR_SECRET_KEY="sk_test_secret",
+    )
+    @patch("subscriptions.moyasar.MoyasarClient._get")
+    def test_list_payments_uses_documented_created_filter_in_utc(self, get):
+        get.return_value = {"payments": [], "meta": {"next_page": None}}
+        created_after = datetime(
+            2026,
+            8,
+            8,
+            18,
+            30,
+            tzinfo=dt_timezone(timedelta(hours=3)),
+        )
+
+        MoyasarClient().list_payments(created_after=created_after, page=2)
+
+        params = get.call_args.kwargs["params"]
+        self.assertEqual(params["created[gt]"], "2026-08-08 15:30:00")
+        self.assertNotIn("created[gte]", params)
