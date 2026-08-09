@@ -22,6 +22,7 @@ SIGNAL_TTL_SECONDS = 36 * 60 * 60
 
 # Cause taxonomy ------------------------------------------------------------
 CAUSE_PLATFORM = "platform"
+CAUSE_SCHOOL_CLOSED = "school_closed"
 CAUSE_SCHOOL_NETWORK = "school_network"
 CAUSE_DEVICE_OFF = "device_off"
 CAUSE_NETWORK_DROP = "network_drop"
@@ -32,6 +33,7 @@ CAUSE_UNKNOWN = "unknown"
 
 CAUSE_CHOICES = (
     (CAUSE_PLATFORM, "عطل في المنصة"),
+    (CAUSE_SCHOOL_CLOSED, "المدرسة مغلقة (إجازة)"),
     (CAUSE_SCHOOL_NETWORK, "انقطاع إنترنت أو كهرباء المدرسة"),
     (CAUSE_DEVICE_OFF, "جهاز العرض مطفأ أو أُغلقت الصفحة"),
     (CAUSE_NETWORK_DROP, "انقطاع مفاجئ في الشبكة"),
@@ -64,6 +66,15 @@ CAUSE_PRESENTATION = {
         "title": "خلل مؤقت في خدمة العرض",
         "school_note": "المشكلة من طرفنا وليست من الشاشة أو الإنترنت لديكم، وفريقنا يعمل على معالجتها الآن.",
         "hints": ["لا حاجة لأي إجراء من المدرسة.", "ستعود الشاشات تلقائيًا فور انتهاء المعالجة."],
+    },
+    CAUSE_SCHOOL_CLOSED: {
+        "icon": "🏖",
+        "title": "المدرسة في إجازة",
+        "school_note": "الشاشات مطفأة لأن اليوم مسجَّل إجازة في تقويم المدرسة، وهذا سلوك متوقّع لا عطل.",
+        "hints": [
+            "لا حاجة لأي إجراء.",
+            "ستعود الشاشات تلقائيًا صباح أول يوم دوام.",
+        ],
     },
     CAUSE_SCHOOL_NETWORK: {
         "icon": "🌐",
@@ -253,12 +264,20 @@ def classify_outage(
     school_monitored_count: int,
     school_simultaneous: bool,
     platform_outage: bool = False,
+    school_closed: bool = False,
 ) -> dict:
     """Name the cause of one screen's outage.
 
     Ordered from the widest blast radius inward: a platform fault explains every
-    screen, a whole-school blackout explains every screen in that school, and
-    only what is left is genuinely about this one television.
+    screen, a closed school explains every screen in it, a whole-school blackout
+    explains every screen in that school, and only what is left is genuinely
+    about this one television.
+
+    ``school_closed`` comes before the blackout test on purpose. Two screens
+    switched off for a holiday go quiet together exactly as they would in a
+    power cut, so the blackout heuristic would name a cause it cannot tell apart
+    from a closure — and an alert that asserts "check your router" on the first
+    day of Eid teaches its reader to stop believing alerts.
     """
     if platform_outage:
         return {
@@ -266,6 +285,14 @@ def classify_outage(
             "confidence": CONFIDENCE_CONFIRMED,
             "scope": SCOPE_PLATFORM,
             "detail": "انقطاع واسع يشمل شاشات عدة مدارس في الوقت نفسه.",
+        }
+
+    if school_closed:
+        return {
+            "cause": CAUSE_SCHOOL_CLOSED,
+            "confidence": CONFIDENCE_CONFIRMED,
+            "scope": SCOPE_SCHOOL,
+            "detail": "اليوم مسجَّل إجازة في تقويم المدرسة، فالإطفاء متوقّع.",
         }
 
     if not ever_connected:

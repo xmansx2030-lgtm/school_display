@@ -20,6 +20,7 @@ from django.core.cache import cache
 from django.utils import timezone
 
 from display.ws_groups import school_group_name
+from schedule.closures import is_closed
 from schedule.time_engine import (
     _active_window_bounds,
     _build_active_days_index,
@@ -57,6 +58,16 @@ def compute_active_window_for_today(school_settings) -> Optional[tuple[datetime,
     py_weekday = today.weekday()
     weekday = _normalize_weekday_for_db(py_weekday)
     weekday_legacy = (py_weekday + 1) % 7
+
+    # إجازةٌ بتاريخها: اليوم له جدول أسبوعي كامل، لكنه ليس يوم دوام. وهذا ما
+    # يجعل مراقب الانقطاع يصمت ومُوقظ الشاشات لا يوقظ أحداً.
+    #
+    # تُقدَّم على وضع الاختبار عمداً، خلافاً لمحرك العرض. الوضع موجود «لتشغيل
+    # الشاشة في يوم إجازة للاختبار» — وهذا غرضٌ يخص ما **يُعرض** على الشاشة،
+    # لا ما يوقظ أحداً في الرابعة فجراً. عَلَمُ اختبارٍ نسيه سوبر أدمن مفعّلاً
+    # كان سيعيد التنبيهات طوال الإجازة، وهو بالضبط العطل الذي أُغلق هنا.
+    if is_closed(school_settings, today):
+        return None
 
     test_override = getattr(school_settings, "test_mode_weekday_override", None)
     if test_override is not None and 1 <= int(test_override) <= 7:

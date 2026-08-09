@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
-from datetime import datetime, time as dt_time, timedelta
+from datetime import date, datetime, time as dt_time, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -28,6 +28,7 @@ from schedule.models import (
     DutyAssignment,
     Period,
     SchoolClass,
+    SchoolClosure,
     SchoolSettings,
     Subject,
     Teacher,
@@ -36,6 +37,7 @@ from standby.models import StandbyAssignment
 from schedule.time_engine import build_day_snapshot
 from schedule.wake_broadcaster import (
     cached_active_start_for_today,
+    compute_active_window_for_today,
     touch_wake_scheduler_heartbeat,
     wake_scheduler_status,
 )
@@ -106,6 +108,92 @@ class TimeEngineTestModeOverrideTests(TestCase):
         self.assertEqual(snap["meta"]["weekday"], 1)
         self.assertEqual(snap["state"]["type"], "period")
         self.assertEqual(snap["state"]["from"], "08:30")
+
+
+class SchoolClosureCalendarTests(TestCase):
+    """التقويم يغلب الجدول الأسبوعي.
+
+    الشاشة كانت تعرض جدول يوم عيدٍ كاملاً لأن «الثلاثاء» يوم دوام، والمُوقظ
+    يوقظها فجره. مصدر الحقيقة واحد: ``SchoolClosure``.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.settings = SchoolSettings.objects.create(
+            name="مدرسة التقويم",
+            timezone_name="Asia/Riyadh",
+        )
+        for weekday in (1, 2, 3):
+            day = DaySchedule.objects.create(settings=self.settings, weekday=weekday, is_active=True)
+            Period.objects.create(day=day, index=1, starts_at=dt_time(8, 0), ends_at=dt_time(9, 0))
+
+    def tearDown(self):
+        # الكاش لا يتراجع مع تراجع المعاملة، ومفاتيح الإجازات تحمل معرّف صفّ
+        # الإعدادات — والمعرّفات تُعاد بين أصناف الاختبار. تركُ الأثر هنا كان
+        # يجعل صنفًا لاحقًا يقرأ إجازةً لم يسجّلها.
+        cache.clear()
+
+    def _snap(self, iso):
+        return build_day_snapshot(self.settings, now=datetime.fromisoformat(iso))
+
+    def test_a_working_weekday_shows_its_timetable(self):
+        snap = self._snap("2026-06-02T08:30:00+03:00")  # ثلاثاء
+        self.assertTrue(snap["meta"]["is_school_day"])
+
+    def test_a_closure_turns_the_same_weekday_into_a_holiday_screen(self):
+        SchoolClosure.objects.create(
+            settings=self.settings,
+            title="إجازة عيد الفطر",
+            start_date=date(2026, 6, 1),
+            end_date=date(2026, 6, 3),
+        )
+        snap = self._snap("2026-06-02T08:30:00+03:00")
+
+        self.assertFalse(snap["meta"]["is_school_day"])
+        self.assertEqual(snap["state"]["reason"], "holiday")
+        # اسم المناسبة أنفع من «اليوم إجازة» المجرّدة.
+        self.assertEqual(snap["state"]["label"], "إجازة عيد الفطر")
+
+    def test_the_next_school_day_skips_the_rest_of_the_closure(self):
+        SchoolClosure.objects.create(
+            settings=self.settings,
+            title="إجازة منتصف الفصل",
+            start_date=date(2026, 6, 1),
+            end_date=date(2026, 6, 3),
+        )
+        snap = self._snap("2026-06-01T08:30:00+03:00")  # اثنين، أول أيام الإجازة
+
+        # الأربعاء ٣ يونيو ما يزال داخل الإجازة، فاليوم التالي هو الاثنين ٨.
+        self.assertEqual(snap["meta"]["next_school_day"]["date"], "2026-06-08")
+
+    def test_a_forgotten_test_override_cannot_revive_holiday_alerts(self):
+        """وضع الاختبار يخص ما يُعرض، لا ما يوقظ أحدًا في الرابعة فجرًا.
+
+        عَلَمٌ نسيه سوبر أدمن مفعّلًا كان يعيد نافذة الدوام في يوم الإجازة،
+        فتعود تنبيهات الانقطاع طوال العيد.
+        """
+        self.settings.test_mode_weekday_override = 1
+        self.settings.save(update_fields=("test_mode_weekday_override",))
+        SchoolClosure.objects.create(
+            settings=self.settings,
+            title="إجازة العيد",
+            start_date=date(2026, 6, 2),
+            end_date=date(2026, 6, 2),
+        )
+        with patch("schedule.wake_broadcaster.timezone.now",
+                   return_value=datetime.fromisoformat("2026-06-02T05:00:00+03:00")):
+            self.assertIsNone(compute_active_window_for_today(self.settings))
+
+    def test_no_active_window_means_the_waker_stays_quiet(self):
+        SchoolClosure.objects.create(
+            settings=self.settings,
+            title="يوم التأسيس",
+            start_date=date(2026, 6, 2),
+            end_date=date(2026, 6, 2),
+        )
+        with patch("schedule.wake_broadcaster.timezone.now",
+                   return_value=datetime.fromisoformat("2026-06-02T05:00:00+03:00")):
+            self.assertIsNone(compute_active_window_for_today(self.settings))
 
 
 @override_settings(
@@ -911,6 +999,7 @@ class SnapshotWakeTargetTests(TestCase):
     """
 
     def setUp(self):
+        cache.clear()
         self.settings = SchoolSettings.objects.create(
             name="مدرسة مواعيد الإيقاظ",
             timezone_name="Asia/Riyadh",

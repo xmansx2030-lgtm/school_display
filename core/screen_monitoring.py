@@ -37,6 +37,7 @@ from core.display_presence import presence_map
 from core.models import DisplayScreen, ScreenOutage, ScreenWeeklyUptimeReport
 from core.screen_diagnostics import (
     CAUSE_PLATFORM,
+    CAUSE_SCHOOL_CLOSED,
     CAUSE_SCHOOL_NETWORK,
     CONFIDENCE_CONFIRMED,
     SCOPE_SCHOOL,
@@ -45,6 +46,7 @@ from core.screen_diagnostics import (
     classify_outage,
     read_disconnect_signals,
 )
+from schedule.closures import closure_title_on
 from schedule.models import SchoolSettings
 from schedule.wake_broadcaster import cached_active_window_for_today
 from telegram_alerts.services import queue_alert
@@ -70,6 +72,7 @@ PLATFORM_OUTAGE_RATIO = 0.6
 PLATFORM_ALERT_COOLDOWN_SECONDS = 30 * 60
 
 # Suppression reasons recorded on the outage row.
+SUPPRESSED_HOLIDAY = "holiday"
 SUPPRESSED_OUTSIDE_SCHOOL_DAY = "outside_school_day"
 SUPPRESSED_BEFORE_GRACE = "before_grace"
 SUPPRESSED_AFTER_HOURS = "after_school_hours"
@@ -79,6 +82,7 @@ SUPPRESSED_DAILY_CAP = "daily_cap"
 SUPPRESSED_PLATFORM = "platform_outage"
 
 SUPPRESSION_LABELS = {
+    SUPPRESSED_HOLIDAY: "يوم إجازة",
     SUPPRESSED_OUTSIDE_SCHOOL_DAY: "خارج أيام الدوام",
     SUPPRESSED_BEFORE_GRACE: "ضمن مهلة بداية الدوام",
     SUPPRESSED_AFTER_HOURS: "بعد انتهاء الدوام",
@@ -205,10 +209,21 @@ def _simultaneous(states: list[_ScreenState]) -> bool:
 # Alert gating
 # ---------------------------------------------------------------------------
 
-def _window_suppression(school_settings, screen, window, now) -> str:
-    """Return a suppression reason when the school day says "not now"."""
+def _window_suppression(school_settings, screen, window, now, *, school_closed=False) -> str:
+    """Return a suppression reason when the school day says "not now".
+
+    The holiday test sits **above** ``screen_offline_school_hours_only`` on
+    purpose. That switch means "watch this school around the clock on its
+    working days" — it was never meant to say "ignore the calendar". A school
+    that turned it on to catch night-time faults was still being told, every
+    morning of Eid, that its screens had failed. Only the per-screen
+    ``monitor_always_on`` overrides a closure, because that flag is set on the
+    few screens that genuinely must run through the holidays.
+    """
     if getattr(screen, "monitor_always_on", False):
         return ""
+    if school_closed:
+        return SUPPRESSED_HOLIDAY
     if not getattr(school_settings, "screen_offline_school_hours_only", True):
         return ""
     if window is None:
@@ -559,6 +574,8 @@ def scan_screens(*, now=None) -> dict:
         school = bucket.school
         school_settings = bucket.school_settings
         window = cached_active_window_for_today(school_settings)
+        # يُقرأ مرة لكل مدرسة لا لكل شاشة: المسح يدور كل دقيقة على الأسطول كله.
+        school_closed = closure_title_on(school_settings, timezone.localdate(now)) is not None
         offline_states = bucket.offline_states
         simultaneous = _simultaneous(offline_states)
 
@@ -597,6 +614,7 @@ def scan_screens(*, now=None) -> dict:
                     school_monitored_count=bucket.monitored_count,
                     school_simultaneous=simultaneous,
                     platform_outage=platform_outage,
+                    school_closed=school_closed,
                 )
                 signal = signals.get(screen.pk) or {}
                 close_code = signal.get("code")
@@ -635,9 +653,9 @@ def scan_screens(*, now=None) -> dict:
                 elif (now - outage.detected_at).total_seconds() < CONFIRMATION_SECONDS:
                     reason = SUPPRESSED_AWAITING_CONFIRMATION
                 else:
-                    reason = _window_suppression(school_settings, screen, window, now) or _rate_suppression(
-                        school_settings, screen, now
-                    )
+                    reason = _window_suppression(
+                        school_settings, screen, window, now, school_closed=school_closed
+                    ) or _rate_suppression(school_settings, screen, now)
 
                 if reason:
                     if outage.suppressed_reason != reason:
@@ -712,7 +730,13 @@ def _dispatch_pending(school, school_settings, bucket, pending, *, now) -> int:
     for group in groups:
         lead_outage = group[0][0]
         if aggregate and len(group) > 1:
-            cause = CAUSE_SCHOOL_NETWORK if lead_outage.cause != CAUSE_PLATFORM else CAUSE_PLATFORM
+            # سببٌ عرفناه لا يُستبدل بتخمين: عطل المنصة والإغلاق المسجَّل كلاهما
+            # يفسّر توقف الشاشات معاً، وإحلال «انقطاع الشبكة» محلهما يمحو
+            # معرفةً مؤكدة ويضع مكانها ترجيحاً.
+            if lead_outage.cause in (CAUSE_PLATFORM, CAUSE_SCHOOL_CLOSED):
+                cause = lead_outage.cause
+            else:
+                cause = CAUSE_SCHOOL_NETWORK
             detail = (
                 f"توقفت {len(group)} من {bucket.monitored_count} شاشات في المدرسة معًا، "
                 "فأُرسل تنبيه واحد بدل رسالة لكل شاشة."

@@ -389,6 +389,74 @@ class DutyAssignment(models.Model):
         }
 
 
+class SchoolClosure(models.Model):
+    """يومٌ لا دوام فيه رغم أن جدوله الأسبوعي قائم.
+
+    الجداول كلها مبنية على **أيام الأسبوع**: ``DaySchedule`` يعرف «الأحد» ولا
+    يعرف «الأحد الواقع في العاشر من رمضان». وإجازة العيد أو منتصف الفصل تقع على
+    أيام لها جداول كاملة، فكان النظام يقرؤها أيام دوام:
+
+    * الشاشة تعرض جدول يومٍ لا أحد فيه بدل رسالة الإجازة،
+    * ومراقب الانقطاع يرسل تنبيهاً عن شاشاتٍ أُطفئت عمداً — وهو تنبيهٌ صحيح
+      تقنياً وخاطئ عملياً، وتكراره يعلّم قارئه تجاهل التنبيهات كلها.
+
+    هذا النموذج يضيف البُعد الغائب: **التاريخ**. مدىً واحد يغطي يوماً أو
+    أسبوعين، وما دام يغطي اليوم فلا نافذة دوام له.
+    """
+
+    settings = models.ForeignKey(
+        SchoolSettings,
+        on_delete=models.CASCADE,
+        related_name="closures",
+        verbose_name="إعدادات المدرسة",
+    )
+    title = models.CharField(
+        "المناسبة",
+        max_length=120,
+        help_text="مثال: إجازة عيد الفطر، إجازة منتصف الفصل، يوم التأسيس.",
+    )
+    start_date = models.DateField("من تاريخ")
+    end_date = models.DateField(
+        "إلى تاريخ",
+        help_text="يوم واحد؟ اجعل التاريخين متطابقين.",
+    )
+    is_active = models.BooleanField("مفعّلة", default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "إجازة مدرسية"
+        verbose_name_plural = "الإجازات المدرسية"
+        ordering = ("-start_date", "-id")
+        indexes = [
+            models.Index(fields=("settings", "start_date", "end_date"), name="ix_closure_range"),
+        ]
+
+    def __str__(self) -> str:
+        if self.start_date == self.end_date:
+            return f"{self.title} — {self.start_date}"
+        return f"{self.title} — {self.start_date} إلى {self.end_date}"
+
+    def clean(self):
+        super().clean()
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": "تاريخ النهاية قبل تاريخ البداية."})
+
+    @property
+    def days_count(self) -> int:
+        if not self.start_date or not self.end_date:
+            return 0
+        return (self.end_date - self.start_date).days + 1
+
+    def covers(self, day: date) -> bool:
+        return bool(
+            self.is_active
+            and self.start_date
+            and self.end_date
+            and self.start_date <= day <= self.end_date
+        )
+
+
 # ============================================================
 # Core Entities
 # ============================================================

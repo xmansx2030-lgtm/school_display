@@ -48,6 +48,8 @@ from .views_billing import (  # noqa: F401  (re-exported for urls.py and callers
 )
 
 from .views_schedule import (  # noqa: F401  (re-exported for urls.py and callers)
+    closure_delete,
+    closures_list,
     day_autofill,
     day_clear,
     day_edit,
