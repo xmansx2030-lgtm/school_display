@@ -14,7 +14,7 @@ from schedule.cache_utils import (
     invalidate_display_snapshot_cache_for_school_id,
 )
 from display.ws_groups import school_group_name
-from schedule.models import Break, ClassLesson, DaySchedule, Period, SchoolSettings
+from schedule.models import Break, ClassLesson, DaySchedule, Period, SchoolClosure, SchoolSettings
 
 logger = logging.getLogger(__name__)
 
@@ -266,6 +266,18 @@ def clear_display_cache_on_settings_change(sender, instance, **kwargs):
 def clear_display_cache_on_day_schedule_change(sender, instance, **kwargs):
     school_id = int(getattr(getattr(instance, "settings", None), "school_id", 0) or 0)
     _bump_and_invalidate(school_id=school_id, reason=sender.__name__, model_label="schedule.DaySchedule")
+
+
+@receiver(post_save, sender=SchoolClosure)
+@receiver(post_delete, sender=SchoolClosure)
+def clear_display_cache_on_closure_change(sender, instance, **kwargs):
+    """رفع رقم المراجعة يُسقط كاش الإجازات من نفسه.
+
+    مفتاح كاش الإجازات يحمل ``schedule_revision``، فمدير المدرسة الذي يسجّل
+    إجازة الغد يراها نافذة فوراً بدل أن ينتظر انتهاء مهلة الكاش.
+    """
+    school_id = int(getattr(getattr(instance, "settings", None), "school_id", 0) or 0)
+    _bump_and_invalidate(school_id=school_id, reason=sender.__name__, model_label="schedule.SchoolClosure")
 
 
 @receiver(post_save, sender=Period)

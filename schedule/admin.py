@@ -12,6 +12,7 @@ from .models import (
     Subject,
     Teacher,
     DaySchedule,
+    SchoolClosure,
     Period,
     Break,
     ClassLesson,
@@ -206,6 +207,15 @@ class BreakInline(admin.TabularInline):
     fields = ("label", "starts_at", "duration_min")
     ordering = ("starts_at",)
     show_change_link = True
+
+
+@admin.register(SchoolClosure)
+class SchoolClosureAdmin(admin.ModelAdmin):
+    list_display = ("title", "settings", "start_date", "end_date", "days_count", "is_active")
+    list_filter = ("is_active", "start_date")
+    search_fields = ("title", "settings__name")
+    date_hierarchy = "start_date"
+    ordering = ("-start_date",)
 
 
 @admin.register(DaySchedule)

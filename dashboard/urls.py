@@ -53,6 +53,9 @@ urlpatterns = [
     # Days & Day schedule
     # ==================
     path("days/", views.days_list, name="days_list"),
+    # تقويم الإجازات: البُعد الذي يجهله الجدول الأسبوعي — التاريخ.
+    path("closures/", views.closures_list, name="closures_list"),
+    path("closures/<int:pk>/delete/", views.closure_delete, name="closure_delete"),
     path("days/<int:weekday>/", views.day_edit, name="day_edit"),
     path("days/<int:weekday>/toggle/", views.day_toggle, name="day_toggle"),
     path("days/<int:weekday>/autofill/", views.day_autofill, name="day_autofill"),

@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from django.db.models import Prefetch
 from django.utils import timezone
 
+from schedule.closures import closed_dates, closure_title_on
 from schedule.models import (
     Break,
     DEFAULT_DISPLAY_AFTER_BADGE,
@@ -326,8 +327,15 @@ def _next_school_day_info(settings, start_date, tz, *, include_today: bool = Fal
         return None
 
     start_offset = 0 if include_today else 1
+    # الإجازات تُقرأ مرة واحدة للمدى كله: النداء ليومٍ ليوم كان يعني خمسة عشر
+    # استعلاماً في كل لقطة عرض.
+    closed = closed_dates(settings, start=start_date, days=15 + start_offset)
     for days_ahead in range(start_offset, 15):
         candidate = start_date + timedelta(days=days_ahead)
+        if candidate in closed:
+            # يومٌ في إجازة ليس «اليوم الدراسي التالي»، وعدّه كذلك يوقظ
+            # الشاشات صباح الإجازة ويعدُ المارّ بدوامٍ لا يأتي.
+            continue
         weekday = _normalize_weekday_for_db(candidate.weekday())
         weekday_legacy = (candidate.weekday() + 1) % 7
         if weekday not in active_weekdays and weekday_legacy not in active_weekdays:
@@ -500,6 +508,16 @@ def _build_day_snapshot(settings, now=None, *, active_days_index: dict[int, list
         actual_weekday_legacy,
         active_days_index=active_days_index,
     )
+
+    # إجازةٌ بتاريخها تُلغي جدول اليوم مهما كان يوم دوامٍ في الأسبوع. بدون هذا
+    # كانت الشاشة تعرض جدول يوم عيدٍ كاملاً لأن «الأحد» يوم دوام.
+    closure_title = closure_title_on(settings, today)
+    if closure_title is not None:
+        actual_days = []
+        if closure_title:
+            # اسم المناسبة أنفع من «اليوم إجازة» المجرّدة: يقطع سؤال الواقف
+            # أمام الشاشة عن سبب توقفها.
+            settings_payload["display_holiday_title"] = closure_title
 
     # Test mode is intended to show a chosen schedule on holidays only. If the
     # real current weekday has an active schedule, prefer it so a stale override

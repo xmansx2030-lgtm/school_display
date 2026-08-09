@@ -786,3 +786,108 @@ def timetable_export_csv(request):
         writer.writerow([day_label, lesson.period_index, start_str, end_str, subject_name, teacher_name])
 
     return resp
+
+
+# ───────────────────────────────────────────────────────────────────────
+# تقويم الإجازات
+# ───────────────────────────────────────────────────────────────────────
+# الجدول الأسبوعي يعرف «الأحد» ولا يعرف «الأحد الذي يقع في إجازة العيد».
+# هذه الشاشة تسدّ ذلك: مدىً بتاريخين يوقف عرض الجدول ويكتم تنبيه الانقطاع
+# ويترك الشاشة تنام حتى أول يوم دوام.
+
+class SchoolClosureForm(forms.ModelForm):
+    class Meta:
+        model = None  # يُضبط في __init__ لأن النموذج يُحمَّل بالاسم كبقية الملف
+        fields = ("title", "start_date", "end_date")
+        widgets = {
+            "title": forms.TextInput(attrs={"class": "dp-input", "placeholder": "إجازة عيد الفطر"}),
+            "start_date": forms.DateInput(attrs={"class": "dp-input", "type": "date"}),
+            "end_date": forms.DateInput(attrs={"class": "dp-input", "type": "date"}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get("start_date")
+        end = cleaned.get("end_date")
+        if start and end and end < start:
+            self.add_error("end_date", "تاريخ النهاية قبل تاريخ البداية.")
+        return cleaned
+
+
+def _closure_form_class():
+    """يبني الصنف عند الطلب: النماذج تُحمَّل بالاسم في هذا الملف."""
+    from schedule.models import SchoolClosure
+
+    meta = type("Meta", (SchoolClosureForm.Meta,), {"model": SchoolClosure})
+    return type("BoundSchoolClosureForm", (SchoolClosureForm,), {"Meta": meta})
+
+
+@manager_required
+def closures_list(request):
+    from schedule.models import SchoolClosure
+
+    SchoolSettings = SchoolSettingsModel()
+    school, response = get_active_school_or_redirect(request)
+    if response:
+        return response
+
+    settings_obj = SchoolSettings.objects.filter(school=school).first()
+    if not settings_obj:
+        messages.warning(request, "فضلاً أضف إعدادات المدرسة أولاً.")
+        return redirect("dashboard:settings")
+
+    form_class = _closure_form_class()
+    if request.method == "POST":
+        form = form_class(request.POST)
+        if form.is_valid():
+            closure = form.save(commit=False)
+            closure.settings = settings_obj
+            closure.save()
+            messages.success(
+                request,
+                f"سُجّلت «{closure.title}». لن تُرسل تنبيهات انقطاع خلالها، وستعرض الشاشات رسالة الإجازة.",
+            )
+            return redirect("dashboard:closures_list")
+        messages.error(request, "تعذّر حفظ الإجازة. راجع التواريخ المدخلة.")
+    else:
+        form = form_class()
+
+    today = timezone.localdate()
+    closures = list(SchoolClosure.objects.filter(settings=settings_obj))
+    for closure in closures:
+        closure.is_current = closure.covers(today)
+        closure.is_past = bool(closure.end_date and closure.end_date < today)
+
+    upcoming = [c for c in closures if not c.is_past]
+    return render(
+        request,
+        "dashboard/closures_list.html",
+        {
+            "form": form,
+            "closures": closures,
+            "today": today,
+            "current_closure": next((c for c in closures if c.is_current), None),
+            "upcoming_count": len(upcoming),
+        },
+    )
+
+
+@manager_required
+@require_POST
+def closure_delete(request, pk: int):
+    from schedule.models import SchoolClosure
+
+    SchoolSettings = SchoolSettingsModel()
+    school, response = get_active_school_or_redirect(request)
+    if response:
+        return response
+
+    settings_obj = SchoolSettings.objects.filter(school=school).first()
+    closure = SchoolClosure.objects.filter(pk=pk, settings=settings_obj).first()
+    if closure is None:
+        messages.error(request, "الإجازة غير موجودة.")
+    else:
+        title = closure.title
+        closure.delete()
+        messages.success(request, f"حُذفت «{title}». عادت أيامها أيام دوام عادية.")
+    return redirect("dashboard:closures_list")

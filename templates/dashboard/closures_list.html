@@ -1,0 +1,221 @@
+{% extends "dashboard/_base.html" %}
+
+{% block title %}تقويم الإجازات{% endblock %}
+{% block page_title %}تقويم الإجازات{% endblock %}
+{% block page_description %}سجّل أيام الإجازة بتواريخها. خلالها تعرض الشاشات رسالة الإجازة وتنام، ولا يُرسل أي تنبيه انقطاع.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .clo { display: grid; gap: 0.9rem; }
+
+  .clo-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.95rem;
+  }
+  .clo-note__icon {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 auto;
+    border-radius: 12px;
+    color: var(--dp-gold, #a5761b);
+    background: var(--dp-gold-wash, #fdf6e6);
+  }
+
+  .clo-current {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid rgba(165, 118, 27, .3);
+    border-radius: 14px;
+    background: linear-gradient(180deg, #fffdf7, #fff);
+    font-weight: 800;
+  }
+  .clo-current i { color: var(--dp-gold, #a5761b); }
+
+  .clo-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)) auto;
+    gap: 0.6rem;
+    align-items: end;
+    padding: 0.95rem;
+  }
+  .clo-field { display: grid; gap: 0.35rem; min-width: 0; }
+  .clo-field label { font-size: .74rem; font-weight: 900; color: var(--dp-ink); }
+  .clo-field .dp-input,
+  .clo-field input {
+    width: 100%;
+    min-height: 2.6rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--dp-line);
+    border-radius: 11px;
+    font: inherit;
+    font-size: .84rem;
+    font-weight: 700;
+    color: var(--dp-ink);
+    background: #fff;
+  }
+  .clo-field .errorlist {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: #b42318;
+    font-size: .7rem;
+    font-weight: 800;
+  }
+
+  .clo-table-wrap { overflow-x: auto; }
+  .clo-table { width: 100%; border-collapse: collapse; min-width: 40rem; }
+  .clo-table th {
+    padding: 0.7rem 0.85rem;
+    border-bottom: 1px solid var(--dp-line);
+    background: var(--dp-surface-2, #f6f8f9);
+    color: var(--dp-muted);
+    font-size: .72rem;
+    font-weight: 900;
+    text-align: start;
+    white-space: nowrap;
+  }
+  .clo-table td {
+    padding: 0.8rem 0.85rem;
+    border-bottom: 1px solid var(--dp-line);
+    font-size: .82rem;
+    font-weight: 700;
+    vertical-align: middle;
+  }
+  .clo-table tr:last-child td { border-bottom: 0; }
+  .clo-table tr.is-past { opacity: .55; }
+
+  .clo-name { font-weight: 900; color: var(--dp-ink); }
+  .clo-dates { font-variant-numeric: tabular-nums; }
+  .clo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .18rem .6rem;
+    border-radius: 999px;
+    font-size: .68rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+  .clo-badge--now { color: #a5761b; background: #fdf6e6; }
+  .clo-badge--next { color: #145a6a; background: #e6f2f5; }
+  .clo-badge--past { color: #64748b; background: #f1f5f9; }
+
+  .clo-empty { padding: 2.4rem 1rem; text-align: center; color: var(--dp-muted); }
+  .clo-empty i { display: block; margin-bottom: .5rem; font-size: 1.5rem; color: var(--dp-teal); }
+
+  @media (max-width: 48rem) {
+    .clo-form { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="clo">
+
+  <section class="dp-surface dp-surface--crowned clo-note">
+    <span class="clo-note__icon" aria-hidden="true"><i class="fa-solid fa-umbrella-beach"></i></span>
+    <div class="dp-min0">
+      <span class="dp-eyebrow dp-eyebrow--plain">لماذا هذه الصفحة</span>
+      <h2 style="margin:.25rem 0 0;font-size:.98rem;font-weight:900;color:var(--dp-ink)">الجدول يعرف أيام الأسبوع ولا يعرف التقويم</h2>
+      <p style="margin:.2rem 0 0;color:var(--dp-muted);font-size:.75rem;line-height:1.85">
+        «الأحد» يوم دوام في الجدول، حتى لو وقع في إجازة العيد. وما لم تُسجَّل الإجازة هنا
+        تعرض الشاشة جدول يومٍ لا أحد فيه، ويصلك تنبيه انقطاع عن شاشات أُطفئت عمدًا.
+      </p>
+    </div>
+  </section>
+
+  {% if current_closure %}
+    <div class="clo-current">
+      <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+      <span>اليوم ضمن «{{ current_closure.title }}» — الشاشات نائمة وتنبيهات الانقطاع مكتومة حتى {{ current_closure.end_date }}.</span>
+    </div>
+  {% endif %}
+
+  <section class="dp-surface">
+    <form method="post" class="clo-form" novalidate>
+      {% csrf_token %}
+      <div class="clo-field">
+        <label for="{{ form.title.id_for_label }}">المناسبة</label>
+        {{ form.title }}
+        {{ form.title.errors }}
+      </div>
+      <div class="clo-field">
+        <label for="{{ form.start_date.id_for_label }}">من تاريخ</label>
+        {{ form.start_date }}
+        {{ form.start_date.errors }}
+      </div>
+      <div class="clo-field">
+        <label for="{{ form.end_date.id_for_label }}">إلى تاريخ</label>
+        {{ form.end_date }}
+        {{ form.end_date.errors }}
+      </div>
+      <div class="clo-field">
+        <button type="submit" class="dp-btn dp-btn--primary">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          أضف إجازة
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="dp-surface">
+    <div class="clo-table-wrap">
+      <table class="clo-table">
+        <thead>
+          <tr>
+            <th scope="col">المناسبة</th>
+            <th scope="col">من</th>
+            <th scope="col">إلى</th>
+            <th scope="col">المدة</th>
+            <th scope="col">الحالة</th>
+            <th scope="col"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for closure in closures %}
+            <tr class="{% if closure.is_past %}is-past{% endif %}">
+              <td class="clo-name">{{ closure.title }}</td>
+              <td class="clo-dates">{{ closure.start_date }}</td>
+              <td class="clo-dates">{{ closure.end_date }}</td>
+              <td>{{ closure.days_count }} يوم</td>
+              <td>
+                {% if closure.is_current %}
+                  <span class="clo-badge clo-badge--now"><i class="fa-solid fa-play" aria-hidden="true"></i> جارية الآن</span>
+                {% elif closure.is_past %}
+                  <span class="clo-badge clo-badge--past">انتهت</span>
+                {% else %}
+                  <span class="clo-badge clo-badge--next">قادمة</span>
+                {% endif %}
+              </td>
+              <td style="text-align:end">
+                <form method="post" action="{% url 'dashboard:closure_delete' closure.pk %}"
+                      data-confirm="حذف «{{ closure.title }}»؟&#10;&#10;ستعود أيامها أيام دوام عادية، وتُستأنف تنبيهات الانقطاع فيها.">
+                  {% csrf_token %}
+                  <button type="submit" class="dp-btn dp-btn--ghost" style="color:#b42318">
+                    <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+                    حذف
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="clo-empty">
+                <i class="fa-regular fa-calendar-check" aria-hidden="true"></i>
+                لم تُسجَّل أي إجازة بعد. أضف الإجازة قبل بدايتها ليصمت التنبيه وتنام الشاشات.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+{% endblock %}

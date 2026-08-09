@@ -29,6 +29,7 @@ from core.screen_diagnostics import (
     CAUSE_DEVICE_OFF,
     CAUSE_NEVER_CONNECTED,
     CAUSE_PLATFORM,
+    CAUSE_SCHOOL_CLOSED,
     CAUSE_SCHOOL_NETWORK,
     SCOPE_SCHOOL,
     read_disconnect_signals,
@@ -39,13 +40,14 @@ from core.screen_monitoring import (
     SUPPRESSED_AFTER_HOURS,
     SUPPRESSED_BEFORE_GRACE,
     SUPPRESSED_COOLDOWN,
+    SUPPRESSED_HOLIDAY,
     SUPPRESSED_OUTSIDE_SCHOOL_DAY,
     SUPPRESSED_PLATFORM,
     prune_operational_data,
     scan_screens,
     send_weekly_uptime_reports,
 )
-from schedule.models import DaySchedule, Period, SchoolSettings
+from schedule.models import DaySchedule, Period, SchoolClosure, SchoolSettings
 from subscriptions.models import SchoolSubscription
 from telegram_alerts.models import TelegramAlert
 from django.contrib.auth import get_user_model
@@ -650,6 +652,172 @@ class ScreenSchoolHoursGateTests(TestCase):
             ScreenOutage.objects.get(screen=self.screen).suppressed_reason,
             SUPPRESSED_BEFORE_GRACE,
         )
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    DEFAULT_FROM_EMAIL="alerts@example.com",
+    TELEGRAM_ALERTS_ENABLED=False,
+    DISPLAY_REQUIRE_ACTIVE_SUBSCRIPTION=False,
+)
+class ScreenHolidayGateTests(TestCase):
+    """إجازةٌ بتاريخها ليست عطلاً.
+
+    الجداول تعرف أيام الأسبوع فقط، فيوم العيد الواقع على «الأحد» كان يوم دوام
+    في نظر النظام: شاشتان أُطفئتا معاً تُقرآن انقطاع كهرباء، فيصل المدير تنبيهٌ
+    صحيح تقنياً وخاطئ عملياً — وتكراره يعلّمه تجاهل التنبيهات كلها.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.school = School.objects.create(name="مدرسة الإجازة", slug="holiday-school")
+        self.settings = SchoolSettings.objects.create(
+            school=self.school,
+            name=self.school.name,
+            screen_offline_threshold_minutes=5,
+            screen_offline_alerts_enabled=True,
+            screen_offline_email_enabled=True,
+            screen_offline_school_hours_only=True,
+            screen_offline_grace_minutes=15,
+        )
+        manager = get_user_model().objects.create_user(
+            username="holiday_manager",
+            email="holiday-manager@example.com",
+            password="StrongPass123!",
+        )
+        profile = UserProfile.objects.create(user=manager, active_school=self.school)
+        profile.schools.add(self.school)
+
+        self.today = timezone.localdate()
+        day = DaySchedule.objects.create(
+            settings=self.settings,
+            weekday=self.today.weekday() + 1,
+            is_active=True,
+            periods_count=2,
+        )
+        Period.objects.create(day=day, index=1, starts_at=dt_time(8, 0), ends_at=dt_time(10, 0))
+        Period.objects.create(day=day, index=2, starts_at=dt_time(10, 0), ends_at=dt_time(12, 0))
+
+        self.screen = DisplayScreen.objects.create(
+            school=self.school,
+            name="الشاشة الرئيسية",
+            is_active=True,
+            bound_device_id="holiday-device-1",
+        )
+
+    def _at(self, hour, minute=0):
+        tz = timezone.get_current_timezone()
+        return timezone.make_aware(datetime.combine(self.today, dt_time(hour, minute)), tz)
+
+    def _close_today(self, title="إجازة عيد الفطر"):
+        return SchoolClosure.objects.create(
+            settings=self.settings,
+            title=title,
+            start_date=self.today,
+            end_date=self.today,
+        )
+
+    def _scan_twice(self, moment, screen=None):
+        screen = screen or self.screen
+        screen.last_seen = moment - timedelta(minutes=30)
+        screen.save(update_fields=("last_seen",))
+        scan_screens(now=moment)
+        return scan_screens(now=moment + timedelta(seconds=CONFIRMATION_SECONDS + 1))
+
+    # ── الكتم ───────────────────────────────────────────────────────
+    def test_a_registered_holiday_silences_the_alert_mid_lesson(self):
+        """منتصف «يوم الدوام» تماماً — والفرق الوحيد أنه مسجَّل إجازة."""
+        self._close_today()
+        result = self._scan_twice(self._at(10, 0))
+
+        self.assertEqual(result["alerted"], 0)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(
+            ScreenOutage.objects.get(screen=self.screen).suppressed_reason,
+            SUPPRESSED_HOLIDAY,
+        )
+
+    def test_the_same_moment_alerts_when_no_holiday_is_registered(self):
+        """إثبات أن الكتم جاء من التقويم لا من شيء آخر."""
+        result = self._scan_twice(self._at(10, 0))
+
+        self.assertEqual(result["alerted"], 1)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_the_outage_is_still_recorded_so_uptime_stays_honest(self):
+        """كتمٌ لا إسكات: انقطاعٌ يبدأ في الإجازة ويمتد بعدها يجب أن يُعرف."""
+        self._close_today()
+        self._scan_twice(self._at(10, 0))
+
+        outage = ScreenOutage.objects.get(screen=self.screen)
+        self.assertIsNotNone(outage.detected_at)
+        self.assertIsNone(outage.resolved_at)
+        self.assertIsNone(outage.alert_sent_at)
+
+    def test_round_the_clock_monitoring_still_respects_the_calendar(self):
+        """‏«راقب على مدار الساعة» تعني أيام الدوام، لا تجاهل التقويم.
+
+        المدرسة التي فعّلتها لتلتقط أعطال الليل كانت تُخبَر كل صباح عيد أن
+        شاشاتها تعطّلت.
+        """
+        self.settings.screen_offline_school_hours_only = False
+        self.settings.save(update_fields=("screen_offline_school_hours_only",))
+        self._close_today()
+
+        result = self._scan_twice(self._at(4, 35))
+
+        self.assertEqual(result["alerted"], 0)
+        self.assertEqual(
+            ScreenOutage.objects.get(screen=self.screen).suppressed_reason,
+            SUPPRESSED_HOLIDAY,
+        )
+
+    def test_a_screen_marked_always_on_still_alerts_through_a_holiday(self):
+        """الاستثناء الوحيد: شاشةٌ وُسمت صراحةً بأنها تعمل في الإجازات."""
+        self.screen.monitor_always_on = True
+        self.screen.save(update_fields=("monitor_always_on",))
+        self._close_today()
+
+        result = self._scan_twice(self._at(10, 0))
+
+        self.assertEqual(result["alerted"], 1)
+
+    # ── السبب ───────────────────────────────────────────────────────
+    def test_the_cause_says_holiday_instead_of_guessing_at_the_router(self):
+        """شاشتان تُطفآن معاً في إجازة تبدوان انقطاع كهرباء تماماً."""
+        second = DisplayScreen.objects.create(
+            school=self.school,
+            name="غرفة المعلمين",
+            is_active=True,
+            bound_device_id="holiday-device-2",
+        )
+        self._close_today()
+        moment = self._at(10, 0)
+        second.last_seen = moment - timedelta(minutes=30)
+        second.save(update_fields=("last_seen",))
+        self._scan_twice(moment)
+
+        causes = set(ScreenOutage.objects.values_list("cause", flat=True))
+        self.assertEqual(causes, {CAUSE_SCHOOL_CLOSED})
+        self.assertNotIn(CAUSE_SCHOOL_NETWORK, causes)
+
+    # ── الاستئناف ───────────────────────────────────────────────────
+    def test_the_alert_arrives_on_the_first_working_morning(self):
+        """الخبر يفيد حين يفيد: صباح أول دوام، لا فجر الإجازة."""
+        closure = self._close_today()
+        self._scan_twice(self._at(10, 0))
+        self.assertEqual(mail.outbox, [])
+
+        # انتهت الإجازة أمس، واليوم دوام.
+        closure.start_date = self.today - timedelta(days=2)
+        closure.end_date = self.today - timedelta(days=1)
+        closure.save(update_fields=("start_date", "end_date"))
+        cache.clear()
+
+        result = scan_screens(now=self._at(10, 0) + timedelta(seconds=CONFIRMATION_SECONDS + 2))
+
+        self.assertEqual(result["alerted"], 1)
+        self.assertEqual(len(mail.outbox), 1)
 
 
 @override_settings(
