@@ -4,10 +4,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     """Tamara is discontinued: drop its checkout table and its payment method.
 
-    The table held no rows, so nothing financial is lost. ``bank_transfer`` and
-    ``moyasar`` are now the only two routes that can produce an invoice, and
-    ``payment_link`` goes with them — it was a choice in a dropdown that never
-    had any code behind it.
+    Production holds three rows, and all three are dead checkout attempts: one
+    ``error`` that failed validation before Tamara was ever called, and two
+    ``expired`` sessions that timed out unpaid. None reached ``authorised`` or
+    ``captured`` and none carries a ``payment_operation``, so no invoice, no
+    payment operation and no money references this table — nothing financial is
+    lost by dropping it. (The deploy dumps the database before migrating, so the
+    rows remain readable in that dump if anyone ever wants the audit trail.)
+
+    ``bank_transfer`` and ``moyasar`` are now the only two routes that can
+    produce an invoice, and ``payment_link`` goes with them — it was a choice in
+    a dropdown that never had any code behind it.
     """
 
     dependencies = [
