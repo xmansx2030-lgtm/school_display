@@ -568,15 +568,7 @@ def home(request):
 
 
 def subscriptions(request):
-    tamara_available = bool(
-        getattr(django_settings, "TAMARA_ENABLED", False)
-        and getattr(django_settings, "TAMARA_API_TOKEN", "")
-    )
-    return render(
-        request,
-        "website/subscriptions.html",
-        {"tamara_available": tamara_available},
-    )
+    return render(request, "website/subscriptions.html")
 
 
 @never_cache

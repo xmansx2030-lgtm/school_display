@@ -1,8 +1,0 @@
-{% if is_multiple %}عادت {{ screen_count }} شاشات للعمل{% else %}عادت شاشة «{{ screens.0.name }}» للعمل{% endif %}
-مدرسة {{ school.name }} — {{ restored_at }}
-
-انتهى الانقطاع وتعمل الشاشة الآن بشكل طبيعي. لا حاجة لأي إجراء إضافي.
-
-{% for screen in screens %}- {{ screen.name }} | مدة الانقطاع: {{ screen.downtime }} | عادت الساعة: {{ screen.back_at }}
-{% endfor %}
-مراجعة حالة الشاشات: {{ dashboard_url }}

@@ -67,7 +67,7 @@ class SchoolContactSettingsTests(TestCase):
         self.assertContains(response, 'value="0500000000"')
         self.assertNotContains(response, 'name="weekly_uptime_report_enabled"')
 
-    def test_manager_can_update_contact_details_used_by_tamara(self):
+    def test_manager_can_update_contact_details(self):
         response = self.client.post(
             reverse("dashboard:settings"),
             self._settings_payload(),

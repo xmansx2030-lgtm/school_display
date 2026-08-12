@@ -153,27 +153,6 @@ services:
       retries: 3
       start_period: 71s
 
-  # تمارا مخفية مؤقتًا (TAMARA_TEMPORARILY_HIDDEN=True في config/settings.py).
-  # عاملها معطّل هنا لأنه سيدور بلا عمل ويستهلك ذاكرة. لإعادته: احذف
-  # `profiles` أدناه بعد رفع الإخفاء وضبط مفاتيح تمارا.
-  tamara-reconciliation-worker:
-    <<: *django
-    profiles: ["tamara"]
-    mem_limit: ${TAMARA_RECONCILIATION_WORKER_MEMORY_LIMIT:-192m}
-    depends_on:
-      web:
-        condition: service_healthy
-    command: python manage.py tamara_reconciliation_worker
-    networks:
-      - frontend
-      - backend
-    healthcheck:
-      test: ["CMD", "python", "manage.py", "tamara_reconciliation_worker", "--healthcheck"]
-      interval: 31s
-      timeout: 10s
-      retries: 3
-      start_period: 41s
-
   moyasar-reconciliation-worker:
     <<: *django
     mem_limit: ${MOYASAR_RECONCILIATION_WORKER_MEMORY_LIMIT:-192m}

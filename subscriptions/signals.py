@@ -66,11 +66,27 @@ def _safe_sync_addon(sender, instance, **kwargs):
         logger.exception("Failed to invalidate access cache for screen addon id=%s", getattr(instance, "id", None))
 
 
+# الفاتورة تصدر عن مسارين اثنين لا ثالث لهما: دفع إلكتروني معتمد عبر ميسر، أو
+# اعتماد يدوي لتحويل بنكي. ``METHOD_CHOICES`` يحصر الخيارات في الواجهات، لكن
+# ``objects.create()`` يتجاوز تحقق الخيارات، فهذا الحارس هو ما يمنع أي مسار
+# مستقبلي من إصدار فاتورة بطريقة دفع لم تُعتمد.
+INVOICEABLE_METHODS = frozenset({"bank_transfer", "moyasar"})
+
+
 def _safe_create_invoice(sender, instance: SubscriptionPaymentOperation, created: bool, **kwargs):
     if not created:
         return
     try:
         if not instance.amount or instance.amount <= 0:
+            return
+        if instance.method not in INVOICEABLE_METHODS:
+            logger.warning(
+                "No invoice issued for payment operation id=%s: method %r is not an "
+                "approved invoicing route %s.",
+                getattr(instance, "id", None),
+                instance.method,
+                sorted(INVOICEABLE_METHODS),
+            )
             return
         if hasattr(instance, "invoice"):
             return

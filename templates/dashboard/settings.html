@@ -473,13 +473,6 @@
                                         </span>
                                     </label>
                                     <label class="dp-switch">
-                                        {{ form.screen_offline_email_enabled }}
-                                        <span class="dp-switch__copy">
-                                            <strong>{{ form.screen_offline_email_enabled.label }}</strong>
-                                            <small>يرسل إلى عناوين البريد المسجلة لمدراء المدرسة.</small>
-                                        </span>
-                                    </label>
-                                    <label class="dp-switch">
                                         {{ form.screen_recovery_notice_enabled }}
                                         <span class="dp-switch__copy">
                                             <strong>{{ form.screen_recovery_notice_enabled.label }}</strong>
@@ -507,7 +500,7 @@
                                             <span class="dp-unit-field__unit" aria-hidden="true">تنبيه</span>
                                             {{ form.screen_offline_max_alerts_per_day }}
                                         </span>
-                                        <span class="dp-field__hint">سقف يومي يمنع إغراق بريدك عند تكرار الانقطاع.</span>
+                                        <span class="dp-field__hint">سقف يومي يمنع تكرار التنبيه عند تقطّع الاتصال.</span>
                                         {% if form.screen_offline_max_alerts_per_day.errors %}<div class="settings-field-error">{{ form.screen_offline_max_alerts_per_day.errors }}</div>{% endif %}
                                     </div>
                                 </div>
@@ -817,13 +810,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const monitorSummary = document.querySelector('[data-monitor-summary]');
     if (monitorSummary) {
         const alertsOn = document.getElementById('id_screen_offline_alerts_enabled');
-        const emailOn = document.getElementById('id_screen_offline_email_enabled');
         const hoursOnly = document.getElementById('id_screen_offline_school_hours_only');
         const recoveryOn = document.getElementById('id_screen_recovery_notice_enabled');
         const thresholdEl = document.getElementById('id_screen_offline_threshold_minutes');
         const maxPerDayEl = document.getElementById('id_screen_offline_max_alerts_per_day');
 
-        const watched = [alertsOn, emailOn, hoursOnly, recoveryOn, thresholdEl, maxPerDayEl].filter(Boolean);
+        const watched = [alertsOn, hoursOnly, recoveryOn, thresholdEl, maxPerDayEl].filter(Boolean);
 
         function numberOr(el, fallback) {
             const value = parseInt(el && el.value, 10);
@@ -841,7 +833,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const parts = [
                 `سننبّهك عند انقطاع أي شاشة لأكثر من ${numberOr(thresholdEl, 10)} دقيقة`,
                 hoursOnly && hoursOnly.checked ? 'داخل وقت الدوام فقط' : 'في أي وقت',
-                emailOn && emailOn.checked ? 'عبر البريد الإلكتروني' : 'داخل لوحة التحكم فقط',
                 `بحد أقصى ${numberOr(maxPerDayEl, 3)} تنبيه في اليوم`,
             ];
             let sentence = parts.join('، ') + '.';

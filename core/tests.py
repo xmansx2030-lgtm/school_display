@@ -9,7 +9,6 @@ from unittest.mock import patch
 from django.conf import settings
 from django.http import JsonResponse
 from django.core.cache import cache
-from django.core import mail
 from django.template.loader import render_to_string
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
@@ -23,7 +22,6 @@ from core.models import (
     ScreenOutage,
     ScreenWeeklyUptimeReport,
     SubscriptionPlan,
-    UserProfile,
 )
 from core.screen_diagnostics import (
     CAUSE_DEVICE_OFF,
@@ -50,7 +48,6 @@ from core.screen_monitoring import (
 from schedule.models import DaySchedule, Period, SchoolClosure, SchoolSettings
 from subscriptions.models import SchoolSubscription
 from telegram_alerts.models import TelegramAlert
-from django.contrib.auth import get_user_model
 
 
 class DisplayPresenceTests(TestCase):
@@ -108,9 +105,9 @@ class DisplayPresenceTests(TestCase):
 
 
 @override_settings(
-    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-    DEFAULT_FROM_EMAIL="alerts@example.com",
-    TELEGRAM_ALERTS_ENABLED=False,
+    # Screen faults reach the platform administrator over Telegram and nowhere
+    # else, so a queued alert row is the only observable these tests have.
+    TELEGRAM_ALERTS_ENABLED=True,
     # These suites are about monitoring, not billing.
     DISPLAY_REQUIRE_ACTIVE_SUBSCRIPTION=False,
 )
@@ -124,30 +121,11 @@ class ScreenMonitoringTests(TestCase):
             name=self.school.name,
             screen_offline_threshold_minutes=5,
             screen_offline_alerts_enabled=True,
-            screen_offline_email_enabled=True,
             weekly_uptime_report_enabled=True,
             # This school has no timetable, so the school-hours gate would
             # suppress everything. Tests that exercise the gate turn it back on.
             screen_offline_school_hours_only=False,
         )
-        self.manager = get_user_model().objects.create_user(
-            username="monitor_manager",
-            email="manager@example.com",
-            password="StrongPass123!",
-        )
-        profile = UserProfile.objects.create(user=self.manager, active_school=self.school)
-        profile.schools.add(self.school)
-        self.inactive_manager = get_user_model().objects.create_user(
-            username="inactive_monitor_manager",
-            email="inactive-manager@example.com",
-            password="StrongPass123!",
-            is_active=False,
-        )
-        inactive_profile = UserProfile.objects.create(
-            user=self.inactive_manager,
-            active_school=self.school,
-        )
-        inactive_profile.schools.add(self.school)
         self.screen = DisplayScreen.objects.create(
             school=self.school,
             name="شاشة المدخل",
@@ -174,8 +152,7 @@ class ScreenMonitoringTests(TestCase):
         self.assertEqual(second["alerted"], 1)
         self.assertEqual(third["opened"], 0)
         self.assertEqual(third["alerted"], 0)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ["manager@example.com"])
+        self.assertEqual(TelegramAlert.objects.filter(event_type="screen_offline").count(), 1)
         outage = ScreenOutage.objects.get(screen=self.screen)
         self.assertIsNotNone(outage.alert_sent_at)
         self.assertEqual(outage.alert_count, 1)
@@ -188,8 +165,8 @@ class ScreenMonitoringTests(TestCase):
         outage.refresh_from_db()
         self.assertIsNotNone(outage.resolved_at)
         self.assertIsNotNone(outage.recovery_notified_at)
-        self.assertEqual(len(mail.outbox), 2)
-        self.assertIn("عادت", mail.outbox[1].subject)
+        recovery = TelegramAlert.objects.get(event_type="screen_recovered")
+        self.assertIn("عادت", recovery.message)
 
     @override_settings(DISPLAY_REQUIRE_ACTIVE_SUBSCRIPTION=True)
     def test_lapsed_subscription_screens_are_not_reported_as_faulty(self):
@@ -199,7 +176,7 @@ class ScreenMonitoringTests(TestCase):
 
         self.assertEqual(result["opened"], 0)
         self.assertEqual(result["alerted"], 0)
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(TelegramAlert.objects.exists())
 
     def test_newly_bound_screen_waits_for_the_configured_threshold(self):
         self.screen.last_seen = None
@@ -226,7 +203,7 @@ class ScreenMonitoringTests(TestCase):
         self.assertEqual(result["suppressed"], 1)
         outage = ScreenOutage.objects.get(screen=self.screen)
         self.assertEqual(outage.suppressed_reason, SUPPRESSED_OUTSIDE_SCHOOL_DAY)
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(TelegramAlert.objects.exists())
 
     def test_screen_marked_always_on_still_alerts_outside_school_hours(self):
         self.settings.screen_offline_school_hours_only = True
@@ -241,7 +218,7 @@ class ScreenMonitoringTests(TestCase):
     def test_second_outage_within_the_cooldown_is_not_sent_again(self):
         now = timezone.now()
         self._confirm_and_scan(now)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(TelegramAlert.objects.filter(event_type="screen_offline").count(), 1)
 
         # Back briefly, then offline again — a classic flap.
         self.screen.last_seen = now + timedelta(minutes=3)
@@ -262,7 +239,6 @@ class ScreenMonitoringTests(TestCase):
             SUPPRESSED_COOLDOWN,
         )
 
-    @override_settings(TELEGRAM_ALERTS_ENABLED=True)
     def test_whole_school_outage_becomes_one_message_naming_the_shared_cause(self):
         for index in range(2):
             DisplayScreen.objects.create(
@@ -276,16 +252,13 @@ class ScreenMonitoringTests(TestCase):
         result = self._confirm_and_scan(timezone.now())
 
         self.assertEqual(result["alerted"], 3)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("3 شاشات", mail.outbox[0].subject)
         alerts = TelegramAlert.objects.filter(event_type="screen_offline")
         self.assertEqual(alerts.count(), 1)
-        self.assertIn("انقطاع على مستوى المدرسة", alerts.first().message)
+        self.assertIn("انقطاع على مستوى المدرسة (3 شاشات)", alerts.first().message)
         for outage in ScreenOutage.objects.all():
             self.assertEqual(outage.scope, SCOPE_SCHOOL)
             self.assertEqual(outage.cause, CAUSE_SCHOOL_NETWORK)
 
-    @override_settings(TELEGRAM_ALERTS_ENABLED=True)
     def test_clean_websocket_close_reports_the_device_as_switched_off(self):
         record_disconnect_signal(self.screen.pk, source="ws_close", code=1001)
 
@@ -294,7 +267,8 @@ class ScreenMonitoringTests(TestCase):
         outage = ScreenOutage.objects.get(screen=self.screen)
         self.assertEqual(outage.cause, CAUSE_DEVICE_OFF)
         self.assertEqual(outage.close_code, 1001)
-        self.assertIn("مطفأ", mail.outbox[0].body)
+        alert = TelegramAlert.objects.get(event_type="screen_offline")
+        self.assertIn("مطفأ", alert.message)
 
     def test_daily_cap_stops_the_fourth_alert_for_the_same_screen(self):
         now = timezone.now()
@@ -315,10 +289,9 @@ class ScreenMonitoringTests(TestCase):
             scan_screens(now=moment)
             scan_screens(now=moment + timedelta(seconds=CONFIRMATION_SECONDS + 1))
 
-        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(TelegramAlert.objects.filter(event_type="screen_offline").count(), 2)
 
-    @override_settings(TELEGRAM_ALERTS_ENABLED=True)
-    def test_weekly_report_is_one_admin_alert_and_sends_no_manager_email(self):
+    def test_weekly_report_is_a_single_admin_alert(self):
         week_start = timezone.localdate() - timedelta(days=14)
         tz = timezone.get_current_timezone()
         start = timezone.make_aware(datetime.combine(week_start, datetime.min.time()), tz)
@@ -358,14 +331,12 @@ class ScreenMonitoringTests(TestCase):
                 week_start=week_start,
             ).sent_at
         )
-        self.assertEqual(len(mail.outbox), 0)
         alert = TelegramAlert.objects.get(event_type="screen_uptime_weekly")
         self.assertIn(self.school.name, alert.message)
         self.assertIn(second_school.name, alert.message)
         self.assertIn(self.screen.name, alert.message)
         self.assertIn(second_screen.name, alert.message)
 
-    @override_settings(TELEGRAM_ALERTS_ENABLED=True)
     def test_weekly_report_counts_offline_time_from_last_seen(self):
         week_start = timezone.localdate() - timedelta(days=21)
         tz = timezone.get_current_timezone()
@@ -382,7 +353,10 @@ class ScreenMonitoringTests(TestCase):
         report = ScreenWeeklyUptimeReport.objects.get(screen=self.screen, week_start=week_start)
         self.assertEqual(report.offline_seconds, 60 * 60)
 
-    def test_weekly_report_waits_for_admin_telegram_without_emailing_manager(self):
+    @override_settings(TELEGRAM_ALERTS_ENABLED=False)
+    def test_weekly_report_is_not_marked_sent_while_telegram_is_off(self):
+        # Telegram is the only channel now, so a report that could not be queued
+        # must stay unsent and be picked up again on the next run.
         week_start = timezone.localdate() - timedelta(days=28)
 
         result = send_weekly_uptime_reports(week_start=week_start)
@@ -393,7 +367,6 @@ class ScreenMonitoringTests(TestCase):
         )
         self.assertEqual(result["schools_sent"], 0)
         self.assertIsNone(report.sent_at)
-        self.assertEqual(len(mail.outbox), 0)
         self.assertFalse(TelegramAlert.objects.exists())
 
 
@@ -569,9 +542,7 @@ class OperationalRetentionTests(TestCase):
 
 
 @override_settings(
-    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-    DEFAULT_FROM_EMAIL="alerts@example.com",
-    TELEGRAM_ALERTS_ENABLED=False,
+    TELEGRAM_ALERTS_ENABLED=True,
     DISPLAY_REQUIRE_ACTIVE_SUBSCRIPTION=False,
 )
 class ScreenSchoolHoursGateTests(TestCase):
@@ -585,17 +556,9 @@ class ScreenSchoolHoursGateTests(TestCase):
             name=self.school.name,
             screen_offline_threshold_minutes=5,
             screen_offline_alerts_enabled=True,
-            screen_offline_email_enabled=True,
             screen_offline_school_hours_only=True,
             screen_offline_grace_minutes=15,
         )
-        manager = get_user_model().objects.create_user(
-            username="hours_manager",
-            email="hours-manager@example.com",
-            password="StrongPass123!",
-        )
-        profile = UserProfile.objects.create(user=manager, active_school=self.school)
-        profile.schools.add(self.school)
 
         # A school day running 08:00 → 12:00 gives an active window of
         # 07:30 → 12:15 (30 minutes before the first period, 15 after the last).
@@ -626,18 +589,17 @@ class ScreenSchoolHoursGateTests(TestCase):
         scan_screens(now=moment)
         return scan_screens(now=moment + timedelta(seconds=CONFIRMATION_SECONDS + 1))
 
-    def test_outage_during_lessons_alerts_the_school(self):
+    def test_outage_during_lessons_alerts_the_administrator(self):
         result = self._scan_twice(self._at(10, 0))
 
         self.assertEqual(result["alerted"], 1)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ["hours-manager@example.com"])
+        self.assertEqual(TelegramAlert.objects.filter(event_type="screen_offline").count(), 1)
 
     def test_outage_after_dismissal_is_logged_without_a_message(self):
         result = self._scan_twice(self._at(20, 0))
 
         self.assertEqual(result["alerted"], 0)
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(TelegramAlert.objects.exists())
         outage = ScreenOutage.objects.get(screen=self.screen)
         self.assertEqual(outage.suppressed_reason, SUPPRESSED_AFTER_HOURS)
         # Still recorded, so the weekly uptime report stays accurate.
@@ -655,9 +617,7 @@ class ScreenSchoolHoursGateTests(TestCase):
 
 
 @override_settings(
-    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-    DEFAULT_FROM_EMAIL="alerts@example.com",
-    TELEGRAM_ALERTS_ENABLED=False,
+    TELEGRAM_ALERTS_ENABLED=True,
     DISPLAY_REQUIRE_ACTIVE_SUBSCRIPTION=False,
 )
 class ScreenHolidayGateTests(TestCase):
@@ -676,17 +636,9 @@ class ScreenHolidayGateTests(TestCase):
             name=self.school.name,
             screen_offline_threshold_minutes=5,
             screen_offline_alerts_enabled=True,
-            screen_offline_email_enabled=True,
             screen_offline_school_hours_only=True,
             screen_offline_grace_minutes=15,
         )
-        manager = get_user_model().objects.create_user(
-            username="holiday_manager",
-            email="holiday-manager@example.com",
-            password="StrongPass123!",
-        )
-        profile = UserProfile.objects.create(user=manager, active_school=self.school)
-        profile.schools.add(self.school)
 
         self.today = timezone.localdate()
         day = DaySchedule.objects.create(
@@ -731,7 +683,7 @@ class ScreenHolidayGateTests(TestCase):
         result = self._scan_twice(self._at(10, 0))
 
         self.assertEqual(result["alerted"], 0)
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(TelegramAlert.objects.exists())
         self.assertEqual(
             ScreenOutage.objects.get(screen=self.screen).suppressed_reason,
             SUPPRESSED_HOLIDAY,
@@ -742,7 +694,7 @@ class ScreenHolidayGateTests(TestCase):
         result = self._scan_twice(self._at(10, 0))
 
         self.assertEqual(result["alerted"], 1)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(TelegramAlert.objects.filter(event_type="screen_offline").count(), 1)
 
     def test_the_outage_is_still_recorded_so_uptime_stays_honest(self):
         """كتمٌ لا إسكات: انقطاعٌ يبدأ في الإجازة ويمتد بعدها يجب أن يُعرف."""
@@ -806,7 +758,7 @@ class ScreenHolidayGateTests(TestCase):
         """الخبر يفيد حين يفيد: صباح أول دوام، لا فجر الإجازة."""
         closure = self._close_today()
         self._scan_twice(self._at(10, 0))
-        self.assertEqual(mail.outbox, [])
+        self.assertFalse(TelegramAlert.objects.exists())
 
         # انتهت الإجازة أمس، واليوم دوام.
         closure.start_date = self.today - timedelta(days=2)
@@ -817,12 +769,10 @@ class ScreenHolidayGateTests(TestCase):
         result = scan_screens(now=self._at(10, 0) + timedelta(seconds=CONFIRMATION_SECONDS + 2))
 
         self.assertEqual(result["alerted"], 1)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(TelegramAlert.objects.filter(event_type="screen_offline").count(), 1)
 
 
 @override_settings(
-    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-    DEFAULT_FROM_EMAIL="alerts@example.com",
     TELEGRAM_ALERTS_ENABLED=True,
     DISPLAY_REQUIRE_ACTIVE_SUBSCRIPTION=False,
 )
@@ -841,16 +791,8 @@ class ScreenPlatformOutageTests(TestCase):
                 name=school.name,
                 screen_offline_threshold_minutes=5,
                 screen_offline_alerts_enabled=True,
-                screen_offline_email_enabled=True,
                 screen_offline_school_hours_only=False,
             )
-            manager = get_user_model().objects.create_user(
-                username=f"platform_manager_{school_index}",
-                email=f"platform-{school_index}@example.com",
-                password="StrongPass123!",
-            )
-            profile = UserProfile.objects.create(user=manager, active_school=school)
-            profile.schools.add(school)
             for screen_index in range(4):
                 self.screens.append(
                     DisplayScreen.objects.create(
@@ -862,14 +804,13 @@ class ScreenPlatformOutageTests(TestCase):
                     )
                 )
 
-    def test_fleet_wide_silence_sends_one_admin_incident_and_no_school_mail(self):
+    def test_fleet_wide_silence_sends_one_admin_incident_and_no_per_screen_alerts(self):
         now = timezone.now()
         scan_screens(now=now)
         result = scan_screens(now=now + timedelta(seconds=CONFIRMATION_SECONDS + 1))
 
         self.assertTrue(result["platform_outage"])
         self.assertEqual(result["alerted"], 0)
-        self.assertEqual(len(mail.outbox), 0)
         alerts = TelegramAlert.objects.filter(event_type="screen_platform_outage")
         self.assertEqual(alerts.count(), 1)
         self.assertIn("اشتباه عطل في المنصة", alerts.first().message)

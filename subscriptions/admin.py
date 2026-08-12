@@ -11,7 +11,6 @@ from .models import (
     SubscriptionScreenAddon,
     SubscriptionRequest,
     MoyasarCheckout,
-    TamaraCheckout,
 )
 from .refunds import record_refund, refundable_amount
 
@@ -112,32 +111,6 @@ class SubscriptionPaymentOperationAdmin(admin.ModelAdmin):
     @admin.display(description="القابل للاسترداد")
     def still_refundable(self, obj):
         return refundable_amount(obj)
-
-
-@admin.register(TamaraCheckout)
-class TamaraCheckoutAdmin(admin.ModelAdmin):
-    list_display = (
-        "merchant_reference",
-        "school",
-        "plan",
-        "amount",
-        "status",
-        "tamara_order_id",
-        "created_at",
-    )
-    list_filter = ("status", "request_type", "created_at")
-    search_fields = ("merchant_reference", "tamara_order_id", "school__name")
-    autocomplete_fields = ("school", "plan", "created_by", "subscription", "payment_operation")
-    readonly_fields = (
-        "merchant_reference",
-        "tamara_order_id",
-        "checkout_id",
-        "checkout_url",
-        "last_event",
-        "processed_at",
-        "created_at",
-        "updated_at",
-    )
 
 
 @admin.register(MoyasarCheckout)

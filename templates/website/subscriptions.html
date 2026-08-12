@@ -16,19 +16,6 @@
       اختر وسيلة الدفع المناسبة لتفعيل اشتراك المدرسة أو تجديده.
     </p>
 
-    {% if tamara_available %}
-    <div class="mb-6 rounded-2xl border border-rose-300/40 bg-white/10 p-5 text-right">
-      <div class="flex items-start gap-4">
-        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#ff5a78] text-xl font-black text-white">t</div>
-        <div class="flex-1">
-          <h2 class="text-lg font-black text-white">الدفع بالتقسيط عبر تمارا</h2>
-          <p class="mt-1 text-sm leading-7 text-white/75">سجّل الدخول، اختر الباقة، ثم أكمل عملية الدفع في صفحة تمارا الآمنة.</p>
-          <a class="btnBrand mt-4 inline-flex px-5 py-2.5 font-bold" href="{% url 'dashboard:my_subscription' %}">الدفع عبر تمارا</a>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <a class="btnBrand w-full text-center py-3 font-bold" target="_blank"
          href="https://wa.me/966537720207?text=أرغب%20بالاشتراك%20في%20لوحة%20العرض%20الذكية">

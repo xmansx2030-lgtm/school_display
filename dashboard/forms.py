@@ -111,7 +111,6 @@ class SchoolSettingsForm(forms.ModelForm):
         "test_mode_weekday_override",
         "screen_offline_alerts_enabled",
         "screen_offline_threshold_minutes",
-        "screen_offline_email_enabled",
         "screen_offline_school_hours_only",
         "screen_offline_grace_minutes",
         "screen_offline_cooldown_minutes",
@@ -122,7 +121,7 @@ class SchoolSettingsForm(forms.ModelForm):
         label="البريد الإلكتروني",
         required=False,
         max_length=254,
-        help_text="يُستخدم لإشعارات الاشتراك وإتمام الدفع عبر تمارا.",
+        help_text="يُستخدم لإشعارات الاشتراك وإتمام عمليات الدفع.",
         widget=forms.EmailInput(
             attrs={
                 "autocomplete": "email",
@@ -135,7 +134,7 @@ class SchoolSettingsForm(forms.ModelForm):
         label="رقم الجوال",
         required=False,
         max_length=20,
-        help_text="أدخل رقم جوال سعودي مثل 05xxxxxxxx. يُستخدم للدخول والدفع عبر تمارا.",
+        help_text="أدخل رقم جوال سعودي مثل 05xxxxxxxx. يُستخدم للدخول وعمليات الدفع.",
         widget=forms.TextInput(
             attrs={
                 "autocomplete": "tel",
@@ -187,7 +186,6 @@ class SchoolSettingsForm(forms.ModelForm):
             "test_mode_weekday_override",
             "screen_offline_alerts_enabled",
             "screen_offline_threshold_minutes",
-            "screen_offline_email_enabled",
             "screen_offline_school_hours_only",
             "screen_offline_grace_minutes",
             "screen_offline_cooldown_minutes",
@@ -1502,9 +1500,8 @@ class SchoolSubscriptionForm(forms.ModelForm):
         required=False,
         choices=[
             ("", "— اختر —"),
-            ("bank_transfer", "تحويل"),
-            ("payment_link", "رابط دفع"),
-            ("tamara", "تمارا"),
+            ("bank_transfer", "تحويل بنكي"),
+            ("moyasar", "ميسر"),
         ],
         widget=forms.Select(),
         help_text="يُطلب فقط عند إنشاء اشتراك مدفوع (غير مجاني).",
@@ -1572,13 +1569,27 @@ class SchoolSubscriptionForm(forms.ModelForm):
             plan_price = 0
 
         # الباقة المجانية (السعر 0) لا نطلب طريقة دفع.
+        #
+        # طريقة الدفع ليست حقلاً تجميلياً: عملية الدفع هي ما يُبنى منه إصدار
+        # الفاتورة وإرسالها للعميل. اشتراك مدفوع يُحفظ بدونها يبقى بلا فاتورة
+        # وبلا رسالة إلى الأبد، فالتحقق هنا هو ما يمنع ذلك.
+        #
+        # كان هذا الشرط ملفوفاً بـ ``except Exception: pass`` ليتسامح مع سعر
+        # غير رقمي، لكن ``ValidationError`` نفسه من ``Exception`` فكان يُبتلع
+        # لحظة رفعه ولا يظهر للمستخدم أبداً. الالتقاط الآن محصور في تحويل
+        # السعر وحده.
         if is_create and plan is not None:
             try:
-                if float(plan_price) > 0 and not payment_method:
-                    raise ValidationError("الرجاء تحديد طريقة الدفع للاشتراك المدفوع.")
-            except Exception:
-                # إذا تعذر تحويل السعر لرقم، لا نكسر النموذج
-                pass
+                plan_price_value = float(plan_price)
+            except (TypeError, ValueError):
+                # سعر غير قابل للتحويل: لا نكسر النموذج ولا نفترض أنه مدفوع.
+                plan_price_value = 0.0
+
+            if plan_price_value > 0 and not payment_method:
+                self.add_error(
+                    "payment_method",
+                    "الرجاء تحديد طريقة الدفع للاشتراك المدفوع.",
+                )
 
         return cleaned
 

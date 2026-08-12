@@ -1,13 +1,10 @@
 # subscriptions/urls.py
 from django.urls import path
 from dashboard import views as dashboard_views
-from . import moyasar_views, tamara_views, verification_views
+from . import moyasar_views, verification_views
 
 app_name = "subscriptions"
 
-# ملاحظة: مسارات تمارا تبقى مسجّلة رغم إخفائها، لأن كل واجهة منها تتحقق من
-# ``TAMARA_ENABLED`` بنفسها فتصبح خاملة (تحويل أو 503). إبقاؤها يحفظ أسماء
-# المسارات للقوالب والاختبارات فلا ينكسر شيء عند إعادة التفعيل.
 urlpatterns = [
     path(
         "email/resend-verification/",
@@ -27,26 +24,6 @@ urlpatterns = [
     ),
     path("moyasar/return/", moyasar_views.moyasar_return, name="moyasar_return"),
     path("moyasar/webhook/", moyasar_views.moyasar_webhook, name="moyasar_webhook"),
-    path("tamara/start/", tamara_views.tamara_start, name="tamara_start"),
-    path("tamara/webhook/", tamara_views.tamara_webhook, name="tamara_webhook"),
-    path(
-        "tamara/success/",
-        tamara_views.tamara_return,
-        {"outcome": "success"},
-        name="tamara_success",
-    ),
-    path(
-        "tamara/failure/",
-        tamara_views.tamara_return,
-        {"outcome": "failure"},
-        name="tamara_failure",
-    ),
-    path(
-        "tamara/cancel/",
-        tamara_views.tamara_return,
-        {"outcome": "cancel"},
-        name="tamara_cancel",
-    ),
     path("", dashboard_views.system_subscriptions_list, name="system_subscriptions_list"),
     path("add/", dashboard_views.system_subscription_create, name="system_subscription_create"),
     path("<int:pk>/edit/", dashboard_views.system_subscription_edit, name="system_subscription_edit"),
