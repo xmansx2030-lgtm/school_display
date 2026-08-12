@@ -670,7 +670,6 @@ def school_settings(request):
         runtime_fields = {
             "screen_offline_alerts_enabled",
             "screen_offline_threshold_minutes",
-            "screen_offline_email_enabled",
             "screen_offline_school_hours_only",
             "screen_offline_grace_minutes",
             "screen_offline_cooldown_minutes",

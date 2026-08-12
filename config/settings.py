@@ -959,64 +959,6 @@ SITE_BASE_URL = os.getenv("SITE_BASE_URL", "https://school-display.com")
 
 
 # =========================
-# Tamara checkout
-# =========================
-# تمارا مخفية مؤقتًا من المنصة. الكود والاختبارات والبيانات المحفوظة تبقى كما
-# هي دون حذف؛ هذا المفتاح وحده يخفي كل واجهاتها ويوقف عاملها ومساراتها.
-#
-# لإعادة تشغيلها لاحقًا:
-#   1) TAMARA_TEMPORARILY_HIDDEN=False
-#   2) TAMARA_ENABLED=True مع بقية مفاتيح تمارا
-#   3) أعد خدمة tamara-reconciliation-worker في compose.production.yaml
-TAMARA_TEMPORARILY_HIDDEN = env_bool("TAMARA_TEMPORARILY_HIDDEN", "True")
-TAMARA_ENABLED = env_bool("TAMARA_ENABLED", "False") and not TAMARA_TEMPORARILY_HIDDEN
-TAMARA_API_BASE_URL = os.getenv(
-    "TAMARA_API_BASE_URL",
-    "https://api-sandbox.tamara.co",
-).strip().rstrip("/")
-TAMARA_API_TOKEN = env_secret("TAMARA_API_TOKEN", "TAMARA_API_TOKEN_FILE")
-TAMARA_NOTIFICATION_TOKEN = env_secret(
-    "TAMARA_NOTIFICATION_TOKEN",
-    "TAMARA_NOTIFICATION_TOKEN_FILE",
-)
-TAMARA_CALLBACK_BASE_URL = (
-    os.getenv("TAMARA_CALLBACK_BASE_URL", SITE_BASE_URL).strip().rstrip("/")
-    or SITE_BASE_URL.rstrip("/")
-)
-TAMARA_HTTP_TIMEOUT_SECONDS = env_int_clamped(
-    "TAMARA_HTTP_TIMEOUT_SECONDS",
-    15,
-    3,
-    60,
-)
-TAMARA_ELIGIBILITY_TIMEOUT_SECONDS = env_float_clamped(
-    "TAMARA_ELIGIBILITY_TIMEOUT_SECONDS",
-    0.2,
-    0.1,
-    2.0,
-)
-TAMARA_CAPTURE_DIGITAL_ORDERS = env_bool("TAMARA_CAPTURE_DIGITAL_ORDERS", "True")
-TAMARA_RECONCILIATION_INTERVAL_SECONDS = env_int_clamped(
-    "TAMARA_RECONCILIATION_INTERVAL_SECONDS",
-    10,
-    5,
-    300,
-)
-TAMARA_RECONCILIATION_BATCH_SIZE = env_int_clamped(
-    "TAMARA_RECONCILIATION_BATCH_SIZE",
-    20,
-    1,
-    100,
-)
-
-if TAMARA_ENABLED and not DEBUG and not RUNNING_TESTS:
-    if not TAMARA_API_TOKEN or TAMARA_API_TOKEN.startswith("CHANGE_ME"):
-        raise RuntimeError("TAMARA_API_TOKEN or TAMARA_API_TOKEN_FILE is required when Tamara is enabled")
-    if not TAMARA_CALLBACK_BASE_URL.startswith("https://"):
-        raise RuntimeError("TAMARA_CALLBACK_BASE_URL must use HTTPS in production")
-
-
-# =========================
 # Moyasar card checkout
 # =========================
 MOYASAR_ENABLED = env_bool("MOYASAR_ENABLED", "False")

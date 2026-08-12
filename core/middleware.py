@@ -591,7 +591,7 @@ class SecurityHeadersMiddleware:
             # Card checkout hands off to the gateway for 3-D Secure, which
             # renders in an iframe and posts back. Omitting these hosts makes
             # an enforced policy silently block payments.
-            payment_hosts = "https://*.moyasar.com https://*.tamara.co"
+            payment_hosts = "https://*.moyasar.com"
             directives = [
                 "default-src 'self'",
                 "base-uri 'self'",

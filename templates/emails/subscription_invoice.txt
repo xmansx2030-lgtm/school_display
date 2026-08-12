@@ -1,15 +1,47 @@
-مرحبًا،
+مرحبًا{% if contact_name %} {{ contact_name }}{% endif %}،
 
-تم إصدار فاتورة اشتراك مدرسة {{ school.name }}.
+صدرت فاتورة اشتراك {{ school.name }} في منصة شاشة العرض الذكية، وفيما يلي تفاصيلها كاملة.
 
-رقم الفاتورة: {{ invoice.invoice_number }}
-الباقة: {{ plan.name }}
-المبلغ: {{ invoice.amount }} ر.س
-تاريخ الإصدار: {{ invoice.issued_at|date:"Y-m-d" }}
+════════════════════════════════════
+الإجمالي المستحق: {{ amount_display }} {{ currency_label }}
+طريقة الدفع: {{ payment_method_label }}
+════════════════════════════════════
 
-عرض الفاتورة:
+بيانات الفاتورة
+────────────────────────────────────
+رقم الفاتورة   : {{ invoice.invoice_number }}
+تاريخ الإصدار  : {{ invoice.issued_at|date:"Y/m/d" }}
+الجهة المشترِكة : {{ invoice.buyer_name|default:school.name }}
+حالة الاشتراك  : {{ subscription_status_label }}
+
+تفاصيل الباقة
+────────────────────────────────────
+الباقة        : {{ plan.name }}{% if plan.description %}
+الوصف         : {{ plan.description }}{% endif %}
+مدة الباقة     : {{ plan_duration_label }}{% if plan_duration_days %} ({{ plan_duration_days }} يوم){% endif %}
+حد الشاشات    : {{ plan_screens_label }}
+حد المستخدمين  : {{ plan_users_label }}
+سعر الباقة     : {{ plan_price_display }} {{ currency_label }}
+فترة الاشتراك  : {% if subscription.ends_at %}{{ subscription.starts_at|date:"Y-m-d" }} إلى {{ subscription.ends_at|date:"Y-m-d" }}{% if period_days %} ({{ period_days }} يومًا){% endif %}{% else %}تبدأ من {{ subscription.starts_at|date:"Y-m-d" }} — مفتوحة المدة{% endif %}
+{% if plan_features %}
+ما تشمله الباقة
+────────────────────────────────────
+{% for feature in plan_features %}• {{ feature }}
+{% endfor %}{% endif %}
+عرض الفاتورة وطباعتها:
 {{ invoice_url }}
 
-أرفقنا أيضًا نسخة HTML من الفاتورة مع هذه الرسالة.
+إدارة الاشتراك من لوحة التحكم:
+{{ subscription_url }}
 
-فريق لوحة العرض الذكية
+أرفقنا نسخة كاملة من الفاتورة مع هذه الرسالة للاحتفاظ بها في سجلاتكم.
+
+────────────────────────────────────
+{{ seller.name }}{% if seller.address %}
+{{ seller.address }}{% endif %}{% if seller.cr %}
+السجل التجاري: {{ seller.cr }}{% endif %}{% if seller.vat %}
+الرقم الضريبي: {{ seller.vat }}{% endif %}{% if seller.phone %}
+{{ seller.phone }}{% endif %}{% if seller.email %}
+{{ seller.email }}{% endif %}
+
+أُرسلت هذه الرسالة إلى {{ recipient }} لارتباطه بحساب هذه المدرسة.

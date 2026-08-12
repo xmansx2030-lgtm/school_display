@@ -295,11 +295,6 @@
      restore depth where that file flattened everything, and before extra_css so
      a page can still overrule it. {% endcomment %}
   <link rel="stylesheet" href="{% static 'css/dashboard-premium.css' %}?v=2026-08-09-p1">
-  {% comment %} Styles only the Tamara CTA uses, and it pulls a logo from tamara's CDN.
-     Load it where that button actually renders instead of on every page. {% endcomment %}
-  {% if tamara_available %}
-    <link rel="stylesheet" href="{% static 'css/tamara-checkout.css' %}?v=2026-08-02a">
-  {% endif %}
   {% block extra_css %}{% endblock %}
   {% block extra_head %}{% endblock %}
   <link rel="stylesheet" href="{% static 'css/mobile.css' %}?v=2026-08-05-m1">

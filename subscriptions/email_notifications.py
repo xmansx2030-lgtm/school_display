@@ -163,6 +163,102 @@ def _absolute_url(path: str) -> str:
     return f"{base}{path}"
 
 
+def _duration_label(days) -> str:
+    """Say «6 أشهر» where the plan says 182, and never round a lie.
+
+    A plan length is stored in days because that is what the billing maths
+    needs, but nobody buys "182 days". The month wording is only used when it
+    lands within a few days of the real length; anything else keeps the exact
+    day count rather than being rounded into a figure the customer could hold
+    us to.
+    """
+    try:
+        days = int(days or 0)
+    except (TypeError, ValueError):
+        days = 0
+    if days <= 0:
+        return "مفتوحة المدة"
+    if days >= 365 and days % 365 == 0:
+        years = days // 365
+        return "سنة كاملة" if years == 1 else f"{years} سنوات"
+    months = round(days / 30.44)
+    if months >= 1 and abs(days - months * 30.44) <= 5:
+        if months == 1:
+            return "شهر واحد"
+        if months == 2:
+            return "شهران"
+        if months <= 10:
+            return f"{months} أشهر"
+        return f"{months} شهرًا"
+    return f"{days} يومًا"
+
+
+def _arabic_count(count: int, one: str, two: str, few: str, many: str) -> str:
+    """«شاشة واحدة»، «شاشتان»، «3 شاشات»، «11 شاشة».
+
+    Arabic agrees the noun with the number in four forms, and getting it wrong
+    ("3 شاشة") reads as broken machine output on a document the customer keeps.
+    """
+    if count == 1:
+        return one
+    if count == 2:
+        return two
+    if 3 <= count % 100 <= 10:
+        return f"{count} {few}"
+    return f"{count} {many}"
+
+
+def _plan_features(plan) -> list[str]:
+    raw = str(getattr(plan, "card_features", "") or "")
+    return [line.strip() for line in raw.splitlines() if line.strip()]
+
+
+def _invoice_context(invoice: SubscriptionInvoice) -> dict:
+    """Everything the invoice email states about what was bought."""
+    from .invoicing import _get_school_contact_info, _get_seller_info
+
+    plan = invoice.plan
+    subscription = invoice.subscription
+    contact_name, _contact_mobile = _get_school_contact_info(
+        invoice.school,
+        preferred_user=getattr(invoice.operation, "created_by", None),
+    )
+
+    period_days = None
+    if subscription.starts_at and subscription.ends_at:
+        period_days = (subscription.ends_at - subscription.starts_at).days
+
+    max_screens = getattr(plan, "max_screens", None)
+    max_users = getattr(plan, "max_users", None)
+
+    return {
+        "seller": _get_seller_info(),
+        "contact_name": contact_name,
+        # Money is formatted here rather than in the template: Django localises
+        # a Decimal into the active locale, which renders 2150.00 as «2150,00»
+        # under Arabic — a decimal comma no Saudi invoice uses.
+        "amount_display": f"{invoice.amount:,.2f}",
+        "plan_price_display": f"{plan.price:,.2f}",
+        "currency_label": invoice.get_currency_display(),
+        "payment_method_label": invoice.get_payment_method_display(),
+        "plan_features": _plan_features(plan),
+        "plan_duration_label": _duration_label(getattr(plan, "duration_days", None)),
+        "plan_duration_days": getattr(plan, "duration_days", None),
+        "plan_screens_label": (
+            _arabic_count(int(max_screens), "شاشة واحدة", "شاشتان", "شاشات", "شاشة")
+            if max_screens
+            else "عدد غير محدود من الشاشات"
+        ),
+        "plan_users_label": (
+            _arabic_count(int(max_users), "مستخدم واحد", "مستخدمان", "مستخدمين", "مستخدمًا")
+            if max_users
+            else "عدد غير محدود من المستخدمين"
+        ),
+        "subscription_status_label": subscription.get_status_display(),
+        "period_days": period_days,
+    }
+
+
 def _verification_recipient_user(notification: SubscriptionEmailNotification):
     """The account whose address this verification message proves."""
     profile = (
@@ -194,6 +290,7 @@ def _build_message(notification: SubscriptionEmailNotification) -> EmailMultiAlt
                 "invoice_url": _absolute_url(
                     reverse("dashboard:subscription_invoice_view", kwargs={"pk": invoice.pk})
                 ),
+                **_invoice_context(invoice),
             }
         )
         subject = f"فاتورة اشتراك {invoice.invoice_number} | لوحة العرض الذكية"

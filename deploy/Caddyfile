@@ -11,10 +11,6 @@ school-display.com, www.school-display.com {
 	# them out of access logs prevents an always-on screen fleet from filling disk.
 	@low_value_access_logs path /api/display/status* /api/display/snapshot* /api/display/live* /api/display/today* /api/display/ping/ /static/*
 	log_skip @low_value_access_logs
-	# Tamara sends its signed notification token in the query string as well as
-	# the Authorization header; never persist that credential in access logs.
-	@tamara_webhook path /subscriptions/tamara/webhook/*
-	log_skip @tamara_webhook
 
 	handle_path /static/* {
 		root * /srv/static

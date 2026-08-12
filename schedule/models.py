@@ -152,10 +152,6 @@ class SchoolSettings(models.Model):
         validators=[MinValueValidator(5), MaxValueValidator(60)],
         help_text="يرسل النظام تنبيهًا إذا لم تتصل الشاشة خلال هذه المدة.",
     )
-    screen_offline_email_enabled = models.BooleanField(
-        "إرسال تنبيه التعطل بالبريد",
-        default=True,
-    )
     screen_offline_school_hours_only = models.BooleanField(
         "التنبيه أثناء الدوام فقط",
         default=True,

@@ -365,28 +365,6 @@
       </div>
       {% endif %}
 
-      {% if tamara_available %}
-      <div class="rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 via-white to-white p-5 shadow-sm">
-        <div class="flex items-start gap-4">
-          <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#ff5a78] text-xl font-black text-white shadow-sm">t</div>
-          <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-2">
-              <p class="font-black text-slate-900">الدفع الإلكتروني عبر تمارا</p>
-              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black text-emerald-800">الأسرع</span>
-              {% if tamara_environment == "sandbox" %}
-              <span class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black text-amber-800">بيئة تجريبية</span>
-              {% endif %}
-            </div>
-            <p class="mt-2 text-xs leading-6 text-slate-600">تنتقل إلى صفحة تمارا الآمنة، تتحقق من الجوال، ثم تختار خطة الدفع المتاحة لك. يتفعّل الاشتراك تلقائيًا بعد نجاح العملية.</p>
-          </div>
-        </div>
-        <ol class="mt-5 grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-slate-600" aria-label="خطوات الدفع عبر تمارا">
-          <li class="rounded-xl bg-white px-2 py-3 ring-1 ring-rose-100"><span class="mb-1 block text-base">1</span>راجع المبلغ</li>
-          <li class="rounded-xl bg-white px-2 py-3 ring-1 ring-rose-100"><span class="mb-1 block text-base">2</span>تحقق من الجوال</li>
-          <li class="rounded-xl bg-white px-2 py-3 ring-1 ring-rose-100"><span class="mb-1 block text-base">3</span>تفعيل تلقائي</li>
-        </ol>
-      </div>
-      {% endif %}
 
       <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div class="mb-4 flex items-center justify-between gap-3 px-1">
@@ -521,7 +499,7 @@
             <section
               class="payment-hub"
               data-payment-hub="renewal"
-              data-default-method="{% if renew_form.receipt_image.errors or renew_form.transfer_note.errors %}bank{% elif moyasar_available %}moyasar{% elif tamara_available %}tamara{% else %}bank{% endif %}"
+              data-default-method="{% if renew_form.receipt_image.errors or renew_form.transfer_note.errors %}bank{% elif moyasar_available %}moyasar{% else %}bank{% endif %}"
             >
               <div class="mb-4">
                 <h4 class="font-black text-slate-900">كيف تفضّل الدفع؟</h4>
@@ -554,38 +532,6 @@
             </div>
             {% endif %}
 
-            {% if tamara_available and renewal_plan_details.price %}
-            <div class="tamara-checkout-card rounded-2xl border border-rose-200 bg-rose-50/50 p-5" data-payment-panel="renewal" data-payment-method="tamara">
-              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div class="flex items-center gap-2">
-                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ff5a78] font-black text-white">t</span>
-                    <div>
-                      <p class="font-black text-slate-900">ادفع بأمان عبر تمارا</p>
-                      <p class="mt-0.5 text-xs text-slate-500">التفعيل تلقائي بعد تأكيد الدفع</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="rounded-xl bg-white px-4 py-3 text-center ring-1 ring-rose-100">
-                  <p class="text-[10px] font-bold text-slate-500">إجمالي الخطة</p>
-                  <p class="mt-1 text-lg font-black text-slate-900">{{ renewal_plan_details.price }} <span class="text-xs">ر.س</span></p>
-                </div>
-              </div>
-              <p class="mt-4 rounded-xl bg-white px-4 py-3 text-xs leading-6 text-slate-600 ring-1 ring-rose-100">
-                مثال تقريبي عند توفر 4 دفعات: <strong data-tamara-installment data-amount="{{ renewal_plan_details.price }}">—</strong> ر.س للدفعة. تعرض تمارا الخيارات النهائية حسب الأهلية.
-              </p>
-              <form method="post" action="{% url 'subscriptions:tamara_start' %}" class="mt-4" data-tamara-form data-plan-name="{{ renewal_plan_details.name }}" data-plan-amount="{{ renewal_plan_details.price }}" data-request-label="تجديد الاشتراك">
-                {% csrf_token %}
-                <input type="hidden" name="request_type" value="renewal">
-                <input type="hidden" name="plan_id" value="{{ renewal_plan_details.id }}">
-                <button type="submit" class="tamara-pay-button w-full rounded-xl px-5 py-4 font-black text-white shadow-sm transition active:scale-[.99]">
-                  <span>متابعة الدفع عبر تمارا</span>
-                  <span aria-hidden="true">←</span>
-                </button>
-              </form>
-              <p class="mt-3 text-center text-[11px] leading-5 text-slate-500">لن يتم الخصم من هذه الصفحة؛ ستراجع العملية وتكملها داخل تمارا.</p>
-            </div>
-            {% endif %}
 
             <details class="bank-transfer-details rounded-2xl border border-slate-200 bg-slate-50" data-payment-panel="renewal" data-payment-method="bank" open>
               <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-black text-slate-800">
@@ -808,7 +754,7 @@
           id="new-payment-hub"
           class="payment-hub hidden"
           data-payment-hub="new"
-          data-default-method="{% if new_form.receipt_image.errors or new_form.transfer_note.errors %}bank{% elif moyasar_available %}moyasar{% elif tamara_available %}tamara{% else %}bank{% endif %}"
+          data-default-method="{% if new_form.receipt_image.errors or new_form.transfer_note.errors %}bank{% elif moyasar_available %}moyasar{% else %}bank{% endif %}"
         >
           <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -849,36 +795,6 @@
         </div>
         {% endif %}
 
-        {% if tamara_available %}
-        <div id="tamara-new-card" class="tamara-checkout-card rounded-2xl border border-rose-200 bg-rose-50/50 p-5" data-payment-panel="new" data-payment-method="tamara">
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div class="flex items-center gap-3">
-              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ff5a78] font-black text-white">t</span>
-              <div>
-                <p class="font-black text-slate-900">الدفع الإلكتروني عبر تمارا</p>
-                <p id="tamara-plan-copy" class="mt-1 text-xs text-slate-500">اختر باقة مدفوعة للمتابعة</p>
-              </div>
-            </div>
-            <div class="rounded-xl bg-white px-4 py-3 text-center ring-1 ring-rose-100">
-              <p class="text-[10px] font-bold text-slate-500">الإجمالي</p>
-              <p class="mt-1 text-lg font-black text-slate-900"><span id="tamara-total">—</span> <span class="text-xs">ر.س</span></p>
-            </div>
-          </div>
-          <p class="mt-4 rounded-xl bg-white px-4 py-3 text-xs leading-6 text-slate-600 ring-1 ring-rose-100">
-            مثال تقريبي عند توفر 4 دفعات: <strong id="tamara-installment">—</strong> ر.س للدفعة. تعرض تمارا الخيارات النهائية حسب الأهلية.
-          </p>
-          <form method="post" action="{% url 'subscriptions:tamara_start' %}" id="tamara-new-form" class="mt-4" data-tamara-form data-plan-name="" data-plan-amount="" data-request-label="اشتراك جديد">
-            {% csrf_token %}
-            <input type="hidden" name="request_type" value="new">
-            <input type="hidden" name="plan_id" id="tamara-plan-id" value="">
-            <button type="submit" id="tamara-new-submit" class="tamara-pay-button w-full rounded-xl px-5 py-4 font-black text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 active:scale-[.99]" disabled>
-              <span>متابعة الدفع عبر تمارا</span>
-              <span aria-hidden="true">←</span>
-            </button>
-          </form>
-          <p class="mt-3 text-center text-[11px] leading-5 text-slate-500">لن يتم الخصم من هذه الصفحة؛ ستراجع العملية وتكملها داخل تمارا.</p>
-        </div>
-        {% endif %}
 
         <div id="free-plan-card" class="mb-6 hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
           <div class="flex items-start gap-3">
@@ -937,66 +853,6 @@
     </div>
   </div>
 
-  {% if tamara_available and tamara_checkouts %}
-  <details
-    class="tamara-history-details dashboard-section-card mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-    data-tamara-history
-    data-default-expanded="{% if tamara_history_expanded %}true{% else %}false{% endif %}"
-    {% if tamara_history_expanded %}open{% endif %}
-  >
-    <summary class="flex cursor-pointer list-none flex-col gap-3 bg-rose-50/50 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ff5a78] font-black text-white">t</span>
-          <div>
-            <h4 class="font-black text-slate-800">سجل مدفوعات تمارا</h4>
-            <p class="mt-1 text-xs text-slate-500">اعرض المحاولات السابقة أو أكمل العملية المعلّقة.</p>
-          </div>
-        </div>
-      </div>
-      <span class="inline-flex items-center gap-2 text-xs font-bold text-slate-500">
-        آخر {{ tamara_checkouts|length }} عمليات
-        <span class="details-chevron text-base text-slate-400" aria-hidden="true">⌄</span>
-      </span>
-    </summary>
-    <div class="divide-y divide-slate-100 border-t border-slate-100">
-      {% for checkout in tamara_checkouts %}
-      <div class="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-        <div class="min-w-0 flex-1">
-          <div class="flex flex-wrap items-center gap-2">
-            <p class="font-bold text-slate-800">{{ checkout.plan.name }}</p>
-            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{{ checkout.get_request_type_display }}</span>
-          </div>
-          <p class="mt-1 text-xs text-slate-500">{{ checkout.created_at|date:"Y-m-d H:i" }} · مرجع <span dir="ltr">#{{ checkout.merchant_reference|slice:"-8:" }}</span></p>
-          {% if checkout.error_message and checkout.status == 'error' %}
-          <p class="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700">{{ checkout.error_message }}</p>
-          {% elif checkout.status == 'declined' %}
-          <p class="mt-2 text-xs leading-5 text-rose-700">لم توافق تمارا على هذه العملية حاليًا. يمكنك إعادة المحاولة أو اختيار التحويل البنكي.</p>
-          {% elif checkout.status == 'canceled' %}
-          <p class="mt-2 text-xs leading-5 text-slate-600">أُغلقت صفحة الدفع قبل الإكمال، ولم يتم خصم أي مبلغ.</p>
-          {% elif checkout.status == 'expired' %}
-          <p class="mt-2 text-xs leading-5 text-slate-600">انتهت صلاحية جلسة الدفع القديمة. ابدأ محاولة جديدة للمتابعة.</p>
-          {% endif %}
-        </div>
-        <div class="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-          <p class="font-black text-slate-800">{{ checkout.amount }} ر.س</p>
-          <span class="mt-1 inline-flex rounded-full px-2.5 py-1 text-[11px] font-black {% if checkout.status == 'authorised' or checkout.status == 'captured' %}bg-emerald-100 text-emerald-800{% elif checkout.status == 'declined' or checkout.status == 'canceled' or checkout.status == 'expired' or checkout.status == 'error' %}bg-rose-100 text-rose-800{% else %}bg-amber-100 text-amber-800{% endif %}">{{ checkout.get_status_display }}</span>
-          {% if checkout.status == 'new' and checkout.checkout_url %}
-          <a href="{{ checkout.checkout_url }}" class="rounded-lg bg-[#ff5a78] px-3 py-2 text-xs font-black text-white transition hover:bg-[#ed4565]">متابعة الدفع</a>
-          {% elif checkout.status == 'declined' or checkout.status == 'canceled' or checkout.status == 'expired' or checkout.status == 'error' %}
-          <form method="post" action="{% url 'subscriptions:tamara_start' %}" data-tamara-form data-plan-name="{{ checkout.plan.name }}" data-plan-amount="{{ checkout.amount }}" data-request-label="{{ checkout.get_request_type_display }}">
-            {% csrf_token %}
-            <input type="hidden" name="request_type" value="{{ checkout.request_type }}">
-            <input type="hidden" name="plan_id" value="{{ checkout.plan_id }}">
-            <button type="submit" class="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-black text-rose-700 transition hover:bg-rose-50">إعادة المحاولة</button>
-          </form>
-          {% endif %}
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  </details>
-  {% endif %}
 
   {% if moyasar_checkouts %}
   <div class="dashboard-section-card mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -1040,51 +896,6 @@
   </div>
   {% endif %}
 
-  {% if tamara_available %}
-  <div id="tamara-confirm-modal" class="tamara-modal hidden" role="dialog" aria-modal="true" aria-labelledby="tamara-confirm-title" aria-describedby="tamara-confirm-description">
-    <button type="button" class="tamara-modal-backdrop" data-tamara-close aria-label="إغلاق نافذة مراجعة الدفع"></button>
-    <div class="tamara-modal-card" role="document">
-      <span class="tamara-modal-handle" aria-hidden="true"></span>
-      <header class="tamara-modal-header">
-        <div class="flex items-center gap-3">
-          <span class="tamara-modal-brand">t</span>
-          <div>
-            <p class="text-xs font-bold text-rose-600">مراجعة قبل الانتقال</p>
-            <h3 id="tamara-confirm-title" class="mt-1 text-2xl font-black text-slate-900">تأكيد بيانات الدفع</h3>
-          </div>
-        </div>
-        <button type="button" class="tamara-modal-close" data-tamara-close aria-label="إغلاق">✕</button>
-      </header>
-
-      <div class="tamara-modal-body" tabindex="0">
-        <div class="tamara-modal-security">
-          <span class="tamara-modal-security-icon" aria-hidden="true">✓</span>
-          <p id="tamara-confirm-description" class="text-sm leading-7 text-slate-600">راجع الخطة والمبلغ. ستنتقل بعد المتابعة إلى تمارا للتحقق من رقم الجوال واختيار طريقة الدفع المتاحة.</p>
-        </div>
-        <dl class="tamara-modal-summary mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-          <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3">
-            <dt class="text-xs font-bold text-slate-500">نوع الطلب</dt>
-            <dd id="tamara-confirm-request" class="text-sm font-black text-slate-800">—</dd>
-          </div>
-          <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3">
-            <dt class="text-xs font-bold text-slate-500">الخطة</dt>
-            <dd id="tamara-confirm-plan" class="text-sm font-black text-slate-800">—</dd>
-          </div>
-          <div class="flex items-center justify-between gap-4 px-4 py-3">
-            <dt class="text-xs font-bold text-slate-500">الإجمالي</dt>
-            <dd class="text-xl font-black text-slate-900"><span id="tamara-confirm-amount">—</span> ر.س</dd>
-          </div>
-        </dl>
-        <p class="tamara-modal-notice mt-4 rounded-2xl px-4 py-3 text-xs leading-6">الدفعات والرسوم وخيارات الأهلية النهائية تحددها تمارا وتظهر لك قبل إكمال العملية.</p>
-      </div>
-
-      <footer class="tamara-modal-actions">
-        <button type="button" id="tamara-confirm-submit" class="tamara-pay-button rounded-xl px-5 py-3.5 font-black text-white">المتابعة إلى تمارا</button>
-        <button type="button" class="tamara-modal-back rounded-xl border border-slate-200 bg-white px-5 py-3.5 font-black text-slate-700 transition hover:bg-slate-50" data-tamara-close>رجوع</button>
-      </footer>
-    </div>
-  </div>
-  {% endif %}
 
 
   {# --- سجل الطلبات (History Table) --- #}
@@ -1197,11 +1008,6 @@
       }
     }
 
-    document.querySelectorAll('[data-tamara-installment]').forEach(function (el) {
-      var amount = Number(el.getAttribute('data-amount') || 0);
-      el.textContent = amount > 0 ? formatMoney(amount / 4) : '—';
-    });
-
     // --- Unified payment method selector ---
     function activatePaymentMethod(hub, method) {
       if (!hub) return;
@@ -1259,13 +1065,6 @@
         button.classList.toggle('shadow-md', isSelected);
       });
 
-      var tamaraPlan = document.getElementById('tamara-plan-id');
-      var tamaraSubmit = document.getElementById('tamara-new-submit');
-      var tamaraForm = document.getElementById('tamara-new-form');
-      var tamaraCard = document.getElementById('tamara-new-card');
-      var tamaraCopy = document.getElementById('tamara-plan-copy');
-      var tamaraTotal = document.getElementById('tamara-total');
-      var tamaraInstallment = document.getElementById('tamara-installment');
       var moyasarPlan = document.getElementById('moyasar-plan-id');
       var moyasarSubmit = document.getElementById('moyasar-new-submit');
       var moyasarCard = document.getElementById('moyasar-new-card');
@@ -1279,13 +1078,10 @@
       var paymentPrompt = document.getElementById('payment-plan-prompt');
       var paymentHubTotal = document.getElementById('payment-hub-total');
       var paidAmount = d ? Number(d.price || 0) : 0;
-      if (tamaraPlan) tamaraPlan.value = planId || '';
       if (moyasarPlan) moyasarPlan.value = planId || '';
       if (bankPlan) bankPlan.value = planId || '';
       if (freePlan) freePlan.value = planId || '';
-      if (tamaraSubmit) tamaraSubmit.disabled = !planId || !d || paidAmount <= 0;
       if (moyasarSubmit) moyasarSubmit.disabled = !planId || !d || paidAmount <= 0;
-      if (tamaraCard) tamaraCard.classList.toggle('hidden', !!d && paidAmount <= 0);
       if (moyasarCard) moyasarCard.classList.toggle('hidden', !!d && paidAmount <= 0);
       if (freeCard) freeCard.classList.toggle('hidden', !d || paidAmount > 0);
       if (bankDetails) bankDetails.classList.toggle('hidden', !!d && paidAmount <= 0);
@@ -1296,13 +1092,6 @@
       }
       if (paymentPrompt) paymentPrompt.classList.toggle('hidden', !!d);
       if (paymentHubTotal) paymentHubTotal.textContent = d ? formatMoney(paidAmount) : '—';
-      if (tamaraForm) {
-        tamaraForm.setAttribute('data-plan-name', d && d.name ? String(d.name) : '');
-        tamaraForm.setAttribute('data-plan-amount', paidAmount > 0 ? String(paidAmount) : '');
-      }
-      if (tamaraCopy) tamaraCopy.textContent = d && d.name ? String(d.name) : 'اختر باقة مدفوعة للمتابعة';
-      if (tamaraTotal) tamaraTotal.textContent = paidAmount > 0 ? formatMoney(paidAmount) : '—';
-      if (tamaraInstallment) tamaraInstallment.textContent = paidAmount > 0 ? formatMoney(paidAmount / 4) : '—';
       if (moyasarCopy) moyasarCopy.textContent = d && d.name ? String(d.name) : 'اختر باقة مدفوعة للمتابعة';
       if (moyasarTotal) moyasarTotal.textContent = paidAmount > 0 ? formatMoney(paidAmount) : '—';
       if (paymentHub && d && paidAmount > 0) {
@@ -1537,88 +1326,6 @@
 
     // Initialize Tab
     setActiveTab('{% if active_request_tab == "new" %}new{% else %}renewal{% endif %}');
-
-    {% comment %} Tamara is hidden, so its modal markup is never rendered and this
-       controller would only bind to elements that do not exist. {% endcomment %}
-    {% if tamara_available %}
-    // --- Review step before creating a Tamara checkout session ---
-    var tamaraModal = document.getElementById('tamara-confirm-modal');
-    var tamaraConfirmButton = document.getElementById('tamara-confirm-submit');
-    var tamaraModalBody = tamaraModal ? tamaraModal.querySelector('.tamara-modal-body') : null;
-    var pendingTamaraForm = null;
-    var lastTamaraTrigger = null;
-
-    // Animated dashboard containers keep a transform after entering, which
-    // turns fixed descendants into content-relative overlays. Move the dialog
-    // to body so its bounds always follow the visible viewport.
-    if (tamaraModal && tamaraModal.parentElement !== document.body) {
-      document.body.appendChild(tamaraModal);
-    }
-
-    function closeTamaraModal() {
-      if (!tamaraModal) return;
-      tamaraModal.classList.add('hidden');
-      document.body.classList.remove('tamara-modal-open');
-      pendingTamaraForm = null;
-      if (lastTamaraTrigger && typeof lastTamaraTrigger.focus === 'function') {
-        lastTamaraTrigger.focus();
-      }
-    }
-
-    function openTamaraModal(form, trigger) {
-      if (!tamaraModal) return;
-      pendingTamaraForm = form;
-      lastTamaraTrigger = trigger || null;
-      var planName = form.getAttribute('data-plan-name') || 'الخطة المحددة';
-      var amount = Number(form.getAttribute('data-plan-amount') || 0);
-      var requestLabel = form.getAttribute('data-request-label') || 'دفع الاشتراك';
-      var planEl = document.getElementById('tamara-confirm-plan');
-      var amountEl = document.getElementById('tamara-confirm-amount');
-      var requestEl = document.getElementById('tamara-confirm-request');
-      if (planEl) planEl.textContent = planName;
-      if (amountEl) amountEl.textContent = formatMoney(amount);
-      if (requestEl) requestEl.textContent = requestLabel;
-      tamaraModal.classList.remove('hidden');
-      document.body.classList.add('tamara-modal-open');
-      if (tamaraModalBody) tamaraModalBody.scrollTop = 0;
-      if (tamaraConfirmButton) {
-        tamaraConfirmButton.disabled = false;
-        tamaraConfirmButton.textContent = 'المتابعة إلى تمارا';
-        tamaraConfirmButton.focus();
-      }
-    }
-
-    document.querySelectorAll('[data-tamara-form]').forEach(function (form) {
-      form.addEventListener('submit', function (event) {
-        if (!tamaraModal) return;
-        event.preventDefault();
-        var trigger = event.submitter || form.querySelector('button[type="submit"]');
-        openTamaraModal(form, trigger);
-      });
-    });
-
-    document.querySelectorAll('[data-tamara-close]').forEach(function (button) {
-      button.addEventListener('click', closeTamaraModal);
-    });
-
-    if (tamaraConfirmButton) {
-      tamaraConfirmButton.addEventListener('click', function () {
-        if (!pendingTamaraForm) return;
-        var form = pendingTamaraForm;
-        tamaraConfirmButton.disabled = true;
-        tamaraConfirmButton.textContent = 'جاري الانتقال الآمن...';
-        window.setTimeout(function () {
-          HTMLFormElement.prototype.submit.call(form);
-        }, 80);
-      });
-    }
-
-    document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape' && tamaraModal && !tamaraModal.classList.contains('hidden')) {
-        closeTamaraModal();
-      }
-    });
-    {% endif %}
   })();
 
   // --- Copy Clipboard Tool ---
@@ -2056,7 +1763,6 @@
     font-weight: 900;
   }
   .payment-method-logo-moyasar { background: #0f172a; }
-  .payment-method-logo-tamara { background: #ff5a78; }
   .payment-method-logo-bank { background: #059669; }
   .payment-method-status {
     position: absolute;
@@ -2080,183 +1786,10 @@
     padding: 1rem;
     box-shadow: 0 14px 30px rgba(15, 23, 42, .13);
   }
-  .tamara-pay-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: .65rem;
-    min-height: 3.35rem;
-    background: linear-gradient(135deg, #ff5a78 0%, #ed4565 100%);
-    color: #fff;
-    box-shadow: 0 10px 25px rgba(237, 69, 101, .18);
-  }
-  .tamara-pay-button:hover:not(:disabled) {
-    background: linear-gradient(135deg, #f64d6d 0%, #dc3659 100%);
-    box-shadow: 0 13px 30px rgba(237, 69, 101, .24);
-    transform: translateY(-1px);
-  }
-  .tamara-pay-button:focus-visible,
-  [data-tamara-close]:focus-visible,
-  .bank-transfer-details summary:focus-visible,
-  .tamara-history-details summary:focus-visible {
-    outline: 3px solid rgba(244, 63, 94, .28);
-    outline-offset: 3px;
-  }
   .bank-transfer-details summary::-webkit-details-marker,
-  .tamara-history-details summary::-webkit-details-marker {
-    display: none;
-  }
   .bank-transfer-details[open] .details-chevron,
-  .tamara-history-details[open] .details-chevron {
-    transform: rotate(180deg);
-  }
   .details-chevron {
     transition: transform .2s ease;
-  }
-  body.dashboard-shell > .tamara-modal {
-    position: fixed !important;
-    inset: 0 !important;
-    z-index: 80;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: clamp(.75rem, 2vw, 1.5rem);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-  body.dashboard-shell > .tamara-modal.hidden {
-    display: none !important;
-  }
-  .tamara-modal-backdrop {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
-    background: rgba(15, 23, 42, .68);
-    backdrop-filter: blur(7px);
-  }
-  .tamara-modal-card {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    width: min(38rem, 100%);
-    max-height: calc(100vh - 2rem);
-    max-height: calc(100dvh - 2rem);
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, .7);
-    border-radius: 1.75rem;
-    background: #fff;
-    box-shadow: 0 36px 100px rgba(15, 23, 42, .38), 0 4px 16px rgba(15, 23, 42, .12);
-    animation: tamaraModalIn .18s ease-out;
-  }
-  .tamara-modal-handle {
-    display: none;
-  }
-  .tamara-modal-header {
-    flex: none;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 1.35rem 1.5rem 1.2rem;
-    border-bottom: 1px solid rgba(244, 63, 94, .1);
-    background: linear-gradient(135deg, rgba(255, 241, 242, .96), #fff 72%);
-  }
-  .tamara-modal-brand {
-    display: flex;
-    width: 3rem;
-    height: 3rem;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    border-radius: 1rem;
-    background: linear-gradient(145deg, #ff6b87, #f43f5e);
-    color: #fff;
-    font-size: 1.15rem;
-    font-weight: 900;
-    box-shadow: 0 10px 24px rgba(244, 63, 94, .24);
-  }
-  .tamara-modal-close {
-    display: inline-flex;
-    width: 2.4rem;
-    height: 2.4rem;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    border-radius: .85rem;
-    color: #94a3b8;
-    transition: background .18s ease, color .18s ease, transform .18s ease;
-  }
-  .tamara-modal-close:hover {
-    background: rgba(244, 63, 94, .08);
-    color: #e11d48;
-    transform: rotate(4deg);
-  }
-  .tamara-modal-body {
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
-    padding: 1.25rem 1.5rem;
-    outline: none;
-  }
-  .tamara-modal-body::-webkit-scrollbar {
-    width: 5px;
-  }
-  .tamara-modal-body::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: rgba(244, 63, 94, .26);
-  }
-  .tamara-modal-security {
-    display: flex;
-    align-items: flex-start;
-    gap: .75rem;
-  }
-  .tamara-modal-security-icon {
-    display: inline-flex;
-    width: 1.8rem;
-    height: 1.8rem;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    margin-top: .15rem;
-    border-radius: 999px;
-    background: #dcfce7;
-    color: #047857;
-    font-size: .8rem;
-    font-weight: 900;
-  }
-  .tamara-modal-summary {
-    background: linear-gradient(180deg, #fff, #f8fafc) !important;
-    box-shadow: 0 8px 28px rgba(15, 23, 42, .055) !important;
-  }
-  .tamara-modal-notice {
-    border: 1px solid rgba(245, 158, 11, .16);
-    background: linear-gradient(135deg, #fffbeb, #fff7ed) !important;
-    color: #92400e;
-  }
-  .tamara-modal-actions {
-    flex: none;
-    display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-    gap: .75rem;
-    padding: 1rem 1.5rem 1.25rem;
-    border-top: 1px solid rgba(148, 163, 184, .16);
-    background: rgba(255, 255, 255, .96);
-    box-shadow: 0 -14px 32px rgba(15, 23, 42, .06);
-    backdrop-filter: blur(12px);
-  }
-  .tamara-modal-back {
-    min-height: 3.25rem;
-  }
-  .tamara-modal-open {
-    overflow: hidden;
-  }
-  @keyframes tamaraModalIn {
-    from { opacity: 0; transform: translateY(12px) scale(.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
   }
   @media (max-width: 640px) {
     .school-plan-builder { padding: .85rem; border-radius: 1.15rem; }
@@ -2271,43 +1804,6 @@
     .plan-price-filters { grid-column: 1; }
     .payment-method-selector { grid-template-columns: 1fr; }
     .payment-method-choice { min-height: 4.8rem; }
-    .tamara-modal {
-      align-items: flex-end;
-      padding: 0;
-    }
-    .tamara-modal-card {
-      width: 100%;
-      max-height: 94vh;
-      max-height: 94dvh;
-      border-radius: 1.75rem 1.75rem 0 0;
-    }
-    .tamara-modal-handle {
-      display: block;
-      width: 3rem;
-      height: .3rem;
-      flex: 0 0 auto;
-      margin: .65rem auto .1rem;
-      border-radius: 999px;
-      background: #cbd5e1;
-    }
-    .tamara-modal-header {
-      padding: 1rem 1.1rem .9rem;
-    }
-    .tamara-modal-body {
-      padding: 1rem 1.1rem;
-    }
-    .tamara-modal-actions {
-      grid-template-columns: 1fr;
-      padding: .85rem 1.1rem max(1rem, env(safe-area-inset-bottom));
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .tamara-modal-card,
-    .tamara-pay-button,
-    .details-chevron {
-      animation: none;
-      transition: none;
-    }
   }
 </style>
 {% endblock %}

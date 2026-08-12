@@ -1,8 +1,20 @@
+import uuid
+
 import django.db.models.deletion
-import subscriptions.models
 from django.conf import settings
 from django.db import migrations, models
 import django.utils.timezone
+
+
+def _tamara_reference() -> str:
+    """Kept local to this migration.
+
+    Tamara was removed from the project in 0021 along with this helper's home in
+    ``subscriptions.models``. Historical migrations still have to import, so the
+    callable lives here now — it is only ever referenced while replaying the
+    creation of a table that a later migration drops.
+    """
+    return f"SD-{uuid.uuid4().hex}"
 
 
 class Migration(migrations.Migration):
@@ -17,7 +29,7 @@ class Migration(migrations.Migration):
             name="TamaraCheckout",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("merchant_reference", models.CharField(default=subscriptions.models._tamara_reference, editable=False, max_length=40, unique=True, verbose_name="مرجع التاجر")),
+                ("merchant_reference", models.CharField(default=_tamara_reference, editable=False, max_length=40, unique=True, verbose_name="مرجع التاجر")),
                 ("tamara_order_id", models.CharField(blank=True, max_length=80, null=True, unique=True, verbose_name="رقم طلب تمارا")),
                 ("checkout_id", models.CharField(blank=True, default="", max_length=80, verbose_name="رقم جلسة الدفع")),
                 ("checkout_url", models.URLField(blank=True, default="", max_length=2048, verbose_name="رابط الدفع")),

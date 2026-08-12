@@ -9,13 +9,14 @@ Three gates stand between a silent screen and a message:
    cooldown, and stay under a daily cap before anything is sent. Screens that
    fail together are merged into one school-level message, and a fault that
    spans many schools is reported once as a platform incident instead of a
-   storm of per-screen mail.
+   storm of per-screen messages.
 3. **Why did it happen?** Every alert carries a named cause from
    :mod:`core.screen_diagnostics`, so the reader knows whether to check the
    router, the television, or nothing at all.
 
-Recovery is announced too: an outage that closes tells the school how long the
-screen was dark.
+Every message goes to the platform administrator over Telegram — schools are
+never mailed about screen faults. Recovery is announced the same way: an outage
+that closes reports how long the screen was dark.
 """
 from __future__ import annotations
 
@@ -25,12 +26,9 @@ from decimal import Decimal
 from html import escape
 
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
 from django.db.models import Q
-from django.template.loader import render_to_string
 from django.utils import timezone
 
 from core.display_presence import presence_map
@@ -51,8 +49,6 @@ from schedule.models import SchoolSettings
 from schedule.wake_broadcaster import cached_active_window_for_today
 from telegram_alerts.services import queue_alert
 
-
-User = get_user_model()
 
 # An outage must still be open on the next scan before anyone hears about it.
 # The worker runs every 60s, so this always costs two observations.
@@ -141,15 +137,6 @@ def _site_base_url() -> str:
 def _screens_dashboard_url() -> str:
     base = _site_base_url()
     return f"{base}/dashboard/screens/" if base else "/dashboard/screens/"
-
-
-def _manager_emails(school) -> list[str]:
-    return list(
-        User.objects.filter(profile__schools=school, is_active=True)
-        .exclude(email="")
-        .values_list("email", flat=True)
-        .distinct()
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -241,8 +228,8 @@ def _rate_suppression(school_settings, screen, now) -> str:
     """Throttle repeat alerts for one screen.
 
     Both limits read the outage log rather than a cache counter: a Redis restart
-    must not turn into a fresh burst of mail for a screen that has been flapping
-    all morning.
+    must not turn into a fresh burst of alerts for a screen that has been
+    flapping all morning.
     """
     last_alert_at = (
         ScreenOutage.objects.filter(screen=screen, alert_sent_at__isnull=False)
@@ -265,64 +252,8 @@ def _rate_suppression(school_settings, screen, now) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Messages — email for school managers, Telegram for the system administrator
+# Messages — Telegram to the system administrator, and nowhere else
 # ---------------------------------------------------------------------------
-
-def _email_screen_rows(entries, *, now) -> list[dict]:
-    rows = []
-    for outage, state in entries:
-        rows.append(
-            {
-                "name": state.screen.name,
-                "last_seen": _fmt_dt(state.last_seen),
-                "duration": format_duration(now - (state.last_seen or outage.detected_at)),
-            }
-        )
-    return rows
-
-
-def _send_school_email(school, school_settings, *, subject, template, context) -> int:
-    if not getattr(school_settings, "screen_offline_email_enabled", True):
-        return 0
-    recipients = _manager_emails(school)
-    if not recipients:
-        return 0
-
-    text_body = render_to_string(f"emails/{template}.txt", context)
-    html_body = render_to_string(f"emails/{template}.html", context)
-    try:
-        message = EmailMultiAlternatives(
-            subject,
-            text_body,
-            getattr(settings, "DEFAULT_FROM_EMAIL", None),
-            recipients,
-        )
-        message.attach_alternative(html_body, "text/html")
-        message.send(fail_silently=True)
-    except Exception:
-        # Never let a mail failure stop the Telegram path or the scan itself.
-        return 0
-    return len(recipients)
-
-
-def _outage_email_context(school, entries, *, cause, detail, confidence, now):
-    presentation = cause_presentation(cause)
-    rows = _email_screen_rows(entries, now=now)
-    return {
-        "school": school,
-        "screens": rows,
-        "screen_count": len(rows),
-        "is_multiple": len(rows) > 1,
-        "cause_icon": presentation["icon"],
-        "cause_title": presentation["title"],
-        "cause_note": presentation["school_note"],
-        "cause_hints": presentation["hints"],
-        "cause_detail": detail,
-        "is_confirmed": confidence == CONFIDENCE_CONFIRMED,
-        "detected_at": _fmt_dt(now),
-        "dashboard_url": _screens_dashboard_url(),
-    }
-
 
 def _telegram_outage_message(school, entries, *, cause, detail, confidence, scope, now) -> str:
     presentation = cause_presentation(cause)
@@ -357,21 +288,7 @@ def _telegram_outage_message(school, entries, *, cause, detail, confidence, scop
     return "\n".join(lines)
 
 
-def _send_outage_alert(school, school_settings, entries, *, cause, detail, confidence, scope, now) -> None:
-    count = len(entries)
-    if count == 1:
-        subject = f"انقطاع شاشة «{entries[0][1].screen.name}» — {school.name}"
-    else:
-        subject = f"انقطاع {count} شاشات — {school.name}"
-
-    _send_school_email(
-        school,
-        school_settings,
-        subject=subject,
-        template="screen_offline",
-        context=_outage_email_context(school, entries, cause=cause, detail=detail, confidence=confidence, now=now),
-    )
-
+def _send_outage_alert(school, entries, *, cause, detail, confidence, scope, now) -> None:
     first_outage = entries[0][0]
     queue_alert(
         event_type="screen_offline",
@@ -384,7 +301,7 @@ def _send_outage_alert(school, school_settings, entries, *, cause, detail, confi
     )
 
 
-def _send_recovery_alert(school, school_settings, entries, *, now) -> None:
+def _send_recovery_alert(school, entries, *, now) -> None:
     count = len(entries)
     rows = []
     for outage, state in entries:
@@ -394,29 +311,8 @@ def _send_recovery_alert(school, school_settings, entries, *, now) -> None:
                 "name": state.screen.name,
                 "downtime": format_duration(downtime),
                 "back_at": _fmt_time(outage.resolved_at or now),
-                "cause_title": cause_presentation(outage.cause)["title"],
             }
         )
-
-    subject = (
-        f"عادت شاشة «{rows[0]['name']}» للعمل — {school.name}"
-        if count == 1
-        else f"عادت {count} شاشات للعمل — {school.name}"
-    )
-    _send_school_email(
-        school,
-        school_settings,
-        subject=subject,
-        template="screen_recovered",
-        context={
-            "school": school,
-            "screens": rows,
-            "screen_count": count,
-            "is_multiple": count > 1,
-            "restored_at": _fmt_dt(now),
-            "dashboard_url": _screens_dashboard_url(),
-        },
-    )
 
     header = "🟢 عادت الشاشة للعمل" if count == 1 else f"🟢 عادت {count} شاشات للعمل"
     lines = [f"<b>{header}</b>", "", f"🏫 المدرسة: <b>{escape(str(school.name), quote=False)}</b>"]
@@ -667,7 +563,7 @@ def scan_screens(*, now=None) -> dict:
                 pending.append((outage, state))
 
         if recoveries:
-            _send_recovery_alert(school, school_settings, recoveries, now=now)
+            _send_recovery_alert(school, recoveries, now=now)
             ScreenOutage.objects.filter(pk__in=[outage.pk for outage, _ in recoveries]).update(
                 recovery_notified_at=now
             )
@@ -676,7 +572,7 @@ def scan_screens(*, now=None) -> dict:
         if not pending:
             continue
 
-        alerted += _dispatch_pending(school, school_settings, bucket, pending, now=now)
+        alerted += _dispatch_pending(school, bucket, pending, now=now)
 
     return {
         "opened": opened,
@@ -714,7 +610,7 @@ def _claim(outage, *, now, cause, detail, scope) -> bool:
     return True
 
 
-def _dispatch_pending(school, school_settings, bucket, pending, *, now) -> int:
+def _dispatch_pending(school, bucket, pending, *, now) -> int:
     """Send one message per school when several screens fail together."""
     aggregate = len(pending) >= SCHOOL_AGGREGATE_MIN_SCREENS or (
         len(pending) >= 2 and len(pending) == bucket.monitored_count
@@ -759,7 +655,6 @@ def _dispatch_pending(school, school_settings, bucket, pending, *, now) -> int:
 
         _send_outage_alert(
             school,
-            school_settings,
             claimed,
             cause=cause,
             detail=detail,

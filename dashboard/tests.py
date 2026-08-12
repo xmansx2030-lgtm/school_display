@@ -48,10 +48,10 @@ from dashboard.access import get_active_school_or_redirect
 from dashboard.decorators import manager_required, superuser_required, system_staff_required
 from dashboard.forms import SubscriptionNewRequestForm
 from subscriptions.models import (
+    MoyasarCheckout,
     SchoolSubscription,
     SubscriptionRequest,
     SubscriptionScreenAddon,
-    TamaraCheckout,
 )
 from schedule.models import ClassLesson, DaySchedule, Period, SchoolClass, SchoolSettings, Subject, Teacher
 from notices.models import Announcement, EmergencyAlert
@@ -525,87 +525,6 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(screen_response, "المحتوى الظاهر في هذه الشاشة")
         self.assertContains(screen_response, "استخدام الإعداد العام")
         self.assertContains(screen_response, "كل التغييرات محفوظة")
-
-    @override_settings(
-        TAMARA_ENABLED=True,
-        TAMARA_API_TOKEN="test-token",
-        TAMARA_API_BASE_URL="https://api-sandbox.tamara.co",
-    )
-    def test_subscription_page_reviews_tamara_payment_before_redirect(self):
-        current_plan = SchoolSubscription.objects.get(school=self.school).plan
-        TamaraCheckout.objects.create(
-            school=self.school,
-            created_by=self.user,
-            plan=current_plan,
-            request_type="new",
-            amount=current_plan.price,
-            status="error",
-            error_message="تعذر الاتصال بتمارا حاليًا.",
-        )
-
-        response = self.client.get(reverse("dashboard:my_subscription"))
-
-        self.assertContains(response, "مراجعة قبل الانتقال")
-        self.assertContains(response, "لن يتم الخصم من هذه الصفحة")
-        self.assertContains(response, "data-tamara-form")
-        self.assertContains(response, "document.body.appendChild(tamaraModal)")
-        self.assertContains(response, "body.dashboard-shell > .tamara-modal")
-        self.assertContains(response, "position: fixed !important")
-        self.assertContains(response, "body.dashboard-shell > .tamara-modal.hidden")
-        self.assertContains(response, "display: none !important")
-        self.assertContains(response, "max-height: calc(100dvh - 2rem)")
-        self.assertContains(response, 'class="tamara-modal-body"')
-        self.assertContains(response, 'class="tamara-modal-actions"')
-        self.assertContains(response, "if (tamaraModalBody) tamaraModalBody.scrollTop = 0")
-        self.assertContains(response, "تعذر الاتصال بتمارا حاليًا.")
-        self.assertContains(response, "إعادة المحاولة")
-        self.assertContains(response, "التحويل البنكي بدلًا من ذلك")
-        self.assertContains(response, 'data-tamara-history')
-        self.assertContains(response, 'data-default-expanded="false"')
-
-    @override_settings(
-        TAMARA_ENABLED=True,
-        TAMARA_API_TOKEN="test-token",
-        TAMARA_API_BASE_URL="https://api-sandbox.tamara.co",
-    )
-    def test_tamara_history_expands_when_payment_can_be_continued(self):
-        current_plan = SchoolSubscription.objects.get(school=self.school).plan
-        TamaraCheckout.objects.create(
-            school=self.school,
-            created_by=self.user,
-            plan=current_plan,
-            request_type="renewal",
-            amount=current_plan.price,
-            status="new",
-            checkout_url="https://checkout.tamara.test/session",
-        )
-
-        response = self.client.get(reverse("dashboard:my_subscription"))
-
-        self.assertContains(response, 'data-default-expanded="true"')
-        self.assertContains(response, "متابعة الدفع")
-
-    @override_settings(TAMARA_ENABLED=False)
-    def test_disabled_tamara_is_hidden_even_with_existing_checkout(self):
-        current_plan = SchoolSubscription.objects.get(school=self.school).plan
-        checkout_url = "https://checkout.tamara.test/disabled-session"
-        TamaraCheckout.objects.create(
-            school=self.school,
-            created_by=self.user,
-            plan=current_plan,
-            request_type="renewal",
-            amount=current_plan.price,
-            status="new",
-            checkout_url=checkout_url,
-        )
-
-        response = self.client.get(reverse("dashboard:my_subscription"))
-
-        self.assertFalse(response.context["tamara_available"])
-        self.assertNotContains(response, 'data-payment-method="tamara"')
-        self.assertNotContains(response, 'data-tamara-history')
-        self.assertNotContains(response, checkout_url)
-        self.assertNotContains(response, reverse("subscriptions:tamara_start"))
 
     def test_free_plan_needs_no_receipt_but_paid_bank_transfer_does(self):
         free_plan = SubscriptionPlan.objects.create(
@@ -2131,7 +2050,7 @@ class SystemAdminConsoleRegressionTests(TestCase):
         self.assertTrue(get_user_model().objects.filter(pk=self.owner.pk).exists())
 
     def test_deleting_a_school_with_payment_records_deactivates_instead_of_crashing(self):
-        TamaraCheckout.objects.create(
+        MoyasarCheckout.objects.create(
             school=self.subscribed_school,
             plan=self.plan,
             request_type="new",

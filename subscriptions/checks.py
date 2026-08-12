@@ -24,7 +24,6 @@ def check_payment_configuration(app_configs, **kwargs):
         return issues
 
     moyasar_enabled = bool(getattr(settings, "MOYASAR_ENABLED", False))
-    tamara_enabled = bool(getattr(settings, "TAMARA_ENABLED", False))
 
     if moyasar_enabled:
         if not getattr(settings, "MOYASAR_LIVE_MODE", False):
@@ -65,7 +64,7 @@ def check_payment_configuration(app_configs, **kwargs):
                 )
             )
 
-    if (moyasar_enabled or tamara_enabled) and not getattr(settings, "TRANSACTIONAL_EMAIL_ENABLED", False):
+    if moyasar_enabled and not getattr(settings, "TRANSACTIONAL_EMAIL_ENABLED", False):
         issues.append(
             CheckWarning(
                 "A payment gateway is enabled but transactional email is off.",

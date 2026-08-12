@@ -101,7 +101,6 @@ class CspHeaderTests(TestCase):
         header = self._header(self.client.get("/"))
 
         self.assertIn("https://*.moyasar.com", header)
-        self.assertIn("https://*.tamara.co", header)
 
     def test_dangerous_sources_are_not_allowed_for_scripts(self):
         header = self._header(self.client.get("/"))

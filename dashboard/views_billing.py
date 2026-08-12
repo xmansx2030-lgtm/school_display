@@ -8,6 +8,10 @@ from __future__ import annotations
 
 from .view_helpers import *  # noqa: F401,F403  (shared view layer)
 
+# After the star import on purpose, so the shared view layer can never shadow
+# these with something else of the same name.
+from decimal import Decimal, InvalidOperation  # noqa: E402
+
 
 @system_permission_required("subscriptions.view")
 def system_subscriptions_list(request):
@@ -268,29 +272,49 @@ def system_subscription_create(request):
                 pass
             obj.save()
 
-            # سجل طريقة الدفع عند إنشاء اشتراك مدفوع يدويًا (لا تشمل الباقة المجانية)
+            # سجل طريقة الدفع عند إنشاء اشتراك مدفوع يدويًا (لا تشمل الباقة المجانية).
+            #
+            # عملية الدفع هي أول حلقة في سلسلة: عملية ← فاتورة (بإشارة post_save)
+            # ← إدراج الرسالة في طابور البريد ← إرسالها للعميل. لذلك لا يجوز أن
+            # يفشل إنشاؤها بصمت: النموذج يضمن وجود طريقة دفع لكل باقة مدفوعة،
+            # وأي فشل بعد ذلك يجب أن يراه المسؤول لا أن يُخفى خلف رسالة نجاح.
+            billing_failed = False
+            plan_obj = getattr(obj, "plan", None)
+            method = (form.cleaned_data.get("payment_method") or "").strip()
             try:
+                price = Decimal(str(getattr(plan_obj, "price", 0) or 0))
+            except (InvalidOperation, TypeError, ValueError):
+                price = Decimal("0")
+
+            if plan_obj is not None and method and price > 0:
                 from subscriptions.models import SubscriptionPaymentOperation
 
-                plan_obj = getattr(obj, "plan", None)
-                price = getattr(plan_obj, "price", 0) if plan_obj is not None else 0
-                method = (form.cleaned_data.get("payment_method") or "").strip()
+                try:
+                    SubscriptionPaymentOperation.objects.create(
+                        school=getattr(obj, "school", None),
+                        subscription=obj,
+                        plan=plan_obj,
+                        amount=price,
+                        method=method,
+                        source="admin_manual",
+                        created_by=request.user,
+                    )
+                except Exception:
+                    billing_failed = True
+                    logger.exception(
+                        "Failed to record the payment operation for subscription id=%s; "
+                        "no invoice will be issued or emailed until this is resolved.",
+                        getattr(obj, "id", None),
+                    )
 
-                if plan_obj is not None and float(price or 0) > 0:
-                    if method:
-                        SubscriptionPaymentOperation.objects.create(
-                            school=getattr(obj, "school", None),
-                            subscription=obj,
-                            plan=plan_obj,
-                            amount=price or 0,
-                            method=method,
-                            source="admin_manual",
-                            created_by=request.user,
-                        )
-            except Exception:
-                pass
-
-            messages.success(request, "تم إنشاء الاشتراك بنجاح.")
+            if billing_failed:
+                messages.warning(
+                    request,
+                    "تم إنشاء الاشتراك، لكن تعذّر تسجيل عملية الدفع فلم تُصدر الفاتورة "
+                    "ولم تُرسل للعميل. راجع سجل الأخطاء ثم أعد حفظ طريقة الدفع.",
+                )
+            else:
+                messages.success(request, "تم إنشاء الاشتراك بنجاح.")
             return redirect("dashboard:system_subscriptions_list")
         messages.error(request, "الرجاء تصحيح الأخطاء.")
     else:
@@ -1197,33 +1221,6 @@ def my_subscription(request):
     except Exception:
         subscription_history = []
 
-    tamara_checkouts = []
-    try:
-        from subscriptions.models import TamaraCheckout
-
-        tamara_checkouts = list(
-            TamaraCheckout.objects.filter(school=school, created_by=request.user)
-            .select_related("plan", "subscription", "payment_operation")
-            .order_by("-created_at", "-id")[:5]
-        )
-    except Exception:
-        tamara_checkouts = []
-
-    tamara_history_expanded = any(
-        checkout.status in {"initiated", "new", "approved", "authorised"}
-        for checkout in tamara_checkouts
-    )
-
-    tamara_available = bool(
-        getattr(dj_settings, "TAMARA_ENABLED", False)
-        and getattr(dj_settings, "TAMARA_API_TOKEN", "")
-    )
-    tamara_environment = (
-        "sandbox"
-        if "sandbox" in str(getattr(dj_settings, "TAMARA_API_BASE_URL", "")).lower()
-        else "production"
-    )
-
     moyasar_checkouts = []
     try:
         from subscriptions.models import MoyasarCheckout
@@ -1296,10 +1293,6 @@ def my_subscription(request):
             "new_form": new_form,
             "subscription_requests": subscription_requests,
             "subscription_history": subscription_history,
-            "tamara_checkouts": tamara_checkouts,
-            "tamara_history_expanded": tamara_history_expanded,
-            "tamara_available": tamara_available,
-            "tamara_environment": tamara_environment,
             "moyasar_checkouts": moyasar_checkouts,
             "moyasar_available": moyasar_available,
             "moyasar_live_mode": moyasar_live_mode,
