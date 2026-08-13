@@ -2238,6 +2238,26 @@
     return { current: null, next: null, dayOver: false };
   }
 
+  function dayEngineIsWithinPeriodDay(baseMs) {
+    var blocks = _dayEngine.blocks || [];
+    var firstPeriodStart = null;
+    var lastPeriodEnd = null;
+
+    for (var i = 0; i < blocks.length; i++) {
+      var block = blocks[i];
+      if (!block || safeText(block.kind || "").toLowerCase() !== "period") continue;
+      var fromMs = Number(block.fromMs);
+      var toMs = Number(block.toMs);
+      if (!isFinite(fromMs) || !isFinite(toMs) || toMs <= fromMs) continue;
+      if (firstPeriodStart === null || fromMs < firstPeriodStart) firstPeriodStart = fromMs;
+      if (lastPeriodEnd === null || toMs > lastPeriodEnd) lastPeriodEnd = toMs;
+    }
+
+    if (firstPeriodStart === null || lastPeriodEnd === null) return null;
+    var currentMs = isFinite(Number(baseMs)) ? Number(baseMs) : nowMs();
+    return currentMs >= firstPeriodStart && currentMs < lastPeriodEnd;
+  }
+
   function dayEngineResolvePeriodIndex(block) {
     if (!block) return null;
 
@@ -2361,7 +2381,10 @@
     rt.activeTargetHM = (stType === "before") ? block.from : block.to;
     rt.activeTargetMs = isFinite(Number(targetMs)) ? Number(targetMs) : null;
     rt.dayOver = false;
-    rt.isPeriodDayWindow = stType === "period" || stType === "break" || !!rt.isPeriodDayWindow;
+    var localPeriodDayWindow = dayEngineIsWithinPeriodDay(nowMsVal);
+    rt.isPeriodDayWindow = localPeriodDayWindow === null
+      ? (stType === "period" || stType === "break" || !!rt.isPeriodDayWindow)
+      : localPeriodDayWindow;
     applyBoardStatePresentation(stType, rem > 0);
 
     // Record the currently rendered core state, but do not mark countdown-zero
@@ -2372,6 +2395,13 @@
     // Re-filter standby list.
     try {
       if (lastPayloadForFiltering) renderStandby(lastPayloadForFiltering.standby || []);
+    } catch (e) {}
+
+    // Fixed day boards are preloaded before the first period but remain gated.
+    // Re-render them when the local clock enters the lesson-day window so they
+    // appear at the boundary without waiting for the next server snapshot.
+    try {
+      if (lastPayloadForFiltering) renderFeaturedPanel(lastPayloadForFiltering);
     } catch (e) {}
 
     // Re-render mini schedule.
@@ -3462,6 +3492,23 @@
     return bellAudio;
   }
 
+  function setBellSoundUrl(url) {
+    var nextUrl = safeText(url).trim();
+    if (!nextUrl || nextUrl === cfg.BELL_SOUND_URL) return;
+    cfg.BELL_SOUND_URL = nextUrl;
+    try {
+      if (bellAudio) {
+        bellAudio.pause();
+        bellAudio.currentTime = 0;
+      }
+    } catch (e) {}
+    bellAudio = null;
+    try {
+      var audio = ensureBellAudio();
+      if (audio && typeof audio.load === "function") audio.load();
+    } catch (e) {}
+  }
+
   // Unlock audio on first user interaction (browser autoplay policy)
   function unlockBellAudio() {
     if (bellUnlocked) return;
@@ -3688,12 +3735,19 @@
       rt.activeTargetHM = (stType === "before" ? fromHM : toHM) || null;
       rt.activeTargetMs = isBefore ? startMs : endMs;
       rt.dayOver = false;
-      rt.isPeriodDayWindow = stType === "period" || stType === "break" || !!rt.isPeriodDayWindow;
+      var localPeriodDayWindow = dayEngineIsWithinPeriodDay(nowMsValue);
+      rt.isPeriodDayWindow = localPeriodDayWindow === null
+        ? (stType === "period" || stType === "break" || !!rt.isPeriodDayWindow)
+        : localPeriodDayWindow;
       applyBoardStatePresentation(stType, rem > 0);
 
       // Immediately re-filter standby list (removes ended standby without waiting for server cache/ETag).
       try {
         renderStandby((snap && snap.standby) || []);
+      } catch (e) {}
+
+      try {
+        renderFeaturedPanel(snap);
       } catch (e) {}
 
       try {
@@ -5492,6 +5546,10 @@
 
     if (settings.school_type) {
       cfg.SCHOOL_TYPE = settings.school_type;
+    }
+
+    if (settings.bell_sound_url) {
+      setBellSoundUrl(settings.bell_sound_url);
     }
 
     if (typeof settings.refresh_interval_sec === "number" && settings.refresh_interval_sec > 0) {

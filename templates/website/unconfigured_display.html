@@ -5,21 +5,21 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-    <title>لوحة العرض الذكية | حوّل شاشات المدرسة غير المستفاد منها إلى قناة يومية حيّة</title>
-    <meta name="description" content="لدى كثير من المدارس شاشات موجودة لكنها تعرض ملفات قديمة أو لا تُستخدم. حوّلها إلى قناة حيّة للجدول والانتظار والإعلانات والتكريم والطوارئ من لوحة واحدة. جرّب المنصة كاملة مجاناً لمدة {{ landing_trial.duration_days }} يوماً.">
+    <title>لوحة العرض الذكية | شاشة مدرستك تعرف ماذا تعرض الآن</title>
+    <meta name="description" content="اربط جدول الحصص والانتظار والمناوبات والتنبيهات والتكريم بشاشات المدرسة، واعرض كل معلومة في وقتها تلقائياً من لوحة إدارة واحدة. جرّب المنصة مجاناً لمدة {{ landing_trial.duration_days }} يوماً.">
     <meta name="robots" content="index,follow,max-image-preview:large">
     <link rel="canonical" href="https://school-display.com/">
 
     <meta property="og:type" content="website">
     <meta property="og:locale" content="ar_SA">
     <meta property="og:site_name" content="لوحة العرض الذكية">
-    <meta property="og:title" content="حوّل شاشات المدرسة غير المستفاد منها إلى قناة يومية حيّة">
-    <meta property="og:description" content="استثمر التلفازات والشاشات الموجودة في المدرسة لعرض الجدول والتنبيهات والإعلانات ومراقبة التشغيل من لوحة واحدة.">
+    <meta property="og:title" content="شاشة مدرستك تعرف ماذا تعرض الآن">
+    <meta property="og:description" content="الجدول والانتظار والمناوبات والتنبيهات والتكريم على شاشات المدرسة، في وقتها ومن لوحة واحدة.">
     <meta property="og:url" content="https://school-display.com/">
-    <meta property="og:image" content="https://school-display.com/favicon.png?v=20260723-logo1">
+    <meta property="og:image" content="https://school-display.com/static/img/landing-demo/display-screen.png">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="حوّل شاشات المدرسة غير المستفاد منها إلى قناة يومية حيّة">
-    <meta name="twitter:description" content="استثمر شاشات المدرسة الحالية للجدول والتنبيهات والإعلانات من لوحة إدارة واحدة.">
+    <meta name="twitter:title" content="شاشة مدرستك تعرف ماذا تعرض الآن">
+    <meta name="twitter:description" content="إدارة مركزية تجعل شاشات المدرسة تعرض معلومة اليوم تلقائياً.">
 
     <meta name="theme-color" content="#07111f">
 
@@ -4834,6 +4834,8 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="{% static 'css/landing-v2.css' %}?v=20260813-3">
+    <script src="{% static 'js/landing-v2.js' %}?v=20260813-3" defer></script>
 </head>
 <body>
     {% url 'dashboard:login' as login_url %}
@@ -4852,12 +4854,10 @@
                 </a>
 
                 <ul class="nav-links">
-                    <li><a href="#why">لماذا نحن</a></li>
-                    <li><a href="#product-gallery">صور النظام</a></li>
-                    <li><a href="#features">المزايا</a></li>
-                    <li><a href="#journey">آلية البدء</a></li>
+                    <li><a href="#product-gallery">شاهد المنتج</a></li>
+                    <li><a href="#features">ماذا يدير؟</a></li>
+                    <li><a href="#journey">كيف تبدأ؟</a></li>
                     <li><a href="#pricing">الباقات</a></li>
-                    <li><a href="#faq">الأسئلة</a></li>
                 </ul>
 
                 <div class="nav-actions">
@@ -4890,12 +4890,12 @@
                             </div>
 
                             <h1>
-                                لا تترك شاشات المدرسة
-                                <span>معلّقة على ملفات قديمة</span>
+                                شاشة مدرستك تعرف
+                                <span>ماذا تعرض الآن.</span>
                             </h1>
 
                             <p>
-                                حوّل التلفازات والشاشات الموجودة في المداخل والممرات وغرف المعلمين إلى قناة يومية حيّة للجدول، والانتظار، والإعلانات، والتكريم — من لوحة واحدة.
+                                إدارة مركزية تربط جدول الحصص والانتظار والمناوبات والتنبيهات والتكريم بشاشات المدرسة، وتعرض كل معلومة في وقتها تلقائياً.
                             </p>
 
                             <div class="hero-actions">
@@ -4903,15 +4903,15 @@
                                     ابدأ التجربة المجانية
                                 </button>
                                 <button type="button" class="btn-outline" data-scroll="#demo-video">
-                                    شاهد المنصة تعمل
-                                    <i class="fa-solid fa-play"></i>
+                                    شاهد المنتج الحقيقي
+                                    <i class="fa-solid fa-arrow-down"></i>
                                 </button>
                             </div>
 
                             <div class="hero-assurance">
-                                <span><i class="fa-solid fa-circle-check"></i> كل المزايا مشمولة</span>
-                                <span><i class="fa-solid fa-circle-check"></i> تعمل على التلفاز الحالي</span>
-                                <span><i class="fa-solid fa-circle-check"></i> حساب جاهز فوراً</span>
+                                <span><i class="fa-solid fa-circle-check"></i> {{ landing_trial.duration_days }} يوماً مجاناً</span>
+                                <span><i class="fa-solid fa-circle-check"></i> بلا بطاقة بنكية</span>
+                                <span><i class="fa-solid fa-circle-check"></i> تعمل على شاشتك الحالية</span>
                             </div>
 
                             <div class="hero-meta">
@@ -4935,83 +4935,18 @@
                         </div>
 
                         <div class="hero-visual">
-                            <div class="visual-stack">
-                                <div class="floating-pill">
-                                    <i class="fa-solid fa-circle-check"></i>
-                                    متصلة الآن — مراقبة تلقائية
+                            <figure class="hero-product-shot">
+                                <div class="hero-product-bar">
+                                    <span><i class="fa-solid fa-circle"></i> شاشة عرض حقيقية</span>
+                                    <small>تتحدّث تلقائياً من لوحة الإدارة</small>
                                 </div>
-
-                                <div class="display-frame">
-                                    <div class="display-screen">
-                                        <div class="screen-topbar">
-                                            <div class="screen-brand">
-                                                <i class="fa-solid fa-school"></i>
-                                                <div>
-                                                    <strong>شاشة المدرسة الذكية</strong>
-                                                    <small>الإدارة اليومية في عرض واحد</small>
-                                                </div>
-                                            </div>
-                                            <div class="screen-live">بث مباشر</div>
-                                        </div>
-
-                                        <div class="screen-body">
-                                            <div class="screen-highlight">
-                                                <small>الحصة الحالية</small>
-                                                <h3>اللغة العربية - الصف الثالث متوسط</h3>
-                                                <div class="mini-row">
-                                                    <span>المعلم المكلف</span>
-                                                    <strong>أ. خالد العتيبي</strong>
-                                                </div>
-                                                <div class="countdown-bar"><span></span></div>
-                                                <div class="mini-row">
-                                                    <span>المتبقي حتى الجرس</span>
-                                                    <strong>12 دقيقة</strong>
-                                                </div>
-                                            </div>
-
-                                            <div class="screen-grid">
-                                                <div class="screen-mini-card">
-                                                    <small>لوحة اليوم</small>
-                                                    <div class="mini-row">
-                                                        <strong>حصص الانتظار</strong>
-                                                        <span class="mini-badge">محدثة الآن</span>
-                                                    </div>
-                                                    <div class="mini-row">
-                                                        <span>الأولى</span>
-                                                        <strong>معمل الحاسب</strong>
-                                                    </div>
-                                                    <div class="mini-row">
-                                                        <span>الثالثة</span>
-                                                        <strong>قاعة 12</strong>
-                                                    </div>
-                                                </div>
-
-                                                <div class="screen-mini-card">
-                                                    <small>إعلان المدرسة</small>
-                                                    <strong>غداً تكريم الطلاب المتميزين بعد الطابور</strong>
-                                                    <span class="mini-badge">خبر عاجل</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="ops-card surface-card">
-                                    <small>منصة واحدة لليوم كله</small>
-                                    <div class="ops-list">
-                                        <div class="ops-item"><i class="fa-solid fa-check"></i> جدول حي يتبدل تلقائياً</div>
-                                        <div class="ops-item"><i class="fa-solid fa-check"></i> انتظار ومناوبات وإشراف</div>
-                                        <div class="ops-item"><i class="fa-solid fa-check"></i> مناسبات وتكريم وإنجازات</div>
-                                        <div class="ops-item"><i class="fa-solid fa-check"></i> تنبيهات طوارئ ملء الشاشة</div>
-                                    </div>
-                                </div>
-
-                                <div class="support-card">
-                                    <small><i class="fa-solid fa-wifi"></i> جاهزية مستمرة</small>
-                                    <strong>حتى عند ضعف الاتصال</strong>
-                                    <span>تستمر الشاشة بآخر بيانات محفوظة وتعود للتحديث عند استقرار الشبكة.</span>
-                                </div>
-                            </div>
+                                <img src="{% static 'img/landing-demo/display-screen.png' %}" alt="شاشة مدرسة حقيقية تعرض حالة اليوم والحصة الحالية ومسار الحصص" width="1920" height="799" fetchpriority="high">
+                                <figcaption>
+                                    <span><i class="fa-solid fa-clock"></i> الحصة الحالية</span>
+                                    <span><i class="fa-solid fa-users"></i> الانتظار والمناوبات</span>
+                                    <span><i class="fa-solid fa-bullhorn"></i> التنبيهات والتكريم</span>
+                                </figcaption>
+                            </figure>
                         </div>
                     </div>
                 </div>
@@ -5070,24 +5005,18 @@
             <div class="container">
                 <div class="demo-shell reveal">
                     <div class="demo-copy">
-                        <div class="eyebrow"><i class="fa-solid fa-circle-play"></i> جولة سريعة</div>
-                        <h2 id="demoTitle">شاهد كيف تتحول البيانات اليومية إلى شاشة جاهزة للعرض</h2>
-                        <p>جولة عملية توضح شاشة المدرسة ولوحة التحكم وطريقة إدارة المحتوى، قبل أن تبدأ التجربة.</p>
+                        <div class="eyebrow"><i class="fa-solid fa-gauge-high"></i> من داخل لوحة التحكم</div>
+                        <h2 id="demoTitle">يوم المدرسة كله أمامك، من مكان واحد.</h2>
+                        <p>تعرف ما يظهر الآن وما سيظهر لاحقاً، وتصل إلى أكثر المهام استخداماً بخطوة واحدة.</p>
                         <ul class="demo-points">
-                            <li><i class="fa-solid fa-check"></i> أقل من أربع دقائق</li>
-                            <li><i class="fa-solid fa-check"></i> بدون تسجيل أو بيانات</li>
-                            <li><i class="fa-solid fa-check"></i> يعمل على الجوال والديسكتوب</li>
+                            <li><i class="fa-solid fa-check"></i> متابعة اتصال كل شاشة</li>
+                            <li><i class="fa-solid fa-check"></i> الحصة الحالية والقادمة</li>
+                            <li><i class="fa-solid fa-check"></i> اختصارات للجدول والتنبيهات والانتظار</li>
                         </ul>
                     </div>
                     <button type="button" class="video-launch" id="videoLaunch" aria-label="تشغيل العرض التوضيحي للمنصة">
-                        <span class="video-launch-grid" aria-hidden="true">
-                            <span class="video-launch-sidebar"></span>
-                            <span class="video-launch-main"><i class="fa-solid fa-play"></i></span>
-                            <span class="video-launch-card one"></span>
-                            <span class="video-launch-card two"></span>
-                        </span>
-                        <strong>تشغيل العرض التوضيحي</strong>
-                        <small>اضغط للمشاهدة — لن يُحمّل YouTube قبل ذلك</small>
+                        <img src="{% static 'img/landing-demo/dashboard-overview.png' %}" alt="لوحة التحكم الرئيسية لمنصة شاشة المدرسة" loading="lazy" width="2723" height="1136">
+                        <span class="video-play"><i class="fa-solid fa-play"></i><strong>شاهد الجولة</strong></span>
                     </button>
                 </div>
             </div>
@@ -5096,45 +5025,46 @@
         <section class="section product-gallery" id="product-gallery" aria-labelledby="productGalleryTitle">
             <div class="container">
                 <div class="section-header reveal">
-                    <div class="eyebrow"><i class="fa-solid fa-images"></i> صور من حساب تجريبي حقيقي</div>
-                    <h2 id="productGalleryTitle">هذا ما تراه المدرسة بعد إدخال بياناتها</h2>
-                    <p>أنشأنا حساب مدرسة تجريبيًا بصفوف ومعلمين وجداول وإعلانات، ثم التقطنا صورًا مباشرة من لوحة التحكم وشاشة العرض كما سيستخدمها فريق المدرسة.</p>
+                    <div class="eyebrow"><i class="fa-solid fa-images"></i> المنتج كما هو، بلا رسوم توضيحية</div>
+                    <h2 id="productGalleryTitle">شاهد ما ستستخدمه مدرستك فعلياً.</h2>
+                    <p>لقطات مباشرة من حساب مدرسة حقيقي: من ضبط الأسبوع الدراسي إلى شاشة التلفاز التي يراها الطلاب والمعلمون.</p>
                 </div>
 
-                <div class="shot-grid">
-                    <article class="shot-card featured reveal">
-                        <img src="{% static 'img/landing-demo/dashboard-home.png' %}" alt="لوحة التحكم تعرض حالة شاشات المدرسة والاختصارات اليومية" loading="lazy" width="1280" height="720">
-                        <div class="shot-caption">
-                            <i class="fa-solid fa-gauge-high"></i>
-                            <div>
-                                <strong>لوحة إدارة واحدة لكل الشاشات</strong>
-                                <span>متابعة الشاشات، الروابط، الاختصارات اليومية، وحالة التشغيل من مكان واحد واضح.</span>
-                            </div>
-                        </div>
-                    </article>
+                <div class="product-showcase reveal" data-product-showcase>
+                    <div class="showcase-tabs" role="tablist" aria-label="صور النظام">
+                        <button type="button" class="showcase-tab active" role="tab" aria-selected="true" data-shot-target="display"><i class="fa-solid fa-display"></i><span>شاشة العرض</span></button>
+                        <button type="button" class="showcase-tab" role="tab" aria-selected="false" data-shot-target="overview"><i class="fa-solid fa-gauge-high"></i><span>لوحة التحكم</span></button>
+                        <button type="button" class="showcase-tab" role="tab" aria-selected="false" data-shot-target="timetable"><i class="fa-solid fa-table-list"></i><span>الجدول اليومي</span></button>
+                        <button type="button" class="showcase-tab" role="tab" aria-selected="false" data-shot-target="timing"><i class="fa-regular fa-calendar-days"></i><span>توقيت الحصص</span></button>
+                        <button type="button" class="showcase-tab" role="tab" aria-selected="false" data-shot-target="emergency"><i class="fa-solid fa-triangle-exclamation"></i><span>الطوارئ</span></button>
+                        <button type="button" class="showcase-tab" role="tab" aria-selected="false" data-shot-target="occasions"><i class="fa-solid fa-gift"></i><span>المناسبات</span></button>
+                    </div>
 
-                    <div class="shot-stack">
-                        <article class="shot-card reveal">
-                            <img src="{% static 'img/landing-demo/dashboard-data.png' %}" alt="صفحة بيانات المدرسة تعرض الصفوف والمواد والمعلمين" loading="lazy" width="1280" height="720">
-                            <div class="shot-caption">
-                                <i class="fa-solid fa-table-list"></i>
-                                <div>
-                                    <strong>بيانات مدرسية منظّمة</strong>
-                                    <span>الصفوف، المواد، المعلمون، والجداول تُدار مرة واحدة ثم تظهر في الشاشة المناسبة.</span>
-                                </div>
-                            </div>
-                        </article>
-
-                        <article class="shot-card reveal">
-                            <img src="{% static 'img/landing-demo/display-screen.png' %}" alt="شاشة عرض مدرسية تعرض إعلان المدرسة وبيانات اليوم" loading="lazy" width="1280" height="720">
-                            <div class="shot-caption">
-                                <i class="fa-solid fa-display"></i>
-                                <div>
-                                    <strong>عرض جاهز على التلفاز</strong>
-                                    <span>واجهة مصممة للممرات والمداخل وغرف المعلمين، وتتحدّث من بيانات الحساب نفسها.</span>
-                                </div>
-                            </div>
-                        </article>
+                    <div class="showcase-stage">
+                        <figure class="showcase-shot active" data-shot="display">
+                            <img src="{% static 'img/landing-demo/display-screen.png' %}" alt="شاشة المدرسة تعرض الحصة الحالية والوقت ومسار اليوم" loading="lazy" width="1920" height="799">
+                            <figcaption><strong>شاشة تتغير مع وقت المدرسة</strong><span>الحصة الحالية والقادمة، الانتظار والمناوبات، والإعلانات تظهر تلقائياً في وقتها.</span></figcaption>
+                        </figure>
+                        <figure class="showcase-shot" data-shot="overview" hidden>
+                            <img src="{% static 'img/landing-demo/dashboard-overview.png' %}" alt="لوحة التحكم الرئيسية تعرض حالة الشاشات واختصارات العمل" loading="lazy" width="2723" height="1136">
+                            <figcaption><strong>لوحة إدارة واحدة لكل الشاشات</strong><span>راقب الاتصال، اعرف ما يعرض الآن، وانتقل إلى مهام اليوم مباشرة.</span></figcaption>
+                        </figure>
+                        <figure class="showcase-shot" data-shot="timetable" hidden>
+                            <img src="{% static 'img/landing-demo/daily-timetable.png' %}" alt="الجدول اليومي للفصول مع الحصص والمواد والمعلمين" loading="lazy" width="2723" height="1136">
+                            <figcaption><strong>الجدول اليومي للفصول</strong><span>عدّل المادة أو المعلم، ويظهر التغيير على شاشة العرض فور الحفظ.</span></figcaption>
+                        </figure>
+                        <figure class="showcase-shot" data-shot="timing" hidden>
+                            <img src="{% static 'img/landing-demo/period-timing.png' %}" alt="إعداد أيام الدراسة وأوقات الحصص والفسح" loading="lazy" width="2723" height="1136">
+                            <figcaption><strong>أوقات مختلفة لكل يوم</strong><span>اضبط بداية الحصص ونهايتها والفسح والإجازات بما يطابق أسبوع مدرستك.</span></figcaption>
+                        </figure>
+                        <figure class="showcase-shot" data-shot="emergency" hidden>
+                            <img src="{% static 'img/landing-demo/emergency-alerts.png' %}" alt="صفحة إرسال وإدارة تنبيهات الطوارئ" loading="lazy" width="2723" height="1136">
+                            <figcaption><strong>تنبيه طارئ يتقدم على كل شيء</strong><span>أرسل رسالة عاجلة لشاشة محددة أو لجميع الشاشات، ثم ألغها من المكان نفسه.</span></figcaption>
+                        </figure>
+                        <figure class="showcase-shot" data-shot="occasions" hidden>
+                            <img src="{% static 'img/landing-demo/occasion-templates.png' %}" alt="قوالب المناسبات المدرسية والوطنية الجاهزة" loading="lazy" width="2723" height="1136">
+                            <figcaption><strong>مناسبات جاهزة للعرض</strong><span>فعّل قالب اليوم الوطني أو التأسيس أو يوم المعلم، ويعود العرض تلقائياً بعد انتهاء المناسبة.</span></figcaption>
+                        </figure>
                     </div>
                 </div>
             </div>

@@ -119,8 +119,8 @@ class TrialSignupTests(TestCase):
         # The hero headline. Its wording is the page's main conversion lever, so
         # it is pinned here on purpose — update these two lines whenever the
         # headline is rewritten rather than deleting the assertion.
-        self.assertContains(response, "لا تترك شاشات المدرسة")
-        self.assertContains(response, "معلّقة على ملفات قديمة")
+        self.assertContains(response, "شاشة مدرستك تعرف")
+        self.assertContains(response, "ماذا تعرض الآن.")
         self.assertContains(response, "المحتوى المناسب، على الشاشة المناسبة")
         self.assertContains(response, "لوحة إدارة واحدة")
         self.assertContains(response, "هل يمكن تخصيص محتوى كل شاشة بشكل مستقل؟")

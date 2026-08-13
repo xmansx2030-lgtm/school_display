@@ -44,6 +44,7 @@ class SchoolContactSettingsTests(TestCase):
             "theme": SchoolSettings.THEME_INDIGO,
             "standby_scroll_speed": "0.8",
             "periods_scroll_speed": "0.5",
+            "bell_sound": "bell",
             "screen_offline_threshold_minutes": "10",
             "screen_offline_grace_minutes": "15",
             "screen_offline_cooldown_minutes": "120",
@@ -65,6 +66,7 @@ class SchoolContactSettingsTests(TestCase):
         self.assertContains(response, 'value="old@example.com"')
         self.assertContains(response, 'name="mobile"')
         self.assertContains(response, 'value="0500000000"')
+        self.assertContains(response, 'name="bell_sound"')
         self.assertNotContains(response, 'name="weekly_uptime_report_enabled"')
 
     def test_manager_can_update_contact_details(self):

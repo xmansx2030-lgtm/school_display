@@ -106,7 +106,7 @@
   data-screen-show-excellence="{% if screen_show_excellence %}1{% else %}0{% endif %}"
   data-school-type="{% if school_type %}{{ school_type }}{% endif %}"
   data-media-prefix="{% if MEDIA_URL %}{{ MEDIA_URL }}{% else %}/media/{% endif %}"
-  data-bell-sound-url="{% static 'sounds/bell.mp3' %}"
+  data-bell-sound-url="{% if bell_sound_url %}{{ bell_sound_url }}{% else %}{% static 'sounds/bell.mp3' %}{% endif %}"
     data-refresh="{% if refresh_interval_sec %}{{ refresh_interval_sec }}{% else %}30{% endif %}"
   data-ws-live-status-check="{% if ws_live_status_check_sec %}{{ ws_live_status_check_sec }}{% else %}45{% endif %}"
   data-standby="{% if standby_scroll_speed %}{{ standby_scroll_speed|unlocalize }}{% else %}0.8{% endif %}"

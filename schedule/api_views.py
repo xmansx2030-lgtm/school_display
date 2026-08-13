@@ -19,13 +19,20 @@ from django.core.cache import caches
 from django.db import models
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse, HttpResponseNotModified
+from django.templatetags.static import static
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
 
 from core.models import School, DisplayScreen
 from core.display_presence import touch_display_presence
-from schedule.models import SchoolSettings, ClassLesson, Period
+from schedule.models import (
+    BELL_SOUND_DEFAULT,
+    BELL_SOUND_STATIC_PATHS,
+    SchoolSettings,
+    ClassLesson,
+    Period,
+)
 from schedule.time_engine import build_day_snapshot
 from schedule.cache_utils import (
     get_cached_schedule_revision_for_school_id,
@@ -1919,6 +1926,8 @@ def _fallback_payload(message: str = "إعدادات المدرسة غير مه�
             "refresh_interval_sec": 10,
             "standby_scroll_speed": 0.8,
             "periods_scroll_speed": 0.5,
+            "bell_sound": "bell",
+            "bell_sound_url": _static_url("sounds/bell.mp3"),
         },
         "state": {
             "type": "config",
@@ -2641,6 +2650,21 @@ def _abs_media_url(request, maybe_url: str | None) -> str | None:
         return s
 
 
+def _static_url(path: str | None) -> str:
+    return static(path or "sounds/bell.mp3")
+
+
+def _settings_bell_sound_path(settings_obj) -> str:
+    get_path = getattr(settings_obj, "get_bell_sound_path", None)
+    if callable(get_path):
+        return get_path()
+    bell_sound = getattr(settings_obj, "bell_sound", BELL_SOUND_DEFAULT) or BELL_SOUND_DEFAULT
+    return BELL_SOUND_STATIC_PATHS.get(
+        bell_sound,
+        BELL_SOUND_STATIC_PATHS[BELL_SOUND_DEFAULT],
+    )
+
+
 def _model_has_field(model_cls, field_name: str) -> bool:
     try:
         model_cls._meta.get_field(field_name)
@@ -3118,10 +3142,29 @@ def _snapshot_is_within_period_day(snap: dict) -> bool:
     return start <= now_dt < end
 
 
-def _clear_school_day_boards(snap: dict) -> None:
-    """Hide day-scoped panels outside the real lesson span."""
+def _snapshot_is_before_period_day(snap: dict) -> bool:
+    """Return true during the active wake window before the first lesson."""
+    if not bool((snap.get("meta") or {}).get("is_active_window")):
+        return False
+    bounds = _snapshot_period_day_bounds(snap)
+    if bounds is None:
+        return False
+    start, _end = bounds
+    try:
+        now_dt = datetime.fromisoformat(str(snap.get("now") or "").strip())
+    except Exception:
+        now_dt = timezone.localtime()
+    return now_dt < start
+
+
+def _clear_period_activity_boards(snap: dict) -> None:
     snap["period_classes"] = []
     snap["period_classes_map"] = {}
+
+
+def _clear_school_day_boards(snap: dict) -> None:
+    """Hide day-scoped panels outside the real lesson span."""
+    _clear_period_activity_boards(snap)
     snap["standby"] = []
     snap["excellence"] = []
     snap["duty"] = {"items": []}
@@ -3338,6 +3381,8 @@ def build_steady_snapshot(
             "refresh_interval_sec": int(refresh_interval_sec),
             "standby_scroll_speed": float(getattr(settings_obj, "standby_scroll_speed", 0.8) or 0.8),
             "periods_scroll_speed": float(getattr(settings_obj, "periods_scroll_speed", 0.5) or 0.5),
+            "bell_sound": getattr(settings_obj, "bell_sound", "bell") or "bell",
+            "bell_sound_url": _static_url(_settings_bell_sound_path(settings_obj)),
         },
         "state": {
             "type": steady_state,
@@ -3462,6 +3507,8 @@ def _build_final_snapshot(
     s.setdefault("refresh_interval_sec", getattr(settings_obj, "refresh_interval_sec", 10) or 10)
     s.setdefault("standby_scroll_speed", getattr(settings_obj, "standby_scroll_speed", 0.8) or 0.8)
     s.setdefault("periods_scroll_speed", getattr(settings_obj, "periods_scroll_speed", 0.5) or 0.5)
+    s["bell_sound"] = getattr(settings_obj, "bell_sound", "bell") or "bell"
+    s["bell_sound_url"] = _static_url(_settings_bell_sound_path(settings_obj))
     for message_key, message_value in _display_message_defaults(settings_obj).items():
         s.setdefault(message_key, message_value)
 
@@ -3556,7 +3603,13 @@ def _build_final_snapshot(
             logger.exception("snapshot: failed to ensure current/next period index")
 
     if not bool((snap.get("meta") or {}).get("is_period_day_window")):
-        _clear_school_day_boards(snap)
+        if _snapshot_is_before_period_day(snap):
+            # Preload today's fixed boards while the preparation screen is up.
+            # The client keeps them hidden until the exact first-period boundary,
+            # then can reveal them locally without waiting for another snapshot.
+            _clear_period_activity_boards(snap)
+        else:
+            _clear_school_day_boards(snap)
 
     return snap
 

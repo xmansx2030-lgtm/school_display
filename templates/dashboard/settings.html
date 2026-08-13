@@ -416,10 +416,31 @@
                         </section>
                         {% endif %}
 
+                        {% if form.bell_sound %}
+                        <section class="runtime-group" aria-labelledby="runtime-sounds-title">
+                            <header class="runtime-group__head">
+                                <span class="runtime-group__index" aria-hidden="true">{% if show_display_settings %}02{% else %}01{% endif %}</span>
+                                <div>
+                                    <h4 id="runtime-sounds-title">صوت الجرس</h4>
+                                    <p>يعمل الصوت نفسه عند بداية الحصة، وهي نفس لحظة نهاية الحصة السابقة في الجدول.</p>
+                                </div>
+                            </header>
+
+                            <div class="runtime-fields">
+                                <div class="settings-field">
+                                    <label for="{{ form.bell_sound.id_for_label }}">{{ form.bell_sound.label }}</label>
+                                    {{ form.bell_sound }}
+                                    {% if form.bell_sound.help_text %}<p id="{{ form.bell_sound.id_for_label }}_helptext">{{ form.bell_sound.help_text }}</p>{% endif %}
+                                    {% if form.bell_sound.errors %}<div class="settings-field-error" role="alert">{% for error in form.bell_sound.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                </div>
+                            </div>
+                        </section>
+                        {% endif %}
+
                         {% if show_account_settings %}
                         <section class="runtime-group" aria-labelledby="runtime-monitor-title">
                             <header class="runtime-group__head">
-                                <span class="runtime-group__index" aria-hidden="true">{% if show_display_settings %}02{% else %}01{% endif %}</span>
+                                <span class="runtime-group__index" aria-hidden="true">{% if show_display_settings %}03{% elif form.bell_sound %}02{% else %}01{% endif %}</span>
                                 <div>
                                     <h4 id="runtime-monitor-title">مراقبة اتصال الشاشات</h4>
                                     <p>يعرف النظام أن الشاشة توقفت عندما ينقطع نبضها. هذه الإعدادات تحدد متى يعتبرها منقطعة، وكيف يخبرك، وكم مرة.</p>

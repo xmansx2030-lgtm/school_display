@@ -653,12 +653,25 @@ class SnapshotSchoolDayBoardsWindowTests(TestCase):
         self.assertEqual(snap["excellence"], [])
         self.assertEqual(snap["duty"], {"items": []})
 
-    def test_day_boards_are_hidden_before_the_first_period_even_inside_wake_window(self):
+    def test_day_boards_are_preloaded_before_first_period_inside_wake_window(self):
         snap = self._final_snapshot(7, 45)
 
         self.assertTrue(snap["meta"]["is_active_window"])
         self.assertEqual(snap["state"]["reason"], "before_hours")
-        self.assert_day_boards_are_empty(snap)
+        self.assertFalse(snap["meta"]["is_period_day_window"])
+        self.assertEqual(snap["period_classes"], [])
+        self.assertEqual(snap["period_classes_map"], {})
+        self.assertTrue(snap["standby"])
+        self.assertTrue(snap["excellence"])
+        self.assertTrue(snap["duty"]["items"])
+
+    def test_day_boards_are_visible_at_exact_first_period_boundary(self):
+        snap = self._final_snapshot(8, 0)
+
+        self.assertTrue(snap["meta"]["is_period_day_window"])
+        self.assertTrue(snap["standby"])
+        self.assertTrue(snap["excellence"])
+        self.assertTrue(snap["duty"]["items"])
 
     def test_day_boards_are_visible_during_the_real_period_day(self):
         snap = self._final_snapshot(8, 15)
@@ -675,6 +688,12 @@ class SnapshotSchoolDayBoardsWindowTests(TestCase):
 
         self.assertTrue(snap["meta"]["is_active_window"])
         self.assertEqual(snap["state"]["reason"], "after_hours")
+        self.assert_day_boards_are_empty(snap)
+
+    def test_day_boards_are_hidden_at_exact_last_period_boundary(self):
+        snap = self._final_snapshot(10, 0)
+
+        self.assertFalse(snap["meta"]["is_period_day_window"])
         self.assert_day_boards_are_empty(snap)
 
 

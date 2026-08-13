@@ -16,6 +16,7 @@ from django.core.cache import cache
 from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
@@ -425,6 +426,7 @@ def _build_display_context(request, key: str | None) -> dict | None:
             "periods_scroll_speed_override",
             getattr(settings_obj, "periods_scroll_speed", 0.5),
         ),
+        "bell_sound_url": static(settings_obj.get_bell_sound_path()),
         "now_hour": timezone.localtime().hour,
         "theme": theme,
         "theme_key": raw_theme,

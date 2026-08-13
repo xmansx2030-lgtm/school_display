@@ -271,7 +271,10 @@ class ScreenMonitoringTests(TestCase):
         self.assertIn("مطفأ", alert.message)
 
     def test_daily_cap_stops_the_fourth_alert_for_the_same_screen(self):
-        now = timezone.now()
+        now = timezone.make_aware(
+            datetime.combine(timezone.localdate(), dt_time(hour=9)),
+            timezone.get_current_timezone(),
+        )
         self.settings.screen_offline_cooldown_minutes = 10
         self.settings.screen_offline_max_alerts_per_day = 2
         self.settings.save(

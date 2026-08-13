@@ -174,6 +174,7 @@ class SchoolSettingsForm(forms.ModelForm):
             "theme",
             "standby_scroll_speed",
             "periods_scroll_speed",
+            "bell_sound",
             "display_before_title",
             "display_before_badge",
             "display_after_title",
@@ -199,6 +200,7 @@ class SchoolSettingsForm(forms.ModelForm):
             # ✅ حد أدنى 0.5 + خطوة 0.1 (قيم عملية للعرض)
             "standby_scroll_speed": forms.NumberInput(attrs={"min": 0.5, "max": 5.0, "step": 0.1}),
             "periods_scroll_speed": forms.NumberInput(attrs={"min": 0.5, "max": 5.0, "step": 0.1}),
+            "bell_sound": forms.Select(),
 
             # The settings screen uses the visual theme palette as the source
             # of truth. Avoid type=color here because browsers submit #000000

@@ -53,6 +53,17 @@ DEFAULT_DISPLAY_AFTER_HOLIDAY_TITLE = "أحسنتم اليوم، نتمنى لك
 DEFAULT_DISPLAY_HOLIDAY_BADGE = "إجازة"
 DEFAULT_DISPLAY_HOLIDAY_TITLE = "اليوم إجازة، نتمنى لكم وقتًا سعيدًا"
 
+BELL_SOUND_DEFAULT = "bell"
+BELL_SOUND_ELEVATOR_ANNOUNCEMENT = "elevator_announcement_bells"
+BELL_SOUND_CHOICES = [
+    (BELL_SOUND_DEFAULT, "جرس المدرسة الافتراضي"),
+    (BELL_SOUND_ELEVATOR_ANNOUNCEMENT, "أجراس إعلان المصعد"),
+]
+BELL_SOUND_STATIC_PATHS = {
+    BELL_SOUND_DEFAULT: "sounds/bell.mp3",
+    BELL_SOUND_ELEVATOR_ANNOUNCEMENT: "sounds/mixkit-elevator-announcement-bells-112.wav",
+}
+
 
 # ============================================================
 # School Settings
@@ -195,6 +206,14 @@ class SchoolSettings(models.Model):
         validators=[MinValueValidator(0.05), MaxValueValidator(5.0)],
     )
 
+    bell_sound = models.CharField(
+        "صوت الجرس",
+        max_length=40,
+        choices=BELL_SOUND_CHOICES,
+        default=BELL_SOUND_DEFAULT,
+        help_text="الصوت الذي يعمل عند بداية الحصة ونهاية الحصة السابقة.",
+    )
+
     display_before_title = models.CharField(
         "عنوان الشاشة قبل بداية الدوام",
         max_length=150,
@@ -335,6 +354,12 @@ class SchoolSettings(models.Model):
             "holiday_title": self.get_display_holiday_title(),
             "holiday_badge": self.get_display_holiday_badge(),
         }
+
+    def get_bell_sound_path(self) -> str:
+        return BELL_SOUND_STATIC_PATHS.get(
+            getattr(self, "bell_sound", "") or BELL_SOUND_DEFAULT,
+            BELL_SOUND_STATIC_PATHS[BELL_SOUND_DEFAULT],
+        )
 
 
 class DutyAssignment(models.Model):

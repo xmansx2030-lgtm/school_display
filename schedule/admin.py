@@ -65,7 +65,7 @@ class SchoolSettingsAdmin(admin.ModelAdmin):
             "fields": ("theme", "display_accent_color", "featured_panel")
         }),
         ("إعدادات العرض", {
-            "fields": ("timezone_name", "refresh_interval_sec", "standby_scroll_speed", "periods_scroll_speed")
+            "fields": ("timezone_name", "refresh_interval_sec", "standby_scroll_speed", "periods_scroll_speed", "bell_sound")
         }),
         ("نصوص شاشة العرض قبل وبعد الدوام", {
             "fields": (
@@ -277,4 +277,3 @@ class ClassLessonAdmin(admin.ModelAdmin):
     autocomplete_fields = ("settings", "school_class", "subject", "teacher")
     list_select_related = ("settings", "school_class", "subject", "teacher")
     ordering = ("settings__name", "weekday", "period_index", "school_class__name")
-    

@@ -20,7 +20,7 @@ from subscriptions.models import SchoolSubscription
 class DisplayBundleSelectionTests(TestCase):
     def setUp(self):
         self.school = School.objects.create(name="مدرسة الحزمة", slug="bundle-school")
-        SchoolSettings.objects.create(school=self.school, name=self.school.name)
+        self.settings_obj = SchoolSettings.objects.create(school=self.school, name=self.school.name)
         self.screen = DisplayScreen.objects.create(school=self.school, name="شاشة", is_active=True)
         plan = SubscriptionPlan.objects.create(
             code="bundle-plan",
@@ -60,6 +60,14 @@ class DisplayBundleSelectionTests(TestCase):
         response = self._page()
 
         self.assertContains(response, "js/display-sw-register.js")
+
+    def test_selected_bell_sound_is_served_to_display_page(self):
+        self.settings_obj.bell_sound = "elevator_announcement_bells"
+        self.settings_obj.save(update_fields=["bell_sound"])
+
+        response = self._page()
+
+        self.assertContains(response, "mixkit-elevator-announcement-bells-112.wav")
 
 
 class DisplayPageWeightTests(DisplayBundleSelectionTests):
@@ -505,6 +513,18 @@ class DisplayEndOfDayPanelTests(SimpleTestCase):
         for call in ("renderPeriodClasses([])", "renderStandby([])", "renderFeaturedPanel("):
             with self.subTest(call=call):
                 self.assertIn(call, body)
+
+    def test_first_period_transition_reveals_preloaded_featured_panel(self):
+        body = self._body("dayEngineApplyBlock")
+
+        self.assertIn("dayEngineIsWithinPeriodDay(nowMsVal)", body)
+        self.assertIn("renderFeaturedPanel(lastPayloadForFiltering)", body)
+
+    def test_local_panel_window_uses_first_and_last_period_boundaries(self):
+        body = self._body("dayEngineIsWithinPeriodDay")
+
+        self.assertIn('!== "period"', body)
+        self.assertIn("currentMs >= firstPeriodStart && currentMs < lastPeriodEnd", body)
 
     def test_day_over_excludes_states_where_the_day_has_not_finished(self):
         """`holiday` and `before_hours` are not "the day ended"."""
