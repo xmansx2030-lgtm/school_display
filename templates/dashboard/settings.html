@@ -427,9 +427,20 @@
                             </header>
 
                             <div class="runtime-fields">
-                                <div class="settings-field">
+                                <div class="settings-field bell-sound-field"
+                                     data-bell-preview
+                                     data-bell-url-bell="{% static 'sounds/bell.mp3' %}"
+                                     data-bell-url-elevator_announcement_bells="{% static 'sounds/mixkit-elevator-announcement-bells-112.wav' %}">
                                     <label for="{{ form.bell_sound.id_for_label }}">{{ form.bell_sound.label }}</label>
-                                    {{ form.bell_sound }}
+                                    <div class="bell-sound-control">
+                                        {{ form.bell_sound }}
+                                        <button type="button" class="bell-preview-button" data-bell-preview-toggle aria-pressed="false" title="تشغيل معاينة الصوت المحدد">
+                                            <svg class="bell-preview-button__play" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.6v12.8a1 1 0 0 0 1.53.85l9.14-6.4a1 1 0 0 0 0-1.7L9.53 4.75A1 1 0 0 0 8 5.6Z"/></svg>
+                                            <svg class="bell-preview-button__stop" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
+                                            <span data-bell-preview-label>تشغيل المعاينة</span>
+                                        </button>
+                                    </div>
+                                    <p class="bell-preview-status" data-bell-preview-status aria-live="polite">استمع إلى الصوت المحدد قبل حفظ التغييرات.</p>
                                     {% if form.bell_sound.help_text %}<p id="{{ form.bell_sound.id_for_label }}_helptext">{{ form.bell_sound.help_text }}</p>{% endif %}
                                     {% if form.bell_sound.errors %}<div class="settings-field-error" role="alert">{% for error in form.bell_sound.errors %}{{ error }}{% endfor %}</div>{% endif %}
                                 </div>
@@ -926,6 +937,91 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Bell sound preview: play the current selection without requiring a save.
+    const bellPreview = document.querySelector('[data-bell-preview]');
+    const bellSoundSelect = bellPreview ? bellPreview.querySelector('select[name="bell_sound"]') : null;
+    const bellPreviewButton = bellPreview ? bellPreview.querySelector('[data-bell-preview-toggle]') : null;
+    const bellPreviewLabel = bellPreview ? bellPreview.querySelector('[data-bell-preview-label]') : null;
+    const bellPreviewStatus = bellPreview ? bellPreview.querySelector('[data-bell-preview-status]') : null;
+    let bellPreviewAudio = null;
+
+    function setBellPreviewState(isPlaying, statusText) {
+        if (bellPreviewButton) {
+            bellPreviewButton.classList.toggle('is-playing', isPlaying);
+            bellPreviewButton.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
+            bellPreviewButton.title = isPlaying ? 'إيقاف معاينة الصوت' : 'تشغيل معاينة الصوت المحدد';
+        }
+        if (bellPreviewLabel) bellPreviewLabel.textContent = isPlaying ? 'إيقاف المعاينة' : 'تشغيل المعاينة';
+        if (bellPreviewStatus && statusText) bellPreviewStatus.textContent = statusText;
+    }
+
+    function stopBellPreview(statusText) {
+        const activeAudio = bellPreviewAudio;
+        bellPreviewAudio = null;
+        if (activeAudio) {
+            try {
+                activeAudio.pause();
+                activeAudio.currentTime = 0;
+            } catch (error) {}
+        }
+        setBellPreviewState(false, statusText || 'توقفت المعاينة.');
+    }
+
+    if (bellSoundSelect && bellPreviewButton) {
+        bellPreviewButton.addEventListener('click', () => {
+            if (bellPreviewAudio && !bellPreviewAudio.paused) {
+                stopBellPreview('توقفت المعاينة.');
+                return;
+            }
+
+            const selectedValue = bellSoundSelect.value || 'bell';
+            const soundUrl = bellPreview.getAttribute('data-bell-url-' + selectedValue);
+            const selectedOption = bellSoundSelect.options[bellSoundSelect.selectedIndex];
+            const selectedName = selectedOption ? selectedOption.textContent.trim() : 'الصوت المحدد';
+            if (!soundUrl) {
+                setBellPreviewState(false, 'تعذر العثور على ملف الصوت المحدد.');
+                return;
+            }
+
+            stopBellPreview('جارٍ تجهيز المعاينة...');
+            const audio = new Audio(soundUrl);
+            bellPreviewAudio = audio;
+            audio.preload = 'auto';
+            audio.addEventListener('ended', () => {
+                if (bellPreviewAudio === audio) {
+                    bellPreviewAudio = null;
+                    setBellPreviewState(false, 'انتهت معاينة «' + selectedName + '».');
+                }
+            }, { once: true });
+            audio.addEventListener('error', () => {
+                if (bellPreviewAudio === audio) {
+                    bellPreviewAudio = null;
+                    setBellPreviewState(false, 'تعذر تشغيل الصوت. تحقق من الملف ثم حاول مرة أخرى.');
+                }
+            }, { once: true });
+
+            const playResult = audio.play();
+            if (playResult && typeof playResult.then === 'function') {
+                playResult.then(() => {
+                    if (bellPreviewAudio === audio) setBellPreviewState(true, 'يتم الآن تشغيل «' + selectedName + '».');
+                }).catch(() => {
+                    if (bellPreviewAudio === audio) {
+                        bellPreviewAudio = null;
+                        setBellPreviewState(false, 'لم يسمح المتصفح بتشغيل الصوت. اضغط زر المعاينة مرة أخرى.');
+                    }
+                });
+            } else {
+                setBellPreviewState(true, 'يتم الآن تشغيل «' + selectedName + '».');
+            }
+        });
+
+        bellSoundSelect.addEventListener('change', () => {
+            stopBellPreview('تم تغيير الاختيار. اضغط تشغيل المعاينة لسماع الصوت الجديد.');
+        });
+
+        window.addEventListener('pagehide', () => stopBellPreview('توقفت المعاينة.'));
+    }
+
     // Form Submit
     if(form) {
         form.addEventListener('submit', function(e) {
@@ -1317,6 +1413,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .runtime-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .7rem; align-items: start; }
 
+.bell-sound-field { grid-column: 1 / -1; }
+.bell-sound-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: .6rem; }
+.bell-preview-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .45rem;
+    min-width: 9.5rem;
+    min-height: 3.25rem;
+    border: 1px solid rgba(21, 94, 117, .22);
+    border-radius: .75rem;
+    padding: .65rem .85rem;
+    color: #155e75;
+    background: #ecfeff;
+    font-size: .73rem;
+    font-weight: 900;
+    transition: .18s ease;
+}
+.bell-preview-button:hover { border-color: rgba(21, 94, 117, .4); background: #cffafe; }
+.bell-preview-button:focus-visible { outline: 3px solid rgba(14,165,233,.28); outline-offset: 2px; }
+.bell-preview-button svg { width: 1rem; height: 1rem; flex: 0 0 auto; }
+.bell-preview-button__stop { display: none; }
+.bell-preview-button.is-playing { color: #fff; border-color: #b91c1c; background: #b91c1c; }
+.bell-preview-button.is-playing:hover { background: #991b1b; }
+.bell-preview-button.is-playing .bell-preview-button__play { display: none; }
+.bell-preview-button.is-playing .bell-preview-button__stop { display: block; }
+.bell-preview-status { margin: .45rem 0 0 !important; color: #64748b !important; font-size: .68rem !important; font-weight: 700 !important; }
+
 .runtime-speed-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: .8rem; }
 .runtime-speed { border: 1px solid #e2e8f0; border-radius: .9rem; background: #fff; padding: .85rem; }
 .runtime-speed__top { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .55rem; }
@@ -1454,6 +1578,8 @@ document.addEventListener('DOMContentLoaded', function() {
     .runtime-group__head p { font-size: .71rem; }
     .runtime-fields,
     .runtime-speed-grid { grid-template-columns: minmax(0, 1fr); }
+    .bell-sound-control { grid-template-columns: minmax(0, 1fr); }
+    .bell-preview-button { width: 100%; min-height: 2.7rem; }
     .runtime-summary { font-size: .74rem; line-height: 1.9; }
     .runtime-presets { flex-wrap: wrap; }
     .runtime-presets button { flex: 1 0 5rem; }

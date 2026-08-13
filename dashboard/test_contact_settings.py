@@ -67,6 +67,10 @@ class SchoolContactSettingsTests(TestCase):
         self.assertContains(response, 'name="mobile"')
         self.assertContains(response, 'value="0500000000"')
         self.assertContains(response, 'name="bell_sound"')
+        self.assertContains(response, 'data-bell-preview-toggle')
+        self.assertContains(response, 'data-bell-url-bell="/static/sounds/bell.mp3"')
+        self.assertContains(response, 'data-bell-url-elevator_announcement_bells="/static/sounds/mixkit-elevator-announcement-bells-112.wav"')
+        self.assertContains(response, 'تشغيل المعاينة')
         self.assertNotContains(response, 'name="weekly_uptime_report_enabled"')
 
     def test_manager_can_update_contact_details(self):
