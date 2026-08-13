@@ -1,155 +1,124 @@
 {% extends "dashboard/_base.html" %}
-{% load static %}
 
 {% block title %}إضافة مدرسة جديدة{% endblock %}
 {% block page_title %}إضافة مدرسة جديدة{% endblock %}
 {% block page_description %}أنشئ مدرسة مستقلة، اختر عدد شاشاتها وباقتها، ثم أكمل الدفع{% endblock %}
 
-{% block extra_css %}
-<style>
-  .school-create-field input:not([type="radio"]),
-  .school-create-field select {
-    width: 100%;
-    min-height: 3rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 0.9rem;
-    background: #fff;
-    padding: 0.7rem 0.9rem;
-    color: #0f172a;
-    font-size: 0.9rem;
-  }
-  .school-create-field input:focus,
-  .school-create-field select:focus {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, .13);
-    outline: none;
-  }
-  .school-create-plan:has(input:checked) {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
-    background: linear-gradient(145deg, #eef2ff, #fff);
-  }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="mx-auto max-w-5xl">
-  <div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3" aria-label="خطوات إضافة المدرسة">
-    <div class="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3">
-      <div class="text-xs font-black text-indigo-600">الخطوة 1</div>
-      <div class="mt-1 text-sm font-extrabold text-slate-900">بيانات المدرسة</div>
-    </div>
-    <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-      <div class="text-xs font-black text-slate-500">الخطوة 2</div>
-      <div class="mt-1 text-sm font-extrabold text-slate-900">عدد الشاشات والباقة</div>
-    </div>
-    <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-      <div class="text-xs font-black text-slate-500">الخطوة 3</div>
-      <div class="mt-1 text-sm font-extrabold text-slate-900">الدفع والتفعيل</div>
-    </div>
-  </div>
+<div class="dp-stack">
 
-  <form method="post" enctype="multipart/form-data" class="space-y-6" novalidate>
+  <section class="dp-steps" aria-label="خطوات إضافة المدرسة">
+    <div class="dp-step is-current">
+      <span class="dp-step__n">١</span>
+      <strong>بيانات المدرسة</strong>
+      <p>الاسم والنوع والشعار.</p>
+    </div>
+    <div class="dp-step">
+      <span class="dp-step__n">٢</span>
+      <strong>عدد الشاشات والباقة</strong>
+      <p>العدد أولًا، ثم المدة المناسبة.</p>
+    </div>
+    <div class="dp-step">
+      <span class="dp-step__n">٣</span>
+      <strong>الدفع والتفعيل</strong>
+      <p>بعد الحفظ مباشرة.</p>
+    </div>
+  </section>
+
+  <form method="post" enctype="multipart/form-data" class="dp-form" novalidate>
     {% csrf_token %}
 
-    {% if form.non_field_errors %}
-      <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700" role="alert">
-        {{ form.non_field_errors.0 }}
-      </div>
-    {% endif %}
-
-    <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-7">
-      <div class="mb-6 flex items-start gap-3">
-        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-700">
-          <i class="fa-solid fa-school" aria-hidden="true"></i>
-        </div>
-        <div>
-          <h2 class="text-lg font-black text-slate-900">بيانات المدرسة</h2>
-          <p class="mt-1 text-sm leading-6 text-slate-500">ستكون بيانات وشاشات واشتراك هذه المدرسة مستقلة عن مدارسك الأخرى.</p>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div class="school-create-field md:col-span-2">
-          <label for="{{ form.name.id_for_label }}" class="mb-2 block text-sm font-extrabold text-slate-800">{{ form.name.label }}</label>
-          {{ form.name }}
-          {% if form.name.errors %}<p class="mt-2 text-xs font-bold text-rose-600">{{ form.name.errors.0 }}</p>{% endif %}
-        </div>
-
-        <div class="school-create-field">
-          <label for="{{ form.school_type.id_for_label }}" class="mb-2 block text-sm font-extrabold text-slate-800">{{ form.school_type.label }}</label>
-          {{ form.school_type }}
-          {% if form.school_type.errors %}<p class="mt-2 text-xs font-bold text-rose-600">{{ form.school_type.errors.0 }}</p>{% endif %}
-        </div>
-
-        <div class="school-create-field">
-          <label for="{{ form.logo.id_for_label }}" class="mb-2 block text-sm font-extrabold text-slate-800">{{ form.logo.label }}</label>
-          {{ form.logo }}
-          <p class="mt-2 text-xs text-slate-400">PNG أو JPG أو WebP، ويمكن إضافته لاحقًا.</p>
-          {% if form.logo.errors %}<p class="mt-2 text-xs font-bold text-rose-600">{{ form.logo.errors.0 }}</p>{% endif %}
-        </div>
-      </div>
-    </section>
-
-    <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-7">
-      <div class="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <h2 class="text-lg font-black text-slate-900">عدد الشاشات والباقة</h2>
-          <p class="mt-1 text-sm leading-6 text-slate-500">اختر العدد أولًا، ثم اختر مدة الباقة المناسبة.</p>
-        </div>
-        <div class="school-create-field w-full md:w-56">
-          <label for="{{ form.screen_count.id_for_label }}" class="mb-2 block text-sm font-extrabold text-slate-800">{{ form.screen_count.label }}</label>
-          {{ form.screen_count }}
-          {% if form.screen_count.errors %}<p class="mt-2 text-xs font-bold text-rose-600">{{ form.screen_count.errors.0 }}</p>{% endif %}
-        </div>
-      </div>
-
-      {% if available_plan_cards %}
-        <div id="schoolPlanGrid" class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {% for plan in available_plan_cards %}
-            <label class="school-create-plan relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md"
-                   data-school-plan-card data-screen-count="{{ plan.screen_value }}">
-              <input type="radio" name="plan" value="{{ plan.id }}" class="absolute left-4 top-4 h-4 w-4 accent-indigo-600" {% if plan.selected %}checked{% endif %}>
-              <div class="pl-7">
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <div class="text-base font-black text-slate-900">{{ plan.name }}</div>
-                    {% if plan.duration_text %}<div class="mt-1 text-xs font-bold text-indigo-600">{{ plan.duration_text }}</div>{% endif %}
-                  </div>
-                  {% if plan.badge_text %}<span class="rounded-full bg-indigo-100 px-2.5 py-1 text-[10px] font-black text-indigo-700">{{ plan.badge_text }}</span>{% endif %}
-                </div>
-                <div class="mt-4 flex items-end gap-1">
-                  <strong class="text-3xl font-black text-slate-950">{{ plan.price }}</strong>
-                  <span class="pb-1 text-xs font-bold text-slate-500">ر.س</span>
-                </div>
-                <div class="mt-3 flex flex-wrap gap-2 text-xs font-bold text-slate-600">
-                  <span class="rounded-lg bg-slate-100 px-2.5 py-1.5">{{ plan.screen_text }}</span>
-                  {% if plan.monthly_text %}<span class="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-emerald-700">{{ plan.monthly_text }}</span>{% endif %}
-                </div>
-                {% if plan.description %}<p class="mt-3 text-xs leading-6 text-slate-500">{{ plan.description }}</p>{% endif %}
-              </div>
-            </label>
-          {% endfor %}
-        </div>
-        <div id="schoolPlanEmpty" class="hidden rounded-2xl border border-dashed border-amber-300 bg-amber-50 p-6 text-center text-sm font-bold text-amber-800">
-          لا توجد باقة متاحة لعدد الشاشات المحدد حاليًا.
-        </div>
-        {% if form.plan.errors %}<p class="mt-3 text-xs font-bold text-rose-600" role="alert">{{ form.plan.errors.0 }}</p>{% endif %}
-      {% else %}
-        <div class="rounded-2xl border border-dashed border-amber-300 bg-amber-50 p-6 text-center">
-          <div class="font-black text-amber-900">لا توجد باقات مدفوعة متاحة حاليًا</div>
-          <p class="mt-2 text-sm text-amber-700">تواصل مع الدعم لإضافة المدرسة واختيار الاشتراك المناسب.</p>
+    <div class="dp-form__main">
+      {% if form.non_field_errors %}
+        <div class="dp-note dp-note--amber" role="alert">
+          <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+          <div>
+            <strong>تعذّر إنشاء المدرسة</strong>
+            <p>{{ form.non_field_errors|join:" — " }}</p>
+          </div>
         </div>
       {% endif %}
-    </section>
 
-    <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-      <a href="{% url 'dashboard:index' %}" class="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-6 text-sm font-extrabold text-slate-700 hover:bg-slate-50">إلغاء</a>
-      <button type="submit" {% if not available_plan_cards %}disabled{% endif %}
-              class="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-indigo-600 to-violet-600 px-7 text-sm font-black text-white shadow-lg shadow-indigo-200 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50">
-        إنشاء المدرسة والمتابعة للدفع
-        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
-      </button>
+      <section class="dp-panel">
+        <div class="dp-panel__head">
+          <h3>بيانات المدرسة</h3>
+          <p>ستكون بيانات وشاشات واشتراك هذه المدرسة مستقلة عن مدارسك الأخرى.</p>
+        </div>
+        <div class="dp-panel__body">
+          {% include "dashboard/_field.html" with field=form.name only %}
+          <div class="dp-grid-2">
+            {% include "dashboard/_field.html" with field=form.school_type only %}
+            {% include "dashboard/_field.html" with field=form.logo hint="PNG أو JPG أو WebP، ويمكن إضافته لاحقًا." only %}
+          </div>
+        </div>
+      </section>
+
+      <section class="dp-panel">
+        <div class="dp-panel__head">
+          <h3>عدد الشاشات والباقة</h3>
+          <p>اختر العدد أولًا — ستُعرض الباقات المتاحة لذلك العدد فقط.</p>
+        </div>
+        <div class="dp-panel__body">
+          <div style="max-width:16rem">
+            {% include "dashboard/_field.html" with field=form.screen_count only %}
+          </div>
+
+          {% if available_plan_cards %}
+            <div id="schoolPlanGrid" class="dp-grid-2">
+              {% for plan in available_plan_cards %}
+                <label class="dp-choice" data-school-plan-card data-screen-count="{{ plan.screen_value }}">
+                  <input type="radio" name="plan" value="{{ plan.id }}" {% if plan.selected %}checked{% endif %}>
+                  <div class="dp-section-head">
+                    <div>
+                      <span class="dp-choice__title">{{ plan.name }}</span>
+                      {% if plan.duration_text %}<p>{{ plan.duration_text }}</p>{% endif %}
+                    </div>
+                    {% if plan.badge_text %}<span class="dp-pill dp-pill--gold">{{ plan.badge_text }}</span>{% endif %}
+                  </div>
+                  <div class="dp-choice__price">
+                    {{ plan.price }}<span>ر.س</span>
+                  </div>
+                  <div class="dp-toolbar__actions" style="margin-top:.7rem">
+                    <span class="dp-pill dp-pill--slate">{{ plan.screen_text }}</span>
+                    {% if plan.monthly_text %}<span class="dp-pill dp-pill--green">{{ plan.monthly_text }}</span>{% endif %}
+                  </div>
+                  {% if plan.description %}<p class="dp-field__hint" style="margin-top:.6rem">{{ plan.description }}</p>{% endif %}
+                </label>
+              {% endfor %}
+            </div>
+            <div id="schoolPlanEmpty" class="dp-note dp-note--amber" hidden>
+              <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+              <div>
+                <strong>لا توجد باقة لعدد الشاشات المحدد</strong>
+                <p>جرّب عددًا آخر، أو تواصل مع الدعم لتجهيز باقة مخصصة.</p>
+              </div>
+            </div>
+            {% for error in form.plan.errors %}<div class="dp-field__error" role="alert">{{ error }}</div>{% endfor %}
+          {% else %}
+            <div class="dp-note dp-note--amber">
+              <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+              <div>
+                <strong>لا توجد باقات مدفوعة متاحة حاليًا</strong>
+                <p>تواصل مع الدعم لإضافة المدرسة واختيار الاشتراك المناسب.</p>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </section>
+    </div>
+
+    <div class="dp-actionbar">
+      <div class="dp-actionbar__copy">
+        <strong>مدرسة جديدة</strong>
+        <span>لن يتم أي خصم قبل صفحة الدفع.</span>
+      </div>
+      <div class="dp-actionbar__buttons">
+        <a href="{% url 'dashboard:index' %}" class="dp-btn dp-btn--ghost">إلغاء</a>
+        <button type="submit" class="dp-btn dp-btn--primary" {% if not available_plan_cards %}disabled{% endif %}>
+          <span>إنشاء المدرسة والمتابعة للدفع</span>
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+        </button>
+      </div>
     </div>
   </form>
 </div>
@@ -157,37 +126,39 @@
 
 {% block extra_js %}
 <script nonce="{{ csp_nonce }}">
-  (function () {
-    var screenSelect = document.getElementById('{{ form.screen_count.id_for_label }}');
-    var cards = Array.prototype.slice.call(document.querySelectorAll('[data-school-plan-card]'));
-    var emptyState = document.getElementById('schoolPlanEmpty');
-    if (!screenSelect || !cards.length) return;
+(function () {
+  var screenSelect = document.getElementById('{{ form.screen_count.id_for_label }}');
+  var cards = Array.prototype.slice.call(document.querySelectorAll('[data-school-plan-card]'));
+  var emptyState = document.getElementById('schoolPlanEmpty');
+  if (!screenSelect || !cards.length) return;
 
-    function filterPlans() {
-      var wanted = screenSelect.value;
-      var visible = [];
+  function filterPlans() {
+    var wanted = screenSelect.value;
+    var visible = [];
+    cards.forEach(function (card) {
+      var matches = card.getAttribute('data-screen-count') === wanted;
+      card.hidden = !matches;
+      if (matches) visible.push(card);
+    });
+
+    // A plan that just scrolled out of view must not stay selected, or the
+    // form would submit a plan the manager can no longer see.
+    var checked = document.querySelector('input[name="plan"]:checked');
+    if (!checked || checked.closest('[data-school-plan-card]').hidden) {
       cards.forEach(function (card) {
-        var matches = card.getAttribute('data-screen-count') === wanted;
-        card.classList.toggle('hidden', !matches);
-        if (matches) visible.push(card);
+        var input = card.querySelector('input[name="plan"]');
+        if (input) input.checked = false;
       });
-
-      var checked = document.querySelector('input[name="plan"]:checked');
-      if (!checked || checked.closest('[data-school-plan-card]').classList.contains('hidden')) {
-        cards.forEach(function (card) {
-          var input = card.querySelector('input[name="plan"]');
-          if (input) input.checked = false;
-        });
-        if (visible.length) {
-          var firstInput = visible[0].querySelector('input[name="plan"]');
-          if (firstInput) firstInput.checked = true;
-        }
+      if (visible.length) {
+        var firstInput = visible[0].querySelector('input[name="plan"]');
+        if (firstInput) firstInput.checked = true;
       }
-      if (emptyState) emptyState.classList.toggle('hidden', visible.length > 0);
     }
+    if (emptyState) emptyState.hidden = visible.length > 0;
+  }
 
-    screenSelect.addEventListener('change', filterPlans);
-    filterPlans();
-  })();
+  screenSelect.addEventListener('change', filterPlans);
+  filterPlans();
+})();
 </script>
 {% endblock %}

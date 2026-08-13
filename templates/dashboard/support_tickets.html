@@ -4,53 +4,62 @@
 {% block page_title %}تذاكر الدعم الفني{% endblock %}
 {% block page_description %}إدارة ومتابعة تذاكر الدعم الفني{% endblock %}
 
-{% block content %}
-<div class="space-y-6">
-  <div class="flex justify-end">
-    <a href="{% url 'dashboard:customer_support_ticket_create' %}" class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-medium hover:from-indigo-700 hover:to-violet-700 transition shadow-sm">
-      <i class="fas fa-plus ml-2"></i> فتح تذكرة جديدة
+{% block page_actions %}
+  <div class="dp-toolbar__actions">
+    <a href="{% url 'dashboard:customer_support_ticket_create' %}" class="dp-btn dp-btn--primary">
+      <i class="fa-solid fa-plus" aria-hidden="true"></i>
+      <span>فتح تذكرة جديدة</span>
     </a>
   </div>
+{% endblock %}
 
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-    <div class="table-scroll">
-    <table class="w-full min-w-[560px] text-right">
-      <thead class="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
-        <tr>
-          <th class="p-4">الموضوع</th>
-          <th class="p-4">المدرسة</th>
-          <th class="p-4">الحالة</th>
-          <th class="p-4">تاريخ الإنشاء</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">
-        {% for ticket in tickets %}
-        <tr class="hover:bg-slate-50 transition">
-          <td class="p-4 font-medium text-slate-800">
-            <a href="{% url 'dashboard:customer_support_ticket_detail' ticket.pk %}" class="text-indigo-600 hover:underline">
-              {{ ticket.subject }}
-            </a>
-          </td>
-          <td class="p-4 text-slate-600">{{ ticket.school.name|default:"-" }}</td>
-          <td class="p-4">
-            {% if ticket.status == 'open' %}
-            <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium">مفتوحة</span>
-            {% elif ticket.status == 'in_progress' %}
-            <span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-medium">قيد المعالجة</span>
-            {% else %}
-            <span class="bg-slate-100 text-slate-700 px-2 py-1 rounded-full text-xs font-medium">مغلقة</span>
-            {% endif %}
-          </td>
-          <td class="p-4 text-slate-500 text-sm">{{ ticket.created_at|date:"Y-m-d H:i" }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="4" class="p-8 text-center text-slate-500">لا توجد تذاكر حالياً.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+{% block content %}
+<div class="dp-stack">
+
+  {% if tickets %}
+    <section class="dp-table-shell">
+      <div class="dashboard-table-scroll">
+        <table class="dp-table">
+          <thead>
+            <tr>
+              <th>الموضوع</th>
+              <th>المدرسة</th>
+              <th>الحالة</th>
+              <th>تاريخ الإنشاء</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ticket in tickets %}
+              <tr>
+                <td>
+                  <a href="{% url 'dashboard:customer_support_ticket_detail' ticket.pk %}" class="dp-link">
+                    {{ ticket.subject }}
+                  </a>
+                </td>
+                <td>{{ ticket.school.name|default:"—" }}</td>
+                <td>
+                  {% if ticket.status == 'open' %}
+                    <span class="dp-pill dp-pill--teal dp-pill--dot">مفتوحة</span>
+                  {% elif ticket.status == 'in_progress' %}
+                    <span class="dp-pill dp-pill--amber dp-pill--dot">قيد المعالجة</span>
+                  {% else %}
+                    <span class="dp-pill dp-pill--slate dp-pill--dot">مغلقة</span>
+                  {% endif %}
+                </td>
+                <td dir="ltr">{{ ticket.created_at|date:"Y-m-d H:i" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% else %}
+    <div class="dp-empty">
+      <div class="dp-empty__icon"><i class="fa-regular fa-life-ring" aria-hidden="true"></i></div>
+      <h3>لا توجد تذاكر</h3>
+      <p>عند مواجهة أي مشكلة، افتح تذكرة واشرحها بالتفصيل — يصلك الرد على نفس الصفحة.</p>
+      <a href="{% url 'dashboard:customer_support_ticket_create' %}" class="dp-btn dp-btn--primary">فتح أول تذكرة</a>
     </div>
-  </div>
+  {% endif %}
 </div>
 {% endblock %}

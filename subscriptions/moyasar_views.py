@@ -26,6 +26,7 @@ from .moyasar import MoyasarAPIError, MoyasarClient, MoyasarConfigurationError
 from .pricing import (
     checkout_total,
     normalize_extra_screens,
+    normalize_screen_addon_days,
     prorated_screen_addon_price,
 )
 from .moyasar_processing import (
@@ -100,6 +101,29 @@ def _renewal_start(school, plan) -> date:
     return today
 
 
+def _screen_addon_window(*, starts_at: date, subscription, requested_days) -> tuple[int, date]:
+    """Return the billable add-on duration, capped to the running subscription."""
+    plan_days = int(getattr(getattr(subscription, "plan", None), "duration_days", 0) or 0)
+    subscription_ends_at = getattr(subscription, "ends_at", None)
+    if subscription_ends_at:
+        remaining_days = max(1, (subscription_ends_at - starts_at).days + 1)
+        max_days = remaining_days
+    else:
+        remaining_days = plan_days if plan_days > 0 else 30
+        max_days = plan_days if plan_days > 0 else 365
+
+    days = normalize_screen_addon_days(
+        requested_days,
+        default_days=remaining_days,
+        max_days=max_days,
+    )
+    ends_at = starts_at + timedelta(days=days - 1)
+    if subscription_ends_at and ends_at > subscription_ends_at:
+        ends_at = subscription_ends_at
+        days = max(1, (ends_at - starts_at).days + 1)
+    return days, ends_at
+
+
 @login_required(login_url="dashboard:login")
 @require_POST
 def moyasar_start(request):
@@ -140,11 +164,16 @@ def moyasar_start(request):
 
         plan = current.plan
         starts_at = timezone.localdate()
+        addon_days, addon_ends_at = _screen_addon_window(
+            starts_at=starts_at,
+            subscription=current,
+            requested_days=request.POST.get("addon_duration_days"),
+        )
         amount = prorated_screen_addon_price(
             extra_screens,
             plan=plan,
             starts_at=starts_at,
-            ends_at=current.ends_at,
+            ends_at=addon_ends_at,
         )
         if amount <= 0:
             messages.error(request, "تعذر احتساب قيمة الشاشات الإضافية لهذه المدة.")
@@ -166,6 +195,8 @@ def moyasar_start(request):
             starts_at = _renewal_start(school, plan)
         else:
             starts_at = timezone.localdate()
+        addon_days = None
+        addon_ends_at = None
 
     live_mode = bool(getattr(settings, "MOYASAR_LIVE_MODE", False))
     recent = (
@@ -175,6 +206,8 @@ def moyasar_start(request):
             plan=plan,
             request_type=request_type,
             extra_screens=extra_screens,
+            screen_addon_validity_days=addon_days,
+            screen_addon_ends_at=addon_ends_at,
             amount=amount,
             status="initiated",
             live_mode=live_mode,
@@ -190,6 +223,8 @@ def moyasar_start(request):
         request_type=request_type,
         starts_at=starts_at,
         extra_screens=extra_screens,
+        screen_addon_validity_days=addon_days,
+        screen_addon_ends_at=addon_ends_at,
         amount=amount,
         currency="SAR",
         live_mode=live_mode,

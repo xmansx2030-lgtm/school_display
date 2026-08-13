@@ -4,595 +4,130 @@
 {% block page_title %}التنبيهات والإشعارات{% endblock %}
 {% block page_description %}إدارة التنبيهات المعروضة على شاشات العرض{% endblock %}
 
-{% block content %}
-<div class="max-w-7xl mx-auto pb-8 md:pb-12">
-  <section class="ann-command-panel mb-4">
-    <div class="min-w-0">
-      <h2>إدارة التنبيهات</h2>
-      <p>أنشئ التنبيهات وحدد وقت ظهورها على شاشات العرض.</p>
-    </div>
-    <a href="{% url 'dashboard:ann_create' %}" class="ann-primary-action">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
+{% block page_actions %}
+  <div class="dp-toolbar__actions">
+    <a href="{% url 'dashboard:ann_create' %}" class="dp-btn dp-btn--primary">
+      <i class="fa-solid fa-plus" aria-hidden="true"></i>
       <span>تنبيه جديد</span>
     </a>
+  </div>
+{% endblock %}
+
+{% block content %}
+<div class="dp-stack">
+
+  <section class="dp-stat-grid" aria-label="ملخص التنبيهات">
+    <div class="dp-stat">
+      <div class="dp-stat__top">
+        <span class="dp-stat__label">الإجمالي</span>
+        <span class="dp-stat__icon"><i class="fa-regular fa-bell" aria-hidden="true"></i></span>
+      </div>
+      <div class="dp-stat__value">{{ page.paginator.count }}</div>
+    </div>
+    <div class="dp-stat dp-stat--green">
+      <div class="dp-stat__top">
+        <span class="dp-stat__label">فعالة الآن</span>
+        <span class="dp-stat__icon"><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i></span>
+      </div>
+      <div class="dp-stat__value">{{ active_count|default:0 }}</div>
+    </div>
+    <div class="dp-stat dp-stat--gold">
+      <div class="dp-stat__top">
+        <span class="dp-stat__label">مجدولة</span>
+        <span class="dp-stat__icon"><i class="fa-regular fa-clock" aria-hidden="true"></i></span>
+      </div>
+      <div class="dp-stat__value">{{ future_count|default:0 }}</div>
+    </div>
+    <div class="dp-stat dp-stat--slate">
+      <div class="dp-stat__top">
+        <span class="dp-stat__label">منتهية أو متوقفة</span>
+        <span class="dp-stat__icon"><i class="fa-regular fa-circle-stop" aria-hidden="true"></i></span>
+      </div>
+      <div class="dp-stat__value">{{ expired_count|default:0 }}</div>
+    </div>
   </section>
 
-  <section class="ann-summary-strip mb-4" aria-label="ملخص التنبيهات">
-    <div class="ann-summary-item">
-      <span>الإجمالي</span>
-      <strong>{{ page.paginator.count }}</strong>
-    </div>
-    <div class="ann-summary-item">
-      <span>فعالة الآن</span>
-      <strong>{{ active_count|default:0 }}</strong>
-    </div>
-    <div class="ann-summary-item">
-      <span>مجدولة</span>
-      <strong>{{ future_count|default:0 }}</strong>
-    </div>
-    <div class="ann-summary-item">
-      <span>منتهية أو متوقفة</span>
-      <strong>{{ expired_count|default:0 }}</strong>
-    </div>
-  </section>
-
-  <section class="ann-list-section">
-    <div class="ann-section-heading">
+  {% if page.object_list %}
+    <div class="dp-section-head">
       <div>
         <h3>بطاقات التنبيهات</h3>
         <p>كل بطاقة توضّح نص التنبيه، مستواه، حالته، ووقت ظهوره.</p>
       </div>
-      <span>{{ page.object_list|length }} من {{ page.paginator.count }}</span>
+      <span class="dp-pill dp-pill--slate">{{ page.object_list|length }} من {{ page.paginator.count }}</span>
     </div>
 
-    {% if page.object_list %}
-      <div class="ann-card-grid">
-        {% for a in page.object_list %}
-          <article class="ann-card level-{{ a.level }} status-{{ a.dashboard_status_key }}">
-            <div class="ann-card-top">
-              <div class="ann-title-block">
-                <span class="ann-level-dot"></span>
-                <div class="min-w-0">
-                  <h3>{{ a.title }}</h3>
-                  {% if a.occasion_theme %}
-                    <span class="ann-occasion-chip">ثيم: {{ a.get_occasion_theme_display }}</span>
-                  {% endif %}
-                  {% if a.body %}
-                    <p>{{ a.body }}</p>
-                  {% else %}
-                    <p class="muted">لا يوجد نص إضافي لهذا التنبيه.</p>
-                  {% endif %}
-                </div>
-              </div>
-
-              <div class="ann-status-pill">
-                <strong>{{ a.dashboard_status_label }}</strong>
-                <small>{{ a.dashboard_status_hint }}</small>
-              </div>
+    <div class="dp-card-grid">
+      {% for a in page.object_list %}
+        <article class="dp-record dp-record--{{ a.dashboard_status_key }}">
+          <div class="dp-record__head">
+            <div class="dp-min0">
+              <span class="dp-pill dp-pill--level-{{ a.level|default:'info' }}">{{ a.get_level_display }}</span>
+              {% if a.occasion_theme %}
+                <span class="dp-pill dp-pill--gold">ثيم: {{ a.get_occasion_theme_display }}</span>
+              {% endif %}
+              <h3 class="dp-record__title" style="margin-top:.55rem">{{ a.title }}</h3>
             </div>
+            <div class="dp-record__status">
+              <strong>{{ a.dashboard_status_label }}</strong>
+              <small>{{ a.dashboard_status_hint }}</small>
+            </div>
+          </div>
 
-            <div class="ann-card-meta">
-              <div>
-                <span>المستوى</span>
-                <strong>{{ a.get_level_display }}</strong>
-              </div>
-              <div>
-                <span>يظهر من</span>
-                <strong>{{ a.starts_at|date:"Y-m-d H:i" }}</strong>
-              </div>
-              <div>
-                <span>ينتهي في</span>
-                {% if a.expires_at %}
-                  <strong>{{ a.expires_at|date:"Y-m-d H:i" }}</strong>
-                {% else %}
-                  <strong>بدون نهاية</strong>
-                {% endif %}
-              </div>
-              <div>
-                <span>الشاشات المستهدفة</span>
-                {% with targeted_screens=a.screens.all %}
-                  {% if targeted_screens %}
-                    <strong>{% for screen in targeted_screens %}{{ screen.name }}{% if not forloop.last %}، {% endif %}{% endfor %}</strong>
+          {% if a.body %}
+            <p class="dp-msg__body" style="margin:0">{{ a.body }}</p>
+          {% else %}
+            <p class="dp-field__hint" style="margin:0">لا يوجد نص إضافي لهذا التنبيه.</p>
+          {% endif %}
+
+          <dl class="dp-record__rows">
+            <div class="dp-record__row">
+              <dt>يظهر من</dt>
+              <dd dir="ltr">{{ a.starts_at|date:"Y-m-d H:i" }}</dd>
+            </div>
+            <div class="dp-record__row">
+              <dt>ينتهي في</dt>
+              <dd {% if a.expires_at %}dir="ltr"{% endif %}>{{ a.expires_at|date:"Y-m-d H:i"|default:"بدون نهاية" }}</dd>
+            </div>
+            <div class="dp-record__row">
+              <dt>الشاشات المستهدفة</dt>
+              <dd>
+                {% with targeted=a.screens.all %}
+                  {% if targeted %}
+                    {% for screen in targeted %}{{ screen.name }}{% if not forloop.last %}، {% endif %}{% endfor %}
                   {% else %}
-                    <strong>جميع الشاشات</strong>
+                    جميع الشاشات
                   {% endif %}
                 {% endwith %}
-              </div>
+              </dd>
             </div>
+          </dl>
 
-            <div class="ann-card-actions">
-              <a href="{% url 'dashboard:ann_edit' a.pk %}" class="ann-secondary-action">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                <span>تعديل</span>
-              </a>
-              <form method="post" action="{% url 'dashboard:ann_delete' a.pk %}" data-confirm="هل تريد حذف التنبيه التالي؟&#10;&#10;{{ a.title }}&#10;&#10;لا يمكن التراجع عن هذا الإجراء.">
-                {% csrf_token %}
-                <button type="submit" class="ann-danger-action">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                  <span>حذف</span>
-                </button>
-              </form>
-            </div>
-          </article>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="ann-empty-state">
-        <div class="ann-empty-icon">
-          <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-4-5.659V5a2 2 0 10-4 0v.341A6 6 0 006 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-        </div>
-        <h3>لا توجد تنبيهات</h3>
-        <p>ابدأ بإنشاء أول تنبيه ليظهر على شاشات المدرسة.</p>
-        <a href="{% url 'dashboard:ann_create' %}" class="ann-primary-action">إضافة أول تنبيه</a>
-      </div>
-    {% endif %}
-  </section>
+          <div class="dp-record__foot">
+            <a href="{% url 'dashboard:ann_edit' a.pk %}" class="dp-btn dp-btn--ghost dp-btn--sm">
+              <i class="fa-solid fa-pen" aria-hidden="true"></i>
+              <span>تعديل</span>
+            </a>
+            <form method="post" action="{% url 'dashboard:ann_delete' a.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="dp-btn dp-btn--danger dp-btn--sm"
+                      data-confirm="هل تريد حذف التنبيه &quot;{{ a.title }}&quot;؟ لا يمكن التراجع عن هذا الإجراء.">
+                <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+                <span>حذف</span>
+              </button>
+            </form>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
 
-  {% if page.paginator.num_pages > 1 %}
-    <nav class="ann-pagination mt-5" aria-label="ترقيم التنبيهات">
-      <span>عرض {{ page.start_index }}-{{ page.end_index }} من {{ page.paginator.count }}</span>
-      <div>
-        {% if page.has_previous %}
-          <a href="?page={{ page.previous_page_number }}">السابق</a>
-        {% endif %}
-        {% for num in page.paginator.page_range %}
-          {% if num == page.number %}
-            <strong>{{ num }}</strong>
-          {% else %}
-            <a href="?page={{ num }}">{{ num }}</a>
-          {% endif %}
-        {% endfor %}
-        {% if page.has_next %}
-          <a href="?page={{ page.next_page_number }}">التالي</a>
-        {% endif %}
-      </div>
-    </nav>
+    {% include "dashboard/_pagination.html" with page=page label="ترقيم التنبيهات" only %}
+  {% else %}
+    <div class="dp-empty">
+      <div class="dp-empty__icon"><i class="fa-regular fa-bell" aria-hidden="true"></i></div>
+      <h3>لا توجد تنبيهات</h3>
+      <p>ابدأ بإنشاء أول تنبيه ليظهر على شاشات المدرسة في الوقت الذي تحدده.</p>
+      <a href="{% url 'dashboard:ann_create' %}" class="dp-btn dp-btn--primary">إضافة أول تنبيه</a>
+    </div>
   {% endif %}
 </div>
-
-
-<style>
-.ann-command-panel,
-.ann-summary-strip,
-.ann-section-heading {
-  border-radius: 14px;
-}
-
-.ann-command-panel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.1rem;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-}
-
-.ann-command-panel h2,
-.ann-section-heading h3 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-.ann-command-panel p,
-.ann-section-heading p {
-  margin: 0.25rem 0 0;
-  color: #64748b;
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.ann-primary-action,
-.ann-secondary-action,
-.ann-danger-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-height: 2.35rem;
-  border-radius: 0.65rem;
-  padding: 0 0.9rem;
-  font-size: 0.78rem;
-  font-weight: 900;
-  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
-}
-
-.ann-primary-action {
-  background: #0f172a;
-  color: #ffffff;
-}
-
-.ann-primary-action:hover {
-  background: #1e293b;
-}
-
-.ann-secondary-action {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #334155;
-}
-
-.ann-secondary-action:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-}
-
-.ann-danger-action {
-  background: #ffffff;
-  border: 1px solid #fecdd3;
-  color: #be123c;
-}
-
-.ann-danger-action:hover {
-  background: #fff1f2;
-  border-color: #fda4af;
-}
-
-.ann-summary-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-}
-
-.ann-summary-item {
-  padding: 0.95rem 1rem;
-  border-inline-start: 1px solid #e2e8f0;
-}
-
-.ann-summary-item:first-child {
-  border-inline-start: 0;
-}
-
-.ann-summary-item span {
-  display: block;
-  color: #64748b;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.ann-summary-item strong {
-  display: block;
-  margin-top: 0.25rem;
-  color: #0f172a;
-  font-size: 1.25rem;
-  font-weight: 950;
-}
-
-.ann-list-section {
-  display: grid;
-  gap: 1rem;
-}
-
-.ann-section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.1rem;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-}
-
-.ann-section-heading > span {
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #475569;
-  padding: 0.35rem 0.7rem;
-  font-size: 0.72rem;
-  font-weight: 900;
-}
-
-.ann-card-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.ann-card {
-  position: relative;
-  display: grid;
-  gap: 1rem;
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 1rem;
-  box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
-}
-
-.ann-card::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: 4px;
-  background: #38bdf8;
-}
-
-.ann-card.level-urgent::before { background: #ef4444; }
-.ann-card.level-warning::before { background: #f59e0b; }
-.ann-card.level-success::before { background: #10b981; }
-
-.ann-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.ann-title-block {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.7rem;
-  min-width: 0;
-}
-
-.ann-level-dot {
-  width: 0.65rem;
-  height: 0.65rem;
-  margin-top: 0.45rem;
-  border-radius: 999px;
-  background: #38bdf8;
-  flex: 0 0 auto;
-}
-
-.level-urgent .ann-level-dot { background: #ef4444; }
-.level-warning .ann-level-dot { background: #f59e0b; }
-.level-success .ann-level-dot { background: #10b981; }
-
-.ann-title-block h3 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1rem;
-  font-weight: 900;
-  line-height: 1.45;
-}
-.ann-occasion-chip {
-  display: inline-flex;
-  margin-top: .35rem;
-  border-radius: 999px;
-  background: #eef2ff;
-  color: #4338ca;
-  padding: .25rem .55rem;
-  font-size: .66rem;
-  font-weight: 900;
-}
-
-.ann-title-block p {
-  margin: 0.35rem 0 0;
-  color: #475569;
-  font-size: 0.82rem;
-  font-weight: 600;
-  line-height: 1.7;
-}
-
-.ann-title-block .muted {
-  color: #94a3b8;
-}
-
-.ann-status-pill {
-  flex: 0 0 auto;
-  max-width: 10rem;
-  border-radius: 999px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 0.45rem 0.7rem;
-  text-align: start;
-}
-
-.ann-status-pill strong,
-.ann-status-pill small {
-  display: block;
-}
-
-.ann-status-pill strong {
-  color: #0f172a;
-  font-size: 0.76rem;
-  font-weight: 900;
-}
-
-.ann-status-pill small {
-  margin-top: 0.15rem;
-  color: #64748b;
-  font-size: 0.68rem;
-  font-weight: 700;
-}
-
-.status-active .ann-status-pill {
-  background: #ecfdf5;
-  border-color: #bbf7d0;
-}
-
-.status-future .ann-status-pill {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-}
-
-.status-paused .ann-status-pill,
-.status-expired .ann-status-pill {
-  background: #f8fafc;
-}
-
-.ann-card-meta {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
-}
-
-.ann-card-meta > div {
-  border-radius: 0.8rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 0.7rem 0.8rem;
-}
-
-.ann-card-meta span,
-.ann-card-meta strong {
-  display: block;
-}
-
-.ann-card-meta span {
-  color: #64748b;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.ann-card-meta strong {
-  margin-top: 0.2rem;
-  color: #0f172a;
-  font-size: 0.78rem;
-  font-weight: 900;
-  direction: ltr;
-  text-align: right;
-}
-
-.ann-card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  border-top: 1px solid #edf2f7;
-  padding-top: 0.85rem;
-}
-
-.ann-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  min-height: 18rem;
-  padding: 3rem 1rem;
-  text-align: center;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-}
-
-.ann-empty-icon {
-  display: grid;
-  place-items: center;
-  width: 4.75rem;
-  height: 4.75rem;
-  border-radius: 1rem;
-  background: #f8fafc;
-  color: #94a3b8;
-}
-
-.ann-empty-state h3 {
-  margin: 0.35rem 0 0;
-  color: #0f172a;
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-.ann-empty-state p {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.ann-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  color: #64748b;
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.ann-pagination div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.ann-pagination a,
-.ann-pagination strong {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.2rem;
-  min-height: 2.2rem;
-  border-radius: 0.65rem;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #334155;
-  padding: 0 0.7rem;
-  font-weight: 900;
-}
-
-.ann-pagination strong {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #ffffff;
-}
-
-@media (max-width: 1100px) {
-  .ann-command-panel,
-  .ann-section-heading,
-  .ann-card-top,
-  .ann-pagination {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .ann-summary-strip,
-  .ann-card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .ann-summary-item:nth-child(odd) {
-    border-inline-start: 0;
-  }
-
-  .ann-summary-item:nth-child(n + 3) {
-    border-top: 1px solid #e2e8f0;
-  }
-}
-
-@media (max-width: 720px) {
-  .ann-card-grid,
-  .ann-card-meta {
-    grid-template-columns: 1fr;
-  }
-
-  .ann-status-pill {
-    max-width: none;
-  }
-
-  .ann-card-actions {
-    align-items: stretch;
-  }
-
-  .ann-card-actions a,
-  .ann-card-actions button,
-  .ann-card-actions form {
-    width: 100%;
-  }
-}
-
-@media (max-width: 560px) {
-  .ann-summary-strip {
-    grid-template-columns: 1fr;
-  }
-
-  .ann-summary-item,
-  .ann-summary-item:nth-child(odd) {
-    border-inline-start: 0;
-  }
-
-  .ann-summary-item + .ann-summary-item {
-    border-top: 1px solid #e2e8f0;
-  }
-}
-</style>
 {% endblock %}

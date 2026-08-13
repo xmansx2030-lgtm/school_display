@@ -71,6 +71,18 @@
           <dt class="text-slate-400">بداية الاشتراك</dt>
           <dd class="font-bold" dir="ltr">{{ checkout.starts_at|date:"Y-m-d" }}</dd>
         </div>
+        {% if checkout.request_type == "screens" %}
+        <div class="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <dt class="text-slate-400">الشاشات الإضافية</dt>
+          <dd class="font-bold">{{ checkout.extra_screens }}</dd>
+        </div>
+        {% if checkout.screen_addon_ends_at %}
+        <div class="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <dt class="text-slate-400">نهاية الإضافة</dt>
+          <dd class="font-bold" dir="ltr">{{ checkout.screen_addon_ends_at|date:"Y-m-d" }}</dd>
+        </div>
+        {% endif %}
+        {% endif %}
         <div class="flex items-end justify-between gap-4">
           <dt class="text-slate-400">الإجمالي</dt>
           <dd class="text-2xl font-black">{{ checkout.amount }} <span class="text-xs text-slate-400">ر.س</span></dd>

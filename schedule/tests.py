@@ -582,6 +582,102 @@ class DisplaySignalInvalidationTests(TestCase):
                 self._assert_dashboard_source_change_refreshes_display(mutate)
 
 
+class SnapshotSchoolDayBoardsWindowTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.factory = RequestFactory()
+        self.school = School.objects.create(name="مدرسة لوحات اليوم", slug="day-boards-school")
+        self.settings = SchoolSettings.objects.create(
+            school=self.school,
+            name=self.school.name,
+            timezone_name="Asia/Riyadh",
+        )
+        self.today = timezone.localdate()
+        self.day = DaySchedule.objects.create(
+            settings=self.settings,
+            weekday=self.today.weekday() + 1,
+            is_active=True,
+            periods_count=2,
+        )
+        Period.objects.create(day=self.day, index=1, starts_at=dt_time(8, 0), ends_at=dt_time(9, 0))
+        Period.objects.create(day=self.day, index=2, starts_at=dt_time(9, 10), ends_at=dt_time(10, 0))
+
+        school_class = SchoolClass.objects.create(settings=self.settings, name="الأول أ")
+        subject = Subject.objects.create(school=self.school, name="رياضيات")
+        teacher = Teacher.objects.create(school=self.school, name="أحمد")
+        ClassLesson.objects.create(
+            settings=self.settings,
+            school_class=school_class,
+            weekday=self.today.weekday() + 1,
+            period_index=1,
+            subject=subject,
+            teacher=teacher,
+        )
+        StandbyAssignment.objects.create(
+            school=self.school,
+            date=self.today,
+            period_index=1,
+            class_name="الثاني أ",
+            teacher_name="معلم انتظار",
+        )
+        DutyAssignment.objects.create(
+            school=self.school,
+            date=self.today,
+            teacher_name="معلم مناوبة",
+            duty_type=DutyAssignment.DUTY_DUTY,
+        )
+        Excellence.objects.create(
+            school=self.school,
+            teacher_name="معلم متميز",
+            reason="نشاط صفي",
+        )
+
+    def _at(self, hour: int, minute: int) -> datetime:
+        tz = timezone.get_current_timezone()
+        return timezone.make_aware(datetime.combine(self.today, dt_time(hour, minute)), tz)
+
+    def _final_snapshot(self, hour: int, minute: int) -> dict:
+        day_snap = build_day_snapshot(self.settings, now=self._at(hour, minute))
+        return av._build_final_snapshot(
+            self.factory.get("/api/display/snapshot/"),
+            self.settings,
+            day_snap=day_snap,
+            merge_real_data=True,
+        )
+
+    def assert_day_boards_are_empty(self, snap: dict):
+        self.assertFalse(snap["meta"]["is_period_day_window"])
+        self.assertEqual(snap["period_classes"], [])
+        self.assertEqual(snap["period_classes_map"], {})
+        self.assertEqual(snap["standby"], [])
+        self.assertEqual(snap["excellence"], [])
+        self.assertEqual(snap["duty"], {"items": []})
+
+    def test_day_boards_are_hidden_before_the_first_period_even_inside_wake_window(self):
+        snap = self._final_snapshot(7, 45)
+
+        self.assertTrue(snap["meta"]["is_active_window"])
+        self.assertEqual(snap["state"]["reason"], "before_hours")
+        self.assert_day_boards_are_empty(snap)
+
+    def test_day_boards_are_visible_during_the_real_period_day(self):
+        snap = self._final_snapshot(8, 15)
+
+        self.assertTrue(snap["meta"]["is_period_day_window"])
+        self.assertTrue(snap["period_classes"])
+        self.assertTrue(snap["period_classes_map"])
+        self.assertTrue(snap["standby"])
+        self.assertTrue(snap["excellence"])
+        self.assertTrue(snap["duty"]["items"])
+
+    def test_day_boards_are_hidden_after_the_last_period_before_active_window_closes(self):
+        snap = self._final_snapshot(10, 5)
+
+        self.assertTrue(snap["meta"]["is_active_window"])
+        self.assertEqual(snap["state"]["reason"], "after_hours")
+        self.assert_day_boards_are_empty(snap)
+
+
 class SnapshotPayloadBuildTests(SimpleTestCase):
     def _fake_settings(self):
         return SimpleNamespace(

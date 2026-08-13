@@ -397,7 +397,19 @@ def lessons_list(request):
     if day.isdigit():
         lessons = lessons.filter(weekday=int(day))
 
-    return render(request, "dashboard/lessons_list.html", {"lessons": lessons})
+    return render(
+        request,
+        "dashboard/lessons_list.html",
+        {
+            "lessons": lessons,
+            # Echoed back into the toolbar so a search survives its own submit,
+            # and so the day dropdown is built from the model's own encoding
+            # (1=الاثنين … 7=الأحد) instead of a hand-written 0-4 list.
+            "search": search,
+            "selected_day": day,
+            "weekday_choices": ClassLesson._meta.get_field("weekday").choices,
+        },
+    )
 
 @manager_required
 def lesson_create(request):
@@ -629,9 +641,30 @@ def timetable_day_view(request):
                 msg_parts.append(f"تم تحديث {updated_count} حصة.")
             if deleted_count:
                 msg_parts.append(f"تم حذف {deleted_count} حصة فارغة.")
-            messages.success(request, " ".join(msg_parts))
+            message = " ".join(msg_parts)
+            message_level = "success"
         else:
-            messages.info(request, "لم يتم رصد أي تغييرات في جدول هذا الفصل.")
+            message = "لم يتم رصد أي تغييرات في جدول هذا الفصل."
+            message_level = "info"
+
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JsonResponse(
+                {
+                    "ok": True,
+                    "message": message,
+                    "level": message_level,
+                    "created": created_count,
+                    "updated": updated_count,
+                    "deleted": deleted_count,
+                    "weekday": weekday,
+                    "class_id": selected_class.id,
+                }
+            )
+
+        if message_level == "success":
+            messages.success(request, message)
+        else:
+            messages.info(request, message)
 
         url = reverse("dashboard:timetable_day")
         url = f"{url}?weekday={weekday}&class_id={selected_class.id}"

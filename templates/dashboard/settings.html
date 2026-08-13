@@ -152,7 +152,7 @@
                             
                             <div class="relative">
                                 {{ form.featured_panel }}
-                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-4 text-slate-500 group-focus-within:text-indigo-600">
+                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-4 text-slate-500 group-focus-within:text-teal-800">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                                 </div>
                             </div>
@@ -172,9 +172,9 @@
                                 {% comment "Theme options definitions" %} {% endcomment %}
                                 <!-- Indigo -->
                                 <button type="button" class="w-12 h-12 md:w-14 md:h-14 rounded-2xl transition-all duration-200 focus:outline-none ring-offset-2 hover:scale-105 flex items-center justify-center relative shadow-sm"
-                                        data-theme="indigo" data-hex="#6366F1" style="background: #e0e7ff; color: #4338ca;" title="نيلي" aria-label="اختيار اللون النيلي" aria-pressed="false">
-                                    <div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-[#6366F1] shadow-lg shadow-indigo-500/40"></div>
-                                        <div class="absolute inset-0 rounded-2xl ring-2 ring-indigo-500 opacity-0 scale-90 transition-all data-[selected=true]:opacity-100 data-[selected=true]:scale-100 pointer-events-none border-selection"></div>
+                                        data-theme="indigo" data-hex="#145A6A" style="background: #e0e7ff; color: #4338ca;" title="نيلي" aria-label="اختيار اللون النيلي" aria-pressed="false">
+                                    <div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-[#145A6A] shadow-lg shadow-teal-800/40"></div>
+                                        <div class="absolute inset-0 rounded-2xl ring-2 ring-teal-700 opacity-0 scale-90 transition-all data-[selected=true]:opacity-100 data-[selected=true]:scale-100 pointer-events-none border-selection"></div>
                                 </button>
                                 
                                 <!-- Emerald -->
@@ -214,9 +214,9 @@
 
                                 <!-- Violet -->
                                 <button type="button" class="w-12 h-12 md:w-14 md:h-14 rounded-2xl transition-all duration-200 focus:outline-none ring-offset-2 hover:scale-105 flex items-center justify-center relative shadow-sm"
-                                        data-theme="violet" data-hex="#A855F7" style="background: #f3e8ff; color: #7e22ce;" title="بنفسجي" aria-label="اختيار اللون البنفسجي" aria-pressed="false">
-                                    <div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-[#A855F7] shadow-lg shadow-violet-500/40"></div>
-                                        <div class="absolute inset-0 rounded-2xl ring-2 ring-violet-500 opacity-0 scale-90 transition-all data-[selected=true]:opacity-100 data-[selected=true]:scale-100 pointer-events-none border-selection"></div>
+                                        data-theme="violet" data-hex="#B48B57" style="background: #f3e8ff; color: #7e22ce;" title="بنفسجي" aria-label="اختيار اللون البنفسجي" aria-pressed="false">
+                                    <div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-[#B48B57] shadow-lg shadow-amber-700/40"></div>
+                                        <div class="absolute inset-0 rounded-2xl ring-2 ring-amber-600 opacity-0 scale-90 transition-all data-[selected=true]:opacity-100 data-[selected=true]:scale-100 pointer-events-none border-selection"></div>
                                 </button>
                             </div>
                             
@@ -579,7 +579,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputs = form ? form.querySelectorAll('input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]), select, textarea') : [];
     inputs.forEach(input => {
         if (input.classList.contains('sr-only')) return;
-        input.classList.add('w-full', 'px-4', 'py-3.5', 'rounded-xl', 'border', 'border-slate-200', 'bg-slate-50', 'text-slate-800', 'font-semibold', 'focus:bg-white', 'focus:ring-4', 'focus:ring-indigo-500/10', 'focus:border-indigo-500', 'transition-all', 'duration-200', 'placeholder-slate-400', 'outline-none');
+        input.classList.add('w-full', 'px-4', 'py-3.5', 'rounded-xl', 'border', 'border-slate-200', 'bg-slate-50', 'text-slate-800', 'font-semibold', 'focus:bg-white', 'focus:ring-4', 'focus:ring-teal-700/10', 'focus:border-teal-700', 'transition-all', 'duration-200', 'placeholder-slate-400', 'outline-none');
     });
 
     const standbyEl = document.getElementById('id_standby_scroll_speed');
@@ -693,8 +693,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Theme Logic
     const THEME_PRESETS = {
-        indigo: '#6366F1', emerald: '#22C55E', rose: '#EC4899', 
-        cyan: '#06B6D4', amber: '#EAB308', orange: '#F97316', violet: '#A855F7'
+        indigo: '#145A6A', emerald: '#22C55E', rose: '#EC4899', 
+        cyan: '#06B6D4', amber: '#EAB308', orange: '#F97316', violet: '#B48B57'
     };
 
     function setActiveTheme(themeName) {
@@ -963,15 +963,15 @@ document.addEventListener('DOMContentLoaded', function() {
 .screen-inherit-card:has(input:checked) {
     border-color: #a5b4fc;
     background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
-    box-shadow: 0 6px 18px rgba(99, 102, 241, .08);
+    box-shadow: 0 6px 18px rgba(20, 90, 106, .09);
 }
-.screen-inherit-card:focus-within { outline: 3px solid rgba(99,102,241,.22); outline-offset: 2px; }
+.screen-inherit-card:focus-within { outline: 3px solid rgba(20,90,106,.24); outline-offset: 2px; }
 .screen-inherit-card input[type="checkbox"] {
     flex: none;
     width: 1.15rem;
     height: 1.15rem;
     margin-top: 0.15rem;
-    accent-color: #4f46e5;
+    accent-color: #145a6a;
     cursor: pointer;
 }
 .screen-inherit-body { display: flex; flex-direction: column; gap: 0.3rem; }
@@ -990,7 +990,7 @@ document.addEventListener('DOMContentLoaded', function() {
     white-space: nowrap;
 }
 .screen-inherit-state::after { content: "مخصّصة"; }
-.screen-inherit-card:has(input:checked) .screen-inherit-state { background: #4f46e5; color: #fff; }
+.screen-inherit-card:has(input:checked) .screen-inherit-state { background: #145a6a; color: #fff; }
 .screen-inherit-card:has(input:checked) .screen-inherit-state::after { content: "موروثة"; }
 
 [data-inherit-group].is-inherited {
@@ -1015,7 +1015,7 @@ document.addEventListener('DOMContentLoaded', function() {
     width: 1.05rem;
     height: 1.05rem;
     margin-top: 0.1rem;
-    accent-color: #4f46e5;
+    accent-color: #145a6a;
     cursor: pointer;
 }
 .screen-inherit-inline strong { display: block; color: #0f172a; font-size: 0.78rem; font-weight: 900; }

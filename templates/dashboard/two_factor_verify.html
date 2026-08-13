@@ -10,11 +10,11 @@
     <div>
       <label for="token" class="mb-2 block text-sm font-bold">رمز التحقق أو الاسترداد</label>
       <input id="token" name="token" required autofocus inputmode="text" autocomplete="one-time-code"
-             class="w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-4 text-center font-mono text-xl tracking-[.25em] outline-none focus:border-indigo-400"
+             class="w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-4 text-center font-mono text-xl tracking-[.25em] outline-none focus:border-teal-400"
              placeholder="000000">
       <p class="mt-2 text-xs text-slate-400">المحاولات المتبقية: {{ remaining_attempts }}</p>
     </div>
-    <button class="w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold hover:bg-indigo-500" type="submit">تحقق ودخول</button>
+    <button class="w-full rounded-xl bg-teal-800 px-5 py-3 font-bold hover:bg-teal-700" type="submit">تحقق ودخول</button>
   </form>
   <a href="{% url 'dashboard:login' %}" class="mt-5 inline-block text-sm text-slate-400 hover:text-white">العودة لتسجيل الدخول</a>
 {% endblock %}

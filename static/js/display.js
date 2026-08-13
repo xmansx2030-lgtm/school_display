@@ -847,6 +847,7 @@
     // Schedule meta from server (authoritative)
     isSchoolDay: true,
     isActiveWindow: true,
+    isPeriodDayWindow: false,
     activeWindowStartMs: null,
     activeWindowEndMs: null,
     nextWakeMs: null,
@@ -2360,6 +2361,7 @@
     rt.activeTargetHM = (stType === "before") ? block.from : block.to;
     rt.activeTargetMs = isFinite(Number(targetMs)) ? Number(targetMs) : null;
     rt.dayOver = false;
+    rt.isPeriodDayWindow = stType === "period" || stType === "break" || !!rt.isPeriodDayWindow;
     applyBoardStatePresentation(stType, rem > 0);
 
     // Record the currently rendered core state, but do not mark countdown-zero
@@ -2444,6 +2446,7 @@
   function dayEngineApplyDayOver() {
     const afterCopy = getAfterDayOverCopy();
     rt.dayOver = true;
+    rt.isPeriodDayWindow = false;
     rt.activePeriodIndex = null;
     rt.activeStateType = "after";
     rt.activeFromHM = null;
@@ -3182,6 +3185,10 @@
     try { refreshOccasionPresentation(); } catch (e) {}
   }
 
+  function canShowSchoolDayBoards() {
+    return !!(rt && rt.isPeriodDayWindow && !rt.dayOver);
+  }
+
   function makeBoardEmptyState(message) {
     const msg = document.createElement("div");
     msg.className = "board-empty-state";
@@ -3681,6 +3688,7 @@
       rt.activeTargetHM = (stType === "before" ? fromHM : toHM) || null;
       rt.activeTargetMs = isBefore ? startMs : endMs;
       rt.dayOver = false;
+      rt.isPeriodDayWindow = stType === "period" || stType === "break" || !!rt.isPeriodDayWindow;
       applyBoardStatePresentation(stType, rem > 0);
 
       // Immediately re-filter standby list (removes ended standby without waiting for server cache/ETag).
@@ -4742,7 +4750,7 @@
   }
 
   function renderPeriodClasses(items) {
-    const raw = screenFlag("screenShowPeriodClasses", true) && Array.isArray(items)
+    const raw = canShowSchoolDayBoards() && screenFlag("screenShowPeriodClasses", true) && Array.isArray(items)
       ? items.slice()
       : [];
     const baseMs = nowMs();
@@ -4751,9 +4759,10 @@
 
     // ✅ بعد نهاية الدوام: فاضي
     if (rt.dayOver) arr = [];
+    if (!canShowSchoolDayBoards()) arr = [];
 
     // ✅ فلترة القديم (لو أرسل السيرفر عناصر أقل من الحصة الحالية)
-    if (!rt.dayOver && rt.activePeriodIndex) {
+    if (!rt.dayOver && canShowSchoolDayBoards() && rt.activePeriodIndex) {
       arr = arr.filter((x) => {
         const idx = getPeriodIndex(x);
         return !idx || idx >= rt.activePeriodIndex;
@@ -4804,7 +4813,7 @@
   }
 
   function renderStandby(items) {
-    const raw = screenFlag("screenShowStandby", true) && Array.isArray(items)
+    const raw = canShowSchoolDayBoards() && screenFlag("screenShowStandby", true) && Array.isArray(items)
       ? items.slice()
       : [];
     const baseMs = nowMs();
@@ -4813,9 +4822,10 @@
 
     // ✅ إذا انتهى الدوام: فاضي
     if (rt.dayOver) arr = [];
+    if (!canShowSchoolDayBoards()) arr = [];
 
     // ✅ اخفاء أي انتظار قبل الحصة الحالية/التالية
-    if (!rt.dayOver && (rt.activePeriodIndex || rt.activeFromHM)) {
+    if (!rt.dayOver && canShowSchoolDayBoards() && (rt.activePeriodIndex || rt.activeFromHM)) {
       arr = arr.filter((x) => shouldKeepStandbyItem(x, baseMs));
     }
 
@@ -4982,6 +4992,9 @@
       wrap.className = "honor-wrap";
       wrap.setAttribute("role", "group");
       wrap.setAttribute("aria-label", "متميز: " + safeText(name) + (reason ? "، سبب التكريم: " + safeText(reason) : ""));
+      wrap.dataset.hasPhoto = src ? "1" : "0";
+      if (safeText(name).length > 34) wrap.classList.add("honor-wrap--long-name");
+      if (safeText(reason).length > 110) wrap.classList.add("honor-wrap--long-reason");
 
       const img = document.createElement("img");
       img.alt = "صورة المتميز " + safeText(name);
@@ -5253,8 +5266,9 @@
     // featuredEmpty flips to "1" and the board falls back to its ambient mode
     // instead of leaving a hole where the card used to be.
     const dayOver = !!(rt && rt.dayOver);
-    const showDutyPanel = !dayOver && screenFlag("screenShowDuty", true);
-    const showExcellencePanel = !dayOver && screenFlag("screenShowExcellence", true);
+    const showDayBoards = canShowSchoolDayBoards();
+    const showDutyPanel = showDayBoards && !dayOver && screenFlag("screenShowDuty", true);
+    const showExcellencePanel = showDayBoards && !dayOver && screenFlag("screenShowExcellence", true);
     let mode = safeText(screenSetting("screenFeaturedPanel", "") || s.featured_panel || "excellence");
     if (mode === "duty" && !showDutyPanel && showExcellencePanel) mode = "excellence";
     if (mode !== "duty" && !showExcellencePanel && showDutyPanel) mode = "duty";
@@ -5551,6 +5565,13 @@
     rt.activeTargetHM = (stType === "before" ? stateFrom : stateTo) || null;
     rt.activeTargetMs = null;
     rt.dayOver = computeDayOver(payload, baseMs);
+    if (typeof meta.is_period_day_window === "boolean") {
+      rt.isPeriodDayWindow = !!meta.is_period_day_window;
+    } else if (stType === "period" || stType === "break") {
+      rt.isPeriodDayWindow = true;
+    } else if (rt.dayOver || stType === "holiday" || stateReason === "before_hours") {
+      rt.isPeriodDayWindow = false;
+    }
     try { ingestPeriodClassesFromPayload(payload); } catch (e) {}
 
     countdownSeconds = null;

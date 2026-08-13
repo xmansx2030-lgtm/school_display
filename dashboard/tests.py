@@ -49,6 +49,8 @@ from dashboard.decorators import manager_required, superuser_required, system_st
 from dashboard.forms import SubscriptionNewRequestForm
 from subscriptions.models import (
     MoyasarCheckout,
+    SubscriptionInvoice,
+    SubscriptionPaymentOperation,
     SchoolSubscription,
     SubscriptionRequest,
     SubscriptionScreenAddon,
@@ -1025,6 +1027,26 @@ class SystemAdminExperienceTests(TestCase):
             school for school in dashboard_response.context["recent_schools"] if school.pk == self.school.pk
         )
         self.assertEqual(recent_school.managers_total, 1)
+
+    def test_protected_subscription_delete_is_cancelled_instead_of_500(self):
+        subscription = SchoolSubscription.objects.get(school=self.school, plan=self.plan)
+        operation = SubscriptionPaymentOperation.objects.create(
+            school=self.school,
+            subscription=subscription,
+            plan=self.plan,
+            amount=subscription.plan.price,
+            method="bank_transfer",
+            source="admin_manual",
+        )
+        self.assertTrue(SubscriptionInvoice.objects.filter(operation=operation).exists())
+
+        response = self.client.post(
+            reverse("dashboard:system_subscription_delete", args=[subscription.pk])
+        )
+
+        self.assertRedirects(response, reverse("dashboard:system_subscriptions_list"))
+        subscription.refresh_from_db()
+        self.assertEqual(subscription.status, "cancelled")
 
     def test_plan_cards_show_limits_and_usage(self):
         response = self.client.get(reverse("dashboard:system_plans_list"))

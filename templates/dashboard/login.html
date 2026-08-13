@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="theme-color" content="#145a6a">
   <title>تسجيل الدخول — لوحة العرض الذكية</title>
 
   <link rel="icon" type="image/png" sizes="1024x1024" href="/favicon.png?v=20260723-logo1">
@@ -14,13 +14,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;600;700;800;900&family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-07-23-login1">
-  <link rel="stylesheet" href="{% static 'css/dashboard-luxury.css' %}?v=2026-04-17a">
+  <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-08-13-teal1">
+  <link rel="stylesheet" href="{% static 'css/dashboard-luxury.css' %}?v=2026-08-13-teal1">
 
   <style>
     :root {
-      --brand: #4f46e5;
-      --brand-dark: #3730a3;
+      --brand: #145a6a;
+      --brand-dark: #0e3b48;
     }
     body {
       font-family: 'Alexandria', 'Cairo', system-ui, sans-serif;
@@ -44,7 +44,7 @@
     }
     .input-field:focus {
       border-color: var(--brand);
-      box-shadow: 0 0 0 3px rgba(79,70,229,.1);
+      box-shadow: 0 0 0 3px rgba(20,90,106,.12);
     }
     .input-field::placeholder { color: #94a3b8; }
 
@@ -150,14 +150,14 @@
 <body class="dashboard-login flex flex-col">
   {# ── Subtle Background ── #}
   <div class="fixed inset-0 -z-10">
-    <div class="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/[.06] rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-    <div class="absolute bottom-0 left-0 w-[400px] h-[400px] bg-violet-500/[.06] rounded-full blur-3xl translate-y-1/3 -translate-x-1/4"></div>
+    <div class="absolute top-0 right-0 w-[500px] h-[500px] bg-teal-700/[.06] rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+    <div class="absolute bottom-0 left-0 w-[400px] h-[400px] bg-amber-600/[.06] rounded-full blur-3xl translate-y-1/3 -translate-x-1/4"></div>
   </div>
 
   <header class="login-header">
     <div class="container mx-auto px-4 flex justify-center">
       <a href="/" class="flex items-center gap-3 group">
-        <div class="brand-mark w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform">
+        <div class="brand-mark w-10 h-10 rounded-xl bg-gradient-to-br from-[#1c7a8f] to-[#0e3b48] flex items-center justify-center shadow-lg shadow-teal-800/25 group-hover:scale-105 transition-transform">
           <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
         </div>
         <span class="brand-title text-lg font-black text-slate-800 tracking-tight">لوحة العرض الذكية</span>
@@ -209,12 +209,12 @@
             <label for="loginPassword" class="block text-xs font-bold text-slate-600 mb-1.5 mr-1">كلمة المرور</label>
             <input id="loginPassword" class="input-field" type="password" name="password" autocomplete="current-password" placeholder="••••••••" required>
             <div class="mt-2 text-left">
-              <a href="{% url 'dashboard:password_reset' %}" class="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors">نسيت كلمة المرور؟</a>
+              <a href="{% url 'dashboard:password_reset' %}" class="text-xs font-bold text-teal-800 hover:text-teal-900 transition-colors">نسيت كلمة المرور؟</a>
             </div>
           </div>
 
           <div class="pt-1">
-            <button type="submit" class="login-submit w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2">
+            <button type="submit" class="login-submit w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#16576a] to-[#0e3b48] text-white font-bold text-sm shadow-lg shadow-teal-800/25 hover:shadow-teal-800/40 hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
               دخول المنصة
             </button>
@@ -226,7 +226,7 @@
             لحسابات التجربة المجانية يمكنك الدخول برقم الجوال الذي سجلت به وكلمة المرور التي اخترتها.
           </div>
 
-          <a href="/" class="text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors inline-flex items-center justify-center gap-1">
+          <a href="/" class="text-sm font-bold text-teal-800 hover:text-teal-900 transition-colors inline-flex items-center justify-center gap-1">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
             العودة للرئيسية
           </a>

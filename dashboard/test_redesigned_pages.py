@@ -15,7 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.models import School, SubscriptionPlan, UserProfile
-from schedule.models import DaySchedule, Period, SchoolClass, SchoolSettings, Subject, Teacher
+from schedule.models import ClassLesson, DaySchedule, Period, SchoolClass, SchoolSettings, Subject, Teacher
 from subscriptions.models import SchoolSubscription
 
 
@@ -84,6 +84,40 @@ class RedesignedDashboardPagesTests(TestCase):
         self.assertContains(response, "data-tt-row")
         # Days are chips now, not a dropdown that needs a second action.
         self.assertContains(response, "data-tt-day")
+        self.assertContains(response, "data-tt-autosave=\"true\"")
+        self.assertContains(response, "data-tt-autosave-toast")
+
+    def test_timetable_day_ajax_post_saves_without_redirect(self):
+        day = DaySchedule.objects.create(settings=self.settings, weekday=7, periods_count=1)
+        Period.objects.create(day=day, index=1, starts_at="07:00", ends_at="07:45")
+        school_class = SchoolClass.objects.create(settings=self.settings, name="أول/أ")
+        subject = Subject.objects.create(school=self.school, name="الرياضيات")
+        teacher = Teacher.objects.create(school=self.school, name="أ. سارة")
+
+        response = self.client.post(
+            reverse("dashboard:timetable_day"),
+            {
+                "weekday": "7",
+                "class_id": str(school_class.id),
+                f"subject-{school_class.id}-1": str(subject.id),
+                f"teacher-{school_class.id}-1": str(teacher.id),
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["ok"])
+        self.assertTrue(
+            ClassLesson.objects.filter(
+                settings=self.settings,
+                school_class=school_class,
+                weekday=7,
+                period_index=1,
+                subject=subject,
+                teacher=teacher,
+            ).exists()
+        )
 
     def test_timetable_day_without_periods_points_at_the_day_setup(self):
         SchoolClass.objects.create(settings=self.settings, name="ثاني/ب")

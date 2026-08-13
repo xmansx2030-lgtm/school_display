@@ -1,24 +1,68 @@
 {% extends "dashboard/_base.html" %}
+
 {% block title %}{{ title }}{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_description %}إضافة أو تعديل حصة في الجدول الدراسي{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto">
-  <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-    <div class="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-4">
-      <h2 class="text-base font-bold text-white">{{ title }}</h2>
-    </div>
-    <div class="p-6">
-      <form method="post" class="space-y-4">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <div class="flex items-center gap-3 pt-4 border-t border-slate-100">
-          <button type="submit" class="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition shadow-sm">حفظ</button>
-          <a href="{% url 'dashboard:lessons_list' %}" class="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition">إلغاء</a>
+<div class="dp-stack" style="max-width:44rem;margin-inline:auto">
+
+  <form method="post" class="dp-form">
+    {% csrf_token %}
+
+    <div class="dp-form__main">
+      {% if form.non_field_errors %}
+        <div class="dp-note dp-note--amber" role="alert">
+          <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+          <div>
+            <strong>تعذّر حفظ الحصة</strong>
+            <p>{{ form.non_field_errors|join:" — " }}</p>
+          </div>
         </div>
-      </form>
+      {% endif %}
+
+      <section class="dp-panel">
+        <div class="dp-panel__head">
+          <h3>موضع الحصة في الجدول</h3>
+          <p>الفصل واليوم ورقم الحصة معًا يحددون خانة واحدة لا تتكرر.</p>
+        </div>
+        <div class="dp-panel__body">
+          {% include "dashboard/_field.html" with field=form.school_class only %}
+          <div class="dp-grid-2">
+            {% include "dashboard/_field.html" with field=form.weekday only %}
+            {% include "dashboard/_field.html" with field=form.period_index only %}
+          </div>
+        </div>
+      </section>
+
+      <section class="dp-panel">
+        <div class="dp-panel__head">
+          <h3>محتوى الحصة</h3>
+          <p>ما يظهر للطلاب على الشاشة في هذه الخانة.</p>
+        </div>
+        <div class="dp-panel__body">
+          <div class="dp-grid-2">
+            {% include "dashboard/_field.html" with field=form.subject only %}
+            {% include "dashboard/_field.html" with field=form.teacher only %}
+          </div>
+          {% include "dashboard/_switch.html" with field=form.is_active hint="عند التعطيل تبقى الحصة محفوظة لكنها لا تظهر على الشاشة." only %}
+        </div>
+      </section>
     </div>
-  </div>
+
+    <div class="dp-actionbar">
+      <div class="dp-actionbar__copy">
+        <strong>{{ title }}</strong>
+        <span>لن يتغير الجدول على الشاشات قبل الحفظ.</span>
+      </div>
+      <div class="dp-actionbar__buttons">
+        <a href="{% url 'dashboard:lessons_list' %}" class="dp-btn dp-btn--ghost">إلغاء</a>
+        <button type="submit" class="dp-btn dp-btn--primary">
+          <i class="fa-solid fa-check" aria-hidden="true"></i>
+          <span>حفظ الحصة</span>
+        </button>
+      </div>
+    </div>
+  </form>
 </div>
 {% endblock %}

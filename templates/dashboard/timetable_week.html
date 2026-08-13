@@ -2,92 +2,80 @@
 
 {% block title %}جدول الأسبوع للفصل{% endblock %}
 {% block page_title %}جدول الأسبوع للفصل{% endblock %}
-{% block page_description %}عرض أسبوعي كامل للفصل {{ selected_class.name }} مع المواد والمعلمين لكل يوم دراسي.{% endblock %}
+{% block page_description %}عرض أسبوعي كامل للفصل {{ selected_class.name }} مع المواد والمعلمين لكل يوم دراسي{% endblock %}
+
+{% block page_actions %}
+  <div class="dp-toolbar__actions">
+    <a href="{% url 'dashboard:timetable_day' %}?class_id={{ selected_class.id }}" class="dp-btn dp-btn--ghost">
+      <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+      <span>جدول اليوم</span>
+    </a>
+    <a href="{% url 'dashboard:timetable_export_csv' %}?class_id={{ selected_class.id }}" class="dp-btn dp-btn--soft">
+      <i class="fa-solid fa-file-csv" aria-hidden="true"></i>
+      <span>تصدير CSV</span>
+    </a>
+  </div>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto space-y-6">
-    <div class="dashboard-toolbar flex flex-wrap items-center justify-between gap-3">
-        <a href="{% url 'dashboard:timetable_day' %}?class_id={{ selected_class.id }}"
-           class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition shadow-sm">
-            <span class="text-lg leading-none">←</span>
-            الرجوع لجدول اليوم
-        </a>
+<div class="dp-stack">
 
-        <div class="flex flex-wrap items-center gap-2">
-            <a href="{% url 'dashboard:index' %}"
-               class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition shadow-sm">
-                <span>🏠</span>
-                لوحة التحكم
-            </a>
-            <a href="{% url 'dashboard:timetable_export_csv' %}?class_id={{ selected_class.id }}"
-               class="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition shadow-sm">
-                <span>📄</span>
-                تصدير CSV
-            </a>
+  <div class="dp-week-grid">
+    {% for day in days_data %}
+      <section class="dp-table-shell">
+        <div class="dp-table-shell__head">
+          <h3 style="margin:0;font-size:.92rem;font-weight:900">{{ day.label }}</h3>
+          <span class="dp-pill dp-pill--teal">{{ day.rows|length }} حصة</span>
         </div>
-    </div>
 
-    <section class="dashboard-section-card rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-                <div class="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">عرض أسبوعي</div>
-                <h3 class="mt-3 text-2xl font-black text-slate-900">{{ selected_class.name }}</h3>
-                <p class="mt-1 text-sm text-slate-500">يعرض هذا القسم جميع حصص الأسبوع بشكل مرتب مع المادة والمعلم لكل توقيت.</p>
-            </div>
-            <div class="dashboard-mini-card rounded-2xl border border-slate-200 bg-white px-5 py-3 text-center">
-                <div class="text-[11px] font-bold text-slate-400">الأيام المعروضة</div>
-                <div class="mt-1 text-2xl font-black text-slate-900">{{ days_data|length }}</div>
-            </div>
-        </div>
-    </section>
-
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        {% for day in days_data %}
-            <section class="dashboard-table-shell rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-                    <h4 class="text-lg font-bold text-slate-800">{{ day.label }}</h4>
-                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{{ day.rows|length }} حصص</span>
-                </div>
-
-                {% if day.rows %}
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-slate-50 text-slate-600">
-                                <tr>
-                                    <th class="px-4 py-3 text-right font-semibold">الحصة</th>
-                                    <th class="px-4 py-3 text-right font-semibold">الوقت</th>
-                                    <th class="px-4 py-3 text-right font-semibold">المادة</th>
-                                    <th class="px-4 py-3 text-right font-semibold">المعلم/ـة</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for row in day.rows %}
-                                    <tr class="border-t border-slate-100 hover:bg-slate-50 transition-colors">
-                                        <td class="px-4 py-3">
-                                            <span class="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
-                                                <span class="h-1.5 w-1.5 rounded-full bg-indigo-400"></span>
-                                                الحصة {{ row.period.index }}
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-3 font-mono text-slate-500">
-                                            {% if row.period.starts_at %}
-                                                {{ row.period.starts_at }} - {{ row.period.ends_at }}
-                                            {% else %}
-                                                --
-                                            {% endif %}
-                                        </td>
-                                        <td class="px-4 py-3 text-slate-800">{{ row.subject_name|default:"-" }}</td>
-                                        <td class="px-4 py-3 text-slate-600">{{ row.teacher_name|default:"-" }}</td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                {% else %}
-                    <div class="px-5 py-8 text-sm text-slate-500">لا توجد حصص مجدولة لهذا اليوم.</div>
-                {% endif %}
-            </section>
-        {% endfor %}
-    </div>
+        {% if day.rows %}
+          <div class="dashboard-table-scroll">
+            <table class="dp-table">
+              <thead>
+                <tr>
+                  <th>الحصة</th>
+                  <th>الوقت</th>
+                  <th>المادة</th>
+                  <th>المعلم/ـة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in day.rows %}
+                  <tr>
+                    <td><span class="dp-pill dp-pill--slate">{{ row.period.index }}</span></td>
+                    <td dir="ltr">
+                      {% if row.period.starts_at %}{{ row.period.starts_at }} – {{ row.period.ends_at }}{% else %}—{% endif %}
+                    </td>
+                    <td><strong>{{ row.subject_name|default:"—" }}</strong></td>
+                    <td>{{ row.teacher_name|default:"—" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="dp-field__hint" style="padding:1.2rem;text-align:center">لا توجد حصص مجدولة لهذا اليوم.</p>
+        {% endif %}
+      </section>
+    {% empty %}
+      <div class="dp-empty">
+        <div class="dp-empty__icon"><i class="fa-regular fa-calendar" aria-hidden="true"></i></div>
+        <h3>لا توجد أيام دراسية مفعّلة</h3>
+        <p>فعّل الأيام واضبط أوقات حصصها أولًا من صفحة توقيت الحصص والأيام.</p>
+        <a href="{% url 'dashboard:days_list' %}" class="dp-btn dp-btn--primary">ضبط الأيام</a>
+      </div>
+    {% endfor %}
+  </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Two days side by side on a wide screen, one per row on a laptop and down —
+     a day's table needs its full width before the columns start truncating. */
+  .dp-week-grid { display: grid; gap: 1rem; }
+  @media (min-width: 1280px) {
+    .dp-week-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
 {% endblock %}

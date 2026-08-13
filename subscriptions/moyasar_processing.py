@@ -97,6 +97,9 @@ def _grant_purchased_screens(checkout: MoyasarCheckout, subscription) -> None:
     # plan run for the whole term.
     starts_at = checkout.starts_at if checkout.request_type != "screens" else timezone.localdate()
 
+    ends_at = checkout.screen_addon_ends_at or subscription.ends_at
+    validity_days = getattr(checkout, "screen_addon_validity_days", None)
+
     SubscriptionScreenAddon.objects.create(
         subscription=subscription,
         screens_added=screens,
@@ -105,7 +108,8 @@ def _grant_purchased_screens(checkout: MoyasarCheckout, subscription) -> None:
         pricing_strategy="manual_bundle",
         bundle_price=_charged_screen_price(checkout, subscription, starts_at=starts_at),
         starts_at=starts_at,
-        ends_at=subscription.ends_at,
+        validity_days=validity_days,
+        ends_at=ends_at,
         status="paid",
         notes=f"Purchased with Moyasar {checkout.merchant_reference}",
     )
@@ -122,7 +126,7 @@ def _charged_screen_price(checkout: MoyasarCheckout, subscription, *, starts_at)
             screens,
             plan=checkout.plan,
             starts_at=starts_at,
-            ends_at=subscription.ends_at,
+            ends_at=checkout.screen_addon_ends_at or subscription.ends_at,
         )
     return screen_addon_price(
         screens,
@@ -151,6 +155,8 @@ def _audit_payment(checkout: MoyasarCheckout, subscription, *, event_type: str) 
             "live_mode": bool(checkout.live_mode),
             "request_type": checkout.request_type,
             "extra_screens": int(getattr(checkout, "extra_screens", 0) or 0),
+            "screen_addon_validity_days": int(getattr(checkout, "screen_addon_validity_days", 0) or 0),
+            "screen_addon_ends_at": str(getattr(checkout, "screen_addon_ends_at", "") or ""),
         },
     )
 

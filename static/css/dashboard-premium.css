@@ -263,6 +263,16 @@
 }
 .dp-btn--danger:hover { background: #fff1f2; border-color: rgba(225, 29, 72, 0.38); }
 
+/* Emergency broadcast is the one action that deliberately steps outside the
+   brand: it takes over every screen in the school, so the button says so. */
+.dp-btn--emergency {
+  color: #fff;
+  border-color: #9f1239;
+  background: linear-gradient(145deg, #e11d48 0%, #9f1239 100%);
+  box-shadow: 0 10px 22px -12px rgba(159, 18, 57, 0.9);
+}
+.dp-btn--emergency:hover { background: linear-gradient(145deg, #f43f5e 0%, #be123c 100%); }
+
 .dp-btn--onDark {
   color: #fff;
   border-color: rgba(255, 255, 255, 0.24);
@@ -321,6 +331,12 @@
   border-radius: 50%;
   background: currentColor;
 }
+/* The four values of ANNOUNCEMENT_LEVELS, so an urgency reads as itself in a
+   list without the template branching four ways to pick a colour. */
+.dp-pill--level-urgent { color: #b91c1c; background: rgba(220, 38, 38, 0.12); }
+.dp-pill--level-warning { color: #92400e; background: rgba(245, 158, 11, 0.16); }
+.dp-pill--level-info { color: #0f5061; background: var(--dp-teal-wash); }
+.dp-pill--level-success { color: #047857; background: rgba(16, 185, 129, 0.13); }
 
 /* --------------------------------------------------------------------------
    Stat tiles
@@ -692,7 +708,51 @@
   padding: 0.85rem;
   box-shadow: var(--dp-shadow);
 }
-.dp-record__head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; min-width: 0; }
+/* Records laid out as cards rather than table rows — used where each entry
+   carries a paragraph of its own (announcements, excellence cards). */
+.dp-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: 0.8rem;
+}
+
+/* A person's photo (or their initial) beside their name. */
+.dp-person { display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
+.dp-person__photo,
+.dp-person__initial {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--dp-line);
+  border-radius: var(--dp-r-sm);
+  background: var(--dp-surface-tint);
+  color: var(--dp-teal-deep);
+  font-size: 1.15rem;
+  font-weight: 900;
+  object-fit: cover;
+}
+
+/* The status block on the leading edge of a record's head. */
+.dp-record__status { flex: 0 0 auto; text-align: end; }
+.dp-record__status strong { display: block; color: var(--dp-ink); font-size: 0.75rem; font-weight: 900; }
+.dp-record__status small { display: block; margin-top: 0.1rem; color: var(--dp-muted); font-size: 0.66rem; font-weight: 650; }
+
+/* A hairline on the inline-start edge carries the record's lifecycle state,
+   so a list can be skimmed for "what is on air right now". */
+.dp-record--active { border-inline-start: 3px solid #10b981; }
+.dp-record--future { border-inline-start: 3px solid var(--dp-gold); }
+.dp-record--paused,
+.dp-record--expired { border-inline-start: 3px solid #94a3b8; }
+
+/* A record that is broadcasting right now — the emergency log's live rows. */
+.dp-record--alert {
+  border-color: rgba(225, 29, 72, 0.32);
+  background: linear-gradient(140deg, rgba(244, 63, 94, 0.06), #fff 58%);
+}
+.dp-record__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; min-width: 0; }
 .dp-record__title { min-width: 0; color: var(--dp-ink); font-size: 0.9rem; font-weight: 900; }
 .dp-record__rows { display: grid; gap: 0.3rem; }
 .dp-record__row {
@@ -809,17 +869,438 @@
 }
 .dp-note--gold { border-color: rgba(180, 139, 87, 0.24); border-inline-start-color: var(--dp-gold); background: rgba(180, 139, 87, 0.06); }
 .dp-note--amber { border-color: rgba(245, 158, 11, 0.28); border-inline-start-color: #f59e0b; background: rgba(245, 158, 11, 0.07); }
+.dp-note--danger { border-color: rgba(225, 29, 72, 0.26); border-inline-start-color: #e11d48; background: rgba(244, 63, 94, 0.05); }
 .dp-note > i { margin-top: 0.15rem; flex: 0 0 auto; color: var(--dp-teal); }
 .dp-note--gold > i { color: #96702f; }
 .dp-note--amber > i { color: #b45309; }
+.dp-note--danger > i { color: #be123c; }
 .dp-note strong { display: block; color: var(--dp-ink); font-size: 0.8rem; font-weight: 900; }
 .dp-note p { margin: 0.2rem 0 0; color: var(--dp-muted); font-size: 0.75rem; line-height: 1.85; }
 
 /* --------------------------------------------------------------------------
+   Shell chrome — the few coloured spots in `_base.html` itself
+   --------------------------------------------------------------------------
+   These were Tailwind indigo utilities, which put a second brand in the top
+   bar of every page. Expressed here so they track the `--dp-*` tokens.
+   -------------------------------------------------------------------------- */
+.dp-brandmark { background: linear-gradient(140deg, var(--dp-teal-bright), var(--dp-teal-deep)); }
+.dp-icontile { color: var(--dp-teal); background: var(--dp-teal-wash); }
+
+/* The page header carries the page's primary action beside its title, so a
+   page does not need a second titled bar underneath repeating its own name. */
+.dashboard-page-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+.dashboard-page-intro .dp-toolbar__actions { flex: 0 0 auto; }
+@media (max-width: 640px) {
+  .dashboard-page-intro { align-items: stretch; }
+  .dashboard-page-intro .dp-toolbar__actions > .dp-btn { flex: 1; }
+}
+
+/* An inline link inside body copy or a table cell. */
+.dp-link { color: var(--dp-teal-deep); font-weight: 900; text-decoration: underline; text-underline-offset: 3px; }
+.dp-link:hover { color: var(--dp-teal-bright); }
+
+/* --------------------------------------------------------------------------
+   Page toolbar — the title/description/primary-action strip a list page opens
+   with. Every list page had hand-rolled this with a different prefix.
+   -------------------------------------------------------------------------- */
+.dp-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+  border: 1px solid var(--dp-line);
+  border-radius: var(--dp-r-lg);
+  background: linear-gradient(180deg, #fff 0%, var(--dp-surface-tint) 100%);
+  padding: 0.95rem 1.05rem;
+  box-shadow: var(--dp-shadow);
+}
+.dp-toolbar__copy { min-width: 0; }
+.dp-toolbar__copy h2 {
+  margin: 0;
+  color: var(--dp-ink);
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.5;
+}
+.dp-toolbar__copy p {
+  margin: 0.22rem 0 0;
+  color: var(--dp-muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.7;
+}
+.dp-toolbar__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; flex: 0 0 auto; }
+
+/* --------------------------------------------------------------------------
+   Form shell — main column plus an optional sticky aside (live preview).
+   Four form pages each shipped their own copy of this grid; this is the one.
+   -------------------------------------------------------------------------- */
+.dp-form { display: grid; gap: 1rem; align-items: start; }
+.dp-form--aside { grid-template-columns: minmax(0, 1fr) 20rem; }
+.dp-form__main { display: grid; gap: 1rem; min-width: 0; }
+.dp-form__aside { position: sticky; top: calc(var(--header-h, 64px) + 1rem); min-width: 0; }
+
+/* The bar spans both tracks so "save" is never boxed into one column — and it
+   must stay a *direct child* of the form. A sticky box may only travel inside
+   its containing block; wrapped in a div sized to its own height it has zero
+   travel and scrolls away like any static element. Measured in a browser with
+   the wrapper back in place: containing block 67px, bar 67px, and the bar
+   tracked the page 1:1 through every scroll position.
+
+   This also needs `.dashboard-main` to avoid `overflow-x: hidden` — see the
+   note on it in `dashboard/_base.html`. Both conditions are required; each one
+   alone still leaves the bar unpinned. */
+.dp-form > .dp-actionbar { grid-column: 1 / -1; }
+
+/* --------------------------------------------------------------------------
+   Panel — a titled section inside a form
+   -------------------------------------------------------------------------- */
+.dp-panel {
+  min-width: 0;
+  border: 1px solid var(--dp-line);
+  border-radius: var(--dp-r-lg);
+  background: var(--dp-surface);
+  box-shadow: var(--dp-shadow);
+}
+.dp-panel__head {
+  border-bottom: 1px solid var(--dp-line-soft);
+  background: linear-gradient(180deg, var(--dp-surface-tint), #fff);
+  padding: 0.85rem 1rem;
+}
+.dp-panel__head h3 {
+  margin: 0;
+  color: var(--dp-ink);
+  font-size: 0.92rem;
+  font-weight: 900;
+  line-height: 1.5;
+}
+.dp-panel__head p {
+  margin: 0.2rem 0 0;
+  color: var(--dp-muted);
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1.75;
+}
+.dp-panel__body { display: grid; gap: 0.95rem; padding: 1rem; }
+
+/* Field pairs that share a row until the screen gets too narrow. */
+.dp-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.95rem; }
+.dp-grid-2 > .dp-field--wide { grid-column: 1 / -1; }
+
+/* --------------------------------------------------------------------------
+   Field extras
+   --------------------------------------------------------------------------
+   `.dp-field` itself lives further up. These are the parts every page was
+   re-inventing: the required marker, and a file input that reads as a target
+   rather than as the browser's default grey button.
+   -------------------------------------------------------------------------- */
+.dp-field__req {
+  margin-inline-start: 0.15rem;
+  color: #e11d48;
+  font-weight: 900;
+}
+
+/* Widgets come straight from Django, so the template can't put a width class
+   on them. Six pages used to bolt one on from a DOMContentLoaded handler,
+   which meant every form flashed unstyled before the script ran. */
+.dashboard-shell .dp-field > input:not([type="checkbox"]):not([type="radio"]),
+.dashboard-shell .dp-field > select,
+.dashboard-shell .dp-field > textarea {
+  width: 100%;
+}
+.dashboard-shell .dp-field > textarea {
+  min-height: 7rem;
+  line-height: 1.9;
+  resize: vertical;
+}
+/* `dp-input` is what a widget in `forms.py` asks for when it needs to be
+   full-width outside a `.dp-field` wrapper. The look itself comes from the
+   shell's global input rules — this only carries the handful of behaviours
+   the old Tailwind strings encoded. */
+.dashboard-shell .dp-input { width: 100%; }
+.dashboard-shell .dp-input--center { text-align: center; }
+/* Account numbers and IBANs read left-to-right even on an RTL page. */
+.dashboard-shell .dp-input--ltr { direction: ltr; text-align: start; }
+.dashboard-shell .dp-input--readonly {
+  color: var(--dp-muted) !important;
+  background: var(--dp-surface-sunk) !important;
+  cursor: default;
+}
+
+/* A field whose error survived the round trip should look wrong before it is
+   read, not after. */
+.dashboard-shell .dp-field--invalid > input,
+.dashboard-shell .dp-field--invalid > select,
+.dashboard-shell .dp-field--invalid > textarea {
+  border-color: rgba(225, 29, 72, 0.55) !important;
+  background: #fffbfb !important;
+}
+
+.dp-upload {
+  position: relative;
+  display: grid;
+  place-items: center;
+  gap: 0.3rem;
+  min-height: 8rem;
+  overflow: hidden;
+  border: 1px dashed rgba(20, 90, 106, 0.32);
+  border-radius: var(--dp-r-md);
+  background: var(--dp-surface-tint);
+  color: var(--dp-muted);
+  text-align: center;
+  transition: border-color .18s ease, background .18s ease;
+}
+.dp-upload:hover { border-color: rgba(20, 90, 106, 0.5); background: var(--dp-teal-wash); }
+/* The real input covers the box so the whole area is the click target, and
+   keyboard focus still lands on a control that can be styled. */
+.dashboard-shell .dp-upload input[type="file"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: 0 !important;
+  padding: 0 !important;
+  cursor: pointer;
+}
+.dp-upload:focus-within { outline: 3px solid rgba(20, 90, 106, 0.3); outline-offset: 2px; }
+.dp-upload > i { color: var(--dp-teal); font-size: 1.3rem; }
+.dp-upload strong { color: var(--dp-ink); font-size: 0.8rem; font-weight: 900; }
+.dp-upload span { color: var(--dp-faint); font-size: 0.7rem; font-weight: 700; }
+
+/* Scrollable group of checkboxes — screen targeting, school targeting. */
+.dp-checklist {
+  display: grid;
+  gap: 0.15rem;
+  max-height: 13rem;
+  overflow-y: auto;
+  border: 1px solid var(--dp-line);
+  border-radius: var(--dp-r-md);
+  background: var(--dp-surface-sunk);
+  padding: 0.6rem;
+}
+.dp-checklist label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 9px;
+  padding: 0.42rem 0.5rem;
+  color: var(--dp-ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dp-checklist label:hover { background: #fff; }
+.dashboard-shell .dp-checklist input[type="checkbox"],
+.dashboard-shell .dp-choice input[type="radio"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+  accent-color: var(--dp-teal);
+}
+/* A CheckboxSelectMultiple arrives wrapped in its own container — a <div> on
+   Django 5, a <ul> on older renderers — with one element per choice inside.
+   Carry the layout through that wrapper so the options space themselves
+   without the template having to unpick the widget's markup. */
+.dp-checklist > div,
+.dp-checklist > ul { display: grid; gap: 0.15rem; margin: 0; padding: 0; list-style: none; }
+.dp-checklist li { list-style: none; }
+
+/* --------------------------------------------------------------------------
+   Choice card — a radio the size of a card (plan pickers, mode pickers)
+   -------------------------------------------------------------------------- */
+.dp-choice {
+  position: relative;
+  display: block;
+  min-width: 0;
+  border: 1px solid var(--dp-line);
+  border-radius: var(--dp-r-lg);
+  background: var(--dp-surface);
+  padding: 1rem 1rem 1rem 2.6rem;
+  cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.dp-choice:hover { border-color: rgba(20, 90, 106, 0.3); box-shadow: var(--dp-shadow-lift); transform: translateY(-2px); }
+.dashboard-shell .dp-choice input[type="radio"] {
+  position: absolute;
+  inset-inline-start: 1rem;
+  top: 1.05rem;
+}
+.dp-choice:has(input:checked) {
+  border-color: var(--dp-teal);
+  background: linear-gradient(145deg, var(--dp-teal-wash), #fff 62%);
+  box-shadow: 0 0 0 3px rgba(20, 90, 106, 0.13);
+}
+.dp-choice__title { color: var(--dp-ink); font-size: 0.92rem; font-weight: 900; }
+.dp-choice__price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  margin-top: 0.7rem;
+  color: var(--dp-ink);
+  font-size: 1.75rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.dp-choice__price span { color: var(--dp-muted); font-size: 0.7rem; font-weight: 800; }
+
+/* --------------------------------------------------------------------------
+   Steps strip — "1. download, 2. preview, 3. import"
+   -------------------------------------------------------------------------- */
+.dp-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.7rem; }
+.dp-step {
+  min-width: 0;
+  border: 1px solid var(--dp-line);
+  border-radius: var(--dp-r-md);
+  background: var(--dp-surface);
+  padding: 0.85rem 0.9rem;
+  box-shadow: var(--dp-shadow);
+}
+.dp-step__n {
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 9px;
+  color: var(--dp-teal);
+  background: var(--dp-teal-wash);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+.dp-step strong { display: block; margin-top: 0.5rem; color: var(--dp-ink); font-size: 0.82rem; font-weight: 900; }
+.dp-step p { margin: 0.2rem 0 0; color: var(--dp-muted); font-size: 0.73rem; line-height: 1.75; }
+/* The step the user is on right now. */
+.dp-step.is-current { border-color: rgba(20, 90, 106, 0.35); background: linear-gradient(145deg, var(--dp-teal-wash), #fff 60%); }
+.dp-step.is-current .dp-step__n { color: #fffaf3; background: linear-gradient(145deg, #16576a, var(--dp-teal-deep)); }
+
+/* --------------------------------------------------------------------------
+   Live preview aside — what the manager is about to put on a TV
+   -------------------------------------------------------------------------- */
+.dp-preview {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid var(--dp-line);
+  border-radius: var(--dp-r-lg);
+  background: var(--dp-surface);
+  padding: 1rem;
+  box-shadow: var(--dp-shadow);
+}
+.dp-preview__head { display: flex; align-items: center; justify-content: space-between; gap: 0.7rem; }
+.dp-preview__head > span { color: var(--dp-ink); font-size: 0.86rem; font-weight: 900; }
+.dp-preview__card {
+  border: 1px solid var(--dp-line);
+  border-radius: var(--dp-r-md);
+  background: var(--dp-surface-tint);
+  padding: 1rem;
+}
+.dp-preview__card h3 {
+  margin: 0.7rem 0 0;
+  color: var(--dp-ink);
+  font-size: 1.02rem;
+  font-weight: 900;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.dp-preview__card p {
+  margin: 0.35rem 0 0;
+  color: var(--dp-ink-soft);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.dp-preview__avatar {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  margin: 0 auto;
+  width: 8.5rem;
+  height: 8.5rem;
+  border: 1px solid var(--dp-line);
+  border-radius: var(--dp-r-lg);
+  background: #fff;
+  color: var(--dp-ink);
+  font-size: 2.3rem;
+  font-weight: 900;
+}
+.dp-preview__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.dp-preview__meta { display: grid; gap: 0.5rem; margin: 0; }
+.dp-preview__meta > div {
+  border: 1px solid var(--dp-line);
+  border-radius: var(--dp-r-sm);
+  background: var(--dp-surface-tint);
+  padding: 0.6rem 0.7rem;
+}
+.dp-preview__meta dt { margin: 0; color: var(--dp-muted); font-size: 0.7rem; font-weight: 800; }
+.dp-preview__meta dd {
+  margin: 0.18rem 0 0;
+  color: var(--dp-ink);
+  font-size: 0.76rem;
+  font-weight: 900;
+  /* Dates and times are latin digits inside an RTL page; isolate them so the
+     separators do not jump to the wrong end of the string. */
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: end;
+}
+/* Opt back out for a value that is prose rather than a timestamp. */
+.dp-preview__meta dd.is-text {
+  direction: rtl;
+  text-align: start;
+  font-weight: 700;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+/* --------------------------------------------------------------------------
+   Conversation thread — support tickets
+   -------------------------------------------------------------------------- */
+.dp-msg {
+  border: 1px solid var(--dp-line);
+  border-inline-start: 3px solid var(--dp-line);
+  border-radius: var(--dp-r-md);
+  background: var(--dp-surface);
+  padding: 0.85rem 0.95rem;
+  box-shadow: var(--dp-shadow);
+}
+.dp-msg--staff { border-inline-start-color: var(--dp-teal); background: linear-gradient(140deg, var(--dp-teal-wash), #fff 55%); }
+.dp-msg__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.dp-msg__who { color: var(--dp-ink); font-size: 0.8rem; font-weight: 900; }
+.dp-msg__when { color: var(--dp-faint); font-size: 0.7rem; font-weight: 700; direction: ltr; unicode-bidi: isolate; }
+.dp-msg__body { margin-top: 0.5rem; color: var(--dp-ink-soft); font-size: 0.8rem; line-height: 1.9; overflow-wrap: anywhere; }
+.dp-msg__body p { margin: 0 0 0.5rem; }
+.dp-msg__body p:last-child { margin-bottom: 0; }
+
+/* --------------------------------------------------------------------------
    Utility: hide on mobile / desktop without pulling in Tailwind variants
    -------------------------------------------------------------------------- */
+@media (max-width: 1023px) {
+  /* The preview stops being a side panel before the main column gets cramped,
+     otherwise both halves are too narrow to read. */
+  .dp-form--aside { grid-template-columns: 1fr; }
+  .dp-form__aside { position: static; }
+}
+
 @media (max-width: 767px) {
   .dp-desktop-only { display: none !important; }
+
+  .dp-toolbar { align-items: stretch; flex-direction: column; border-radius: 14px; padding: 0.85rem; }
+  .dp-toolbar__actions > .dp-btn { flex: 1; }
+  .dp-panel { border-radius: 14px; }
+  .dp-panel__body { padding: 0.85rem; gap: 0.85rem; }
+  .dp-grid-2 { grid-template-columns: 1fr; }
+  .dp-preview { border-radius: 14px; padding: 0.85rem; }
+  .dp-choice { border-radius: 14px; }
+
+  .dp-hero { border-radius: 16px; padding: 0.95rem; }
+  .dp-hero p { font-size: 0.79rem; line-height: 1.8; }
 
   .dp-hero { border-radius: 16px; padding: 0.95rem; }
   .dp-hero p { font-size: 0.79rem; line-height: 1.8; }

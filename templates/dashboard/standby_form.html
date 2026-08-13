@@ -4,135 +4,117 @@
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_description %}{% if form.instance.pk %}تعديل حصة انتظار{% else %}إضافة حصة انتظار جديدة{% endif %}{% endblock %}
 
-{% block content %}
-<div class="max-w-6xl mx-auto pb-8 md:pb-12">
-  <section class="standby-form-intro mb-4">
-    <div>
-      <h2>{% if form.instance.pk %}تعديل حصة الانتظار{% else %}حصة انتظار جديدة{% endif %}</h2>
-      <p>حدد التاريخ والحصة والفصل والمعلم لتظهر في شاشة حصص الانتظار.</p>
-    </div>
-    <a href="{% url 'dashboard:standby_list' %}" class="standby-form-secondary">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+{% block page_actions %}
+  <div class="dp-toolbar__actions">
+    <a href="{% url 'dashboard:standby_list' %}" class="dp-btn dp-btn--ghost">
+      <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
       <span>رجوع للقائمة</span>
     </a>
-  </section>
+  </div>
+{% endblock %}
 
-  <form method="post" class="standby-form-shell" id="standbyForm">
+{% block content %}
+<div class="dp-stack">
+
+  <form method="post" class="dp-form dp-form--aside" id="standbyForm">
     {% csrf_token %}
-    <div class="standby-form-main">
-      <section class="standby-form-card">
-        <div class="standby-form-card-heading">
+
+    <div class="dp-form__main">
+      {% if form.non_field_errors %}
+        <div class="dp-note dp-note--amber" role="alert">
+          <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+          <div>
+            <strong>تعذّر حفظ حصة الانتظار</strong>
+            <p>{{ form.non_field_errors|join:" — " }}</p>
+          </div>
+        </div>
+      {% endif %}
+
+      <section class="dp-panel">
+        <div class="dp-panel__head">
           <h3>بيانات الحصة</h3>
           <p>اختر اليوم ورقم الحصة والفصل المطلوب تغطيته.</p>
         </div>
-
-        <div class="standby-field-grid">
-          <div class="standby-field">
-            <label for="{{ form.date.id_for_label }}">
-              {{ form.date.label }}
-              {% if form.date.field.required %}<span>*</span>{% endif %}
-            </label>
-            {{ form.date }}
-            {% if form.date.errors %}<div class="standby-field-error">{{ form.date.errors }}</div>{% endif %}
-          </div>
-
-          <div class="standby-field">
-            <label for="{{ form.period_index.id_for_label }}">
-              {{ form.period_index.label }}
-              {% if form.period_index.field.required %}<span>*</span>{% endif %}
-            </label>
-            {{ form.period_index }}
-            {% if form.period_index.errors %}<div class="standby-field-error">{{ form.period_index.errors }}</div>{% endif %}
-          </div>
-
-          <div class="standby-field">
-            <label for="{{ form.class_name.id_for_label }}">
-              {{ form.class_name.label }}
-              {% if form.class_name.field.required %}<span>*</span>{% endif %}
-            </label>
-            {{ form.class_name }}
-            {% if form.class_name.errors %}<div class="standby-field-error">{{ form.class_name.errors }}</div>{% endif %}
-          </div>
-
-          <div class="standby-field">
-            <label for="{{ form.teacher.id_for_label }}">
-              {{ form.teacher.label }}
-              {% if form.teacher.field.required %}<span>*</span>{% endif %}
-            </label>
-            {{ form.teacher }}
-            {% if form.teacher.errors %}<div class="standby-field-error">{{ form.teacher.errors }}</div>{% endif %}
+        <div class="dp-panel__body">
+          <div class="dp-grid-2">
+            {% include "dashboard/_field.html" with field=form.date only %}
+            {% include "dashboard/_field.html" with field=form.period_index only %}
+            {% include "dashboard/_field.html" with field=form.class_name only %}
+            {% include "dashboard/_field.html" with field=form.teacher only %}
           </div>
         </div>
       </section>
 
-      <section class="standby-form-card">
-        <div class="standby-form-card-heading">
+      <section class="dp-panel">
+        <div class="dp-panel__head">
           <h3>ملاحظة اختيارية</h3>
           <p>استخدمها لتوضيح سبب الانتظار أو أي توجيه مختصر للمعلم.</p>
         </div>
-
-        <div class="standby-field">
-          <label for="{{ form.notes.id_for_label }}">
-            {{ form.notes.label }}
-            {% if form.notes.field.required %}<span>*</span>{% endif %}
-          </label>
-          {{ form.notes }}
-          {% if form.notes.errors %}<div class="standby-field-error">{{ form.notes.errors }}</div>{% endif %}
+        <div class="dp-panel__body">
+          {% include "dashboard/_field.html" with field=form.notes only %}
         </div>
       </section>
     </div>
 
-    <aside class="standby-preview-panel">
-      <div class="standby-preview-heading">
-        <span>معاينة التكليف</span>
-        <strong id="previewDate">-</strong>
-      </div>
-      <div class="standby-preview-card">
-        <div class="standby-preview-period">
-          <span>الحصة</span>
-          <strong id="previewPeriod">-</strong>
+    <aside class="dp-form__aside">
+      <div class="dp-preview">
+        <div class="dp-preview__head">
+          <span>معاينة التكليف</span>
+          <strong class="dp-pill dp-pill--slate" id="previewDate">-</strong>
         </div>
-        <h3 id="previewTeacher">اسم المعلم/ـة</h3>
-        <p id="previewClass">الفصل</p>
-      </div>
-      <div class="standby-preview-note">
-        <span>الملاحظة</span>
-        <strong id="previewNotes">بدون ملاحظة</strong>
+        <div class="dp-preview__card">
+          <span class="dp-pill dp-pill--teal">الحصة <strong id="previewPeriod">-</strong></span>
+          <h3 id="previewTeacher">اسم المعلم/ـة</h3>
+          <p id="previewClass">الفصل</p>
+        </div>
+        <dl class="dp-preview__meta">
+          <div>
+            <dt>الملاحظة</dt>
+            <dd class="is-text" id="previewNotes">بدون ملاحظة</dd>
+          </div>
+        </dl>
       </div>
     </aside>
 
-    <div class="standby-form-actions">
-      <button type="submit" class="standby-form-primary">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-        <span>حفظ حصة الانتظار</span>
-      </button>
-      <a href="{% url 'dashboard:standby_list' %}" class="standby-form-secondary">إلغاء</a>
-
-      {% if form.instance.pk %}
-        <button type="button" data-role="confirm-delete" class="standby-form-danger">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-          <span>حذف</span>
+    <div class="dp-actionbar">
+      <div class="dp-actionbar__copy">
+        <strong>{% if form.instance.pk %}تعديل حصة قائمة{% else %}حصة انتظار جديدة{% endif %}</strong>
+        <span>لن تظهر الحصة على الشاشات قبل الحفظ.</span>
+      </div>
+      <div class="dp-actionbar__buttons">
+        {% if form.instance.pk %}
+          <button type="submit"
+                  formaction="{% url 'dashboard:standby_delete' form.instance.pk %}"
+                  formnovalidate
+                  data-confirm="هل تريد حذف حصة الانتظار هذه؟ لا يمكن التراجع عن هذا الإجراء."
+                  class="dp-btn dp-btn--danger">
+            <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+            <span>حذف</span>
+          </button>
+        {% endif %}
+        <a href="{% url 'dashboard:standby_list' %}" class="dp-btn dp-btn--ghost">إلغاء</a>
+        <button type="submit" class="dp-btn dp-btn--primary">
+          <i class="fa-solid fa-check" aria-hidden="true"></i>
+          <span>حفظ حصة الانتظار</span>
         </button>
-      {% endif %}
+      </div>
     </div>
   </form>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script nonce="{{ csp_nonce }}">
-document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('.standby-form-shell input, .standby-form-shell select, .standby-form-shell textarea').forEach(input => {
-    input.classList.add('standby-input');
-  });
-
-  const dateInput = document.getElementById('{{ form.date.id_for_label }}');
-  const periodInput = document.getElementById('{{ form.period_index.id_for_label }}');
-  const classInput = document.getElementById('{{ form.class_name.id_for_label }}');
-  const teacherInput = document.getElementById('{{ form.teacher.id_for_label }}');
-  const notesInput = document.getElementById('{{ form.notes.id_for_label }}');
+document.addEventListener('DOMContentLoaded', function () {
+  var dateInput = document.getElementById('{{ form.date.id_for_label }}');
+  var periodInput = document.getElementById('{{ form.period_index.id_for_label }}');
+  var classInput = document.getElementById('{{ form.class_name.id_for_label }}');
+  var teacherInput = document.getElementById('{{ form.teacher.id_for_label }}');
+  var notesInput = document.getElementById('{{ form.notes.id_for_label }}');
 
   function selectedText(select, fallback) {
     if (!select) return fallback;
-    const option = select.options[select.selectedIndex];
+    var option = select.options[select.selectedIndex];
     return option && option.value ? option.text : fallback;
   }
 
@@ -141,349 +123,19 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function updatePreview() {
-    document.getElementById('previewDate').textContent = valueOr(dateInput?.value || '', '-');
-    document.getElementById('previewPeriod').textContent = valueOr(periodInput?.value || '', '-');
+    document.getElementById('previewDate').textContent = valueOr(dateInput ? dateInput.value : '', '-');
+    document.getElementById('previewPeriod').textContent = valueOr(periodInput ? periodInput.value : '', '-');
     document.getElementById('previewClass').textContent = selectedText(classInput, 'الفصل');
     document.getElementById('previewTeacher').textContent = selectedText(teacherInput, 'اسم المعلم/ـة');
-    document.getElementById('previewNotes').textContent = valueOr(notesInput?.value || '', 'بدون ملاحظة');
+    document.getElementById('previewNotes').textContent = valueOr(notesInput ? notesInput.value : '', 'بدون ملاحظة');
   }
 
-  [dateInput, periodInput, classInput, teacherInput, notesInput].forEach(el => {
-    if (el) el.addEventListener('input', updatePreview);
-    if (el) el.addEventListener('change', updatePreview);
+  [dateInput, periodInput, classInput, teacherInput, notesInput].forEach(function (el) {
+    if (!el) return;
+    el.addEventListener('input', updatePreview);
+    el.addEventListener('change', updatePreview);
   });
   updatePreview();
 });
-
-{% if form.instance.pk %}
-function confirmDelete() {
-  if (!confirm('هل تريد حذف حصة الانتظار هذه؟ لا يمكن التراجع عن هذا الإجراء.')) return;
-
-  const form = document.createElement('form');
-  form.method = 'post';
-  form.action = "{% url 'dashboard:standby_delete' form.instance.pk %}";
-
-  const csrfInput = document.createElement('input');
-  csrfInput.type = 'hidden';
-  csrfInput.name = 'csrfmiddlewaretoken';
-  csrfInput.value = '{{ csrf_token }}';
-  form.appendChild(csrfInput);
-  document.body.appendChild(form);
-  form.submit();
-}
-{% endif %}
-
-// Bound here rather than with an inline onclick so the page satisfies CSP.
-document.addEventListener('click', function (event) {
-  var trigger = event.target.closest('[data-role="confirm-delete"]');
-  if (trigger) { confirmDelete(); }
-});
 </script>
-
-<style>
-.standby-form-intro {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.1rem;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-}
-
-.standby-form-intro h2 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-.standby-form-intro p {
-  margin: 0.25rem 0 0;
-  color: #64748b;
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.standby-form-shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 20rem;
-  gap: 1rem;
-  align-items: start;
-}
-
-.standby-form-main {
-  display: grid;
-  gap: 1rem;
-}
-
-.standby-form-card,
-.standby-preview-panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 1rem;
-  box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
-}
-
-.standby-form-card-heading {
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #edf2f7;
-}
-
-.standby-form-card-heading h3 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 0.95rem;
-  font-weight: 900;
-}
-
-.standby-form-card-heading p {
-  margin: 0.25rem 0 0;
-  color: #64748b;
-  font-size: 0.76rem;
-  font-weight: 600;
-}
-
-.standby-field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.standby-field {
-  display: grid;
-  gap: 0.45rem;
-  margin-bottom: 1rem;
-}
-
-.standby-field:last-child {
-  margin-bottom: 0;
-}
-
-.standby-field label {
-  color: #334155;
-  font-size: 0.8rem;
-  font-weight: 900;
-}
-
-.standby-field label span {
-  color: #e11d48;
-}
-
-.standby-input {
-  width: 100%;
-  min-height: 2.65rem;
-  border: 1px solid #dbe3ea !important;
-  border-radius: 0.75rem !important;
-  background: #ffffff !important;
-  color: #0f172a !important;
-  padding: 0.65rem 0.8rem !important;
-  font-size: 0.86rem !important;
-  font-weight: 700 !important;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease;
-}
-
-textarea.standby-input {
-  min-height: 7rem;
-  resize: vertical;
-}
-
-.standby-input:focus {
-  outline: none;
-  border-color: #0f766e !important;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.11);
-}
-
-.standby-field-error {
-  color: #be123c;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.standby-preview-panel {
-  position: sticky;
-  top: 1rem;
-  display: grid;
-  gap: 0.9rem;
-}
-
-.standby-preview-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-}
-
-.standby-preview-heading span {
-  color: #0f172a;
-  font-size: 0.9rem;
-  font-weight: 900;
-}
-
-.standby-preview-heading strong {
-  border-radius: 999px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #475569;
-  padding: 0.28rem 0.65rem;
-  font-size: 0.72rem;
-  font-weight: 900;
-}
-
-.standby-preview-card {
-  display: grid;
-  gap: 0.8rem;
-  border-radius: 1rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 1rem;
-}
-
-.standby-preview-period {
-  display: grid;
-  place-items: center;
-  width: 5rem;
-  height: 5rem;
-  border-radius: 1.1rem;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-}
-
-.standby-preview-period span,
-.standby-preview-note span {
-  color: #64748b;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.standby-preview-period strong {
-  color: #0f172a;
-  font-size: 1.7rem;
-  font-weight: 950;
-}
-
-.standby-preview-card h3 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1.05rem;
-  font-weight: 950;
-}
-
-.standby-preview-card p {
-  margin: 0;
-  color: #475569;
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.standby-preview-note {
-  display: grid;
-  gap: 0.25rem;
-  border-radius: 0.8rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 0.75rem 0.85rem;
-}
-
-.standby-preview-note strong {
-  color: #0f172a;
-  font-size: 0.8rem;
-  font-weight: 900;
-}
-
-.standby-form-actions {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 1rem;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-}
-
-.standby-form-primary,
-.standby-form-secondary,
-.standby-form-danger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-height: 2.5rem;
-  border-radius: 0.7rem;
-  padding: 0 1rem;
-  font-size: 0.82rem;
-  font-weight: 900;
-  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
-}
-
-.standby-form-primary {
-  background: #0f172a;
-  color: #ffffff;
-}
-
-.standby-form-primary:hover {
-  background: #1e293b;
-}
-
-.standby-form-secondary {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #334155;
-}
-
-.standby-form-secondary:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-}
-
-.standby-form-danger {
-  margin-inline-start: auto;
-  background: #ffffff;
-  border: 1px solid #fecdd3;
-  color: #be123c;
-}
-
-.standby-form-danger:hover {
-  background: #fff1f2;
-  border-color: #fda4af;
-}
-
-@media (max-width: 1000px) {
-  .standby-form-intro {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .standby-form-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .standby-preview-panel {
-    position: static;
-  }
-}
-
-@media (max-width: 680px) {
-  .standby-field-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .standby-form-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .standby-form-primary,
-  .standby-form-secondary,
-  .standby-form-danger {
-    width: 100%;
-    margin-inline-start: 0;
-  }
-}
-</style>
 {% endblock %}

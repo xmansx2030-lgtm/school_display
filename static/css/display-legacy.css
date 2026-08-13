@@ -128,36 +128,58 @@
   }
 
   #exCard {
-    min-height: 280.8px;
+    min-height: 270px;
   }
 
   #exCard .honor-side {
-    width: 300px !important;
-    padding: 24px;
+    width: 270px !important;
+    gap: 12px;
+    padding: 21.6px;
   }
 
   #exCard .honor-title {
-    font-size: 24.8px;
+    font-size: 21.6px;
   }
 
   #exCard .honor-subtitle {
-    font-size: 15.2px;
+    font-size: 14.4px;
   }
 
   #exSlot {
-    padding: 20px !important;
+    padding: 18.4px !important;
   }
 
-  .honor-wrap {
-    gap: 20.8px;
+  #exCard .honor-wrap {
+    padding: 12px;
   }
 
-  .honor-name {
-    font-size: 23.2px;
+  #exCard .honor-avatar-wrap {
+    border-radius: 20px;
   }
 
-  .honor-reason {
-    font-size: 16px;
+  #exCard .honor-wrap img.honor-avatar {
+    padding: 6.7px !important;
+  }
+
+  #exCard .honor-meta {
+    gap: 8.8px;
+  }
+
+  #exCard .honor-name {
+    font-size: 23.2px !important;
+  }
+
+  #exCard .honor-reason {
+    font-size: 16px !important;
+    padding: 9.3px 11.2px;
+  }
+
+  #exCard .honor-wrap--long-name .honor-name {
+    font-size: 19.2px !important;
+  }
+
+  #exCard .honor-wrap--long-reason .honor-reason {
+    font-size: 14.4px !important;
   }
 
   #alertTitle {
@@ -216,6 +238,28 @@
 
     #occasionHeroBody {
       font-size: 28.8px;
+    }
+  }
+
+  @media (max-width: 900px), (max-height: 620px) {
+    #exCard .honor-side {
+      width: 210px !important;
+    }
+
+    #exCard .honor-title {
+      font-size: 17.9px;
+    }
+
+    #exCard .honor-subtitle {
+      font-size: 12.5px;
+    }
+
+    #exCard .honor-name {
+      font-size: 17.3px !important;
+    }
+
+    #exCard .honor-reason {
+      font-size: 13.1px !important;
     }
   }
 

@@ -5,21 +5,21 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-    <title>لوحة العرض الذكية | خصّص كل شاشة وأدرها من مكان واحد</title>
-    <meta name="description" content="خصّص محتوى كل شاشة مدرسية حسب موقعها وجمهورها، وأدر الجدول الحي والانتظار والمناوبات والإعلانات والتكريم والطوارئ من لوحة واحدة. جرّب المنصة كاملة مجاناً لمدة {{ landing_trial.duration_days }} يوماً.">
+    <title>لوحة العرض الذكية | حوّل شاشات المدرسة غير المستفاد منها إلى قناة يومية حيّة</title>
+    <meta name="description" content="لدى كثير من المدارس شاشات موجودة لكنها تعرض ملفات قديمة أو لا تُستخدم. حوّلها إلى قناة حيّة للجدول والانتظار والإعلانات والتكريم والطوارئ من لوحة واحدة. جرّب المنصة كاملة مجاناً لمدة {{ landing_trial.duration_days }} يوماً.">
     <meta name="robots" content="index,follow,max-image-preview:large">
     <link rel="canonical" href="https://school-display.com/">
 
     <meta property="og:type" content="website">
     <meta property="og:locale" content="ar_SA">
     <meta property="og:site_name" content="لوحة العرض الذكية">
-    <meta property="og:title" content="خصّص كل شاشة مدرسية وأدرها من مكان واحد">
-    <meta property="og:description" content="محتوى مناسب لكل شاشة، وإدارة مركزية للجدول والتنبيهات والإعلانات ومراقبة التشغيل.">
+    <meta property="og:title" content="حوّل شاشات المدرسة غير المستفاد منها إلى قناة يومية حيّة">
+    <meta property="og:description" content="استثمر التلفازات والشاشات الموجودة في المدرسة لعرض الجدول والتنبيهات والإعلانات ومراقبة التشغيل من لوحة واحدة.">
     <meta property="og:url" content="https://school-display.com/">
     <meta property="og:image" content="https://school-display.com/favicon.png?v=20260723-logo1">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="خصّص كل شاشة مدرسية وأدرها من مكان واحد">
-    <meta name="twitter:description" content="وجّه المحتوى المناسب إلى الشاشة المناسبة من لوحة إدارة مركزية واحدة.">
+    <meta name="twitter:title" content="حوّل شاشات المدرسة غير المستفاد منها إلى قناة يومية حيّة">
+    <meta name="twitter:description" content="استثمر شاشات المدرسة الحالية للجدول والتنبيهات والإعلانات من لوحة إدارة واحدة.">
 
     <meta name="theme-color" content="#07111f">
 
@@ -3353,6 +3353,105 @@
             line-height: 1.65;
         }
 
+        .product-gallery {
+            position: relative;
+            overflow: hidden;
+            color: #fff;
+            background:
+                radial-gradient(circle at 15% 12%, rgba(24, 160, 125, .32), transparent 34%),
+                radial-gradient(circle at 88% 90%, rgba(201, 154, 72, .2), transparent 38%),
+                linear-gradient(145deg, #07111f, #102d49 72%);
+        }
+
+        .product-gallery::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+            background-size: 42px 42px;
+            mask-image: linear-gradient(to bottom, #000, transparent 86%);
+        }
+
+        .product-gallery .section-header h2,
+        .product-gallery .section-header p {
+            color: #fff;
+        }
+
+        .product-gallery .section-header p {
+            color: rgba(255, 255, 255, .68);
+        }
+
+        .shot-grid {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: minmax(0, 1.28fr) minmax(320px, .72fr);
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .shot-card {
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, .12);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, .08);
+            box-shadow: 0 28px 70px rgba(0, 0, 0, .24);
+            backdrop-filter: blur(14px);
+        }
+
+        .shot-card.featured {
+            min-height: 100%;
+        }
+
+        .shot-card img {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            object-fit: cover;
+            object-position: top center;
+            background: #0f172a;
+        }
+
+        .shot-caption {
+            display: flex;
+            align-items: flex-start;
+            gap: 11px;
+            padding: 16px 18px 18px;
+        }
+
+        .shot-caption i {
+            display: grid;
+            place-items: center;
+            width: 36px;
+            height: 36px;
+            flex: 0 0 auto;
+            border-radius: 12px;
+            color: #f9d58a;
+            background: rgba(201, 154, 72, .16);
+        }
+
+        .shot-caption strong,
+        .shot-caption span {
+            display: block;
+        }
+
+        .shot-caption strong {
+            font-family: 'Changa', sans-serif;
+            font-size: .98rem;
+        }
+
+        .shot-caption span {
+            margin-top: 3px;
+            color: rgba(255, 255, 255, .64);
+            font-size: .78rem;
+            line-height: 1.7;
+        }
+
+        .shot-stack {
+            display: grid;
+            gap: 18px;
+        }
+
         .bento-grid {
             display: grid;
             grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -3913,6 +4012,7 @@
 
         @media (max-width: 800px) {
             .problem-solution { grid-template-columns: 1fr; }
+            .shot-grid { grid-template-columns: 1fr; }
             .outcome-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             #journey .journey-grid { grid-template-columns: 1fr; }
         }
@@ -3943,6 +4043,9 @@
             }
             .problem-card { min-height: auto; padding: 24px; }
             .outcome-strip { grid-template-columns: 1fr; }
+            .shot-card { border-radius: 18px; }
+            .shot-caption { padding: 14px; }
+            .shot-caption span { font-size: .74rem; }
             .assurance-shell { padding: 24px 20px; border-radius: 26px; }
             .assurance-stats { grid-template-columns: 1fr; }
             details.faq-item summary { min-height: 74px; padding: 17px 52px 17px 14px; font-size: .9rem; }
@@ -4750,6 +4853,7 @@
 
                 <ul class="nav-links">
                     <li><a href="#why">لماذا نحن</a></li>
+                    <li><a href="#product-gallery">صور النظام</a></li>
                     <li><a href="#features">المزايا</a></li>
                     <li><a href="#journey">آلية البدء</a></li>
                     <li><a href="#pricing">الباقات</a></li>
@@ -4786,12 +4890,12 @@
                             </div>
 
                             <h1>
-                                خصّص ما تعرضه كل شاشة
-                                <span>وأدرها كلها من مكان واحد</span>
+                                لا تترك شاشات المدرسة
+                                <span>معلّقة على ملفات قديمة</span>
                             </h1>
 
                             <p>
-                                اجعل شاشة المدخل للإعلانات والتكريم، وشاشة المعلمين للجدول والانتظار، وشاشة الأنشطة للمناسبات — وكلها تتحدّث من لوحة إدارة مركزية واحدة.
+                                حوّل التلفازات والشاشات الموجودة في المداخل والممرات وغرف المعلمين إلى قناة يومية حيّة للجدول، والانتظار، والإعلانات، والتكريم — من لوحة واحدة.
                             </p>
 
                             <div class="hero-actions">
@@ -4914,8 +5018,8 @@
 
                 <div class="marquee-strip reveal">
                     <div>
-                        <strong>مصدر واحد للمحتوى. تجربة مناسبة لكل شاشة.</strong>
-                        <p>حدّث المعلومة من اللوحة، وحدد أين تظهر؛ بلا ملفات متناثرة أو تعديل يدوي أمام كل تلفاز.</p>
+                        <strong>استثمر الشاشة الموجودة. واجعلها نافذة يومية للمدرسة.</strong>
+                        <p>حدّث المعلومة من اللوحة، وحدد أين تظهر؛ بلا ملفات متناثرة أو شاشة تعمل لمجرد أنها معلّقة على الجدار.</p>
                     </div>
                     <div class="marquee-list">
                         <span><i class="fa-solid fa-file-excel"></i> استيراد Excel</span>
@@ -4941,14 +5045,16 @@
                             <span>كل ما في المنصة مفتوح أمامك من اللحظة الأولى.</span>
                         </div>
                         <div class="lux-stat">
-                            <div class="lux-stat-figure"><span data-count-to="5">5</span><small>شاشات</small></div>
-                            <strong>ضمن الباقة الواحدة</strong>
-                            <span>لكل شاشة محتواها المستقل من اللوحة نفسها.</span>
+                            {% with trial_screens=landing_trial.max_screens|default:1 %}
+                            <div class="lux-stat-figure"><span data-count-to="{{ trial_screens }}">{{ trial_screens }}</span><small>شاشة بدء</small></div>
+                            {% endwith %}
+                            <strong>تجربة تبدأ بالشاشة الأولى</strong>
+                            <span>ثم اختر في الباقات عدد الشاشات المناسب، ولكل شاشة محتواها المستقل.</span>
                         </div>
                         <div class="lux-stat">
                             <div class="lux-stat-figure"><span data-count-to="3">3</span><small>خطوات</small></div>
                             <strong>من التسجيل إلى العرض</strong>
-                            <span>أنشئ الحساب، أدخل البيانات، افتح رابط الشاشة.</span>
+                            <span>أنشئ الحساب، أدخل البيانات، ثم اربط التلفاز أو افتح رابط الشاشة.</span>
                         </div>
                         <div class="lux-stat">
                             <div class="lux-stat-figure"><span dir="ltr">24/7</span></div>
@@ -4987,19 +5093,66 @@
             </div>
         </section>
 
+        <section class="section product-gallery" id="product-gallery" aria-labelledby="productGalleryTitle">
+            <div class="container">
+                <div class="section-header reveal">
+                    <div class="eyebrow"><i class="fa-solid fa-images"></i> صور من حساب تجريبي حقيقي</div>
+                    <h2 id="productGalleryTitle">هذا ما تراه المدرسة بعد إدخال بياناتها</h2>
+                    <p>أنشأنا حساب مدرسة تجريبيًا بصفوف ومعلمين وجداول وإعلانات، ثم التقطنا صورًا مباشرة من لوحة التحكم وشاشة العرض كما سيستخدمها فريق المدرسة.</p>
+                </div>
+
+                <div class="shot-grid">
+                    <article class="shot-card featured reveal">
+                        <img src="{% static 'img/landing-demo/dashboard-home.png' %}" alt="لوحة التحكم تعرض حالة شاشات المدرسة والاختصارات اليومية" loading="lazy" width="1280" height="720">
+                        <div class="shot-caption">
+                            <i class="fa-solid fa-gauge-high"></i>
+                            <div>
+                                <strong>لوحة إدارة واحدة لكل الشاشات</strong>
+                                <span>متابعة الشاشات، الروابط، الاختصارات اليومية، وحالة التشغيل من مكان واحد واضح.</span>
+                            </div>
+                        </div>
+                    </article>
+
+                    <div class="shot-stack">
+                        <article class="shot-card reveal">
+                            <img src="{% static 'img/landing-demo/dashboard-data.png' %}" alt="صفحة بيانات المدرسة تعرض الصفوف والمواد والمعلمين" loading="lazy" width="1280" height="720">
+                            <div class="shot-caption">
+                                <i class="fa-solid fa-table-list"></i>
+                                <div>
+                                    <strong>بيانات مدرسية منظّمة</strong>
+                                    <span>الصفوف، المواد، المعلمون، والجداول تُدار مرة واحدة ثم تظهر في الشاشة المناسبة.</span>
+                                </div>
+                            </div>
+                        </article>
+
+                        <article class="shot-card reveal">
+                            <img src="{% static 'img/landing-demo/display-screen.png' %}" alt="شاشة عرض مدرسية تعرض إعلان المدرسة وبيانات اليوم" loading="lazy" width="1280" height="720">
+                            <div class="shot-caption">
+                                <i class="fa-solid fa-display"></i>
+                                <div>
+                                    <strong>عرض جاهز على التلفاز</strong>
+                                    <span>واجهة مصممة للممرات والمداخل وغرف المعلمين، وتتحدّث من بيانات الحساب نفسها.</span>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <section class="section section-soft" id="why">
             <div class="container">
                 <div class="section-header reveal">
                     <div class="eyebrow"><i class="fa-solid fa-arrows-rotate"></i> فرق يظهر من اليوم الأول</div>
-                    <h2>اليوم المدرسي يتغير بسرعة. شاشتك يجب أن تستجيب بالسرعة نفسها.</h2>
-                    <p>المنصة تجمع الجدول والمحتوى والتنبيهات والتشغيل في مسار واحد، حتى تصل المعلومة الصحيحة دون ملفات متناثرة أو تحديث يدوي لكل شاشة.</p>
+                    <h2>غالبًا لديك الشاشة بالفعل. الناقص هو محتوى حي يستحق أن يُعرض.</h2>
+                    <p>المنصة تجمع الجدول والمحتوى والتنبيهات والتشغيل في مسار واحد، حتى تتحول الشاشة الموجودة من مساحة صامتة إلى قناة معلومات يومية للطلاب والمعلمين والإدارة.</p>
                 </div>
 
                 <div class="problem-solution">
                     <article class="problem-card reveal">
                         <i class="fa-solid fa-file-circle-xmark"></i>
-                        <h3>عندما تعمل الشاشة بالطريقة التقليدية</h3>
-                        <p>كل تعديل يعني ملفاً جديداً، ونقلاً يدوياً، وشخصاً يجب أن يكون أمام التلفاز في الوقت المناسب.</p>
+                        <h3>عندما تُترك الشاشة بلا نظام يومي</h3>
+                        <p>تتحول إلى خلفية صامتة أو ملف قديم؛ وكل تعديل يحتاج نقلاً يدوياً وشخصاً يقف أمام التلفاز في الوقت المناسب.</p>
                         <ul class="problem-list">
                             <li><i class="fa-solid fa-minus"></i> معلومات تتأخر عن الواقع</li>
                             <li><i class="fa-solid fa-minus"></i> أسئلة متكررة عن الحصص والانتظار</li>
@@ -5119,9 +5272,9 @@
 
                     <article class="feature-card reveal">
                         <div class="feature-icon"><i class="fa-regular fa-calendar-days"></i></div>
-                        <h3>الجدول الحي والانتظار</h3>
-                        <p>الحصة الحالية والقادمة والوقت المتبقي وحصص الانتظار تتحدث تلقائياً مع سير اليوم الدراسي.</p>
-                        <div class="feature-pills"><span>الحصة الحالية</span><span>الانتظار</span><span>الجرس</span></div>
+                        <h3>الجدول الحي والإجازات</h3>
+                        <p>الحصة الحالية والقادمة والوقت المتبقي وحصص الانتظار تتحدث تلقائياً، مع رسائل مناسبة قبل الدوام وبعده وفي أيام الإجازة.</p>
+                        <div class="feature-pills"><span>الحصة الحالية</span><span>الانتظار</span><span>الإجازات</span></div>
                     </article>
 
                     <article class="feature-card reveal">
@@ -5181,10 +5334,10 @@
                             <span><i class="fa-solid fa-signal"></i> النظام يعمل</span>
                         </div>
                         <div class="assurance-stats">
-                            <div class="assurance-stat"><i class="fa-solid fa-display"></i><strong>حالة كل شاشة</strong><small>آخر اتصال وحالة التشغيل من لوحة الإدارة.</small></div>
-                            <div class="assurance-stat"><i class="fa-solid fa-envelope-open-text"></i><strong>تنبيهات الانقطاع</strong><small>إشعار بعد تجاوز المدة التي تحددها المدرسة.</small></div>
-                            <div class="assurance-stat"><i class="fa-solid fa-shield-halved"></i><strong>حماية ونسخ احتياطي</strong><small>مصادقة ثنائية ونسخ مشفرة لحماية استمرارية الخدمة.</small></div>
-                            <div class="assurance-stat"><i class="fa-solid fa-cloud-arrow-down"></i><strong>عرض دون اتصال</strong><small>استمرار آخر محتوى محفوظ حتى عودة الشبكة.</small></div>
+                        <div class="assurance-stat"><i class="fa-solid fa-display"></i><strong>حالة كل شاشة</strong><small>آخر اتصال وحالة التشغيل من لوحة الإدارة.</small></div>
+                        <div class="assurance-stat"><i class="fa-solid fa-envelope-open-text"></i><strong>تنبيهات الانقطاع</strong><small>إشعار بعد تجاوز المدة التي تحددها المدرسة.</small></div>
+                            <div class="assurance-stat"><i class="fa-solid fa-shield-halved"></i><strong>حماية الوصول</strong><small>مصادقة ثنائية وربط كل شاشة بجهاز واحد عند التشغيل.</small></div>
+                        <div class="assurance-stat"><i class="fa-solid fa-cloud-arrow-down"></i><strong>عرض دون اتصال</strong><small>استمرار آخر محتوى محفوظ حتى عودة الشبكة.</small></div>
                         </div>
                     </div>
                 </div>
@@ -5233,7 +5386,7 @@
                 <div class="section-header reveal">
                     <div class="eyebrow"><i class="fa-solid fa-route"></i> من التسجيل إلى أول شاشة</div>
                     <h2>ثلاث خطوات واضحة، بدون مشروع تقني معقد</h2>
-                    <p>أنشئ التجربة فوراً، أدخل بيانات المدرسة بالطريقة الأنسب لك، ثم افتح رابط الشاشة على التلفاز الحالي.</p>
+                    <p>أنشئ التجربة فوراً، أدخل بيانات المدرسة بالطريقة الأنسب لك، ثم افتح صفحة التلفاز أو رابط الشاشة على جهاز العرض الحالي.</p>
                 </div>
 
                 <div class="journey-grid">
@@ -5249,8 +5402,8 @@
                     </div>
                     <div class="journey-card reveal" data-step="3">
                         <i class="fa-solid fa-tv"></i>
-                        <strong>افتح رابط العرض على التلفاز</strong>
-                        <p>شغّل الشاشة بهوية المدرسة، وابدأ تحديث المحتوى ومتابعة الاتصال من أي جهاز.</p>
+                        <strong>اربط التلفاز أو افتح الرابط</strong>
+                        <p>افتح <span dir="ltr">school-display.com/tv</span> على التلفاز وامسح QR، أو استخدم رابط الشاشة المختصر مباشرة.</p>
                     </div>
                 </div>
 
@@ -5270,7 +5423,7 @@
                     <div class="eyebrow"><i class="fa-solid fa-tags"></i> تسعير مدرسي واضح</div>
                     <h2>كل المزايا مشمولة؛ اختر فقط ما يناسب مدرستك</h2>
                     <div class="pricing-note">
-                        ابدأ شهريًا بمرونة، أو وفّر مع 6 أشهر، أو اختر العام الدراسي لتحصل على صلاحية 12 شهرًا بسعر يقارب 9 أشهر تشغيل.
+                        ابدأ شهريًا بمرونة، أو وفّر مع 6 أشهر، أو اختر العام الدراسي لتحصل على صلاحية 12 شهرًا بسعر يقارب 10 أشهر تشغيل.
                     </div>
 
                     <div class="pricing-assurances" aria-label="مزايا جميع الباقات">
@@ -5303,26 +5456,26 @@
                                         <div><strong>كيف تفضّل السداد؟</strong><small>غيّر المدة وشاهد الوفر فورًا</small></div>
                                     </div>
                                     <div class="pricing-cycle-grid" role="tablist" aria-label="مدة الاشتراك">
-                                        <button type="button" class="pricing-cycle-option active" role="tab" aria-selected="true" data-pricing-cycle="monthly" data-cycle-title="شهري مرن" data-cycle-benefit="مرونة كاملة؛ أوقف التجديد خلال الإجازة متى احتجت.">
+                                        <button type="button" class="pricing-cycle-option active" role="tab" aria-selected="true" data-pricing-cycle="monthly" data-cycle-title="شهري مرن" data-cycle-benefit="مرونة عالية للبدء والتجربة قبل الالتزام لمدة أطول.">
                                             <span class="pricing-selection-check"><i class="fa-solid fa-check"></i></span>
                                             <span class="pricing-cycle-icon"><i class="fa-solid fa-calendar-day"></i></span>
                                             <strong>شهري مرن</strong>
                                             <small>أقل التزام وأعلى مرونة للتجربة والتشغيل.</small>
                                             <em>دفع كل 30 يومًا</em>
                                         </button>
-                                        <button type="button" class="pricing-cycle-option" role="tab" aria-selected="false" data-pricing-cycle="semiannual" data-cycle-title="6 أشهر" data-cycle-benefit="دفعة واحدة لستة أشهر مع توفير يقارب 5% عن الشهري.">
+                                        <button type="button" class="pricing-cycle-option" role="tab" aria-selected="false" data-pricing-cycle="semiannual" data-cycle-title="6 أشهر" data-cycle-benefit="دفعة واحدة لستة أشهر مع توفير مقارنة بالدفع الشهري.">
                                             <span class="pricing-selection-check"><i class="fa-solid fa-check"></i></span>
                                             <span class="pricing-cycle-icon"><i class="fa-solid fa-calendar-week"></i></span>
                                             <strong>6 أشهر</strong>
                                             <small>توازن مناسب بين المرونة والتوفير.</small>
-                                            <em>وفّر نحو 5%</em>
+                                            <em>توفير أفضل</em>
                                         </button>
-                                        <button type="button" class="pricing-cycle-option" role="tab" aria-selected="false" data-pricing-cycle="annual" data-cycle-title="عام دراسي" data-cycle-benefit="الخيار الأوفر: صلاحية 12 شهرًا بسعر يقارب 9 أشهر تشغيل.">
+                                        <button type="button" class="pricing-cycle-option" role="tab" aria-selected="false" data-pricing-cycle="annual" data-cycle-title="عام دراسي" data-cycle-benefit="الخيار الأوفر: صلاحية 12 شهرًا بسعر يقارب 10 أشهر تشغيل.">
                                             <span class="pricing-selection-check"><i class="fa-solid fa-check"></i></span>
                                             <span class="pricing-cycle-icon"><i class="fa-solid fa-crown"></i></span>
                                             <strong>عام دراسي</strong>
                                             <small>راحة طوال العام دون تجديدات متكررة.</small>
-                                            <em>شهر مجانًا</em>
+                                            <em>وفّر شهرين</em>
                                         </button>
                                     </div>
                                 </div>
@@ -5360,7 +5513,7 @@
                                         <i class="fa-solid fa-display" data-summary-screen="5"></i>
                                     </div>
                                 </div>
-                                <p class="pricing-live-benefit"><i class="fa-solid fa-circle-check"></i><span data-pricing-summary-benefit>مرونة كاملة؛ أوقف التجديد خلال الإجازة متى احتجت.</span></p>
+                                <p class="pricing-live-benefit"><i class="fa-solid fa-circle-check"></i><span data-pricing-summary-benefit>مرونة عالية للبدء والتجربة قبل الالتزام لمدة أطول.</span></p>
                             </aside>
                         </div>
                     </div>
@@ -5444,7 +5597,7 @@
                 <div class="faq-grid">
                     <details class="faq-item reveal" open>
                         <summary><i class="fa-solid fa-tv"></i>هل أحتاج جهازاً أو شاشة خاصة؟</summary>
-                        <p>لا تحتاج شاشة مخصصة من المنصة. يمكنك استخدام التلفاز الحالي ما دام يستطيع فتح رابط العرض عبر متصفح أو جهاز متصل به.</p>
+                        <p>لا تحتاج شاشة مخصصة من المنصة. استخدم التلفاز الحالي ما دام يستطيع فتح المتصفح، أو وصّل به جهاز تشغيل بسيط وافتح صفحة الربط أو رابط الشاشة.</p>
                     </details>
                     <details class="faq-item reveal">
                         <summary><i class="fa-solid fa-wifi"></i>ماذا يحدث عند انقطاع الإنترنت؟</summary>
@@ -5460,7 +5613,7 @@
                     </details>
                     <details class="faq-item reveal">
                         <summary><i class="fa-solid fa-sliders"></i>هل يمكن تخصيص محتوى كل شاشة بشكل مستقل؟</summary>
-                        <p>نعم. من لوحة الإدارة نفسها تستطيع تحديد أقسام المحتوى والثيم والقالب واللوحة البارزة لكل شاشة، كما تستطيع توجيه إعلان أو تنبيه طارئ إلى شاشة محددة أو إلى جميع الشاشات.</p>
+                        <p>نعم. من لوحة الإدارة نفسها تستطيع تحديد أقسام المحتوى والثيم والقالب واللوحة البارزة لكل شاشة، ومعاينة النتيجة دون حجز الشاشة عن التلفاز، كما تستطيع توجيه إعلان أو تنبيه طارئ إلى شاشة محددة أو إلى جميع الشاشات.</p>
                     </details>
                     <details class="faq-item reveal">
                         <summary><i class="fa-solid fa-file-excel"></i>هل يمكن استيراد الجدول من Excel؟</summary>

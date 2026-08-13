@@ -1,0 +1,20 @@
+{% comment %}
+A boolean field rendered as an on/off switch with its explanation beside it,
+rather than a bare checkbox whose meaning lives in a nearby paragraph.
+
+    {% include "dashboard/_switch.html" with field=form.is_active hint="…" only %}
+{% endcomment %}
+<label class="dp-switch" for="{{ field.id_for_label }}">
+  {{ field }}
+  <span class="dp-switch__copy">
+    <strong>{{ field.label }}</strong>
+    {% if hint %}
+      <small>{{ hint }}</small>
+    {% elif field.help_text %}
+      <small>{{ field.help_text }}</small>
+    {% endif %}
+  </span>
+</label>
+{% for error in field.errors %}
+  <div class="dp-field__error">{{ error }}</div>
+{% endfor %}

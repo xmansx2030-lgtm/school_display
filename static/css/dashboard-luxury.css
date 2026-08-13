@@ -220,19 +220,18 @@
 
 .dashboard-main .bg-slate-50,
 .dashboard-main .bg-slate-50\/50,
-.dashboard-main .bg-indigo-50,
 .dashboard-main .bg-emerald-50,
 .dashboard-main .bg-amber-50,
 .dashboard-main .bg-rose-50,
 .dashboard-main .bg-blue-50,
-.dashboard-main .bg-violet-50 {
+.dashboard-main .bg-teal-50 {
   border-color: rgba(124, 116, 102, 0.08) !important;
 }
 
 .dashboard-main .border-slate-100,
 .dashboard-main .border-slate-200,
 .dashboard-main .border-slate-300,
-.dashboard-main .border-indigo-100,
+.dashboard-main .border-teal-100,
 .dashboard-main .border-blue-100,
 .dashboard-main .border-emerald-100,
 .dashboard-main .border-amber-100,
@@ -305,19 +304,6 @@
   background-color: rgba(15, 118, 110, 0.035) !important;
 }
 
-.dashboard-shell .from-indigo-600,
-.dashboard-shell .from-blue-600,
-.dashboard-shell .from-blue-500 {
-  --tw-gradient-from: #0f766e var(--tw-gradient-from-position) !important;
-  --tw-gradient-to: rgb(15 118 110 / 0) var(--tw-gradient-to-position) !important;
-  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
-}
-
-.dashboard-shell .to-violet-600,
-.dashboard-shell .to-blue-700,
-.dashboard-shell .to-blue-600 {
-  --tw-gradient-to: #b58c4a var(--tw-gradient-to-position) !important;
-}
 
 .dashboard-shell .via-blue-600,
 .dashboard-shell .via-blue-500 {
@@ -562,21 +548,6 @@
   color: inherit;
 }
 
-.dashboard-shell [class*="from-indigo-600"][class*="to-violet-600"],
-.dashboard-login [class*="from-indigo-600"][class*="to-violet-600"] {
-  background-image: linear-gradient(135deg, #123b4a 0%, #145a6a 58%, #b48b57 100%) !important;
-}
-
-.dashboard-shell [class*="hover:from-indigo-700"][class*="hover:to-violet-700"],
-.dashboard-shell [class*="hover:from-indigo-600"][class*="hover:to-violet-700"],
-.dashboard-login [class*="hover:from-indigo-700"][class*="hover:to-violet-700"] {
-  box-shadow: 0 16px 30px rgba(18, 59, 74, 0.18);
-}
-
-.dashboard-shell [class*="from-indigo-500"][class*="to-purple-600"],
-.dashboard-login [class*="from-indigo-500"][class*="to-purple-600"] {
-  background-image: linear-gradient(135deg, #145a6a 0%, #1b7385 52%, #b48b57 100%) !important;
-}
 
 .dashboard-shell .input-wrapper > input,
 .dashboard-shell .input-wrapper > select,

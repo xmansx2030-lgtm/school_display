@@ -5,53 +5,108 @@
 {% block page_title %}التنبيهات الطارئة{% endblock %}
 {% block page_description %}إرسال وإلغاء ومراجعة سجل رسائل الطوارئ{% endblock %}
 {% block breadcrumb %}
-  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">التنبيهات الطارئة</span>
+  <i class="fas fa-angle-left text-[9px]"></i><span>التنبيهات الطارئة</span>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto pb-12">
-  <div class="mb-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between rounded-2xl border border-slate-200 bg-white p-5">
-    <div>
-      <h2 class="font-black text-slate-900">التنبيهات النشطة: {{ active_count }}</h2>
-      <p class="mt-1 text-sm text-slate-500">يحتفظ النظام باسم المرسل واسم من ألغى التنبيه والوقت.</p>
+<div class="dp-stack">
+
+  {% comment %}
+  The other list pages moved their action into the base `page_actions` block,
+  but this page also renders inside admin/admin_base.html for a platform
+  employee — and that shell has no such block, so the button would vanish for
+  exactly the people who send most of these alerts. It stays in `content`.
+  {% endcomment %}
+  <section class="dp-toolbar">
+    <div class="dp-toolbar__copy">
+      <h2>التنبيهات النشطة: {{ active_count }}</h2>
+      <p>يحتفظ النظام باسم المرسل واسم من ألغى التنبيه والوقت.</p>
     </div>
-    {% if can_emergency_alerts_manage %}<a href="{% url 'dashboard:emergency_alert_create' %}" class="rounded-xl bg-red-600 px-5 py-3 text-center text-sm font-black text-white">تنبيه طارئ جديد</a>{% endif %}
-  </div>
-  <div class="space-y-3">
+    {% if can_emergency_alerts_manage %}
+      <div class="dp-toolbar__actions">
+        <a href="{% url 'dashboard:emergency_alert_create' %}" class="dp-btn dp-btn--emergency">
+          <i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i>
+          <span>تنبيه طارئ جديد</span>
+        </a>
+      </div>
+    {% endif %}
+  </section>
+
+  <div class="dp-stack dp-stack--tight">
     {% for alert in alerts %}
-      <article class="rounded-2xl border {% if alert.active_now %}border-red-300 bg-red-50{% else %}border-slate-200 bg-white{% endif %} p-5">
-        <div class="flex flex-col lg:flex-row gap-4 lg:items-start lg:justify-between">
-          <div class="min-w-0">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-black text-red-700">{{ alert.get_kind_display }}</span>
-              {% if alert.active_now %}<span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">يظهر الآن</span>{% else %}<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">متوقف</span>{% endif %}
+      <article class="dp-record{% if alert.active_now %} dp-record--alert{% endif %}">
+        <div class="dp-record__head">
+          <div class="dp-min0">
+            <div class="dp-toolbar__actions">
+              <span class="dp-pill dp-pill--rose">{{ alert.get_kind_display }}</span>
+              {% if alert.active_now %}
+                <span class="dp-pill dp-pill--green dp-pill--dot">يظهر الآن</span>
+              {% else %}
+                <span class="dp-pill dp-pill--slate dp-pill--dot">متوقف</span>
+              {% endif %}
             </div>
-            <h3 class="mt-3 text-lg font-black text-slate-900">{{ alert.title }}</h3>
-            <p class="mt-1 text-sm text-slate-700">{{ alert.message }}</p>
-            <div class="mt-3 text-xs text-slate-500 space-y-1">
-              <p>المدارس: {% for school in alert.schools.all %}<strong>{{ school.name }}</strong>{% if not forloop.last %}، {% endif %}{% endfor %}</p>
-              <p>النطاق: {% if alert.screens.all %}{% for screen in alert.screens.all %}{{ screen.name }}{% if not forloop.last %}، {% endif %}{% endfor %}{% else %}كل شاشات المدارس المحددة{% endif %}</p>
-              <p>أرسله {{ alert.created_by.get_full_name|default:alert.created_by.username }} في {{ alert.created_at|date:"Y-m-d H:i" }}</p>
-              {% if alert.cancelled_at %}<p>ألغاه {{ alert.cancelled_by.get_full_name|default:alert.cancelled_by.username }} في {{ alert.cancelled_at|date:"Y-m-d H:i" }}</p>{% endif %}
-            </div>
+            <h3 class="dp-record__title" style="margin-top:.6rem">{{ alert.title }}</h3>
           </div>
+
           {% if can_emergency_alerts_manage %}
             {% if alert.active_now %}
-              <form method="post" action="{% url 'dashboard:emergency_alert_cancel' alert.pk %}" data-confirm="إلغاء التنبيه الآن؟">
+              <form method="post" action="{% url 'dashboard:emergency_alert_cancel' alert.pk %}">
                 {% csrf_token %}
-                <button class="rounded-xl border border-red-300 bg-white px-5 py-2.5 text-sm font-black text-red-700">إلغاء التنبيه</button>
+                <button type="submit" class="dp-btn dp-btn--danger dp-btn--sm" data-confirm="إلغاء التنبيه الآن؟ ستعود الشاشات لمحتواها المعتاد.">
+                  <i class="fa-solid fa-ban" aria-hidden="true"></i>
+                  <span>إلغاء التنبيه</span>
+                </button>
               </form>
             {% else %}
-              <form method="post" action="{% url 'dashboard:emergency_alert_delete' alert.pk %}" data-confirm="حذف هذا التنبيه القديم نهائيًا؟ لا يمكن التراجع عن الحذف.">
+              <form method="post" action="{% url 'dashboard:emergency_alert_delete' alert.pk %}">
                 {% csrf_token %}
-                <button class="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-black text-slate-700 hover:border-red-300 hover:text-red-700">حذف التنبيه</button>
+                <button type="submit" class="dp-btn dp-btn--ghost dp-btn--sm" data-confirm="حذف هذا التنبيه القديم نهائيًا؟ لا يمكن التراجع عن الحذف.">
+                  <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+                  <span>حذف</span>
+                </button>
               </form>
             {% endif %}
           {% endif %}
         </div>
+
+        <p class="dp-msg__body" style="margin:0">{{ alert.message }}</p>
+
+        <dl class="dp-record__rows">
+          <div class="dp-record__row">
+            <dt>المدارس</dt>
+            <dd>{% for school in alert.schools.all %}{{ school.name }}{% if not forloop.last %}، {% endif %}{% endfor %}</dd>
+          </div>
+          <div class="dp-record__row">
+            <dt>النطاق</dt>
+            <dd>
+              {% if alert.screens.all %}
+                {% for screen in alert.screens.all %}{{ screen.name }}{% if not forloop.last %}، {% endif %}{% endfor %}
+              {% else %}
+                كل شاشات المدارس المحددة
+              {% endif %}
+            </dd>
+          </div>
+          <div class="dp-record__row">
+            <dt>أرسله</dt>
+            <dd>{{ alert.created_by.get_full_name|default:alert.created_by.username }} — {{ alert.created_at|date:"Y-m-d H:i" }}</dd>
+          </div>
+          {% if alert.cancelled_at %}
+            <div class="dp-record__row">
+              <dt>ألغاه</dt>
+              <dd>{{ alert.cancelled_by.get_full_name|default:alert.cancelled_by.username }} — {{ alert.cancelled_at|date:"Y-m-d H:i" }}</dd>
+            </div>
+          {% endif %}
+        </dl>
       </article>
     {% empty %}
-      <div class="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">لا يوجد سجل تنبيهات طارئة بعد.</div>
+      <div class="dp-empty">
+        <div class="dp-empty__icon"><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i></div>
+        <h3>لا يوجد سجل تنبيهات طارئة</h3>
+        <p>قناة الطوارئ تغطي كل الشاشات فورًا. استخدمها للإخلاء والحرائق وتعليق الدراسة فقط.</p>
+        {% if can_emergency_alerts_manage %}
+          <a href="{% url 'dashboard:emergency_alert_create' %}" class="dp-btn dp-btn--ghost">إرسال أول تنبيه</a>
+        {% endif %}
+      </div>
     {% endfor %}
   </div>
 </div>

@@ -6,74 +6,112 @@
 {% block page_description %}رسالة بملء الشاشة مع سجل المرسل ووقت الإلغاء{% endblock %}
 {% block breadcrumb %}
   <i class="fas fa-angle-left text-[9px]"></i>
-  <a href="{% url 'dashboard:emergency_alert_list' %}" class="hover:text-blue-600">التنبيهات الطارئة</a>
-  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">تنبيه جديد</span>
+  <a href="{% url 'dashboard:emergency_alert_list' %}">التنبيهات الطارئة</a>
+  <i class="fas fa-angle-left text-[9px]"></i><span>تنبيه جديد</span>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto pb-12">
-  <div class="mb-5 rounded-2xl border border-red-200 bg-red-50 p-5">
-    <h2 class="text-lg font-black text-red-900">قناة الطوارئ</h2>
-    <p class="mt-1 text-sm text-red-700">سيغطي التنبيه محتوى الشاشة بالكامل. استخدمه فقط للرسائل العاجلة.</p>
+<div class="dp-stack">
+
+  <div class="dp-note dp-note--danger" role="note">
+    <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+    <div>
+      <strong>قناة الطوارئ</strong>
+      <p>سيغطي التنبيه محتوى الشاشة بالكامل ويوقف كل ما عداه. استخدمه فقط للرسائل العاجلة.</p>
+    </div>
   </div>
-  <form method="post" class="rounded-2xl border border-slate-200 bg-white p-5 md:p-7 shadow-sm space-y-6">
+
+  <form method="post" class="dp-form">
     {% csrf_token %}
-    {% if form.non_field_errors %}<div class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ form.non_field_errors }}</div>{% endif %}
-    <div class="grid md:grid-cols-2 gap-5">
-      <div>
-        <label class="block mb-2 text-sm font-black text-slate-800">{{ form.kind.label }}</label>
-        {{ form.kind }}
-        <div class="text-xs text-red-600">{{ form.kind.errors }}</div>
-      </div>
-      <div>
-        <label class="block mb-2 text-sm font-black text-slate-800">{{ form.expires_at.label }}</label>
-        {{ form.expires_at }}
-        <p class="mt-1 text-xs text-slate-500">اختياري؛ يمكنك إلغاء التنبيه يدويًا في أي وقت.</p>
-        <div class="text-xs text-red-600">{{ form.expires_at.errors }}</div>
-      </div>
-    </div>
-    <div>
-      <label class="block mb-2 text-sm font-black text-slate-800">{{ form.title.label }}</label>
-      {{ form.title }}
-      <div class="text-xs text-red-600">{{ form.title.errors }}</div>
-    </div>
-    <div>
-      <label class="block mb-2 text-sm font-black text-slate-800">{{ form.message.label }}</label>
-      {{ form.message }}
-      <div class="text-xs text-red-600">{{ form.message.errors }}</div>
-    </div>
-    <div class="grid md:grid-cols-2 gap-5">
-      <div>
-        <label class="block mb-2 text-sm font-black text-slate-800">{{ form.schools.label }}</label>
-        <div class="max-h-52 overflow-y-auto rounded-xl border border-slate-200 p-3 space-y-2">{{ form.schools }}</div>
-        <div class="text-xs text-red-600">{{ form.schools.errors }}</div>
-      </div>
-      <div>
-        <label class="block mb-2 text-sm font-black text-slate-800">{{ form.scope.label }}</label>
-        {{ form.scope }}
-        <div id="screenTargets" class="mt-4">
-          <label class="block mb-2 text-sm font-black text-slate-800">{{ form.screens.label }}</label>
-          <div class="max-h-52 overflow-y-auto rounded-xl border border-slate-200 p-3 space-y-2">{{ form.screens }}</div>
-          <div class="text-xs text-red-600">{{ form.screens.errors }}</div>
+
+    <div class="dp-form__main">
+      {% if form.non_field_errors %}
+        <div class="dp-note dp-note--amber" role="alert">
+          <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+          <div>
+            <strong>تعذّر إرسال التنبيه</strong>
+            <p>{{ form.non_field_errors|join:" — " }}</p>
+          </div>
         </div>
-      </div>
+      {% endif %}
+
+      <section class="dp-panel">
+        <div class="dp-panel__head">
+          <h3>نص التنبيه</h3>
+          <p>اختيار النوع يملأ العنوان والرسالة بقالب جاهز يمكنك تعديله.</p>
+        </div>
+        <div class="dp-panel__body">
+          <div class="dp-grid-2">
+            {% include "dashboard/_field.html" with field=form.kind only %}
+            {% include "dashboard/_field.html" with field=form.expires_at hint="اختياري؛ يمكنك إلغاء التنبيه يدويًا في أي وقت." only %}
+          </div>
+          {% include "dashboard/_field.html" with field=form.title only %}
+          {% include "dashboard/_field.html" with field=form.message only %}
+        </div>
+      </section>
+
+      <section class="dp-panel">
+        <div class="dp-panel__head">
+          <h3>أين يظهر التنبيه</h3>
+          <p>حدد المدارس أولًا، ثم ضيّق النطاق إلى شاشات بعينها عند الحاجة.</p>
+        </div>
+        <div class="dp-panel__body">
+          <div class="dp-grid-2">
+            <div class="dp-field{% if form.schools.errors %} dp-field--invalid{% endif %}">
+              <label>{{ form.schools.label }}</label>
+              <div class="dp-checklist">{{ form.schools }}</div>
+              {% for error in form.schools.errors %}<div class="dp-field__error">{{ error }}</div>{% endfor %}
+            </div>
+
+            <div>
+              {% include "dashboard/_field.html" with field=form.scope only %}
+              <div id="screenTargets" class="dp-field" style="margin-top:.9rem">
+                <label>{{ form.screens.label }}</label>
+                <div class="dp-checklist">{{ form.screens }}</div>
+                {% for error in form.screens.errors %}<div class="dp-field__error">{{ error }}</div>{% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
-    <div class="flex flex-wrap gap-3 border-t border-slate-100 pt-5">
-      <button type="submit" class="rounded-xl bg-red-600 px-6 py-3 text-sm font-black text-white hover:bg-red-700" data-confirm="تأكيد إرسال التنبيه الطارئ الآن؟">إرسال التنبيه الآن</button>
-      <a href="{% url 'dashboard:emergency_alert_list' %}" class="rounded-xl border border-slate-200 px-6 py-3 text-sm font-black text-slate-700">إلغاء</a>
+
+    <div class="dp-actionbar">
+      <div class="dp-actionbar__copy">
+        <strong>إرسال فوري</strong>
+        <span>يظهر التنبيه على الشاشات المحددة خلال ثوانٍ من الإرسال.</span>
+      </div>
+      <div class="dp-actionbar__buttons">
+        <a href="{% url 'dashboard:emergency_alert_list' %}" class="dp-btn dp-btn--ghost">إلغاء</a>
+        <button type="submit" class="dp-btn dp-btn--emergency"
+                data-confirm="تأكيد إرسال التنبيه الطارئ الآن؟ سيغطي شاشات المدارس المحددة فورًا.">
+          <i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i>
+          <span>إرسال التنبيه الآن</span>
+        </button>
+      </div>
     </div>
   </form>
 </div>
 {{ emergency_templates|json_script:"emergencyTemplates" }}
+
+{% comment %}
+This page is served inside two different shells — the school dashboard for a
+manager, and `admin/admin_base.html` for a platform employee (see
+`_shell_base_template`). The admin shell defines no `extra_js` block, so a
+script placed there is silently dropped and the employee gets a form whose
+scope toggle and kind-template autofill do nothing. It stays in `content`,
+which both shells define.
+{% endcomment %}
 <script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function () {
-  document.querySelectorAll('input[type=text], input[type=datetime-local], select, textarea').forEach(function (el) {
-    el.classList.add('w-full', 'rounded-xl', 'border', 'border-slate-300', 'px-3', 'py-2.5', 'text-sm');
-  });
-  const scope = document.getElementById('{{ form.scope.id_for_label }}');
-  const targets = document.getElementById('screenTargets');
-  function syncScope() { targets.style.display = scope.value === 'screens' ? 'block' : 'none'; }
-  scope.addEventListener('change', syncScope); syncScope();
+  var scope = document.getElementById('{{ form.scope.id_for_label }}');
+  var targets = document.getElementById('screenTargets');
+
+  // Picking individual screens is only meaningful once the scope says so.
+  function syncScope() { targets.hidden = scope.value !== 'screens'; }
+  scope.addEventListener('change', syncScope);
+  syncScope();
+
   document.querySelectorAll('#screenTargets input[type="checkbox"]').forEach(function (item) {
     item.addEventListener('change', function () {
       if (item.checked) {
@@ -82,17 +120,22 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   });
-  const templates = JSON.parse(document.getElementById('emergencyTemplates').textContent);
-  const kind = document.getElementById('{{ form.kind.id_for_label }}');
-  const title = document.getElementById('{{ form.title.id_for_label }}');
-  const message = document.getElementById('{{ form.message.id_for_label }}');
+
+  var templates = JSON.parse(document.getElementById('emergencyTemplates').textContent);
+  var kind = document.getElementById('{{ form.kind.id_for_label }}');
+  var title = document.getElementById('{{ form.title.id_for_label }}');
+  var message = document.getElementById('{{ form.message.id_for_label }}');
+
   kind.addEventListener('change', function () {
-    const item = templates[kind.value];
+    var item = templates[kind.value];
     if (!item) return;
+    // Never silently discard wording the sender already typed.
     if (!title.value || confirm('استبدال العنوان والرسالة بالقالب المحدد؟')) {
-      title.value = item.title; message.value = item.message;
+      title.value = item.title;
+      message.value = item.message;
     }
   });
 });
 </script>
 {% endblock %}
+

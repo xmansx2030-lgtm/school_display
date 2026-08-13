@@ -16,6 +16,7 @@ from django.conf import settings
 # Screens a school may add in one purchase. The upper bound is a guard against
 # a tampered form field turning into a five-figure charge.
 MAX_EXTRA_SCREENS = 50
+MAX_SCREEN_ADDON_DAYS = 3650
 
 
 def monthly_screen_price() -> Decimal:
@@ -62,6 +63,19 @@ def normalize_extra_screens(value) -> int:
     except (TypeError, ValueError):
         return 0
     return max(0, min(MAX_EXTRA_SCREENS, count))
+
+
+def normalize_screen_addon_days(value, *, default_days: int | None = None, max_days: int | None = None) -> int:
+    """Coerce a requested screen add-on duration into a billable day count."""
+    try:
+        days = int(str(value or "").strip())
+    except (TypeError, ValueError):
+        days = int(default_days or 0)
+    if days <= 0:
+        days = int(default_days or 0)
+    upper = int(max_days or MAX_SCREEN_ADDON_DAYS or MAX_SCREEN_ADDON_DAYS)
+    upper = max(1, min(upper, MAX_SCREEN_ADDON_DAYS))
+    return max(1, min(days, upper))
 
 
 def prorated_screen_addon_price(screens: int, *, plan, starts_at, ends_at) -> Decimal:

@@ -697,6 +697,18 @@ class MoyasarCheckout(models.Model):
         default=0,
         help_text="عدد الشاشات المشتراة فوق حد الباقة ضمن هذه العملية.",
     )
+    screen_addon_validity_days = models.PositiveIntegerField(
+        "مدة الشاشات الإضافية بالأيام",
+        null=True,
+        blank=True,
+        help_text="مدة شراء الشاشات الإضافية كما تم احتسابها عند الدفع.",
+    )
+    screen_addon_ends_at = models.DateField(
+        "نهاية صلاحية الشاشات الإضافية",
+        null=True,
+        blank=True,
+        help_text="تُستخدم لطلبات شراء الشاشات فقط حتى تطابق التفعيل قيمة الدفع.",
+    )
     amount = models.DecimalField("المبلغ", max_digits=10, decimal_places=2)
     currency = models.CharField("العملة", max_length=3, default="SAR")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="initiated")

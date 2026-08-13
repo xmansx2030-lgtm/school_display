@@ -29,7 +29,7 @@
       {% endif %}
 
       {% if show_screen_limit_message %}
-        <a href="{% url 'dashboard:request_screen_addon' %}" class="screen-secondary-action">
+        <a href="{% url 'dashboard:my_subscription' %}#screen-addon-purchase" class="screen-secondary-action">
           <span>زيادة الباقة</span>
           <svg class="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </a>
@@ -276,7 +276,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
         </a>
       {% else %}
-        <a href="{% url 'dashboard:request_screen_addon' %}" class="pairing-guide-primary">زيادة باقة الشاشات</a>
+        <a href="{% url 'dashboard:my_subscription' %}#screen-addon-purchase" class="pairing-guide-primary">زيادة باقة الشاشات</a>
       {% endif %}
       <button type="button" class="pairing-guide-secondary" data-pairing-guide-close>لاحقًا</button>
     </div>
@@ -638,12 +638,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .screen-primary-action {
   padding: 0 0.95rem;
-  background: #0f172a;
-  color: #ffffff;
+  background: linear-gradient(145deg, #16576a 0%, #0e3b48 100%);
+  color: #fffaf3;
 }
 
 .screen-primary-action:hover {
-  background: #1e293b;
+  background: linear-gradient(145deg, #1a6c81 0%, #114a5b 100%);
 }
 
 .screen-pair-action {
@@ -971,13 +971,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .screen-link-copy {
   padding: 0 0.85rem;
-  background: #0f172a;
-  color: #ffffff;
-  border: 1px solid #0f172a;
+  background: #145a6a;
+  color: #fffaf3;
+  border: 1px solid #0e3b48;
 }
 
 .screen-link-copy:hover {
-  background: #1e293b;
+  background: #1c7a8f;
 }
 
 .screen-link-hint {

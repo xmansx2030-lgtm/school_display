@@ -3064,6 +3064,69 @@ def _is_missing_index(d: dict) -> bool:
     v = d.get("index")
     return v is None or v == "" or v == 0
 
+
+def _snapshot_period_day_bounds(snap: dict) -> tuple[datetime, datetime] | None:
+    """Return the real lesson span: first period start through last period end."""
+    if not isinstance(snap, dict):
+        return None
+
+    try:
+        now_dt = datetime.fromisoformat(str(snap.get("now") or "").strip())
+    except Exception:
+        now_dt = timezone.localtime()
+
+    day_path = snap.get("day_path")
+    if not isinstance(day_path, list):
+        return None
+
+    starts: list[datetime] = []
+    ends: list[datetime] = []
+    for block in day_path:
+        if not isinstance(block, dict):
+            continue
+        kind = str(block.get("kind") or block.get("type") or "").strip().lower()
+        if kind != "period":
+            continue
+        from_t = _parse_hhmm(block.get("from") or block.get("starts_at"))
+        to_t = _parse_hhmm(block.get("to") or block.get("ends_at"))
+        if not from_t or not to_t:
+            continue
+        start = datetime.combine(now_dt.date(), from_t)
+        end = datetime.combine(now_dt.date(), to_t)
+        if now_dt.tzinfo is not None:
+            start = start.replace(tzinfo=now_dt.tzinfo)
+            end = end.replace(tzinfo=now_dt.tzinfo)
+        if end <= start:
+            continue
+        starts.append(start)
+        ends.append(end)
+
+    if not starts or not ends:
+        return None
+    return min(starts), max(ends)
+
+
+def _snapshot_is_within_period_day(snap: dict) -> bool:
+    bounds = _snapshot_period_day_bounds(snap)
+    if bounds is None:
+        return False
+    start, end = bounds
+    try:
+        now_dt = datetime.fromisoformat(str(snap.get("now") or "").strip())
+    except Exception:
+        now_dt = timezone.localtime()
+    return start <= now_dt < end
+
+
+def _clear_school_day_boards(snap: dict) -> None:
+    """Hide day-scoped panels outside the real lesson span."""
+    snap["period_classes"] = []
+    snap["period_classes_map"] = {}
+    snap["standby"] = []
+    snap["excellence"] = []
+    snap["duty"] = {"items": []}
+
+
 def _snapshot_cache_key(settings_obj: SchoolSettings) -> str:
     school_id = int(getattr(settings_obj, "school_id", None) or 0)
     rev = int(getattr(settings_obj, "schedule_revision", 0) or 0)
@@ -3359,6 +3422,11 @@ def _build_final_snapshot(
     snap.setdefault("announcements", [])
     snap.setdefault("emergency_alerts", [])
 
+    try:
+        snap["meta"]["is_period_day_window"] = _snapshot_is_within_period_day(snap)
+    except Exception:
+        snap["meta"]["is_period_day_window"] = False
+
     # settings unify + theme mapping
     s = snap["settings"] or {}
     school = getattr(settings_obj, "school", None)
@@ -3410,7 +3478,7 @@ def _build_final_snapshot(
         _merge_real_data_into_snapshot(request, snap, settings_obj)
 
     # ✅ لو period_classes فاضية — نعبيها من ClassLesson
-    if merge_real_data:
+    if merge_real_data and bool((snap.get("meta") or {}).get("is_period_day_window")):
         meta = snap.get("meta") or {}
         weekday = _resolve_snapshot_weekday(meta if isinstance(meta, dict) else None)
         period_map = snap.get("period_classes_map") if isinstance(snap.get("period_classes_map"), dict) else {}
@@ -3486,6 +3554,9 @@ def _build_final_snapshot(
                     nxtp["index"] = idx2
         except Exception:
             logger.exception("snapshot: failed to ensure current/next period index")
+
+    if not bool((snap.get("meta") or {}).get("is_period_day_window")):
+        _clear_school_day_boards(snap)
 
     return snap
 

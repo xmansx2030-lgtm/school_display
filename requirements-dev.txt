@@ -2,3 +2,7 @@
 coverage==7.15.2
 pip-audit==2.10.1
 ruff==0.15.22
+# Drives dashboard/test_manager_browser.py. That suite skips itself when
+# this is absent, so it stays optional; after installing, fetch the engine
+# with `python -m playwright install chromium`.
+playwright==1.62.0

@@ -15,7 +15,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from core.models import School, SubscriptionPlan, UserProfile
+from core.models import DisplayScreen, School, SubscriptionPlan, UserProfile
 
 from .access import school_max_screens
 from .models import MoyasarCheckout, SchoolSubscription, SubscriptionScreenAddon
@@ -24,6 +24,7 @@ from .pricing import (
     MAX_EXTRA_SCREENS,
     checkout_total,
     normalize_extra_screens,
+    normalize_screen_addon_days,
     prorated_screen_addon_price,
     screen_addon_price,
 )
@@ -63,6 +64,12 @@ class PricingTests(TestCase):
         self.assertEqual(normalize_extra_screens("abc"), 0)
         self.assertEqual(normalize_extra_screens(None), 0)
         self.assertEqual(normalize_extra_screens("99999"), MAX_EXTRA_SCREENS)
+
+    def test_untrusted_addon_days_are_clamped(self):
+        self.assertEqual(normalize_screen_addon_days("30", default_days=10, max_days=60), 30)
+        self.assertEqual(normalize_screen_addon_days("-5", default_days=10, max_days=60), 10)
+        self.assertEqual(normalize_screen_addon_days("abc", default_days=10, max_days=60), 10)
+        self.assertEqual(normalize_screen_addon_days("999", default_days=10, max_days=60), 60)
 
     def test_midterm_purchase_is_prorated(self):
         plan = SubscriptionPlan.objects.create(
@@ -223,6 +230,37 @@ class ScreenPurchaseCheckoutTests(TestCase):
         self.assertEqual(addon.ends_at, subscription.ends_at)
         self.assertEqual(school_max_screens(self.school.id), 3)
 
+    def test_midterm_screen_purchase_accepts_a_limited_duration(self):
+        today = timezone.localdate()
+        subscription = self._activate(ends_at=today + timedelta(days=181))
+
+        self._start(request_type="screens", extra_screens="1", addon_duration_days="30")
+        checkout = MoyasarCheckout.objects.get()
+        self.assertEqual(checkout.amount, Decimal("49.32"))
+        self.assertEqual(checkout.screen_addon_validity_days, 30)
+        self.assertEqual(checkout.screen_addon_ends_at, today + timedelta(days=29))
+
+        self._pay(checkout)
+
+        addon = SubscriptionScreenAddon.objects.get()
+        self.assertEqual(addon.subscription, subscription)
+        self.assertEqual(addon.screens_added, 1)
+        self.assertEqual(addon.starts_at, today)
+        self.assertEqual(addon.ends_at, today + timedelta(days=29))
+        self.assertEqual(addon.total_price, Decimal("49.32"))
+        self.assertEqual(school_max_screens(self.school.id), 3)
+
+    def test_screen_duration_cannot_outlive_the_current_subscription(self):
+        today = timezone.localdate()
+        subscription = self._activate(ends_at=today + timedelta(days=9))
+
+        self._start(request_type="screens", extra_screens="1", addon_duration_days="365")
+        checkout = MoyasarCheckout.objects.get()
+
+        self.assertEqual(checkout.screen_addon_validity_days, 10)
+        self.assertEqual(checkout.screen_addon_ends_at, subscription.ends_at)
+        self.assertEqual(checkout.amount, Decimal("16.44"))
+
     def test_screens_purchase_does_not_create_a_second_subscription(self):
         self._activate(ends_at=timezone.localdate() + timedelta(days=181))
 
@@ -282,12 +320,36 @@ class ScreenPurchaseCheckoutTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "تحتاج شاشة إضافية؟")
         self.assertContains(response, 'name="extra_screens"')
+        self.assertContains(response, 'name="addon_duration_days"')
         self.assertContains(response, 'value="screens"')
+
+    def test_subscription_page_price_matrix_matches_gateway_rounding(self):
+        self._activate(ends_at=timezone.localdate() + timedelta(days=181))
+
+        response = self.client.get(reverse("dashboard:my_subscription"))
+
+        offer = response.context["screen_addon_offer"]
+        # 1 screen for 90 days is 147.95, but two screens round at the final
+        # total, not by doubling the rounded unit price.
+        self.assertEqual(offer["price_matrix"]["90"]["2"], "295.89")
 
     def test_purchase_is_hidden_without_an_active_subscription(self):
         response = self.client.get(reverse("dashboard:my_subscription"))
 
         self.assertNotContains(response, "تحتاج شاشة إضافية؟")
+
+    def test_screen_limit_cta_points_to_electronic_purchase(self):
+        self._activate(ends_at=timezone.localdate() + timedelta(days=181))
+        DisplayScreen.objects.create(school=self.school, name="الشاشة الأولى")
+        DisplayScreen.objects.create(school=self.school, name="الشاشة الثانية")
+
+        response = self.client.get(reverse("dashboard:screen_list"))
+
+        self.assertContains(
+            response,
+            f'{reverse("dashboard:my_subscription")}#screen-addon-purchase',
+        )
+        self.assertNotContains(response, reverse("dashboard:request_screen_addon"))
 
     def test_screens_are_granted_once_even_if_payment_is_applied_twice(self):
         self._start(request_type="new", plan_id=self.plan.pk, extra_screens="2")

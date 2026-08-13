@@ -1,0 +1,27 @@
+{% comment %}
+One bound form field, rendered the same way on every dashboard page: label,
+required marker, the widget Django produced, an optional hint, then errors.
+
+Before this existed each form page spelled the block out by hand, so the
+required marker, the hint style and the error markup all differed page to
+page — and three pages showed no errors at all. Always include it with
+`only`, otherwise a `hint` set by an earlier include leaks into the next one.
+
+    {% include "dashboard/_field.html" with field=form.title only %}
+    {% include "dashboard/_field.html" with field=form.body hint="…" wide=1 only %}
+{% endcomment %}
+<div class="dp-field{% if wide %} dp-field--wide{% endif %}{% if field.errors %} dp-field--invalid{% endif %}{% if wrapper_class %} {{ wrapper_class }}{% endif %}">
+  <label for="{{ field.id_for_label }}">
+    {{ field.label }}
+    {% if field.field.required %}<span class="dp-field__req" aria-hidden="true">*</span><span class="sr-only"> (حقل مطلوب)</span>{% endif %}
+  </label>
+  {{ field }}
+  {% if hint %}
+    <small class="dp-field__hint">{{ hint }}</small>
+  {% elif field.help_text %}
+    <small class="dp-field__hint">{{ field.help_text }}</small>
+  {% endif %}
+  {% for error in field.errors %}
+    <div class="dp-field__error">{{ error }}</div>
+  {% endfor %}
+</div>

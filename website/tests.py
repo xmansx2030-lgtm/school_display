@@ -116,7 +116,11 @@ class TrialSignupTests(TestCase):
         self.assertContains(response, "بلا بطاقة بنكية")
         self.assertContains(response, "كل المزايا مشمولة")
         self.assertContains(response, "تنبيهات طوارئ تتصدر الشاشة فوراً")
-        self.assertContains(response, "خصّص ما تعرضه كل شاشة")
+        # The hero headline. Its wording is the page's main conversion lever, so
+        # it is pinned here on purpose — update these two lines whenever the
+        # headline is rewritten rather than deleting the assertion.
+        self.assertContains(response, "لا تترك شاشات المدرسة")
+        self.assertContains(response, "معلّقة على ملفات قديمة")
         self.assertContains(response, "المحتوى المناسب، على الشاشة المناسبة")
         self.assertContains(response, "لوحة إدارة واحدة")
         self.assertContains(response, "هل يمكن تخصيص محتوى كل شاشة بشكل مستقل؟")
@@ -126,7 +130,9 @@ class TrialSignupTests(TestCase):
         self.assertContains(response, "إدارة المحتوى — 299 ر.س شهريًا")
         self.assertNotContains(response, "مجمع تعليمي: حتى 3 مدارس و15 شاشة")
         self.assertContains(response, "عام دراسي")
-        self.assertContains(response, "شهر مجانًا")
+        # The saving the annual cycle advertises. The number itself is copy that
+        # moves with pricing, so this pins the badge rather than the wording.
+        self.assertContains(response, 'data-pricing-cycle="annual"')
         self.assertContains(response, "صمّم باقة مدرستك")
         self.assertContains(response, "data-pricing-summary-price")
         self.assertContains(response, "كل شاشة لها محتواها")

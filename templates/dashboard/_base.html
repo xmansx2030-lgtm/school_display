@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" sizes="1024x1024" href="/favicon.png?v=20260723-logo1">
   <link rel="apple-touch-icon" href="/favicon.png?v=20260723-logo1">
 
-  <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-08-04-lux1">
+  <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-08-13-teal1">
   <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;600;700;800;900&family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
@@ -56,14 +56,14 @@
     .sidebar-link.active {
       background: linear-gradient(135deg, var(--brand-1), var(--brand-2));
       color: #fff;
-      box-shadow: 0 4px 20px rgba(79,70,229,.25), 0 1px 3px rgba(79,70,229,.1);
+      box-shadow: 0 4px 20px rgba(20,90,106,.25), 0 1px 3px rgba(20,90,106,.1);
     }
     .sidebar-link.active .nav-icon { color: #fff; }
     .sidebar-link .nav-icon {
       width: 20px; height: 20px; flex-shrink: 0;
       color: #94a3b8; transition: color .25s;
     }
-    .sidebar-link:hover .nav-icon { color: #6366f1; }
+    .sidebar-link:hover .nav-icon { color: var(--brand-1); }
 
     .sidebar-section-label {
       font-size: 10px; font-weight: 800;
@@ -86,7 +86,7 @@
     }
     input:focus, textarea:focus, select:focus {
       border-color: var(--brand-1) !important;
-      box-shadow: 0 0 0 3px rgba(79,70,229,.1) !important;
+      box-shadow: 0 0 0 3px rgba(20,90,106,.12) !important;
       outline: none !important;
     }
     select {
@@ -136,7 +136,15 @@
     }
 
     .dashboard-main {
+      /* `overflow-x: hidden` computes the other axis to `auto`, which makes
+         this a scroll container. It never actually scrolls — the document
+         does — and a scrollport that never scrolls freezes every
+         `position: sticky` inside it, which is what kept the save bar and the
+         preview panel from ever pinning. `clip` clips just as well without
+         becoming a scroll container. `hidden` stays first as the fallback for
+         engines that do not know `clip`. */
       overflow-x: hidden;
+      overflow-x: clip;
     }
 
     .dashboard-content {
@@ -290,11 +298,11 @@
       .dashboard-whatsapp-copy small { font-size: .64rem; }
     }
   </style>
-  <link rel="stylesheet" href="{% static 'css/dashboard-luxury.css' %}?v=2026-08-05-wa1">
+  <link rel="stylesheet" href="{% static 'css/dashboard-luxury.css' %}?v=2026-08-13-teal1">
   {% comment %} Premium primitives (dp-*). Sits after the luxury layer so it can
      restore depth where that file flattened everything, and before extra_css so
      a page can still overrule it. {% endcomment %}
-  <link rel="stylesheet" href="{% static 'css/dashboard-premium.css' %}?v=2026-08-09-p1">
+  <link rel="stylesheet" href="{% static 'css/dashboard-premium.css' %}?v=2026-08-13-teal1">
   {% block extra_css %}{% endblock %}
   {% block extra_head %}{% endblock %}
   <link rel="stylesheet" href="{% static 'css/mobile.css' %}?v=2026-08-05-m1">
@@ -322,7 +330,7 @@
       {% if request.user.is_authenticated and request.user.profile.active_school and request.user.profile.active_school.logo %}
         <img src="{{ request.user.profile.active_school.logo.url }}" alt="شعار المدرسة" class="h-9 w-9 rounded-xl border border-slate-200 bg-white object-contain shadow-sm">
       {% else %}
-        <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-sm">
+        <div class="dp-brandmark h-9 w-9 rounded-xl flex items-center justify-center shadow-sm">
           <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
         </div>
       {% endif %}
@@ -338,8 +346,8 @@
       {% with sub=request.school_subscription %}
         {% if sub %}
           <div class="hidden xl:flex items-center gap-2.5 bg-white border border-slate-200 rounded-2xl px-4 py-2 shadow-sm">
-            <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-              <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+            <div class="dp-icontile w-8 h-8 rounded-lg flex items-center justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
             </div>
             <div class="text-[11px] leading-snug">
               <div class="font-bold text-slate-700">{% if sub.plan %}{{ sub.plan.name }}{% else %}اشتراك{% endif %}</div>
@@ -385,7 +393,7 @@
 
       {% if request.user.is_authenticated and not is_system_staff %}
       <a href="{% url 'dashboard:add_school' %}"
-         class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-indigo-700 hover:shadow-md"
+         class="dp-btn dp-btn--primary dp-btn--sm"
          title="إضافة مدرسة جديدة">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M12 5v14M5 12h14"/></svg>
         <span class="hidden md:inline">إضافة مدرسة</span>
@@ -426,7 +434,7 @@
           {% if m.tags == 'success' %} border-emerald-500 bg-emerald-50/50
           {% elif m.tags == 'error' %} border-rose-500 bg-rose-50/50
           {% elif m.tags == 'warning' %} border-amber-500 bg-amber-50/50
-          {% else %} border-indigo-500 bg-indigo-50/50{% endif %}">
+          {% else %} border-teal-700 bg-teal-50/50{% endif %}">
           <div class="mt-0.5 flex-shrink-0">
             {% if m.tags == 'success' %}
               <div class="h-8 w-8 rounded-xl bg-emerald-100 flex items-center justify-center"><svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>
@@ -435,7 +443,7 @@
             {% elif m.tags == 'warning' %}
               <div class="h-8 w-8 rounded-xl bg-amber-100 flex items-center justify-center"><svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01M12 3l9.66 16.59A1 1 0 0120.66 21H3.34a1 1 0 01-.86-1.41L12 3z"/></svg></div>
             {% else %}
-              <div class="h-8 w-8 rounded-xl bg-indigo-100 flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+              <div class="dp-icontile h-8 w-8 rounded-xl flex items-center justify-center"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
             {% endif %}
           </div>
           <div class="flex-1 min-w-0">
@@ -651,14 +659,22 @@
         {% endwith %}
       {% endif %}
 
-      <!-- Page Header -->
+      {% comment %}
+      Page header. The primary action for the page belongs here, in
+      `page_actions` — a page that opens with its own titled toolbar ends up
+      stating its name twice in two stacked cards, which is what this block
+      exists to avoid.
+      {% endcomment %}
       <div class="dashboard-page-intro mb-6">
-        <h2 class="text-xl font-bold text-slate-800">
-          {% block page_title %}الصفحة الرئيسية{% endblock %}
-        </h2>
-        <p class="text-slate-500 text-sm mt-0.5">
-          {% block page_description %}إدارة النظام والعناصر المختلفة{% endblock %}
-        </p>
+        <div class="dp-min0">
+          <h2 class="text-xl font-bold text-slate-800">
+            {% block page_title %}الصفحة الرئيسية{% endblock %}
+          </h2>
+          <p class="text-slate-500 text-sm mt-0.5">
+            {% block page_description %}إدارة النظام والعناصر المختلفة{% endblock %}
+          </p>
+        </div>
+        {% block page_actions %}{% endblock %}
       </div>
 
       <!-- Content Area -->

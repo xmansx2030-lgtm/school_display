@@ -5,104 +5,115 @@
 {% block page_description %}عرض تفاصيل التذكرة والردود{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  
-  <!-- Ticket Details & Conversation -->
-  <div class="lg:col-span-2 space-y-6">
-    
-    <!-- Original Message -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h3 class="text-xl font-bold text-slate-800 mb-2">{{ ticket.subject }}</h3>
-      <div class="flex items-center gap-2 text-sm text-slate-500 mb-4">
-        <span>{{ ticket.created_at|date:"Y-m-d H:i" }}</span>
+<div class="dp-form dp-form--aside">
+
+  <div class="dp-form__main">
+    <section class="dp-panel">
+      <div class="dp-panel__head">
+        <h3>{{ ticket.subject }}</h3>
+        <p dir="ltr" style="text-align:start">{{ ticket.created_at|date:"Y-m-d H:i" }}</p>
       </div>
-      <div class="prose max-w-none text-slate-700 bg-slate-50 p-4 rounded-lg">
-        {{ ticket.message|linebreaks }}
+      <div class="dp-panel__body">
+        <div class="dp-msg__body">{{ ticket.message|linebreaks }}</div>
+      </div>
+    </section>
+
+    <div class="dp-section-head">
+      <div>
+        <h3>الردود والمناقشة</h3>
+        <p>{{ ticket.comments.count }} رد على هذه التذكرة.</p>
       </div>
     </div>
 
-    <!-- Comments -->
-    <div class="space-y-4">
-      <h4 class="font-bold text-slate-800">الردود والمناقشة</h4>
-      
+    <div class="dp-stack dp-stack--tight">
       {% for comment in ticket.comments.all %}
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 {% if comment.user.is_superuser %}border-l-4 border-l-indigo-500{% endif %}">
-        <div class="flex justify-between items-start mb-2">
-          <div class="flex items-center gap-2">
-            <span class="font-bold text-slate-800">
+        <article class="dp-msg{% if comment.user.is_superuser %} dp-msg--staff{% endif %}">
+          <div class="dp-msg__head">
+            <span class="dp-msg__who">
               {% if comment.user == request.user %}أنت{% else %}الدعم الفني{% endif %}
+              {% if comment.user.is_superuser %}<span class="dp-pill dp-pill--teal">دعم فني</span>{% endif %}
             </span>
-            {% if comment.user.is_superuser %}
-            <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs">دعم فني</span>
-            {% endif %}
+            <span class="dp-msg__when">{{ comment.created_at|date:"Y-m-d H:i" }}</span>
           </div>
-          <span class="text-xs text-slate-500">{{ comment.created_at|date:"Y-m-d H:i" }}</span>
-        </div>
-        <div class="text-slate-700">
-          {{ comment.message|linebreaks }}
-        </div>
-      </div>
+          <div class="dp-msg__body">{{ comment.message|linebreaks }}</div>
+        </article>
       {% empty %}
-      <div class="text-center py-8 text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-        لا توجد ردود حتى الآن.
-      </div>
+        <div class="dp-empty">
+          <div class="dp-empty__icon"><i class="fa-regular fa-comments" aria-hidden="true"></i></div>
+          <h3>لا توجد ردود بعد</h3>
+          <p>سيصلك إشعار هنا فور رد فريق الدعم.</p>
+        </div>
       {% endfor %}
     </div>
 
-    <!-- Add Reply -->
     {% if ticket.status != 'closed' %}
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h4 class="font-bold text-slate-800 mb-4">إضافة رد</h4>
-      <form method="post">
-        {% csrf_token %}
-        <div class="space-y-4">
-          {{ comment_form.message }}
-          <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-xl hover:bg-indigo-700 transition font-medium shadow-sm">
-            إرسال الرد
-          </button>
+      <section class="dp-panel">
+        <div class="dp-panel__head">
+          <h3>إضافة رد</h3>
+          <p>أضف أي تفاصيل جديدة أو أجب عن سؤال الدعم.</p>
         </div>
-      </form>
-    </div>
+        <div class="dp-panel__body">
+          <form method="post" class="dp-stack dp-stack--tight">
+            {% csrf_token %}
+            <div class="dp-field">
+              <label for="{{ comment_form.message.id_for_label }}">{{ comment_form.message.label }}</label>
+              {{ comment_form.message }}
+              {% for error in comment_form.message.errors %}<div class="dp-field__error">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="dp-toolbar__actions">
+              <button type="submit" class="dp-btn dp-btn--primary">
+                <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+                <span>إرسال الرد</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
     {% else %}
-    <div class="bg-slate-100 rounded-xl p-6 text-center text-slate-600">
-      هذه التذكرة مغلقة ولا يمكن إضافة ردود جديدة.
-    </div>
-    {% endif %}
-
-  </div>
-
-  <!-- Sidebar Info -->
-  <div class="space-y-6">
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h4 class="font-bold text-slate-800 mb-4">معلومات التذكرة</h4>
-      
-      <div class="space-y-4">
+      <div class="dp-note">
+        <i class="fa-solid fa-lock" aria-hidden="true"></i>
         <div>
-          <label class="block text-sm font-medium text-slate-500 mb-1">الحالة</label>
-          <div>
-            {% if ticket.status == 'open' %}
-            <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">مفتوحة</span>
-            {% elif ticket.status == 'in_progress' %}
-            <span class="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-sm font-medium">قيد المعالجة</span>
-            {% else %}
-            <span class="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-sm font-medium">مغلقة</span>
-            {% endif %}
-          </div>
-        </div>
-
-        <div class="pt-4 border-t border-slate-100 space-y-3">
-          <div class="flex justify-between">
-            <span class="text-slate-500">الأولوية:</span>
-            <span class="font-medium">{{ ticket.get_priority_display }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-slate-500">رقم التذكرة:</span>
-            <span class="font-medium">#{{ ticket.id }}</span>
-          </div>
+          <strong>التذكرة مغلقة</strong>
+          <p>لا يمكن إضافة ردود جديدة. افتح تذكرة أخرى إذا عادت المشكلة.</p>
         </div>
       </div>
-    </div>
+    {% endif %}
   </div>
 
+  <aside class="dp-form__aside">
+    <section class="dp-panel">
+      <div class="dp-panel__head">
+        <h3>معلومات التذكرة</h3>
+      </div>
+      <div class="dp-panel__body">
+        <dl class="dp-record__rows">
+          <div class="dp-record__row">
+            <dt>الحالة</dt>
+            <dd>
+              {% if ticket.status == 'open' %}
+                <span class="dp-pill dp-pill--teal dp-pill--dot">مفتوحة</span>
+              {% elif ticket.status == 'in_progress' %}
+                <span class="dp-pill dp-pill--amber dp-pill--dot">قيد المعالجة</span>
+              {% else %}
+                <span class="dp-pill dp-pill--slate dp-pill--dot">مغلقة</span>
+              {% endif %}
+            </dd>
+          </div>
+          <div class="dp-record__row">
+            <dt>الأولوية</dt>
+            <dd>{{ ticket.get_priority_display }}</dd>
+          </div>
+          <div class="dp-record__row">
+            <dt>رقم التذكرة</dt>
+            <dd dir="ltr">#{{ ticket.id }}</dd>
+          </div>
+        </dl>
+        <a href="{% url 'dashboard:customer_support_tickets' %}" class="dp-btn dp-btn--ghost dp-btn--block" style="margin-top:.9rem">
+          <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          <span>كل التذاكر</span>
+        </a>
+      </div>
+    </section>
+  </aside>
 </div>
 {% endblock %}

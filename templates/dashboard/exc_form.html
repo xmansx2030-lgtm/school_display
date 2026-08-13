@@ -4,180 +4,162 @@
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_description %}{% if form.instance.pk %}تعديل بطاقة تميّز {{ form.instance.teacher_name }}{% else %}إضافة بطاقة تميّز جديدة{% endif %}{% endblock %}
 
-{% block content %}
-<div class="max-w-6xl mx-auto pb-8 md:pb-12">
-  <section class="exc-form-intro mb-4">
-    <div>
-      <h2>{% if form.instance.pk %}تعديل بطاقة التميّز{% else %}بطاقة تميّز جديدة{% endif %}</h2>
-      <p>أضف الاسم وسبب التكريم والصورة وفترة الظهور على الشاشة.</p>
-    </div>
-    <a href="{% url 'dashboard:exc_list' %}" class="exc-form-secondary">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+{% block page_actions %}
+  <div class="dp-toolbar__actions">
+    <a href="{% url 'dashboard:exc_list' %}" class="dp-btn dp-btn--ghost">
+      <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
       <span>رجوع للقائمة</span>
     </a>
-  </section>
+  </div>
+{% endblock %}
 
-  <form method="post" enctype="multipart/form-data" class="exc-form-shell" id="excForm">
+{% block content %}
+<div class="dp-stack">
+
+  <form method="post" enctype="multipart/form-data" class="dp-form dp-form--aside" id="excForm">
     {% csrf_token %}
-    <div class="exc-form-main">
-      <section class="exc-form-card">
-        <div class="exc-form-card-heading">
+
+    <div class="dp-form__main">
+      {% if form.non_field_errors %}
+        <div class="dp-note dp-note--amber" role="alert">
+          <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+          <div>
+            <strong>تعذّر حفظ البطاقة</strong>
+            <p>{{ form.non_field_errors|join:" — " }}</p>
+          </div>
+        </div>
+      {% endif %}
+
+      <section class="dp-panel">
+        <div class="dp-panel__head">
           <h3>بيانات المتميز/ة</h3>
           <p>هذه البيانات تظهر في بطاقة التكريم على الشاشة.</p>
         </div>
-
-        <div class="exc-field-grid">
-          <div class="exc-field">
-            <label for="{{ form.teacher_name.id_for_label }}">
-              {{ form.teacher_name.label }}
-              {% if form.teacher_name.field.required %}<span>*</span>{% endif %}
-            </label>
-            {{ form.teacher_name }}
-            {% if form.teacher_name.errors %}<div class="exc-field-error">{{ form.teacher_name.errors }}</div>{% endif %}
+        <div class="dp-panel__body">
+          <div class="dp-grid-2">
+            {% include "dashboard/_field.html" with field=form.teacher_name only %}
+            {% include "dashboard/_field.html" with field=form.priority hint="الأصغر يظهر أولًا عند وجود أكثر من بطاقة." only %}
           </div>
-
-          <div class="exc-field">
-            <label for="{{ form.priority.id_for_label }}">
-              {{ form.priority.label }}
-              {% if form.priority.field.required %}<span>*</span>{% endif %}
-            </label>
-            {{ form.priority }}
-            {% if form.priority.errors %}<div class="exc-field-error">{{ form.priority.errors }}</div>{% endif %}
-          </div>
-        </div>
-
-        <div class="exc-field">
-          <label for="{{ form.reason.id_for_label }}">
-            {{ form.reason.label }}
-            {% if form.reason.field.required %}<span>*</span>{% endif %}
-          </label>
-          {{ form.reason }}
-          {% if form.reason.errors %}<div class="exc-field-error">{{ form.reason.errors }}</div>{% endif %}
+          {% include "dashboard/_field.html" with field=form.reason only %}
         </div>
       </section>
 
-      <section class="exc-form-card">
-        <div class="exc-form-card-heading">
+      <section class="dp-panel">
+        <div class="dp-panel__head">
           <h3>الصورة</h3>
           <p>ارفع صورة من الجهاز أو استخدم رابط صورة. عند وجود الاثنين، تُستخدم الصورة المرفوعة أولاً.</p>
         </div>
-
-        <div class="exc-photo-grid">
-          <div class="exc-field">
-            <label for="{{ form.photo.id_for_label }}">{{ form.photo.label }}</label>
-            <div class="exc-upload-box">
-              {{ form.photo }}
-              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-              <strong>اختيار صورة</strong>
-              <span>JPG, PNG, WEBP</span>
+        <div class="dp-panel__body">
+          <div class="dp-grid-2">
+            <div class="dp-field{% if form.photo.errors %} dp-field--invalid{% endif %}">
+              <label for="{{ form.photo.id_for_label }}">{{ form.photo.label }}</label>
+              <div class="dp-upload">
+                {{ form.photo }}
+                <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
+                <strong>اختيار صورة</strong>
+                <span>JPG, PNG, WEBP</span>
+              </div>
+              {% for error in form.photo.errors %}<div class="dp-field__error">{{ error }}</div>{% endfor %}
             </div>
-            {% if form.photo.errors %}<div class="exc-field-error">{{ form.photo.errors }}</div>{% endif %}
-          </div>
 
-          <div class="exc-field">
-            <label for="{{ form.photo_url.id_for_label }}">{{ form.photo_url.label }}</label>
-            {{ form.photo_url }}
-            {% if form.photo_url.errors %}<div class="exc-field-error">{{ form.photo_url.errors }}</div>{% endif %}
+            {% include "dashboard/_field.html" with field=form.photo_url only %}
           </div>
         </div>
       </section>
 
-      <section class="exc-form-card">
-        <div class="exc-form-card-heading">
+      <section class="dp-panel">
+        <div class="dp-panel__head">
           <h3>فترة العرض</h3>
           <p>حدد متى تبدأ البطاقة ومتى تتوقف عن الظهور.</p>
         </div>
-
-        <div class="exc-field-grid">
-          <div class="exc-field">
-            <label for="{{ form.start_at.id_for_label }}">
-              {{ form.start_at.label }}
-              {% if form.start_at.field.required %}<span>*</span>{% endif %}
-            </label>
-            {{ form.start_at }}
-            {% if form.start_at.errors %}<div class="exc-field-error">{{ form.start_at.errors }}</div>{% endif %}
-          </div>
-
-          <div class="exc-field">
-            <label for="{{ form.end_at.id_for_label }}">
-              {{ form.end_at.label }}
-              {% if form.end_at.field.required %}<span>*</span>{% endif %}
-            </label>
-            {{ form.end_at }}
-            {% if form.end_at.errors %}<div class="exc-field-error">{{ form.end_at.errors }}</div>{% endif %}
+        <div class="dp-panel__body">
+          <div class="dp-grid-2">
+            {% include "dashboard/_field.html" with field=form.start_at only %}
+            {% include "dashboard/_field.html" with field=form.end_at only %}
           </div>
         </div>
-
-        {% if form.non_field_errors %}
-          <div class="exc-field-error exc-non-field">{{ form.non_field_errors|join:" | " }}</div>
-        {% endif %}
       </section>
     </div>
 
-    <aside class="exc-preview-panel">
-      <div class="exc-preview-heading">
-        <span>معاينة البطاقة</span>
-        <strong id="previewPriority">أولوية {{ form.priority.value|default:"10" }}</strong>
-      </div>
-      <div class="exc-preview-card">
-        {% with src=form.instance.image_src|default_if_none:"" %}
-          <div class="exc-preview-image-wrap">
-            <img id="previewImage" src="{{ src }}" alt="معاينة الصورة" {% if not src %}hidden{% endif %}>
-            <div id="previewFallback" class="exc-preview-fallback" {% if src %}hidden{% endif %}>{{ form.teacher_name.value|default:"ت"|first }}</div>
+    <aside class="dp-form__aside">
+      <div class="dp-preview">
+        <div class="dp-preview__head">
+          <span>معاينة البطاقة</span>
+          <strong class="dp-pill dp-pill--slate" id="previewPriority">أولوية {{ form.priority.value|default:"10" }}</strong>
+        </div>
+        <div class="dp-preview__card" style="text-align:center">
+          {% with src=form.instance.image_src|default_if_none:"" %}
+            <div class="dp-preview__avatar">
+              <img id="previewImage" src="{{ src }}" alt="معاينة الصورة" {% if not src %}hidden{% endif %}>
+              <span id="previewFallback" {% if src %}hidden{% endif %}>{{ form.teacher_name.value|default:"ت"|first }}</span>
+            </div>
+          {% endwith %}
+          <h3 id="previewName">{{ form.teacher_name.value|default:"اسم المتميز/ة" }}</h3>
+          <p id="previewReason">{{ form.reason.value|default:"سبب التميّز يظهر هنا." }}</p>
+        </div>
+        <dl class="dp-preview__meta">
+          <div>
+            <dt>يظهر من</dt>
+            <dd id="previewStart">-</dd>
           </div>
-        {% endwith %}
-        <h3 id="previewName">{{ form.teacher_name.value|default:"اسم المتميز/ة" }}</h3>
-        <p id="previewReason">{{ form.reason.value|default:"سبب التميّز يظهر هنا." }}</p>
+          <div>
+            <dt>ينتهي في</dt>
+            <dd id="previewEnd">بدون نهاية</dd>
+          </div>
+        </dl>
       </div>
-      <dl class="exc-preview-meta">
-        <div>
-          <dt>يظهر من</dt>
-          <dd id="previewStart">-</dd>
-        </div>
-        <div>
-          <dt>ينتهي في</dt>
-          <dd id="previewEnd">بدون نهاية</dd>
-        </div>
-      </dl>
     </aside>
 
-    <div class="exc-form-actions">
-      <button type="submit" class="exc-form-primary">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-        <span>حفظ بطاقة التميّز</span>
-      </button>
-      <a href="{% url 'dashboard:exc_list' %}" class="exc-form-secondary">إلغاء</a>
-
-      {% if form.instance.pk %}
-        <button type="button" data-role="confirm-delete" class="exc-form-danger">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-          <span>حذف البطاقة</span>
+    <div class="dp-actionbar">
+      <div class="dp-actionbar__copy">
+        <strong>{% if form.instance.pk %}تعديل بطاقة قائمة{% else %}بطاقة تميّز جديدة{% endif %}</strong>
+        <span>لن تظهر البطاقة على الشاشات قبل الحفظ.</span>
+      </div>
+      <div class="dp-actionbar__buttons">
+        {% if form.instance.pk %}
+          <button type="submit"
+                  formaction="{% url 'dashboard:exc_delete' form.instance.pk %}"
+                  formnovalidate
+                  data-confirm="هل تريد حذف بطاقة التميّز للمتميز/ة &quot;{{ form.instance.teacher_name }}&quot;؟ لا يمكن التراجع عن هذا الإجراء."
+                  class="dp-btn dp-btn--danger">
+            <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+            <span>حذف</span>
+          </button>
+        {% endif %}
+        <a href="{% url 'dashboard:exc_list' %}" class="dp-btn dp-btn--ghost">إلغاء</a>
+        <button type="submit" class="dp-btn dp-btn--primary">
+          <i class="fa-solid fa-check" aria-hidden="true"></i>
+          <span>حفظ البطاقة</span>
         </button>
-      {% endif %}
+      </div>
     </div>
   </form>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script nonce="{{ csp_nonce }}">
-document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('.exc-form-shell input:not([type="file"]), .exc-form-shell textarea').forEach(input => {
-    input.classList.add('exc-input');
-  });
-
-  const fileInput = document.querySelector('input[type="file"][name$="photo"]');
+document.addEventListener('DOMContentLoaded', function () {
+  var fileInput = document.getElementById('{{ form.photo.id_for_label }}');
   if (fileInput) fileInput.setAttribute('accept', 'image/*');
 
-  const nameInput = document.getElementById('{{ form.teacher_name.id_for_label }}');
-  const reasonInput = document.getElementById('{{ form.reason.id_for_label }}');
-  const priorityInput = document.getElementById('{{ form.priority.id_for_label }}');
-  const startInput = document.getElementById('{{ form.start_at.id_for_label }}');
-  const endInput = document.getElementById('{{ form.end_at.id_for_label }}');
-  const urlInput = document.getElementById('{{ form.photo_url.id_for_label }}');
-  const image = document.getElementById('previewImage');
-  const fallback = document.getElementById('previewFallback');
+  var nameInput = document.getElementById('{{ form.teacher_name.id_for_label }}');
+  var reasonInput = document.getElementById('{{ form.reason.id_for_label }}');
+  var priorityInput = document.getElementById('{{ form.priority.id_for_label }}');
+  var startInput = document.getElementById('{{ form.start_at.id_for_label }}');
+  var endInput = document.getElementById('{{ form.end_at.id_for_label }}');
+  var urlInput = document.getElementById('{{ form.photo_url.id_for_label }}');
+  var image = document.getElementById('previewImage');
+  var fallback = document.getElementById('previewFallback');
 
-  function text(value, fallbackText) {
+  function valueOr(value, fallbackText) {
     return value && value.trim() ? value : fallbackText;
+  }
+
+  // A datetime-local input hands back `2026-08-13T20:05`. The T is machine
+  // punctuation; the preview is meant to read like the finished thing.
+  function readableMoment(value, fallbackText) {
+    return value && value.trim() ? value.replace('T', ' · ') : fallbackText;
   }
 
   function setPreviewImage(src) {
@@ -192,434 +174,43 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function updatePreview() {
-    const name = text(nameInput?.value || '', 'اسم المتميز/ة');
+    var name = valueOr(nameInput ? nameInput.value : '', 'اسم المتميز/ة');
     document.getElementById('previewName').textContent = name;
-    document.getElementById('previewReason').textContent = text(reasonInput?.value || '', 'سبب التميّز يظهر هنا.');
-    document.getElementById('previewPriority').textContent = `أولوية ${text(priorityInput?.value || '', '10')}`;
-    document.getElementById('previewStart').textContent = text(startInput?.value || '', '-');
-    document.getElementById('previewEnd').textContent = text(endInput?.value || '', 'بدون نهاية');
+    document.getElementById('previewReason').textContent = valueOr(reasonInput ? reasonInput.value : '', 'سبب التميّز يظهر هنا.');
+    document.getElementById('previewPriority').textContent = 'أولوية ' + valueOr(priorityInput ? priorityInput.value : '', '10');
+    document.getElementById('previewStart').textContent = readableMoment(startInput ? startInput.value : '', '-');
+    document.getElementById('previewEnd').textContent = readableMoment(endInput ? endInput.value : '', 'بدون نهاية');
     fallback.textContent = name.trim().charAt(0) || 'ت';
   }
 
-  [nameInput, reasonInput, priorityInput, startInput, endInput].forEach(el => {
-    if (el) el.addEventListener('input', updatePreview);
-    if (el) el.addEventListener('change', updatePreview);
+  [nameInput, reasonInput, priorityInput, startInput, endInput].forEach(function (el) {
+    if (!el) return;
+    el.addEventListener('input', updatePreview);
+    el.addEventListener('change', updatePreview);
   });
 
   if (fileInput) {
-    fileInput.addEventListener('change', function() {
+    fileInput.addEventListener('change', function () {
       if (!this.files || !this.files[0]) return;
-      const reader = new FileReader();
-      reader.onload = event => setPreviewImage(event.target.result);
+      var reader = new FileReader();
+      reader.onload = function (event) { setPreviewImage(event.target.result); };
       reader.readAsDataURL(this.files[0]);
     });
   }
 
   if (urlInput) {
-    let timer;
-    urlInput.addEventListener('input', function() {
+    var timer;
+    urlInput.addEventListener('input', function () {
       clearTimeout(timer);
-      const value = this.value.trim();
-      timer = setTimeout(() => {
+      var value = this.value.trim();
+      timer = setTimeout(function () {
         if (value) setPreviewImage(value);
       }, 350);
     });
   }
 
-  image.addEventListener('error', () => setPreviewImage(''));
+  image.addEventListener('error', function () { setPreviewImage(''); });
   updatePreview();
 });
-
-{% if form.instance.pk %}
-function confirmDelete() {
-  const name = document.getElementById('{{ form.teacher_name.id_for_label }}').value || '{{ form.instance.teacher_name|escapejs }}';
-  if (!confirm(`هل تريد حذف بطاقة التميّز للمتميز/ة "${name}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
-
-  const form = document.createElement('form');
-  form.method = 'post';
-  form.action = "{% url 'dashboard:exc_delete' form.instance.pk %}";
-
-  const csrfInput = document.createElement('input');
-  csrfInput.type = 'hidden';
-  csrfInput.name = 'csrfmiddlewaretoken';
-  csrfInput.value = '{{ csrf_token }}';
-  form.appendChild(csrfInput);
-  document.body.appendChild(form);
-  form.submit();
-}
-{% endif %}
-
-// Bound here rather than with an inline onclick so the page satisfies CSP.
-document.addEventListener('click', function (event) {
-  var trigger = event.target.closest('[data-role="confirm-delete"]');
-  if (trigger) { confirmDelete(); }
-});
 </script>
-
-<style>
-.exc-form-intro {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.1rem;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-}
-
-.exc-form-intro h2 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-.exc-form-intro p {
-  margin: 0.25rem 0 0;
-  color: #64748b;
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.exc-form-shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 20rem;
-  gap: 1rem;
-  align-items: start;
-}
-
-.exc-form-main {
-  display: grid;
-  gap: 1rem;
-}
-
-.exc-form-card,
-.exc-preview-panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 1rem;
-  box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
-}
-
-.exc-form-card-heading {
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #edf2f7;
-}
-
-.exc-form-card-heading h3 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 0.95rem;
-  font-weight: 900;
-}
-
-.exc-form-card-heading p {
-  margin: 0.25rem 0 0;
-  color: #64748b;
-  font-size: 0.76rem;
-  font-weight: 600;
-}
-
-.exc-field-grid,
-.exc-photo-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.exc-field {
-  display: grid;
-  gap: 0.45rem;
-  margin-bottom: 1rem;
-}
-
-.exc-field:last-child {
-  margin-bottom: 0;
-}
-
-.exc-field label {
-  color: #334155;
-  font-size: 0.8rem;
-  font-weight: 900;
-}
-
-.exc-field label span {
-  color: #e11d48;
-}
-
-.exc-input {
-  width: 100%;
-  min-height: 2.65rem;
-  border: 1px solid #dbe3ea !important;
-  border-radius: 0.75rem !important;
-  background: #ffffff !important;
-  color: #0f172a !important;
-  padding: 0.65rem 0.8rem !important;
-  font-size: 0.86rem !important;
-  font-weight: 700 !important;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease;
-}
-
-.exc-input:focus {
-  outline: none;
-  border-color: #0f766e !important;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.11);
-}
-
-.exc-upload-box {
-  position: relative;
-  display: grid;
-  place-items: center;
-  gap: 0.35rem;
-  min-height: 8rem;
-  border-radius: 1rem;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
-  color: #64748b;
-  text-align: center;
-  overflow: hidden;
-}
-
-.exc-upload-box input[type="file"] {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.exc-upload-box strong {
-  color: #0f172a;
-  font-size: 0.82rem;
-  font-weight: 900;
-}
-
-.exc-upload-box span {
-  color: #64748b;
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.exc-field-error {
-  color: #be123c;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.exc-non-field {
-  border-radius: 0.8rem;
-  background: #fff1f2;
-  border: 1px solid #fecdd3;
-  padding: 0.75rem;
-}
-
-.exc-preview-panel {
-  position: sticky;
-  top: 1rem;
-  display: grid;
-  gap: 0.9rem;
-}
-
-.exc-preview-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-}
-
-.exc-preview-heading span {
-  color: #0f172a;
-  font-size: 0.9rem;
-  font-weight: 900;
-}
-
-.exc-preview-heading strong {
-  border-radius: 999px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #475569;
-  padding: 0.28rem 0.65rem;
-  font-size: 0.72rem;
-  font-weight: 900;
-}
-
-.exc-preview-card {
-  border-radius: 1rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 1rem;
-  text-align: center;
-}
-
-.exc-preview-image-wrap {
-  display: grid;
-  place-items: center;
-  margin: 0 auto;
-  width: 9rem;
-  height: 9rem;
-  border-radius: 1.25rem;
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-}
-
-.exc-preview-image-wrap img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.exc-preview-fallback {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  color: #0f172a;
-  font-size: 2.4rem;
-  font-weight: 950;
-}
-
-.exc-preview-card h3 {
-  margin: 0.9rem 0 0;
-  color: #0f172a;
-  font-size: 1.05rem;
-  font-weight: 950;
-}
-
-.exc-preview-card p {
-  margin: 0.35rem 0 0;
-  color: #475569;
-  font-size: 0.82rem;
-  font-weight: 600;
-  line-height: 1.7;
-}
-
-.exc-preview-meta {
-  display: grid;
-  gap: 0.55rem;
-  margin: 0;
-}
-
-.exc-preview-meta div {
-  border-radius: 0.8rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 0.7rem 0.8rem;
-}
-
-.exc-preview-meta dt,
-.exc-preview-meta dd {
-  margin: 0;
-}
-
-.exc-preview-meta dt {
-  color: #64748b;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.exc-preview-meta dd {
-  margin-top: 0.2rem;
-  color: #0f172a;
-  font-size: 0.78rem;
-  font-weight: 900;
-  direction: ltr;
-  text-align: right;
-}
-
-.exc-form-actions {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 1rem;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-}
-
-.exc-form-primary,
-.exc-form-secondary,
-.exc-form-danger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-height: 2.5rem;
-  border-radius: 0.7rem;
-  padding: 0 1rem;
-  font-size: 0.82rem;
-  font-weight: 900;
-  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
-}
-
-.exc-form-primary {
-  background: #0f172a;
-  color: #ffffff;
-}
-
-.exc-form-primary:hover {
-  background: #1e293b;
-}
-
-.exc-form-secondary {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #334155;
-}
-
-.exc-form-secondary:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-}
-
-.exc-form-danger {
-  margin-inline-start: auto;
-  background: #ffffff;
-  border: 1px solid #fecdd3;
-  color: #be123c;
-}
-
-.exc-form-danger:hover {
-  background: #fff1f2;
-  border-color: #fda4af;
-}
-
-@media (max-width: 1000px) {
-  .exc-form-intro {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .exc-form-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .exc-preview-panel {
-    position: static;
-  }
-}
-
-@media (max-width: 680px) {
-  .exc-field-grid,
-  .exc-photo-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .exc-form-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .exc-form-primary,
-  .exc-form-secondary,
-  .exc-form-danger {
-    width: 100%;
-    margin-inline-start: 0;
-  }
-}
-</style>
 {% endblock %}

@@ -475,8 +475,31 @@ def system_subscription_delete(request, pk: int):
         return redirect("dashboard:system_subscriptions_list")
 
     obj = get_object_or_404(SubModel, pk=pk)
-    obj.delete()
-    messages.warning(request, "تم حذف الاشتراك.")
+    try:
+        subscription_label = str(obj)
+        obj.delete()
+    except ProtectedError:
+        if getattr(obj, "status", None) != "cancelled":
+            obj.status = "cancelled"
+            obj.save(update_fields=["status"])
+        try:
+            from subscriptions.audit import record as record_subscription_audit
+
+            record_subscription_audit(
+                "subscription_cancelled",
+                subscription=obj,
+                request=request,
+                summary="تعذر حذف الاشتراك لارتباطه بسجلات مالية؛ تم إلغاؤه بدلاً من الحذف.",
+                context={"reason": "protected_delete"},
+            )
+        except Exception:
+            logger.exception("Failed to audit protected subscription delete for %s", getattr(obj, "pk", None))
+        messages.warning(
+            request,
+            "تعذر حذف الاشتراك لارتباطه بفواتير أو سجلات دفع محفوظة؛ تم إلغاؤه بدلاً من الحذف.",
+        )
+    else:
+        messages.warning(request, f"تم حذف الاشتراك «{subscription_label}».")
     return redirect("dashboard:system_subscriptions_list")
 
 @system_permission_required("subscriptions.view")
@@ -1255,18 +1278,77 @@ def my_subscription(request):
     # and priced for the days that remain in it.
     screen_addon_offer = None
     if current_subscription is not None and moyasar_available:
-        unit_price = prorated_screen_addon_price(
-            1,
-            plan=current_subscription.plan,
-            starts_at=today,
-            ends_at=current_subscription.ends_at,
-        )
-        if unit_price > 0:
+        subscription_ends_at = getattr(current_subscription, "ends_at", None)
+        if subscription_ends_at:
+            remaining_days = max(1, (subscription_ends_at - today).days + 1)
+        else:
+            remaining_days = int(getattr(current_subscription.plan, "duration_days", 0) or 365)
+        raw_options = [30, 90, 182, 365, remaining_days]
+        duration_options = []
+        price_matrix = {}
+        seen_days = set()
+        for days in raw_options:
+            try:
+                days_int = int(days or 0)
+            except Exception:
+                continue
+            if days_int <= 0:
+                continue
+            days_int = min(days_int, remaining_days)
+            if days_int in seen_days:
+                continue
+            seen_days.add(days_int)
+            ends_at = today + timedelta(days=days_int - 1)
+            if subscription_ends_at and ends_at > subscription_ends_at:
+                ends_at = subscription_ends_at
+            unit_price = prorated_screen_addon_price(
+                1,
+                plan=current_subscription.plan,
+                starts_at=today,
+                ends_at=ends_at,
+            )
+            if unit_price <= 0:
+                continue
+            price_matrix[str(days_int)] = {
+                str(count): str(
+                    prorated_screen_addon_price(
+                        count,
+                        plan=current_subscription.plan,
+                        starts_at=today,
+                        ends_at=ends_at,
+                    )
+                )
+                for count in range(1, MAX_EXTRA_SCREENS + 1)
+            }
+            if days_int >= remaining_days:
+                label = "حتى نهاية الاشتراك"
+            elif days_int == 30:
+                label = "شهر"
+            elif days_int == 90:
+                label = "3 أشهر"
+            elif days_int == 182:
+                label = "نصف سنة"
+            elif days_int == 365:
+                label = "سنة"
+            else:
+                label = f"{days_int} يوم"
+            duration_options.append(
+                {
+                    "days": days_int,
+                    "label": label,
+                    "ends_at": ends_at,
+                    "unit_price": unit_price,
+                }
+            )
+
+        if duration_options:
             screen_addon_offer = {
-                "unit_price": unit_price,
                 "max_screens": MAX_EXTRA_SCREENS,
-                "ends_at": current_subscription.ends_at,
+                "ends_at": subscription_ends_at,
                 "plan_name": current_subscription.plan.name,
+                "duration_options": duration_options,
+                "default_option": duration_options[0],
+                "price_matrix": price_matrix,
             }
 
     return render(

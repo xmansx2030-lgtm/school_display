@@ -4,566 +4,123 @@
 {% block page_title %}قسم التميّز{% endblock %}
 {% block page_description %}إدارة بطاقات التميّز وعرضها على شاشات العرض{% endblock %}
 
-{% block content %}
-<div class="max-w-7xl mx-auto pb-8 md:pb-12">
-  <section class="exc-command-panel mb-4">
-    <div class="min-w-0">
-      <h2>إدارة بطاقات التميّز</h2>
-      <p>أضف بطاقات تكريم مختصرة تظهر على شاشة العرض في وقتها المحدد.</p>
-    </div>
-    <a href="{% url 'dashboard:exc_create' %}" class="exc-primary-action">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
+{% block page_actions %}
+  <div class="dp-toolbar__actions">
+    <a href="{% url 'dashboard:exc_create' %}" class="dp-btn dp-btn--primary">
+      <i class="fa-solid fa-plus" aria-hidden="true"></i>
       <span>إضافة بطاقة</span>
     </a>
+  </div>
+{% endblock %}
+
+{% block content %}
+<div class="dp-stack">
+
+  <section class="dp-stat-grid" aria-label="ملخص التميّز">
+    <div class="dp-stat">
+      <div class="dp-stat__top">
+        <span class="dp-stat__label">الإجمالي</span>
+        <span class="dp-stat__icon"><i class="fa-regular fa-star" aria-hidden="true"></i></span>
+      </div>
+      <div class="dp-stat__value">{{ page.paginator.count }}</div>
+    </div>
+    <div class="dp-stat dp-stat--green">
+      <div class="dp-stat__top">
+        <span class="dp-stat__label">نشطة الآن</span>
+        <span class="dp-stat__icon"><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i></span>
+      </div>
+      <div class="dp-stat__value">{{ active_count|default:0 }}</div>
+    </div>
+    <div class="dp-stat dp-stat--slate">
+      <div class="dp-stat__top">
+        <span class="dp-stat__label">منتهية</span>
+        <span class="dp-stat__icon"><i class="fa-regular fa-circle-stop" aria-hidden="true"></i></span>
+      </div>
+      <div class="dp-stat__value">{{ expired_count|default:0 }}</div>
+    </div>
+    <div class="dp-stat dp-stat--gold">
+      <div class="dp-stat__top">
+        <span class="dp-stat__label">أعلى أولوية</span>
+        <span class="dp-stat__icon"><i class="fa-solid fa-arrow-up-9-1" aria-hidden="true"></i></span>
+      </div>
+      <div class="dp-stat__value">{{ max_priority|default:0 }}</div>
+    </div>
   </section>
 
-  <section class="exc-summary-strip mb-4" aria-label="ملخص التميز">
-    <div class="exc-summary-item">
-      <span>الإجمالي</span>
-      <strong>{{ page.paginator.count }}</strong>
-    </div>
-    <div class="exc-summary-item">
-      <span>نشطة الآن</span>
-      <strong>{{ active_count|default:0 }}</strong>
-    </div>
-    <div class="exc-summary-item">
-      <span>منتهية</span>
-      <strong>{{ expired_count|default:0 }}</strong>
-    </div>
-    <div class="exc-summary-item">
-      <span>أعلى أولوية</span>
-      <strong>{{ max_priority|default:0 }}</strong>
-    </div>
-  </section>
-
-  <section class="exc-list-section">
-    <div class="exc-section-heading">
+  {% if page.object_list %}
+    <div class="dp-section-head">
       <div>
         <h3>بطاقات التميّز</h3>
         <p>كل بطاقة تعرض الاسم، سبب التميّز، الصورة، وفترة العرض.</p>
       </div>
-      <span>{{ page.object_list|length }} من {{ page.paginator.count }}</span>
+      <span class="dp-pill dp-pill--slate">{{ page.object_list|length }} من {{ page.paginator.count }}</span>
     </div>
 
-    {% if page.object_list %}
-      <div class="exc-card-grid">
-        {% for e in page.object_list %}
-          <article class="exc-card status-{{ e.dashboard_status_key }}">
-            <div class="exc-card-top">
-              <div class="exc-person">
-                {% with src=e.image_src %}
-                  {% if src %}
-                    <img src="{{ src }}" alt="{{ e.teacher_name }}" data-fallback="grid">
-                    <div class="exc-avatar-fallback" style="display:none;">{{ e.teacher_name|first }}</div>
-                  {% else %}
-                    <div class="exc-avatar-fallback">{{ e.teacher_name|first }}</div>
-                  {% endif %}
-                {% endwith %}
-                <div class="min-w-0">
-                  <h3>{{ e.teacher_name }}</h3>
-                  <p>{{ e.reason }}</p>
-                </div>
-              </div>
-
-              <div class="exc-status-pill">
-                <strong>{{ e.dashboard_status_label }}</strong>
-                <small>{{ e.dashboard_status_hint }}</small>
-              </div>
-            </div>
-
-            <div class="exc-card-meta">
-              <div>
-                <span>الأولوية</span>
-                <strong>{{ e.priority }}</strong>
-              </div>
-              <div>
-                <span>يظهر من</span>
-                <strong>{{ e.start_at|date:"Y-m-d H:i" }}</strong>
-              </div>
-              <div>
-                <span>ينتهي في</span>
-                {% if e.end_at %}
-                  <strong>{{ e.end_at|date:"Y-m-d H:i" }}</strong>
+    <div class="dp-card-grid">
+      {% for e in page.object_list %}
+        <article class="dp-record dp-record--{{ e.dashboard_status_key }}">
+          <div class="dp-record__head">
+            <div class="dp-person">
+              {% with src=e.image_src %}
+                {% if src %}
+                  <img class="dp-person__photo" src="{{ src }}" alt="{{ e.teacher_name }}" data-fallback="grid">
+                  <span class="dp-person__initial" style="display:none">{{ e.teacher_name|first }}</span>
                 {% else %}
-                  <strong>بدون نهاية</strong>
+                  <span class="dp-person__initial">{{ e.teacher_name|first }}</span>
                 {% endif %}
+              {% endwith %}
+              <div class="dp-min0">
+                <h3 class="dp-record__title">{{ e.teacher_name }}</h3>
+                <p class="dp-field__hint">{{ e.reason }}</p>
               </div>
             </div>
-
-            <div class="exc-card-actions">
-              <a href="{% url 'dashboard:exc_edit' e.pk %}" class="exc-secondary-action">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                <span>تعديل</span>
-              </a>
-              <form method="post" action="{% url 'dashboard:exc_delete' e.pk %}" data-confirm="هل تريد حذف بطاقة التميّز؟&#10;&#10;{{ e.teacher_name }}&#10;{{ e.reason }}&#10;&#10;لا يمكن التراجع عن هذا الإجراء.">
-                {% csrf_token %}
-                <button type="submit" class="exc-danger-action">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                  <span>حذف</span>
-                </button>
-              </form>
+            <div class="dp-record__status">
+              <strong>{{ e.dashboard_status_label }}</strong>
+              <small>{{ e.dashboard_status_hint }}</small>
             </div>
-          </article>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="exc-empty-state">
-        <div class="exc-empty-icon">
-          <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118L3.077 10.1c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
-        </div>
-        <h3>لا توجد بطاقات تميّز</h3>
-        <p>أضف أول بطاقة تكريم لتظهر على شاشة المدرسة.</p>
-        <a href="{% url 'dashboard:exc_create' %}" class="exc-primary-action">إضافة أول بطاقة</a>
-      </div>
-    {% endif %}
-  </section>
+          </div>
 
-  {% if page.paginator.num_pages > 1 %}
-    <nav class="exc-pagination mt-5" aria-label="ترقيم بطاقات التميز">
-      <span>عرض {{ page.start_index }}-{{ page.end_index }} من {{ page.paginator.count }}</span>
-      <div>
-        {% if page.has_previous %}
-          <a href="?page={{ page.previous_page_number }}">السابق</a>
-        {% endif %}
-        {% for num in page.paginator.page_range %}
-          {% if num == page.number %}
-            <strong>{{ num }}</strong>
-          {% else %}
-            <a href="?page={{ num }}">{{ num }}</a>
-          {% endif %}
-        {% endfor %}
-        {% if page.has_next %}
-          <a href="?page={{ page.next_page_number }}">التالي</a>
-        {% endif %}
-      </div>
-    </nav>
+          <dl class="dp-record__rows">
+            <div class="dp-record__row">
+              <dt>الأولوية</dt>
+              <dd>{{ e.priority }}</dd>
+            </div>
+            <div class="dp-record__row">
+              <dt>يظهر من</dt>
+              <dd dir="ltr">{{ e.start_at|date:"Y-m-d H:i" }}</dd>
+            </div>
+            <div class="dp-record__row">
+              <dt>ينتهي في</dt>
+              <dd {% if e.end_at %}dir="ltr"{% endif %}>{{ e.end_at|date:"Y-m-d H:i"|default:"بدون نهاية" }}</dd>
+            </div>
+          </dl>
+
+          <div class="dp-record__foot">
+            <a href="{% url 'dashboard:exc_edit' e.pk %}" class="dp-btn dp-btn--ghost dp-btn--sm">
+              <i class="fa-solid fa-pen" aria-hidden="true"></i>
+              <span>تعديل</span>
+            </a>
+            <form method="post" action="{% url 'dashboard:exc_delete' e.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="dp-btn dp-btn--danger dp-btn--sm"
+                      data-confirm="هل تريد حذف بطاقة التميّز لـ &quot;{{ e.teacher_name }}&quot;؟ لا يمكن التراجع عن هذا الإجراء.">
+                <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+                <span>حذف</span>
+              </button>
+            </form>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+
+    {% include "dashboard/_pagination.html" with page=page label="ترقيم بطاقات التميّز" only %}
+  {% else %}
+    <div class="dp-empty">
+      <div class="dp-empty__icon"><i class="fa-regular fa-star" aria-hidden="true"></i></div>
+      <h3>لا توجد بطاقات تميّز</h3>
+      <p>أضف أول بطاقة تكريم لتظهر على شاشة المدرسة في الوقت الذي تحدده.</p>
+      <a href="{% url 'dashboard:exc_create' %}" class="dp-btn dp-btn--primary">إضافة أول بطاقة</a>
+    </div>
   {% endif %}
 </div>
-
-
-<style>
-.exc-command-panel,
-.exc-summary-strip,
-.exc-section-heading {
-  border-radius: 14px;
-}
-
-.exc-command-panel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.1rem;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-}
-
-.exc-command-panel h2,
-.exc-section-heading h3 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-.exc-command-panel p,
-.exc-section-heading p {
-  margin: 0.25rem 0 0;
-  color: #64748b;
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.exc-primary-action,
-.exc-secondary-action,
-.exc-danger-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-height: 2.35rem;
-  border-radius: 0.65rem;
-  padding: 0 0.9rem;
-  font-size: 0.78rem;
-  font-weight: 900;
-  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
-}
-
-.exc-primary-action {
-  background: #0f172a;
-  color: #ffffff;
-}
-
-.exc-primary-action:hover {
-  background: #1e293b;
-}
-
-.exc-secondary-action {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #334155;
-}
-
-.exc-secondary-action:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-}
-
-.exc-danger-action {
-  background: #ffffff;
-  border: 1px solid #fecdd3;
-  color: #be123c;
-}
-
-.exc-danger-action:hover {
-  background: #fff1f2;
-  border-color: #fda4af;
-}
-
-.exc-summary-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-}
-
-.exc-summary-item {
-  padding: 0.95rem 1rem;
-  border-inline-start: 1px solid #e2e8f0;
-}
-
-.exc-summary-item:first-child {
-  border-inline-start: 0;
-}
-
-.exc-summary-item span,
-.exc-card-meta span {
-  display: block;
-  color: #64748b;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.exc-summary-item strong {
-  display: block;
-  margin-top: 0.25rem;
-  color: #0f172a;
-  font-size: 1.25rem;
-  font-weight: 950;
-}
-
-.exc-list-section {
-  display: grid;
-  gap: 1rem;
-}
-
-.exc-section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.1rem;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-}
-
-.exc-section-heading > span {
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #475569;
-  padding: 0.35rem 0.7rem;
-  font-size: 0.72rem;
-  font-weight: 900;
-}
-
-.exc-card-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.exc-card {
-  position: relative;
-  display: grid;
-  gap: 1rem;
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 1rem;
-  box-shadow: 0 10px 22px rgba(23, 48, 66, 0.07);
-}
-
-.exc-card::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: 4px;
-  background: #f59e0b;
-}
-
-.exc-card.status-active::before { background: #10b981; }
-.exc-card.status-future::before { background: #3b82f6; }
-
-.exc-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.exc-person {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  min-width: 0;
-}
-
-.exc-person img,
-.exc-avatar-fallback {
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 1rem;
-  flex: 0 0 auto;
-}
-
-.exc-person img {
-  object-fit: cover;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-}
-
-.exc-avatar-fallback {
-  display: grid;
-  place-items: center;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #0f172a;
-  font-size: 1.4rem;
-  font-weight: 950;
-}
-
-.exc-person h3 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1.05rem;
-  font-weight: 950;
-  line-height: 1.45;
-}
-
-.exc-person p {
-  margin: 0.3rem 0 0;
-  color: #475569;
-  font-size: 0.82rem;
-  font-weight: 600;
-  line-height: 1.7;
-}
-
-.exc-status-pill {
-  flex: 0 0 auto;
-  max-width: 10rem;
-  border-radius: 999px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 0.45rem 0.7rem;
-}
-
-.exc-status-pill strong,
-.exc-status-pill small {
-  display: block;
-}
-
-.exc-status-pill strong {
-  color: #0f172a;
-  font-size: 0.76rem;
-  font-weight: 900;
-}
-
-.exc-status-pill small {
-  margin-top: 0.15rem;
-  color: #64748b;
-  font-size: 0.68rem;
-  font-weight: 700;
-}
-
-.status-active .exc-status-pill {
-  background: #ecfdf5;
-  border-color: #bbf7d0;
-}
-
-.status-future .exc-status-pill {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-}
-
-.exc-card-meta {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
-}
-
-.exc-card-meta > div {
-  border-radius: 0.8rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 0.7rem 0.8rem;
-}
-
-.exc-card-meta strong {
-  display: block;
-  margin-top: 0.2rem;
-  color: #0f172a;
-  font-size: 0.78rem;
-  font-weight: 900;
-  direction: ltr;
-  text-align: right;
-}
-
-.exc-card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  border-top: 1px solid #edf2f7;
-  padding-top: 0.85rem;
-}
-
-.exc-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  min-height: 18rem;
-  padding: 3rem 1rem;
-  text-align: center;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-}
-
-.exc-empty-icon {
-  display: grid;
-  place-items: center;
-  width: 4.75rem;
-  height: 4.75rem;
-  border-radius: 1rem;
-  background: #f8fafc;
-  color: #94a3b8;
-}
-
-.exc-empty-state h3 {
-  margin: 0.35rem 0 0;
-  color: #0f172a;
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-.exc-empty-state p {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.exc-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  color: #64748b;
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.exc-pagination div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.exc-pagination a,
-.exc-pagination strong {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.2rem;
-  min-height: 2.2rem;
-  border-radius: 0.65rem;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #334155;
-  padding: 0 0.7rem;
-  font-weight: 900;
-}
-
-.exc-pagination strong {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #ffffff;
-}
-
-@media (max-width: 1100px) {
-  .exc-command-panel,
-  .exc-section-heading,
-  .exc-card-top,
-  .exc-pagination {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .exc-summary-strip,
-  .exc-card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .exc-summary-item:nth-child(odd) {
-    border-inline-start: 0;
-  }
-
-  .exc-summary-item:nth-child(n + 3) {
-    border-top: 1px solid #e2e8f0;
-  }
-}
-
-@media (max-width: 720px) {
-  .exc-card-grid,
-  .exc-card-meta {
-    grid-template-columns: 1fr;
-  }
-
-  .exc-status-pill {
-    max-width: none;
-  }
-
-  .exc-card-actions {
-    align-items: stretch;
-  }
-
-  .exc-card-actions a,
-  .exc-card-actions button,
-  .exc-card-actions form {
-    width: 100%;
-  }
-}
-
-@media (max-width: 560px) {
-  .exc-summary-strip {
-    grid-template-columns: 1fr;
-  }
-
-  .exc-summary-item,
-  .exc-summary-item:nth-child(odd) {
-    border-inline-start: 0;
-  }
-
-  .exc-summary-item + .exc-summary-item {
-    border-top: 1px solid #e2e8f0;
-  }
-}
-</style>
 {% endblock %}

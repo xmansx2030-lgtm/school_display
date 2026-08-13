@@ -646,7 +646,7 @@ class DayScheduleForm(forms.ModelForm):
         fields = ["periods_count"]
         widgets = {
             "periods_count": forms.NumberInput(attrs={
-                "class": "form-input w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500 text-slate-800 font-bold bg-white text-center",
+                "class": "dp-input dp-input--center",
                 "min": "0"
             })
         }
@@ -664,18 +664,18 @@ class PeriodForm(forms.ModelForm):
         fields = ["index", "starts_at", "ends_at"]
         widgets = {
             "index": forms.NumberInput(attrs={
-                "class": "form-input w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500 text-slate-800 font-bold bg-white text-center placeholder-slate-400",
+                "class": "dp-input dp-input--center",
                 "placeholder": "#"
             }),
             "starts_at": forms.TimeInput(attrs={
                 "type": "time", 
                 "step": 60,
-                "class": "form-input w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500 text-slate-800 font-medium bg-white ltr:text-right"
+                "class": "dp-input dp-input--ltr"
             }),
             "ends_at": forms.TimeInput(attrs={
                 "type": "time", 
                 "step": 60,
-                "class": "form-input w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500 text-slate-800 font-medium bg-white ltr:text-right"
+                "class": "dp-input dp-input--ltr"
             }),
         }
 
@@ -729,16 +729,16 @@ class BreakForm(forms.ModelForm):
         fields = ["label", "starts_at", "duration_min"]
         widgets = {
             "label": forms.TextInput(attrs={
-                "class": "form-input w-full rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500 text-slate-800 font-medium bg-white placeholder-slate-400",
+                "class": "dp-input",
                 "placeholder": "مثار: فسحة الصلاة"
             }),
             "starts_at": forms.TimeInput(attrs={
                 "type": "time", 
                 "step": 60,
-                "class": "form-input w-full rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500 text-slate-800 font-medium bg-white ltr:text-right"
+                "class": "dp-input dp-input--ltr"
             }),
             "duration_min": forms.NumberInput(attrs={
-                "class": "form-input w-full rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500 text-slate-800 font-medium bg-white text-center",
+                "class": "dp-input dp-input--center",
                 "min": "1"
             }),
         }
@@ -1264,9 +1264,9 @@ class DutyAssignmentForm(forms.ModelForm):
             "is_active",
         ]
         widgets = {
-            "date": forms.DateInput(attrs={"type": "date", "class": "form-control", "dir": "ltr", "lang": "en"}),
-            "location": forms.TextInput(attrs={"maxlength": 120, "class": "form-control"}),
-            "priority": forms.NumberInput(attrs={"class": "form-control"}),
+            "date": forms.DateInput(attrs={"type": "date", "class": "dp-input", "dir": "ltr", "lang": "en"}),
+            "location": forms.TextInput(attrs={"maxlength": 120, "class": "dp-input"}),
+            "priority": forms.NumberInput(attrs={"class": "dp-input"}),
         }
 
 
@@ -1683,7 +1683,7 @@ class SubscriptionRenewalRequestForm(forms.Form, _ReceiptImageValidationMixin):
     receipt_image = forms.ImageField(
         label="إيصال التحويل (صورة)",
         widget=forms.ClearableFileInput(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
     transfer_note = forms.CharField(
@@ -1691,7 +1691,7 @@ class SubscriptionRenewalRequestForm(forms.Form, _ReceiptImageValidationMixin):
         required=False,
         max_length=255,
         widget=forms.TextInput(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
 
@@ -1704,14 +1704,14 @@ class SubscriptionNewRequestForm(forms.Form, _ReceiptImageValidationMixin):
         queryset=SubscriptionPlan.objects.filter(is_active=True).order_by("sort_order", "price", "id"),
         label="اختر الخطة",
         widget=forms.Select(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
     receipt_image = forms.ImageField(
         label="إيصال التحويل (صورة)",
         required=False,
         widget=forms.ClearableFileInput(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
     transfer_note = forms.CharField(
@@ -1719,7 +1719,7 @@ class SubscriptionNewRequestForm(forms.Form, _ReceiptImageValidationMixin):
         required=False,
         max_length=255,
         widget=forms.TextInput(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
 
@@ -1757,7 +1757,7 @@ class SystemUserCreateForm(UserCreationForm):
         label="المدارس",
         help_text="المدارس التي يرتبط بها هذا المستخدم.",
         widget=forms.SelectMultiple(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
     active_school = forms.ModelChoiceField(
@@ -1766,7 +1766,7 @@ class SystemUserCreateForm(UserCreationForm):
         label="المدرسة النشطة",
         help_text="اختياري: لو لم تحدد سيتم اختيار أول مدرسة مرتبطة.",
         widget=forms.Select(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
     mobile = forms.CharField(
@@ -1774,7 +1774,7 @@ class SystemUserCreateForm(UserCreationForm):
         required=False,
         max_length=20,
         widget=forms.TextInput(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
 
@@ -1837,7 +1837,7 @@ class SystemUserUpdateForm(forms.ModelForm):
         label="المدارس",
         help_text="المدارس المرتبط بها المستخدم.",
         widget=forms.SelectMultiple(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
     active_school = forms.ModelChoiceField(
@@ -1846,7 +1846,7 @@ class SystemUserUpdateForm(forms.ModelForm):
         label="المدرسة النشطة",
         help_text="اختياري: لو لم تحدد سيتم اختيار أول مدرسة مرتبطة.",
         widget=forms.Select(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
     mobile = forms.CharField(
@@ -1854,7 +1854,7 @@ class SystemUserUpdateForm(forms.ModelForm):
         required=False,
         max_length=20,
         widget=forms.TextInput(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
 
@@ -1964,7 +1964,7 @@ class SystemEmployeeCreateForm(UserCreationForm):
         label="الدور الوظيفي",
         choices=ROLE_CHOICES,
         widget=forms.Select(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
     permissions = forms.MultipleChoiceField(
@@ -1979,7 +1979,7 @@ class SystemEmployeeCreateForm(UserCreationForm):
         required=False,
         max_length=20,
         widget=forms.TextInput(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
 
@@ -2063,7 +2063,7 @@ class SystemEmployeeUpdateForm(forms.ModelForm):
         label="الدور الوظيفي",
         choices=ROLE_CHOICES,
         widget=forms.Select(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
     permissions = forms.MultipleChoiceField(
@@ -2077,7 +2077,7 @@ class SystemEmployeeUpdateForm(forms.ModelForm):
         required=False,
         max_length=20,
         widget=forms.TextInput(
-            attrs={"class": "w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"}
+            attrs={"class": "dp-input"}
         ),
     )
     new_password1 = forms.CharField(
@@ -2260,7 +2260,7 @@ class TicketCommentForm(forms.ModelForm):
         model = TicketComment
         fields = ["message"]
         widgets = {
-            "message": forms.Textarea(attrs={"rows": 3, "class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500", "placeholder": "أضف ردك هنا..."}),
+            "message": forms.Textarea(attrs={"rows": 3, "class": "dp-input", "placeholder": "أضف ردك هنا..."}),
         }
 
 class SupportTicketForm(forms.ModelForm):
@@ -2268,9 +2268,9 @@ class SupportTicketForm(forms.ModelForm):
         model = SupportTicket
         fields = ["subject", "message", "priority"]
         widgets = {
-            "subject": forms.TextInput(attrs={"class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500"}),
-            "message": forms.Textarea(attrs={"class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500", "rows": 4}),
-            "priority": forms.Select(attrs={"class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500"}),
+            "subject": forms.TextInput(attrs={"class": "dp-input"}),
+            "message": forms.Textarea(attrs={"class": "dp-input", "rows": 4}),
+            "priority": forms.Select(attrs={"class": "dp-input"}),
         }
 
 
@@ -2278,25 +2278,25 @@ class CustomerSupportTicketForm(forms.ModelForm):
     school_name = forms.CharField(
         label="اسم المدرسة",
         required=False,
-        widget=forms.TextInput(attrs={"class": "w-full rounded-lg border-slate-300 bg-slate-100 text-slate-500", "readonly": "readonly"})
+        widget=forms.TextInput(attrs={"class": "dp-input dp-input--readonly", "readonly": "readonly"})
     )
     admin_name = forms.CharField(
         label="اسم المسؤول",
         required=False,
-        widget=forms.TextInput(attrs={"class": "w-full rounded-lg border-slate-300 bg-slate-100 text-slate-500", "readonly": "readonly"})
+        widget=forms.TextInput(attrs={"class": "dp-input dp-input--readonly", "readonly": "readonly"})
     )
     mobile_number = forms.CharField(
         label="رقم الجوال",
         required=False,
-        widget=forms.TextInput(attrs={"class": "w-full rounded-lg border-slate-300 bg-slate-100 text-slate-500", "readonly": "readonly"})
+        widget=forms.TextInput(attrs={"class": "dp-input dp-input--readonly", "readonly": "readonly"})
     )
 
     class Meta:
         model = SupportTicket
         fields = ["subject", "message"]
         widgets = {
-            "subject": forms.TextInput(attrs={"class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500"}),
-            "message": forms.Textarea(attrs={"class": "w-full rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500", "rows": 4}),
+            "subject": forms.TextInput(attrs={"class": "dp-input"}),
+            "message": forms.Textarea(attrs={"class": "dp-input", "rows": 4}),
         }
 
     def __init__(self, *args, **kwargs):
