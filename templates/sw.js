@@ -12,7 +12,7 @@
  * nothing. It never runs while the screen is online.
  */
 
-const RELEASE = 'v6';
+const RELEASE = 'v7';
 const SHELL_CACHE = 'school-display-shell-' + RELEASE;
 const RUNTIME_CACHE = 'school-display-runtime-' + RELEASE;
 const EXPECTED_CACHES = [SHELL_CACHE, RUNTIME_CACHE];
@@ -130,6 +130,13 @@ async function handleNavigation(request) {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
+
+  /* Media elements use byte-range requests for playback and seeking. Cache
+   * Storage cannot store a 206 Partial Content response; trying to do so makes
+   * handleAsset fall into its offline branch and turns a successful audio
+   * response into a playback error. Leave range requests to the browser's
+   * normal HTTP cache, which understands 206 responses. */
+  if (request.headers.has('range')) return;
 
   let url;
   try {

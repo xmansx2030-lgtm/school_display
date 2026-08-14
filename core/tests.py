@@ -936,6 +936,22 @@ class RootAssetTests(SimpleTestCase):
         )
         self.assertIn("ignoreSearch", offline_branch[1])
 
+    def test_service_worker_bypasses_range_requests(self):
+        """Audio/video byte ranges must not be written to Cache Storage.
+
+        Cache Storage rejects 206 Partial Content responses. If the worker
+        intercepts those requests, a playable bell file becomes a media error
+        even though the origin returned it successfully.
+        """
+        source = self.client.get(reverse("sw_js")).content.decode("utf-8")
+
+        range_guard = "if (request.headers.has('range')) return;"
+        self.assertIn(range_guard, source)
+        self.assertLess(
+            source.index(range_guard),
+            source.index("event.respondWith(handleAsset(request))"),
+        )
+
     def test_service_worker_precaches_the_bundle_the_page_actually_loads(self):
         """The shell list must track what display.html links.
 
