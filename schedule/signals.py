@@ -4,7 +4,7 @@ import hashlib
 from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models.signals import post_delete, post_save
+from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
 
@@ -400,3 +400,70 @@ try:
         _bump_and_invalidate(school_id=school_id, reason="post_save", model_label="core.School")
 except Exception:
     School = None
+
+
+try:
+    from notices.models import EmergencyAlert
+
+    def _emergency_alert_school_ids(instance) -> list[int]:
+        try:
+            return [int(pk) for pk in instance.schools.values_list("id", flat=True)]
+        except Exception:
+            return []
+
+    @receiver(post_save, sender=EmergencyAlert)
+    def clear_display_cache_on_emergency_alert_change(sender, instance, **kwargs):
+        # عند الإنشاء تكون علاقة schools فارغة بعد؛ إشارة m2m_changed أدناه
+        # تغطي لحظة الربط. هذا المستقبل يغطي تعديل/إلغاء تنبيه مرتبط أصلًا.
+        for school_id in _emergency_alert_school_ids(instance):
+            _bump_and_invalidate(school_id=school_id, reason="post_save", model_label="notices.EmergencyAlert")
+
+    @receiver(pre_delete, sender=EmergencyAlert)
+    def _stash_emergency_alert_schools_before_delete(sender, instance, **kwargs):
+        # حذف التنبيه يزيل صفوف M2M قبل post_delete، فنلتقط المدارس هنا.
+        instance._display_school_ids = _emergency_alert_school_ids(instance)
+
+    @receiver(post_delete, sender=EmergencyAlert)
+    def clear_display_cache_on_emergency_alert_delete(sender, instance, **kwargs):
+        for school_id in getattr(instance, "_display_school_ids", None) or []:
+            _bump_and_invalidate(school_id=school_id, reason="post_delete", model_label="notices.EmergencyAlert")
+
+    @receiver(m2m_changed, sender=EmergencyAlert.schools.through)
+    def clear_display_cache_on_emergency_alert_schools_change(sender, instance, action, reverse, pk_set, **kwargs):
+        if action == "pre_clear" and not reverse:
+            instance._display_school_ids = _emergency_alert_school_ids(instance)
+            return
+        if action not in ("post_add", "post_remove", "post_clear"):
+            return
+
+        school_ids: set[int] = set()
+        if reverse:
+            school_ids.add(int(getattr(instance, "id", 0) or 0))
+        else:
+            for pk in pk_set or ():
+                school_ids.add(int(pk))
+            if action == "post_clear":
+                school_ids.update(getattr(instance, "_display_school_ids", None) or [])
+
+        for school_id in school_ids:
+            if school_id:
+                _bump_and_invalidate(
+                    school_id=school_id,
+                    reason=f"m2m_{action}",
+                    model_label="notices.EmergencyAlert",
+                )
+
+    @receiver(m2m_changed, sender=EmergencyAlert.screens.through)
+    def clear_display_cache_on_emergency_alert_screens_change(sender, instance, action, reverse, **kwargs):
+        if action not in ("post_add", "post_remove", "post_clear"):
+            return
+        if reverse:
+            # instance هنا شاشة عرض؛ مدرستها معروفة مباشرة.
+            school_id = int(getattr(instance, "school_id", 0) or 0)
+            if school_id:
+                _bump_and_invalidate(school_id=school_id, reason=f"m2m_{action}", model_label="notices.EmergencyAlert")
+            return
+        for school_id in _emergency_alert_school_ids(instance):
+            _bump_and_invalidate(school_id=school_id, reason=f"m2m_{action}", model_label="notices.EmergencyAlert")
+except Exception:
+    EmergencyAlert = None

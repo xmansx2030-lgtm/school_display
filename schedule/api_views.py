@@ -3525,7 +3525,14 @@ def _build_final_snapshot(
         _merge_real_data_into_snapshot(request, snap, settings_obj)
 
     # ✅ لو period_classes فاضية — نعبيها من ClassLesson
-    if merge_real_data and bool((snap.get("meta") or {}).get("is_period_day_window")):
+    # نبني الخريطة أيضاً قبل بداية أول حصة (داخل نافذة الاستيقاظ) حتى تكون
+    # بيانات الإسناد جاهزة لدى الشاشة لحظة دخول الحصة الأولى دون انتظار
+    # snapshot جديد — الانتقال عند الحدود يتم محلياً في العميل.
+    try:
+        _before_period_day = _snapshot_is_before_period_day(snap)
+    except Exception:
+        _before_period_day = False
+    if merge_real_data and (bool((snap.get("meta") or {}).get("is_period_day_window")) or _before_period_day):
         meta = snap.get("meta") or {}
         weekday = _resolve_snapshot_weekday(meta if isinstance(meta, dict) else None)
         period_map = snap.get("period_classes_map") if isinstance(snap.get("period_classes_map"), dict) else {}
@@ -3603,11 +3610,13 @@ def _build_final_snapshot(
             logger.exception("snapshot: failed to ensure current/next period index")
 
     if not bool((snap.get("meta") or {}).get("is_period_day_window")):
-        if _snapshot_is_before_period_day(snap):
-            # Preload today's fixed boards while the preparation screen is up.
+        if _before_period_day:
+            # Preload today's boards while the preparation screen is up.
             # The client keeps them hidden until the exact first-period boundary,
-            # then can reveal them locally without waiting for another snapshot.
-            _clear_period_activity_boards(snap)
+            # then reveals them locally without waiting for another snapshot —
+            # so period_classes_map must survive here; only the "current period"
+            # list is emptied because no period is running yet.
+            snap["period_classes"] = []
         else:
             _clear_school_day_boards(snap)
 

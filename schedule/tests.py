@@ -484,6 +484,32 @@ class DisplaySignalInvalidationTests(TestCase):
             )
         )
 
+    def test_emergency_alert_changes_refresh_display_without_manual_reload(self):
+        """تعديل تنبيه طارئ من أي مسار (بما فيه /admin) يجب أن يصل للشاشة فورًا."""
+        from django.contrib.auth.models import User
+        from notices.models import EmergencyAlert
+
+        author = User.objects.create_user(username="alert-author")
+        alert = EmergencyAlert.objects.create(
+            kind=EmergencyAlert.KIND_URGENT,
+            title="تنبيه عاجل",
+            message="اختبار التحديث الفوري",
+            created_by=author,
+        )
+
+        # لحظة ربط التنبيه بالمدرسة (m2m) — مسار الإنشاء من /admin.
+        self._assert_dashboard_source_change_refreshes_display(
+            lambda: alert.schools.add(self.school)
+        )
+
+        # تعديل تنبيه مرتبط أصلًا (إلغاء مثلًا) دون لمس العلاقات.
+        self._assert_dashboard_source_change_refreshes_display(
+            lambda: (setattr(alert, "cancelled_at", timezone.now()), alert.save())
+        )
+
+        # حذف التنبيه نهائيًا يجب أن يخفيه عن الشاشة فورًا أيضًا.
+        self._assert_dashboard_source_change_refreshes_display(alert.delete)
+
     def test_all_snapshot_source_saves_refresh_display_without_manual_reload(self):
         sources = [
             (
@@ -660,7 +686,11 @@ class SnapshotSchoolDayBoardsWindowTests(TestCase):
         self.assertEqual(snap["state"]["reason"], "before_hours")
         self.assertFalse(snap["meta"]["is_period_day_window"])
         self.assertEqual(snap["period_classes"], [])
-        self.assertEqual(snap["period_classes_map"], {})
+        # الخريطة تُحمَّل مسبقاً حتى تعرض الشاشة الإسناد لحظة بدء الحصة الأولى
+        # دون انتظار snapshot جديد (الانتقال عند الحدود محلي في العميل).
+        self.assertIn("1", snap["period_classes_map"])
+        self.assertEqual(snap["period_classes_map"]["1"][0]["class"], "الأول أ")
+        self.assertEqual(snap["period_classes_map"]["1"][0]["teacher"], "أحمد")
         self.assertTrue(snap["standby"])
         self.assertTrue(snap["excellence"])
         self.assertTrue(snap["duty"]["items"])

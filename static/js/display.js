@@ -4675,6 +4675,10 @@
           teacher_name: safeText(b.teacher || ""),
           period_index: idx,
         };
+        // A label alone (e.g. "حصة") is just the period title, not real
+        // assignment data — synthesizing a row from it renders a ghost card
+        // with dashes instead of the "no ongoing class" empty state.
+        if (!row.class_name && !row.teacher_name) return;
         _cachePeriodClassesForIndex(idx, [row], false);
       });
     }
