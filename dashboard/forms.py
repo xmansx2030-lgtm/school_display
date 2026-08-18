@@ -2314,3 +2314,73 @@ class CustomerSupportTicketForm(forms.ModelForm):
             
             if profile and profile.mobile:
                 self.fields['mobile_number'].initial = profile.mobile
+
+
+class DiscountCodeForm(forms.ModelForm):
+    """نموذج مدير المنصة لإنشاء أكواد الخصم وتعديلها."""
+
+    class Meta:
+        from subscriptions.models import DiscountCode as _DiscountCode
+
+        model = _DiscountCode
+        fields = (
+            "code",
+            "discount_type",
+            "percent",
+            "amount",
+            "valid_from",
+            "valid_until",
+            "max_uses",
+            "plans",
+            "is_active",
+            "notes",
+        )
+        widgets = {
+            "code": forms.TextInput(
+                attrs={"placeholder": "SAVE20", "dir": "ltr", "style": "text-transform: uppercase;"}
+            ),
+            "plans": forms.CheckboxSelectMultiple(),
+            "percent": forms.NumberInput(attrs={"min": "0.01", "max": "100", "step": "0.01"}),
+            "amount": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
+            "valid_from": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+            "valid_until": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+            "max_uses": forms.NumberInput(attrs={"min": "1"}),
+            "notes": forms.TextInput(attrs={"placeholder": "ملاحظة داخلية (اختياري)"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["code"].help_text = "يُحفظ بأحرف كبيرة؛ هو ما يدخله المشترك عند الدفع."
+        self.fields["valid_until"].help_text = "اتركه فارغاً لعدم تحديد نهاية زمنية."
+        self.fields["max_uses"].help_text = "عدد الأكواد المصدرة؛ يتوقف الكود تلقائياً عند بلوغه."
+        for name in ("valid_from", "valid_until"):
+            self.fields[name].input_formats = ["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"]
+        from core.models import SubscriptionPlan as _SubscriptionPlan
+
+        self.fields["plans"].required = False
+        self.fields["plans"].queryset = _SubscriptionPlan.objects.filter(is_active=True).order_by(
+            "sort_order", "price", "id"
+        )
+        self.fields["plans"].help_text = "اتركها كلها بلا تحديد ليصلح الكود لكل الباقات."
+
+    def clean_code(self):
+        from subscriptions.models import DiscountCode as _DiscountCode
+
+        return _DiscountCode.normalize(self.cleaned_data.get("code"))
+
+    def clean(self):
+        cleaned = super().clean()
+        dtype = cleaned.get("discount_type")
+        if dtype == "percent":
+            cleaned["amount"] = None
+        elif dtype == "amount":
+            cleaned["percent"] = None
+        max_uses = cleaned.get("max_uses")
+        if self.instance.pk and max_uses is not None:
+            used = self.instance.used_count
+            if max_uses < used:
+                self.add_error(
+                    "max_uses",
+                    f"لا يمكن تحديد العدد بأقل من الاستخدامات المسجلة فعلاً ({used}).",
+                )
+        return cleaned

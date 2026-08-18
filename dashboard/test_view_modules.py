@@ -22,6 +22,7 @@ VIEW_MODULES = (
     "views.py",
     "views_system.py",
     "views_billing.py",
+    "views_discounts.py",
     "views_schedule.py",
     "views_content.py",
     "view_helpers.py",
@@ -86,11 +87,13 @@ class ViewModuleStructureTests(TestCase):
         """The split is by domain, so each module must hold its own area."""
         import dashboard.views_billing as billing
         import dashboard.views_content as content
+        import dashboard.views_discounts as discounts
         import dashboard.views_schedule as schedule
         import dashboard.views_system as system
 
         for module, expected in (
             (billing, ("my_subscription", "system_subscriptions_list")),
+            (discounts, ("system_discounts_list", "system_discount_create")),
             (system, ("system_admin_dashboard", "system_users_list")),
             (schedule, ("days_list", "timetable_week_view")),
             (content, ("ann_list", "emergency_alert_create")),

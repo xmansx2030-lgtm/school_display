@@ -258,6 +258,17 @@ def _activate_paid_checkout(checkout: MoyasarCheckout, *, status: str, event_typ
         checkout.subscription = subscription
         checkout.payment_operation = operation
 
+        # كود الخصم يُستهلك فقط عند دفعة مكتملة (idempotent عبر OneToOne).
+        try:
+            from .discounts import record_redemption
+
+            record_redemption(checkout)
+        except Exception:
+            logger.exception(
+                "discount_redemption_record_failed checkout=%s",
+                checkout.merchant_reference,
+            )
+
     checkout.status = status
     checkout.last_event = event_type[:40]
     checkout.processed_at = timezone.now()

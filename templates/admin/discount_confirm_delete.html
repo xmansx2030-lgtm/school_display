@@ -1,0 +1,52 @@
+{% extends "admin/admin_base.html" %}
+
+{% block title %}{% if linked_count %}إيقاف الكود{% else %}حذف الكود{% endif %}{% endblock %}
+{% block page_icon %}trash-can{% endblock %}
+{% block page_title %}{% if linked_count %}إيقاف كود «{{ discount.code }}»{% else %}حذف كود «{{ discount.code }}»{% endif %}{% endblock %}
+{% block page_description %}مراجعة تأثير الإجراء قبل تنفيذه.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:system_discounts_list' %}" class="hover:text-blue-600">أكواد الخصم</a>
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <span class="text-slate-500">{% if linked_count %}إيقاف{% else %}حذف{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <section class="admin-panel overflow-hidden">
+    <div class="p-6 md:p-8 text-center">
+      <div class="w-16 h-16 {% if linked_count %}bg-amber-100 text-amber-700{% else %}bg-rose-100 text-rose-700{% endif %} rounded-2xl flex items-center justify-center mx-auto">
+        <i class="fas {% if linked_count %}fa-box-archive{% else %}fa-trash-can{% endif %} text-2xl"></i>
+      </div>
+
+      {% if linked_count %}
+        <h2 class="mt-5 text-xl font-black text-slate-900">هذا الكود مرتبط بعمليات دفع ولا يمكن حذف سجله</h2>
+        <p class="mt-2 text-sm leading-7 text-slate-600">
+          حفاظاً على سجل الخصومات والفواتير، سيتم <strong>إيقاف الكود</strong> بدلاً من حذفه.
+          ستظل البيانات التاريخية سليمة ولن يقبل الكود استخدامات جديدة.
+        </p>
+        <div class="mt-5 rounded-xl bg-slate-50 p-4 text-center">
+          <strong class="block text-lg">{{ linked_count }}</strong>
+          <span class="text-[10px] text-slate-500">عملية دفع أو استخدام مرتبط</span>
+        </div>
+      {% else %}
+        <h2 class="mt-5 text-xl font-black text-slate-900">هل تريد حذف الكود نهائياً؟</h2>
+        <p class="mt-2 text-sm leading-7 text-slate-600">
+          لم يُستخدم هذا الكود في أي عملية دفع. الحذف نهائي ولا يمكن التراجع عنه.
+        </p>
+      {% endif %}
+
+      <form method="post" class="mt-6 flex flex-col sm:flex-row-reverse gap-2 justify-center">
+        {% csrf_token %}
+        <button type="submit" class="admin-btn {% if linked_count %}admin-btn-primary{% else %}admin-btn-primary !bg-rose-600 hover:!bg-rose-700{% endif %}">
+          <i class="fas {% if linked_count %}fa-pause{% else %}fa-trash-can{% endif %}"></i>
+          {% if linked_count %}إيقاف الكود{% else %}حذف نهائياً{% endif %}
+        </button>
+        <a href="{% url 'dashboard:system_discounts_list' %}" class="admin-btn admin-btn-secondary">
+          <i class="fas fa-xmark"></i> إلغاء
+        </a>
+      </form>
+    </div>
+  </section>
+</div>
+{% endblock %}

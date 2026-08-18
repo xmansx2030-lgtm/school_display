@@ -545,6 +545,12 @@
                 {% csrf_token %}
                 <input type="hidden" name="request_type" value="renewal">
                 <input type="hidden" name="plan_id" value="{{ renewal_plan_details.id }}">
+                <div class="mb-3">
+                  <label for="renewal-discount-code" class="mb-1 block text-xs font-bold text-slate-600">كود الخصم (اختياري)</label>
+                  <input type="text" name="discount_code" id="renewal-discount-code" dir="ltr" autocomplete="off"
+                         class="w-full rounded-xl border border-slate-200 px-4 py-3 text-center font-bold uppercase tracking-widest text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none"
+                         placeholder="مثال: SAVE20">
+                </div>
                 <button type="submit" class="w-full rounded-xl bg-slate-900 px-5 py-4 font-black text-white transition hover:bg-slate-700 active:scale-[.99]">
                   متابعة الدفع الإلكتروني <span aria-hidden="true">←</span>
                 </button>
@@ -808,6 +814,13 @@
             {% csrf_token %}
             <input type="hidden" name="request_type" value="new">
             <input type="hidden" name="plan_id" id="moyasar-plan-id" value="">
+            <div class="mb-3">
+              <label for="moyasar-discount-code" class="mb-1 block text-xs font-bold text-slate-600">كود الخصم (اختياري)</label>
+              <input type="text" name="discount_code" id="moyasar-discount-code" dir="ltr" autocomplete="off"
+                     class="w-full rounded-xl border border-slate-200 px-4 py-3 text-center font-bold uppercase tracking-widest text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none"
+                     placeholder="مثال: SAVE20">
+              <p class="mt-1 text-[11px] text-slate-500">يُتحقق من الكود ويُطبق الخصم على الإجمالي في صفحة الدفع التالية.</p>
+            </div>
             <button type="submit" id="moyasar-new-submit" class="w-full rounded-xl bg-slate-900 px-5 py-4 font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[.99]" disabled>
               متابعة الدفع الإلكتروني <span aria-hidden="true">←</span>
             </button>

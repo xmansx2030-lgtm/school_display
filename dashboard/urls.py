@@ -193,6 +193,13 @@ urlpatterns = [
     path("admin-panel/plans/<int:pk>/toggle/", views.system_plan_toggle, name="system_plan_toggle"),
     path("admin-panel/plans/<int:pk>/delete/", views.system_plan_delete, name="system_plan_delete"),
 
+    # Discount codes
+    path("admin-panel/discounts/", views.system_discounts_list, name="system_discounts_list"),
+    path("admin-panel/discounts/add/", views.system_discount_create, name="system_discount_create"),
+    path("admin-panel/discounts/<int:pk>/edit/", views.system_discount_edit, name="system_discount_edit"),
+    path("admin-panel/discounts/<int:pk>/toggle/", views.system_discount_toggle, name="system_discount_toggle"),
+    path("admin-panel/discounts/<int:pk>/delete/", views.system_discount_delete, name="system_discount_delete"),
+
     # Reports
     path("admin-panel/reports/", views.system_reports, name="system_reports"),
 

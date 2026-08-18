@@ -1,0 +1,135 @@
+{% extends "admin/admin_base.html" %}
+
+{% block title %}أكواد الخصم{% endblock %}
+{% block page_icon %}percent{% endblock %}
+{% block page_title %}أكواد الخصم{% endblock %}
+{% block page_description %}أنشئ أكواد خصم بنسبة أو مبلغ، وحدد مدة السماح وعدد الاستخدامات، ويتوقف الكود تلقائياً عند النفاد.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">أكواد الخصم</span>
+{% endblock %}
+{% block page_actions %}
+  {% if can_discounts_manage %}
+  <a href="{% url 'dashboard:system_discount_create' %}" class="admin-btn admin-btn-primary">
+    <i class="fas fa-plus"></i> إضافة كود
+  </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+  <section class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+    <div class="admin-metric-card" style="--metric-color:#059669">
+      <span class="admin-metric-icon"><i class="fas fa-ticket"></i></span>
+      <p class="admin-metric-value">{{ codes_count }}</p>
+      <p class="admin-metric-label">إجمالي الأكواد</p>
+    </div>
+    <a href="?state=active" class="admin-metric-card" style="--metric-color:#4f46e5">
+      <span class="admin-metric-icon"><i class="fas fa-circle-check"></i></span>
+      <p class="admin-metric-value">{{ active_codes_count }}</p>
+      <p class="admin-metric-label">أكواد مفعّلة</p>
+    </a>
+    <div class="admin-metric-card" style="--metric-color:#d97706">
+      <span class="admin-metric-icon"><i class="fas fa-cart-shopping"></i></span>
+      <p class="admin-metric-value">{{ total_redemptions }}</p>
+      <p class="admin-metric-label">استخدامات مسجلة</p>
+    </div>
+  </section>
+
+  <form method="get" class="admin-filter-bar admin-no-print">
+    <div class="admin-filter-field is-search">
+      <label for="discountSearch">بحث</label>
+      <input id="discountSearch" type="search" name="q" value="{{ q }}" placeholder="الكود أو الملاحظة...">
+    </div>
+    <div class="admin-filter-field">
+      <label for="discountState">الحالة</label>
+      <select id="discountState" name="state">
+        <option value="">كل الأكواد</option>
+        <option value="active" {% if state == "active" %}selected{% endif %}>مفعّلة</option>
+        <option value="inactive" {% if state == "inactive" %}selected{% endif %}>موقوفة</option>
+      </select>
+    </div>
+    <button type="submit" class="admin-btn admin-btn-primary"><i class="fas fa-filter"></i> تطبيق</button>
+    {% if q or state %}
+      <a href="{% url 'dashboard:system_discounts_list' %}" class="admin-btn admin-btn-secondary"><i class="fas fa-xmark"></i> مسح</a>
+    {% endif %}
+  </form>
+
+  <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    {% for code in codes %}
+      <article class="admin-panel overflow-hidden">
+        <div class="p-5">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <span class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center"><i class="fas fa-ticket"></i></span>
+              <div>
+                <h2 class="text-base font-black text-slate-900" dir="ltr">{{ code.code }}</h2>
+                <p class="mt-1 text-[10px] font-bold text-slate-400">
+                  {% if code.discount_type == "percent" %}خصم {{ code.percent|floatformat:"-2" }}%{% else %}خصم {{ code.amount|floatformat:"-2" }} ر.س{% endif %}
+                </p>
+              </div>
+            </div>
+            {% if code.usable_now %}
+              <span class="admin-status admin-status-success">قابل للاستخدام</span>
+            {% elif code.is_active %}
+              <span class="admin-status admin-status-warning">مفعّل — غير متاح</span>
+            {% else %}
+              <span class="admin-status admin-status-muted">موقوف</span>
+            {% endif %}
+          </div>
+
+          {% if code.notes %}<p class="mt-3 text-xs leading-6 text-slate-500">{{ code.notes }}</p>{% endif %}
+
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            {% for plan in code.plans.all %}
+              <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-bold text-indigo-700">{{ plan.name }}</span>
+            {% empty %}
+              <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">كل الباقات</span>
+            {% endfor %}
+          </div>
+
+          <div class="mt-4 rounded-xl border border-slate-100 p-3 space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500">مدة السماح</span>
+              <strong class="text-slate-800" dir="ltr">
+                {{ code.valid_from|date:"Y-m-d H:i" }} ← {% if code.valid_until %}{{ code.valid_until|date:"Y-m-d H:i" }}{% else %}∞{% endif %}
+              </strong>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500">المستخدم / المصدر</span>
+              <strong class="text-slate-800">{{ code.redemptions_count }} / {{ code.max_uses }}</strong>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500">المتبقي</span>
+              <strong class="{% if code.remaining > 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ code.remaining }}</strong>
+            </div>
+          </div>
+
+          {% if can_discounts_manage %}<div class="mt-4 flex flex-wrap gap-2 admin-no-print">
+            <a href="{% url 'dashboard:system_discount_edit' code.pk %}" class="admin-btn admin-btn-primary">
+              <i class="fas fa-pen"></i> تعديل
+            </a>
+            <form method="post" action="{% url 'dashboard:system_discount_toggle' code.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="admin-btn admin-btn-secondary">
+                <i class="fas {% if code.is_active %}fa-pause{% else %}fa-play{% endif %}"></i>
+                {% if code.is_active %}إيقاف{% else %}تفعيل{% endif %}
+              </button>
+            </form>
+            <a href="{% url 'dashboard:system_discount_delete' code.pk %}" class="admin-btn admin-btn-secondary text-rose-700">
+              <i class="fas fa-trash-can"></i> حذف
+            </a>
+          </div>{% endif %}
+        </div>
+      </article>
+    {% empty %}
+      <div class="admin-panel md:col-span-2 xl:col-span-3">
+        <div class="admin-empty">
+          <i class="fas fa-ticket mb-3 text-3xl text-slate-300"></i>
+          <h3 class="font-black text-slate-700">لا توجد أكواد خصم</h3>
+          <p class="mt-1 text-xs">أنشئ الكود الأول أو غيّر الفلاتر.</p>
+        </div>
+      </div>
+    {% endfor %}
+  </section>
+</div>
+{% endblock %}

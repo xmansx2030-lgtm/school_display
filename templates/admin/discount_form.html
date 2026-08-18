@@ -1,0 +1,157 @@
+{% extends "admin/admin_base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_icon %}percent{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_description %}الكود يتوقف تلقائياً عند انتهاء مدة السماح أو نفاد عدد الاستخدامات، وكل مدرسة تستخدمه مرة واحدة.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:system_discounts_list' %}" class="hover:text-blue-600">أكواد الخصم</a>
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <span class="text-slate-500">{% if discount %}تعديل{% else %}إضافة{% endif %}</span>
+{% endblock %}
+{% block page_actions %}
+  <a href="{% url 'dashboard:system_discounts_list' %}" class="admin-btn admin-btn-secondary">
+    <i class="fas fa-arrow-right"></i> العودة للأكواد
+  </a>
+{% endblock %}
+
+{% block content %}
+<form method="post" class="space-y-5" novalidate>
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+    <div class="admin-form-alert">
+      <i class="fas fa-circle-exclamation"></i>
+      <div>{{ form.non_field_errors }}</div>
+    </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
+    <div class="xl:col-span-2 space-y-5">
+      <section class="admin-panel">
+        <div class="admin-panel-header">
+          <div>
+            <h2><i class="fas fa-ticket ml-2 text-emerald-500"></i>بيانات الكود</h2>
+            <p>الكود الذي يدخله المشترك، ونوع الخصم وقيمته.</p>
+          </div>
+        </div>
+        <div class="admin-form-grid">
+          <div class="admin-form-field">
+            <label for="{{ form.code.id_for_label }}">{{ form.code.label }} <span>*</span></label>
+            {{ form.code }}
+            <p class="admin-field-help">{{ form.code.help_text }}</p>
+            {% if form.code.errors %}<p class="admin-field-error">{{ form.code.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="admin-form-field">
+            <label for="{{ form.discount_type.id_for_label }}">{{ form.discount_type.label }} <span>*</span></label>
+            {{ form.discount_type }}
+            {% if form.discount_type.errors %}<p class="admin-field-error">{{ form.discount_type.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="admin-form-field">
+            <label for="{{ form.percent.id_for_label }}">{{ form.percent.label }}</label>
+            <div class="admin-input-suffix">
+              {{ form.percent }}
+              <span>%</span>
+            </div>
+            <p class="admin-field-help">يُستخدم عند اختيار «نسبة مئوية».</p>
+            {% if form.percent.errors %}<p class="admin-field-error">{{ form.percent.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="admin-form-field">
+            <label for="{{ form.amount.id_for_label }}">{{ form.amount.label }}</label>
+            <div class="admin-input-suffix">
+              {{ form.amount }}
+              <span>ر.س</span>
+            </div>
+            <p class="admin-field-help">يُستخدم عند اختيار «مبلغ ثابت».</p>
+            {% if form.amount.errors %}<p class="admin-field-error">{{ form.amount.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="admin-form-field md:col-span-2">
+            <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+            {{ form.notes }}
+            {% if form.notes.errors %}<p class="admin-field-error">{{ form.notes.errors.0 }}</p>{% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-panel">
+        <div class="admin-panel-header">
+          <div>
+            <h2><i class="fas fa-hourglass-half ml-2 text-amber-500"></i>مدة السماح وعدد الاستخدامات</h2>
+            <p>يتوقف الكود تلقائياً خارج المدة أو عند استنفاد العدد.</p>
+          </div>
+        </div>
+        <div class="admin-form-grid">
+          <div class="admin-form-field">
+            <label for="{{ form.valid_from.id_for_label }}">{{ form.valid_from.label }} <span>*</span></label>
+            {{ form.valid_from }}
+            {% if form.valid_from.errors %}<p class="admin-field-error">{{ form.valid_from.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="admin-form-field">
+            <label for="{{ form.valid_until.id_for_label }}">{{ form.valid_until.label }}</label>
+            {{ form.valid_until }}
+            <p class="admin-field-help">{{ form.valid_until.help_text }}</p>
+            {% if form.valid_until.errors %}<p class="admin-field-error">{{ form.valid_until.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="admin-form-field">
+            <label for="{{ form.max_uses.id_for_label }}">{{ form.max_uses.label }} <span>*</span></label>
+            {{ form.max_uses }}
+            <p class="admin-field-help">{{ form.max_uses.help_text }}</p>
+            {% if form.max_uses.errors %}<p class="admin-field-error">{{ form.max_uses.errors.0 }}</p>{% endif %}
+          </div>
+          <div class="admin-form-field">
+            <label class="flex items-center gap-2 cursor-pointer">
+              {{ form.is_active }}
+              <span>{{ form.is_active.label }}</span>
+            </label>
+            {% if form.is_active.errors %}<p class="admin-field-error">{{ form.is_active.errors.0 }}</p>{% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-panel">
+        <div class="admin-panel-header">
+          <div>
+            <h2><i class="fas fa-tags ml-2 text-indigo-500"></i>الباقات المشمولة</h2>
+            <p>حدد الباقات التي يصلح لها الكود، أو اتركها كلها بلا تحديد ليشمل كل الباقات.</p>
+          </div>
+        </div>
+        <div class="p-5">
+          <div class="admin-form-field">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 [&_label]:flex [&_label]:items-center [&_label]:gap-2 [&_label]:rounded-xl [&_label]:border [&_label]:border-slate-100 [&_label]:px-3 [&_label]:py-2.5 [&_label]:cursor-pointer [&_ul]:contents [&_li]:contents">
+              {{ form.plans }}
+            </div>
+            <p class="admin-field-help">{{ form.plans.help_text }}</p>
+            {% if form.plans.errors %}<p class="admin-field-error">{{ form.plans.errors.0 }}</p>{% endif %}
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="space-y-5">
+      <section class="admin-panel p-5">
+        <h2 class="font-black text-slate-900"><i class="fas fa-circle-info ml-2 text-blue-500"></i>كيف يعمل الكود؟</h2>
+        <ul class="mt-3 space-y-2 text-xs leading-6 text-slate-500">
+          <li><i class="fas fa-check ml-1 text-emerald-600"></i>يدخله المشترك في صفحة «اشتراكي» قبل الدفع.</li>
+          <li><i class="fas fa-check ml-1 text-emerald-600"></i>الخصم يُطبق على الإجمالي كاملاً (الباقة + الشاشات الإضافية).</li>
+          <li><i class="fas fa-check ml-1 text-emerald-600"></i>يمكن قصر الكود على باقات معينة؛ بلا تحديد يشمل كل الباقات.</li>
+          <li><i class="fas fa-check ml-1 text-emerald-600"></i>كل مدرسة تستخدم الكود مرة واحدة فقط.</li>
+          <li><i class="fas fa-check ml-1 text-emerald-600"></i>الاستخدام يُحتسب عند اكتمال الدفع لا عند إدخال الكود.</li>
+        </ul>
+        {% if discount %}
+        <div class="mt-4 rounded-xl border border-slate-100 p-3 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-500">الاستخدامات المسجلة</span>
+            <strong class="text-slate-800">{{ discount.used_count }} / {{ discount.max_uses }}</strong>
+          </div>
+        </div>
+        {% endif %}
+      </section>
+
+      <button type="submit" class="admin-btn admin-btn-primary w-full justify-center !py-3">
+        <i class="fas fa-floppy-disk"></i> {{ submit_label }}
+      </button>
+    </aside>
+  </div>
+</form>
+{% endblock %}

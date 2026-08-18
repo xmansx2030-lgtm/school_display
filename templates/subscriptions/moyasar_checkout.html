@@ -83,8 +83,18 @@
         </div>
         {% endif %}
         {% endif %}
+        {% if checkout.discount_code %}
+        <div class="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <dt class="text-slate-400">كود الخصم</dt>
+          <dd class="font-bold text-emerald-400" dir="ltr">{{ checkout.discount_code.code }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <dt class="text-slate-400">قيمة الخصم</dt>
+          <dd class="font-bold text-emerald-400">−{{ checkout.discount_amount }} <span class="text-xs">ر.س</span></dd>
+        </div>
+        {% endif %}
         <div class="flex items-end justify-between gap-4">
-          <dt class="text-slate-400">الإجمالي</dt>
+          <dt class="text-slate-400">الإجمالي{% if checkout.discount_code %} بعد الخصم{% endif %}</dt>
           <dd class="text-2xl font-black">{{ checkout.amount }} <span class="text-xs text-slate-400">ر.س</span></dd>
         </div>
       </dl>

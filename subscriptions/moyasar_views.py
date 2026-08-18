@@ -5,6 +5,7 @@ import json
 import logging
 import re
 from datetime import date, timedelta
+from decimal import Decimal
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -21,6 +22,7 @@ from core.email_verification import user_email_is_verified
 from core.models import SubscriptionPlan
 from core.tenant_access import authorized_active_school
 
+from .discounts import DiscountError, quote_discount
 from .models import MoyasarCheckout, SchoolSubscription
 from .moyasar import MoyasarAPIError, MoyasarClient, MoyasarConfigurationError
 from .pricing import (
@@ -198,6 +200,27 @@ def moyasar_start(request):
         addon_days = None
         addon_ends_at = None
 
+    # ✅ كود الخصم: يُتحقق منه ويُخصم من الإجمالي قبل إنشاء جلسة الدفع، لأن
+    # _validate_details يقارن مبلغ البوابة بمبلغ الجلسة المخزن حرفياً.
+    discount_quote = None
+    raw_discount = (request.POST.get("discount_code") or "").strip()
+    if raw_discount:
+        if request_type == "screens":
+            messages.error(request, "كود الخصم متاح لاشتراكات الباقات فقط.")
+            return redirect("dashboard:my_subscription")
+        try:
+            discount_quote = quote_discount(raw_discount, school, amount, plan=plan)
+        except DiscountError as exc:
+            messages.error(request, str(exc))
+            return redirect("dashboard:my_subscription")
+        if discount_quote.final_total < Decimal("1.00"):
+            messages.error(
+                request,
+                "قيمة الطلب بعد الخصم أقل من الحد الأدنى للدفع الإلكتروني (ريال واحد).",
+            )
+            return redirect("dashboard:my_subscription")
+        amount = discount_quote.final_total
+
     live_mode = bool(getattr(settings, "MOYASAR_LIVE_MODE", False))
     recent = (
         MoyasarCheckout.objects.filter(
@@ -209,6 +232,7 @@ def moyasar_start(request):
             screen_addon_validity_days=addon_days,
             screen_addon_ends_at=addon_ends_at,
             amount=amount,
+            discount_code=discount_quote.code if discount_quote else None,
             status="initiated",
             live_mode=live_mode,
             created_at__gte=timezone.now() - timedelta(minutes=20),
@@ -226,6 +250,8 @@ def moyasar_start(request):
         screen_addon_validity_days=addon_days,
         screen_addon_ends_at=addon_ends_at,
         amount=amount,
+        discount_code=discount_quote.code if discount_quote else None,
+        discount_amount=discount_quote.discount_amount if discount_quote else Decimal("0.00"),
         currency="SAR",
         live_mode=live_mode,
     )

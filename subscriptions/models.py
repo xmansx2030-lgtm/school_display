@@ -710,6 +710,21 @@ class MoyasarCheckout(models.Model):
         help_text="تُستخدم لطلبات شراء الشاشات فقط حتى تطابق التفعيل قيمة الدفع.",
     )
     amount = models.DecimalField("المبلغ", max_digits=10, decimal_places=2)
+    discount_code = models.ForeignKey(
+        "subscriptions.DiscountCode",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="checkouts",
+        verbose_name="كود الخصم",
+    )
+    discount_amount = models.DecimalField(
+        "قيمة الخصم",
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="المبلغ المخصوم من الإجمالي قبل إنشاء الدفعة.",
+    )
     currency = models.CharField("العملة", max_length=3, default="SAR")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="initiated")
     live_mode = models.BooleanField("عملية فعلية", default=False)
@@ -1096,3 +1111,196 @@ class SubscriptionEmailNotification(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_event_type_display()} - {self.recipient}"
+
+
+class DiscountCode(models.Model):
+    """كود خصم يُنشئه مدير المنصة ويُطبق على إجمالي عملية الدفع.
+
+    الكود يتوقف من تلقاء نفسه في حالتين: انتهاء مدة السماح، أو استنفاد عدد
+    الاستخدامات المصدرة. الإيقاف اليدوي متاح عبر ``is_active``.
+    """
+
+    TYPE_PERCENT = "percent"
+    TYPE_AMOUNT = "amount"
+    TYPE_CHOICES = [
+        (TYPE_PERCENT, "نسبة مئوية"),
+        (TYPE_AMOUNT, "مبلغ ثابت"),
+    ]
+
+    code = models.CharField(
+        "الكود",
+        max_length=40,
+        unique=True,
+        help_text="يُحفظ ويُقارن بأحرف كبيرة دون مسافات.",
+    )
+    discount_type = models.CharField("نوع الخصم", max_length=10, choices=TYPE_CHOICES)
+    percent = models.DecimalField(
+        "نسبة الخصم %",
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="بين 0.01 و 100 عند اختيار نوع النسبة.",
+    )
+    amount = models.DecimalField(
+        "مبلغ الخصم (ر.س)",
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="مبلغ ثابت يُخصم من الإجمالي عند اختيار نوع المبلغ.",
+    )
+    valid_from = models.DateTimeField("بداية السماح", default=timezone.now)
+    valid_until = models.DateTimeField(
+        "نهاية السماح",
+        null=True,
+        blank=True,
+        help_text="اتركه فارغاً لعدم تحديد نهاية زمنية.",
+    )
+    max_uses = models.PositiveIntegerField(
+        "عدد الأكواد المصدرة",
+        help_text="إجمالي مرات الاستخدام المسموحة؛ عند بلوغه يتوقف الكود تلقائياً.",
+    )
+    is_active = models.BooleanField("مفعّل", default=True)
+    plans = models.ManyToManyField(
+        SubscriptionPlan,
+        blank=True,
+        related_name="discount_codes",
+        verbose_name="الباقات المشمولة",
+        help_text="اتركها فارغة ليصلح الكود لكل الباقات.",
+    )
+    notes = models.CharField("ملاحظات", max_length=200, blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="discount_codes_created",
+        verbose_name="أنشئ بواسطة",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "كود خصم"
+        verbose_name_plural = "أكواد الخصم"
+        ordering = ("-created_at",)
+        constraints = [
+            models.CheckConstraint(
+                name="discount_percent_range",
+                check=(
+                    models.Q(discount_type="amount")
+                    | (models.Q(percent__gt=0) & models.Q(percent__lte=100))
+                ),
+            ),
+            models.CheckConstraint(
+                name="discount_amount_positive",
+                check=models.Q(discount_type="percent") | models.Q(amount__gt=0),
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.code
+
+    @staticmethod
+    def normalize(raw: str | None) -> str:
+        return (raw or "").strip().upper()
+
+    def clean(self):
+        super().clean()
+        self.code = self.normalize(self.code)
+        if not self.code:
+            raise ValidationError({"code": "أدخل كود الخصم."})
+        if self.discount_type == self.TYPE_PERCENT:
+            if not self.percent or self.percent <= 0 or self.percent > 100:
+                raise ValidationError({"percent": "أدخل نسبة بين 0.01 و 100."})
+        elif self.discount_type == self.TYPE_AMOUNT:
+            if not self.amount or self.amount <= 0:
+                raise ValidationError({"amount": "أدخل مبلغ خصم أكبر من صفر."})
+        if self.valid_until and self.valid_from and self.valid_until <= self.valid_from:
+            raise ValidationError({"valid_until": "نهاية السماح يجب أن تكون بعد بدايته."})
+
+    # -----------------------------
+    # Availability helpers
+    # -----------------------------
+    @property
+    def used_count(self) -> int:
+        return int(self.redemptions.count())
+
+    @property
+    def remaining_uses(self) -> int:
+        return max(0, int(self.max_uses) - self.used_count)
+
+    def is_within_window(self, now=None) -> bool:
+        now = now or timezone.now()
+        if self.valid_from and now < self.valid_from:
+            return False
+        if self.valid_until and now >= self.valid_until:
+            return False
+        return True
+
+    def is_usable(self, now=None) -> bool:
+        return bool(self.is_active) and self.is_within_window(now) and self.remaining_uses > 0
+
+    def allows_plan(self, plan) -> bool:
+        """هل يصلح الكود لهذه الباقة؟ قائمة فارغة تعني كل الباقات."""
+        if not self.pk or not self.plans.exists():
+            return True
+        plan_id = getattr(plan, "pk", plan)
+        if plan_id is None:
+            return False
+        return self.plans.filter(pk=plan_id).exists()
+
+    def discount_for(self, total: Decimal) -> Decimal:
+        """قيمة الخصم لهذا الكود على إجمالي معيّن (لا تتجاوز الإجمالي)."""
+        total = Decimal(total or 0)
+        if total <= 0:
+            return Decimal("0.00")
+        if self.discount_type == self.TYPE_PERCENT:
+            cut = (total * Decimal(self.percent or 0) / Decimal("100"))
+        else:
+            cut = Decimal(self.amount or 0)
+        if cut > total:
+            cut = total
+        return cut.quantize(Decimal("0.01"))
+
+
+class DiscountRedemption(models.Model):
+    """تسجيل استخدام كود خصم من مدرسة في عملية دفع مكتملة."""
+
+    discount_code = models.ForeignKey(
+        DiscountCode,
+        on_delete=models.PROTECT,
+        related_name="redemptions",
+        verbose_name="كود الخصم",
+    )
+    school = models.ForeignKey(
+        School,
+        on_delete=models.PROTECT,
+        related_name="discount_redemptions",
+        verbose_name="المدرسة",
+    )
+    checkout = models.OneToOneField(
+        "subscriptions.MoyasarCheckout",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="discount_redemption",
+        verbose_name="جلسة الدفع",
+    )
+    amount_discounted = models.DecimalField("قيمة الخصم", max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "استخدام كود خصم"
+        verbose_name_plural = "استخدامات أكواد الخصم"
+        ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("discount_code", "school"),
+                name="uq_discount_once_per_school",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.discount_code_id} → {self.school_id}"

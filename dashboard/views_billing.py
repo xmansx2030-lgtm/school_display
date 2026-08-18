@@ -1745,3 +1745,4 @@ def system_screen_addon_delete(request, pk: int):
         return redirect("dashboard:system_screen_addons_list")
 
     return render(request, "admin/screen_addon_confirm_delete.html", {"obj": obj})
+

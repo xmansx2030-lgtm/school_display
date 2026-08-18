@@ -244,3 +244,53 @@ class SubscriptionAuditLogAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+from .models import DiscountCode, DiscountRedemption  # noqa: E402
+
+
+@admin.register(DiscountCode)
+class DiscountCodeAdmin(admin.ModelAdmin):
+    list_display = (
+        "code",
+        "discount_type",
+        "percent",
+        "amount",
+        "valid_from",
+        "valid_until",
+        "max_uses",
+        "used_count_display",
+        "is_active",
+    )
+    list_filter = ("discount_type", "is_active")
+    search_fields = ("code", "notes")
+    filter_horizontal = ("plans",)
+    readonly_fields = ("created_by", "created_at", "updated_at")
+
+    @admin.display(description="المستخدم")
+    def used_count_display(self, obj):
+        return obj.used_count
+
+    def save_model(self, request, obj, form, change):
+        if not change and not obj.created_by:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(DiscountRedemption)
+class DiscountRedemptionAdmin(admin.ModelAdmin):
+    """Read-only: redemptions are payment evidence, not editable data."""
+
+    list_display = ("created_at", "discount_code", "school", "amount_discounted", "checkout")
+    list_filter = ("discount_code",)
+    search_fields = ("discount_code__code", "school__name")
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

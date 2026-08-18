@@ -26,6 +26,14 @@ from .views_system import (  # noqa: F401  (re-exported for urls.py and callers)
     system_users_list,
 )
 
+from .views_discounts import (  # noqa: F401  (re-exported for urls.py and callers)
+    system_discount_create,
+    system_discount_delete,
+    system_discount_edit,
+    system_discount_toggle,
+    system_discounts_list,
+)
+
 from .views_billing import (  # noqa: F401  (re-exported for urls.py and callers)
     my_subscription,
     subscription_invoice_view,
