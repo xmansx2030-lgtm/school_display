@@ -5,7 +5,7 @@
 يغطي هذا المستند ضوابط الجانب التجاري: بوابة الدفع، التسوية، انتهاء
 الاشتراكات، الاستردادات، وسجل التدقيق.
 
-## 1. بوابة الدفع (ميسر)
+## 1. بوابات الدفع (ميسر وتمارا)
 
 ### قائمة تحقق قبل فتح المبيعات
 
@@ -17,6 +17,12 @@ MOYASAR_SECRET_KEY=sk_live_...
 MOYASAR_WEBHOOK_SECRET=...             # إلزامي
 MOYASAR_CALLBACK_BASE_URL=https://school-display.com
 TRANSACTIONAL_EMAIL_ENABLED=True       # وإلا لن تصل الفواتير
+
+TAMARA_ENABLED=True
+TAMARA_API_BASE_URL=https://api.tamara.co
+TAMARA_API_TOKEN=...
+TAMARA_NOTIFICATION_TOKEN=...
+TAMARA_CALLBACK_BASE_URL=https://school-display.com
 ```
 
 `manage.py check --deploy` يرفض الإقلاع أو ينبّه عند أي نقص:
@@ -24,6 +30,8 @@ TRANSACTIONAL_EMAIL_ENABLED=True       # وإلا لن تصل الفواتير
 | المعرّف | المعنى |
 |---|---|
 | `subscriptions.E001` | ميسر مفعّلة بدون `MOYASAR_WEBHOOK_SECRET` |
+| `subscriptions.E004` | تمارا مفعّلة بدون مفتاح API |
+| `subscriptions.E005` | تمارا مفعّلة بدون مفتاح الإشعارات |
 | `subscriptions.W001` | ميسر مفعّلة لكنها في وضع الاختبار — العملاء لا يستطيعون الدفع |
 | `subscriptions.W003` | Google Pay مفعّل لكن `MOYASAR_GOOGLE_PAY_MERCHANT_ID` مفقود |
 | `subscriptions.W002` | بوابة دفع مفعّلة والبريد المعاملاتي متوقف — الفواتير لن تُسلَّم |
@@ -43,6 +51,17 @@ Apple Pay needs the Moyasar dashboard domain registration and certificate to be
 completed before it will actually validate in the browser.
 
 > Apple Pay يتطلب توثيق النطاق من لوحة تحكم ميسر قبل أن يظهر الزر.
+
+### إعداد webhook في تمارا
+
+سجّل الرابط التالي من بوابة شركاء تمارا، واختر أحداث الطلب، وبالأخص
+`order_approved`:
+
+`https://school-display.com/subscriptions/tamara/webhook/`
+
+الخادم يتحقق من JWT بمفتاح `TAMARA_NOTIFICATION_TOKEN`، ثم يؤكد الطلب
+ويلتقط قيمة الاشتراك الرقمي. عامل التسوية يعالج أيضًا الحالات التي لم يصل
+فيها webhook أو أغلق العميل المتصفح قبل صفحة العودة.
 
 ## 2. تسوية المدفوعات
 

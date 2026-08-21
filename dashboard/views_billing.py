@@ -1244,6 +1244,29 @@ def my_subscription(request):
     except Exception:
         subscription_history = []
 
+    tamara_checkouts = []
+    try:
+        from subscriptions.models import TamaraCheckout
+
+        tamara_checkouts = list(
+            TamaraCheckout.objects.filter(school=school, created_by=request.user)
+            .select_related("plan", "subscription", "payment_operation")
+            .order_by("-created_at", "-id")[:5]
+        )
+    except Exception:
+        tamara_checkouts = []
+
+    tamara_available = bool(
+        getattr(dj_settings, "TAMARA_ENABLED", False)
+        and getattr(dj_settings, "TAMARA_API_TOKEN", "")
+        and getattr(dj_settings, "TAMARA_NOTIFICATION_TOKEN", "")
+    )
+    tamara_environment = (
+        "sandbox"
+        if "sandbox" in str(getattr(dj_settings, "TAMARA_API_BASE_URL", "")).lower()
+        else "production"
+    )
+
     moyasar_checkouts = []
     try:
         from subscriptions.models import MoyasarCheckout
@@ -1375,6 +1398,9 @@ def my_subscription(request):
             "new_form": new_form,
             "subscription_requests": subscription_requests,
             "subscription_history": subscription_history,
+            "tamara_checkouts": tamara_checkouts,
+            "tamara_available": tamara_available,
+            "tamara_environment": tamara_environment,
             "moyasar_checkouts": moyasar_checkouts,
             "moyasar_available": moyasar_available,
             "moyasar_live_mode": moyasar_live_mode,

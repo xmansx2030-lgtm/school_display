@@ -520,7 +520,7 @@
             <section
               class="payment-hub"
               data-payment-hub="renewal"
-              data-default-method="{% if renew_form.receipt_image.errors or renew_form.transfer_note.errors %}bank{% elif moyasar_available %}moyasar{% else %}bank{% endif %}"
+              data-default-method="{% if renew_form.receipt_image.errors or renew_form.transfer_note.errors %}bank{% elif moyasar_available %}moyasar{% elif tamara_available %}tamara{% else %}bank{% endif %}"
             >
               <div class="mb-4">
                 <h4 class="font-black text-slate-900">كيف تفضّل الدفع؟</h4>
@@ -556,6 +556,30 @@
                 </button>
               </form>
               {% if not moyasar_live_mode %}<p class="mt-3 text-center text-[11px] text-amber-700">بيئة اختبار؛ لن يُفعّل اشتراك حقيقي.</p>{% endif %}
+            </div>
+            {% endif %}
+
+            {% if tamara_available and renewal_plan_details.price %}
+            <div class="tamara-checkout-card rounded-2xl border border-rose-200 bg-rose-50/50 p-5" data-payment-panel="renewal" data-payment-method="tamara">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-3">
+                  <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ff5a78] font-black text-white">t</span>
+                  <div>
+                    <p class="font-black text-slate-900">الدفع عبر تمارا</p>
+                    <p class="mt-0.5 text-xs text-slate-500">انتقال آمن إلى تمارا وتفعيل تلقائي بعد التأكيد</p>
+                  </div>
+                </div>
+                <p class="text-lg font-black text-slate-900">{{ renewal_plan_details.price }} <span class="text-xs text-slate-500">ر.س</span></p>
+              </div>
+              <form method="post" action="{% url 'subscriptions:tamara_start' %}" class="mt-4">
+                {% csrf_token %}
+                <input type="hidden" name="request_type" value="renewal">
+                <input type="hidden" name="plan_id" value="{{ renewal_plan_details.id }}">
+                <button type="submit" class="tamara-pay-button w-full rounded-xl px-5 py-4 font-black text-white transition active:scale-[.99]">
+                  متابعة الدفع عبر تمارا <span aria-hidden="true">←</span>
+                </button>
+              </form>
+              <p class="mt-3 text-center text-[11px] text-slate-500">تعرض تمارا الخيارات النهائية حسب أهلية الحساب.</p>
             </div>
             {% endif %}
 
@@ -781,7 +805,7 @@
           id="new-payment-hub"
           class="payment-hub hidden"
           data-payment-hub="new"
-          data-default-method="{% if new_form.receipt_image.errors or new_form.transfer_note.errors %}bank{% elif moyasar_available %}moyasar{% else %}bank{% endif %}"
+          data-default-method="{% if new_form.receipt_image.errors or new_form.transfer_note.errors %}bank{% elif moyasar_available %}moyasar{% elif tamara_available %}tamara{% else %}bank{% endif %}"
         >
           <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -826,6 +850,33 @@
             </button>
           </form>
           {% if not moyasar_live_mode %}<p class="mt-3 text-center text-[11px] text-amber-700">بيئة اختبار؛ لن يُفعّل اشتراك حقيقي.</p>{% endif %}
+        </div>
+        {% endif %}
+
+        {% if tamara_available %}
+        <div id="tamara-new-card" class="tamara-checkout-card rounded-2xl border border-rose-200 bg-rose-50/50 p-5" data-payment-panel="new" data-payment-method="tamara">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-center gap-3">
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ff5a78] font-black text-white">t</span>
+              <div>
+                <p class="font-black text-slate-900">الدفع عبر تمارا</p>
+                <p id="tamara-plan-copy" class="mt-1 text-xs text-slate-500">اختر باقة مدفوعة للمتابعة</p>
+              </div>
+            </div>
+            <div class="rounded-xl bg-white px-4 py-3 text-center ring-1 ring-rose-100">
+              <p class="text-[10px] font-bold text-slate-500">الإجمالي</p>
+              <p class="mt-1 text-lg font-black text-slate-900"><span id="tamara-total">—</span> <span class="text-xs">ر.س</span></p>
+            </div>
+          </div>
+          <form method="post" action="{% url 'subscriptions:tamara_start' %}" class="mt-4">
+            {% csrf_token %}
+            <input type="hidden" name="request_type" value="new">
+            <input type="hidden" name="plan_id" id="tamara-plan-id" value="">
+            <button type="submit" id="tamara-new-submit" class="tamara-pay-button w-full rounded-xl px-5 py-4 font-black text-white transition disabled:cursor-not-allowed disabled:opacity-50 active:scale-[.99]" disabled>
+              متابعة الدفع عبر تمارا <span aria-hidden="true">←</span>
+            </button>
+          </form>
+          {% if tamara_environment == "sandbox" %}<p class="mt-3 text-center text-[11px] text-amber-700">بيئة Tamara التجريبية.</p>{% endif %}
         </div>
         {% endif %}
 
@@ -1130,6 +1181,11 @@
       var moyasarCard = document.getElementById('moyasar-new-card');
       var moyasarCopy = document.getElementById('moyasar-plan-copy');
       var moyasarTotal = document.getElementById('moyasar-total');
+      var tamaraPlan = document.getElementById('tamara-plan-id');
+      var tamaraSubmit = document.getElementById('tamara-new-submit');
+      var tamaraCard = document.getElementById('tamara-new-card');
+      var tamaraCopy = document.getElementById('tamara-plan-copy');
+      var tamaraTotal = document.getElementById('tamara-total');
       var bankPlan = document.getElementById('bank-new-plan-id');
       var bankDetails = document.getElementById('new-bank-details');
       var freeCard = document.getElementById('free-plan-card');
@@ -1139,10 +1195,13 @@
       var paymentHubTotal = document.getElementById('payment-hub-total');
       var paidAmount = d ? Number(d.price || 0) : 0;
       if (moyasarPlan) moyasarPlan.value = planId || '';
+      if (tamaraPlan) tamaraPlan.value = planId || '';
       if (bankPlan) bankPlan.value = planId || '';
       if (freePlan) freePlan.value = planId || '';
       if (moyasarSubmit) moyasarSubmit.disabled = !planId || !d || paidAmount <= 0;
+      if (tamaraSubmit) tamaraSubmit.disabled = !planId || !d || paidAmount <= 0;
       if (moyasarCard) moyasarCard.classList.toggle('hidden', !!d && paidAmount <= 0);
+      if (tamaraCard) tamaraCard.classList.toggle('hidden', !!d && paidAmount <= 0);
       if (freeCard) freeCard.classList.toggle('hidden', !d || paidAmount > 0);
       if (bankDetails) bankDetails.classList.toggle('hidden', !!d && paidAmount <= 0);
       if (paymentHub) {
@@ -1154,6 +1213,8 @@
       if (paymentHubTotal) paymentHubTotal.textContent = d ? formatMoney(paidAmount) : '—';
       if (moyasarCopy) moyasarCopy.textContent = d && d.name ? String(d.name) : 'اختر باقة مدفوعة للمتابعة';
       if (moyasarTotal) moyasarTotal.textContent = paidAmount > 0 ? formatMoney(paidAmount) : '—';
+      if (tamaraCopy) tamaraCopy.textContent = d && d.name ? String(d.name) : 'اختر باقة مدفوعة للمتابعة';
+      if (tamaraTotal) tamaraTotal.textContent = paidAmount > 0 ? formatMoney(paidAmount) : '—';
       if (paymentHub && d && paidAmount > 0) {
         activatePaymentMethod(paymentHub, paymentHub.getAttribute('data-active-payment-method') || paymentHub.getAttribute('data-default-method') || 'bank');
       }
@@ -1823,7 +1884,13 @@
     font-weight: 900;
   }
   .payment-method-logo-moyasar { background: #0f172a; }
+  .payment-method-logo-tamara { background: #ff5a78; }
   .payment-method-logo-bank { background: #059669; }
+  .tamara-pay-button {
+    background: linear-gradient(135deg, #ff5a78, #e11d48);
+    box-shadow: 0 12px 24px rgba(225, 29, 72, .18);
+  }
+  .tamara-pay-button:hover:not(:disabled) { filter: brightness(.96); }
   .payment-method-status {
     position: absolute;
     top: .45rem;

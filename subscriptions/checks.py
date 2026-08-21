@@ -24,6 +24,25 @@ def check_payment_configuration(app_configs, **kwargs):
         return issues
 
     moyasar_enabled = bool(getattr(settings, "MOYASAR_ENABLED", False))
+    tamara_enabled = bool(getattr(settings, "TAMARA_ENABLED", False))
+
+    if tamara_enabled:
+        if not str(getattr(settings, "TAMARA_API_TOKEN", "") or "").strip():
+            issues.append(
+                Error(
+                    "Tamara is enabled without an API token.",
+                    hint="Configure TAMARA_API_TOKEN or TAMARA_API_TOKEN_FILE.",
+                    id=f"{ID_PREFIX}.E004",
+                )
+            )
+        if not str(getattr(settings, "TAMARA_NOTIFICATION_TOKEN", "") or "").strip():
+            issues.append(
+                Error(
+                    "Tamara is enabled without a notification token.",
+                    hint="Configure TAMARA_NOTIFICATION_TOKEN so webhook JWTs can be verified.",
+                    id=f"{ID_PREFIX}.E005",
+                )
+            )
 
     if moyasar_enabled:
         if not getattr(settings, "MOYASAR_LIVE_MODE", False):
@@ -64,7 +83,7 @@ def check_payment_configuration(app_configs, **kwargs):
                 )
             )
 
-    if moyasar_enabled and not getattr(settings, "TRANSACTIONAL_EMAIL_ENABLED", False):
+    if (moyasar_enabled or tamara_enabled) and not getattr(settings, "TRANSACTIONAL_EMAIL_ENABLED", False):
         issues.append(
             CheckWarning(
                 "A payment gateway is enabled but transactional email is off.",

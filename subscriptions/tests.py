@@ -518,89 +518,9 @@ class SubscriptionEmailNotificationTests(TestCase):
         self.assertIn("متبقي 7 أيام", mail.outbox[0].subject)
 
 
-class TamaraIsRemovedTests(TestCase):
-    """تمارا أُوقفت نهائياً. هذه الاختبارات تصرخ إن عاد منها شيء.
-
-    الإيقاف السابق كان إخفاءً بمفتاح: الكود والجداول والمسارات باقية، ورفع
-    المفتاح وحده يعيدها. الآن حُذفت من الشجرة، فالحارس تغيّر معها — لم يعد
-    يسأل "هل هي مخفية؟" بل "هل اختفت فعلاً؟".
-    """
-
-    def setUp(self):
-        self.school = School.objects.create(name="مدرسة الإيقاف", slug="removed-school")
-        self.plan = SubscriptionPlan.objects.create(
-            code="removed-plan",
-            name="باقة",
-            price=Decimal("500.00"),
-            duration_days=365,
-            max_screens=2,
-        )
-        self.manager = get_user_model().objects.create_user(
-            username="removed_manager", password="StrongPass123!", email="h@example.com"
-        )
-        profile = UserProfile.objects.create(user=self.manager, active_school=self.school)
-        profile.schools.add(self.school)
-        SchoolSettings.objects.create(school=self.school, name=self.school.name)
-        SchoolSubscription.objects.create(
-            school=self.school,
-            plan=self.plan,
-            starts_at=timezone.localdate(),
-            status="active",
-        )
-
-    def test_no_tamara_settings_survive(self):
-        leftovers = [name for name in dir(settings) if "TAMARA" in name]
-        self.assertEqual(leftovers, [])
-
-    def test_no_tamara_routes_survive(self):
-        for name in (
-            "subscriptions:tamara_start",
-            "subscriptions:tamara_webhook",
-            "subscriptions:tamara_success",
-            "subscriptions:tamara_failure",
-            "subscriptions:tamara_cancel",
-        ):
-            with self.assertRaises(NoReverseMatch):
-                reverse(name)
-
-    def test_no_tamara_module_survives(self):
-        for module in (
-            "subscriptions.tamara",
-            "subscriptions.tamara_views",
-            "subscriptions.tamara_processing",
-        ):
-            with self.assertRaises(ImportError):
-                import_module(module)
-
-    def test_subscription_page_mentions_nothing(self):
-        self.client.force_login(self.manager)
-        response = self.client.get(reverse("dashboard:my_subscription"))
-        self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, "تمارا")
-        self.assertNotContains(response, "tamara")
-
-    def test_public_pricing_page_mentions_nothing(self):
-        response = self.client.get(reverse("website:subscriptions"))
-        self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, "تمارا")
-        self.assertNotContains(response, "tamara")
-
-    def test_card_payment_is_still_offered(self):
-        """Removing one provider must not take the whole checkout down with it."""
-        self.client.force_login(self.manager)
-        with override_settings(
-            MOYASAR_ENABLED=True,
-            MOYASAR_LIVE_MODE=True,
-            MOYASAR_PUBLISHABLE_KEY="pk_live_x",
-            MOYASAR_SECRET_KEY="sk_live_x",
-        ):
-            response = self.client.get(reverse("dashboard:my_subscription"))
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.context["moyasar_available"])
-
 
 class InvoiceableMethodTests(TestCase):
-    """الفاتورة تصدر عن ميسر أو التحويل البنكي فقط."""
+    """الفاتورة تصدر عن البوابات المعتمدة أو التحويل البنكي فقط."""
 
     def setUp(self):
         self.school = School.objects.create(name="مدرسة الطرق", slug="methods-school")
@@ -627,10 +547,10 @@ class InvoiceableMethodTests(TestCase):
             method=method,
         )
 
-    def test_only_two_methods_are_offered(self):
+    def test_only_approved_methods_are_offered(self):
         self.assertEqual(
             [code for code, _label in SubscriptionPaymentOperation.METHOD_CHOICES],
-            ["bank_transfer", "moyasar"],
+            ["bank_transfer", "tamara", "moyasar"],
         )
 
     def test_bank_transfer_issues_an_invoice(self):
@@ -641,13 +561,17 @@ class InvoiceableMethodTests(TestCase):
         operation = self._operation("moyasar")
         self.assertTrue(SubscriptionInvoice.objects.filter(operation=operation).exists())
 
+    def test_tamara_issues_an_invoice(self):
+        operation = self._operation("tamara")
+        self.assertTrue(SubscriptionInvoice.objects.filter(operation=operation).exists())
+
     def test_a_retired_method_issues_nothing(self):
         """A row written straight to the ORM bypasses choice validation.
 
         ``objects.create()`` never checks ``choices``, so a leftover integration
-        writing method="tamara" would otherwise still mint an invoice.
+        writing an unapproved method would otherwise still mint an invoice.
         """
-        operation = self._operation("tamara")
+        operation = self._operation("payment_link")
 
         self.assertFalse(SubscriptionInvoice.objects.filter(operation=operation).exists())
         self.assertFalse(SubscriptionEmailNotification.objects.exists())

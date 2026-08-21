@@ -512,6 +512,10 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
 
+    # The newest successful login owns the account. Older browser sessions are
+    # rejected before any dashboard or API view can run.
+    "core.middleware.SingleSessionMiddleware",
+
     # Project middleware
     "dashboard.middleware.TwoFactorRequiredMiddleware",
     "core.middleware.ActiveSchoolMiddleware",
@@ -956,6 +960,46 @@ EMAIL_VERIFICATION_TIMEOUT = env_int_clamped(
 # Site base URL
 # =========================
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "https://school-display.com")
+
+
+# =========================
+# Tamara checkout
+# =========================
+TAMARA_ENABLED = env_bool("TAMARA_ENABLED", "False")
+TAMARA_API_BASE_URL = os.getenv(
+    "TAMARA_API_BASE_URL",
+    "https://api.tamara.co",
+).strip().rstrip("/")
+TAMARA_API_TOKEN = env_secret("TAMARA_API_TOKEN", "TAMARA_API_TOKEN_FILE")
+TAMARA_NOTIFICATION_TOKEN = env_secret(
+    "TAMARA_NOTIFICATION_TOKEN",
+    "TAMARA_NOTIFICATION_TOKEN_FILE",
+)
+TAMARA_CALLBACK_BASE_URL = (
+    os.getenv("TAMARA_CALLBACK_BASE_URL", SITE_BASE_URL).strip().rstrip("/")
+    or SITE_BASE_URL.rstrip("/")
+)
+TAMARA_HTTP_TIMEOUT_SECONDS = env_int_clamped("TAMARA_HTTP_TIMEOUT_SECONDS", 15, 3, 60)
+TAMARA_ELIGIBILITY_TIMEOUT_SECONDS = env_float_clamped(
+    "TAMARA_ELIGIBILITY_TIMEOUT_SECONDS", 0.5, 0.1, 2.0
+)
+TAMARA_CAPTURE_DIGITAL_ORDERS = env_bool("TAMARA_CAPTURE_DIGITAL_ORDERS", "True")
+TAMARA_RECONCILIATION_INTERVAL_SECONDS = env_int_clamped(
+    "TAMARA_RECONCILIATION_INTERVAL_SECONDS", 10, 5, 300
+)
+TAMARA_RECONCILIATION_BATCH_SIZE = env_int_clamped(
+    "TAMARA_RECONCILIATION_BATCH_SIZE", 20, 1, 100
+)
+
+if TAMARA_ENABLED and not DEBUG and not RUNNING_TESTS:
+    if not TAMARA_API_TOKEN or TAMARA_API_TOKEN.startswith("CHANGE_ME"):
+        raise RuntimeError("TAMARA_API_TOKEN or TAMARA_API_TOKEN_FILE is required when Tamara is enabled")
+    if not TAMARA_NOTIFICATION_TOKEN or TAMARA_NOTIFICATION_TOKEN.startswith("CHANGE_ME"):
+        raise RuntimeError("TAMARA_NOTIFICATION_TOKEN or TAMARA_NOTIFICATION_TOKEN_FILE is required when Tamara is enabled")
+    if TAMARA_API_BASE_URL != "https://api.tamara.co":
+        raise RuntimeError("Production Tamara checkout must use https://api.tamara.co")
+    if not TAMARA_CALLBACK_BASE_URL.startswith("https://"):
+        raise RuntimeError("TAMARA_CALLBACK_BASE_URL must use HTTPS in production")
 
 
 # =========================

@@ -23,6 +23,23 @@
     {% endif %}
   </button>
 
+  {% if tamara_available %}
+  <button
+    type="button"
+    class="payment-method-choice"
+    data-payment-choice="{{ payment_scope }}"
+    data-payment-method="tamara"
+    aria-pressed="false"
+  >
+    <span class="payment-method-logo payment-method-logo-tamara">t</span>
+    <span class="min-w-0 flex-1 text-right">
+      <strong class="block text-sm text-slate-900">تمارا</strong>
+      <small class="mt-1 block text-[10px] leading-5 text-slate-500">خيارات دفع مرنة حسب الأهلية</small>
+    </span>
+    <span class="payment-method-status is-ready">متاح</span>
+  </button>
+  {% endif %}
+
   <button
     type="button"
     class="payment-method-choice"
