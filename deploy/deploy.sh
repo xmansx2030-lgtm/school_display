@@ -45,12 +45,20 @@ if [ ! -s "$RELEASE" ]; then
   exit 66
 fi
 
-echo "=== [1/6] backups $(date -u +%H:%M:%SZ) ==="
+echo "=== [1/6] staging ==="
+rm -rf "$STAGE"; mkdir -p "$STAGE"
+tar -xzf "$RELEASE" -C "$STAGE"
+echo "staged $(find "$STAGE" -type f | wc -l) files"
+
+echo "=== [2/6] backups $(date -u +%H:%M:%SZ) ==="
 cd "$APP"
-sudo ./deploy/backup-postgres.sh 2>&1 | tail -1
+# Use the backup helper from the release being deployed. This lets a corrected
+# helper safely deploy over an older tree whose helper still has stale paths.
+sudo "$STAGE/deploy/backup-postgres.sh" 2>&1 | tail -1
 TS=$(date -u +%Y%m%dT%H%M%SZ)
 sudo tar -czf /home/deploy/releases/pre-$SHA-$TS.tar.gz \
-     --exclude=./backups --exclude=./.env.production -C "$APP" . 2>/dev/null
+     --exclude=./.env.production --exclude='./.env.production.bak.*' \
+     -C "$APP" . 2>/dev/null
 echo "tree snapshot: pre-$SHA-$TS.tar.gz"
 D=$(sudo bash -c "ls -1t $BACKUPS/*.dump | head -1")
 sudo cp "$D" /tmp/chk.dump && sudo chmod 644 /tmp/chk.dump
@@ -58,18 +66,17 @@ sudo docker compose -f "$CF" cp /tmp/chk.dump postgres:/tmp/chk.dump >/dev/null 
 echo "dump restorable objects: $(sudo docker compose -f "$CF" exec -T postgres pg_restore --list /tmp/chk.dump 2>/dev/null | grep -c '^[0-9;]')"
 sudo rm -f /tmp/chk.dump
 
-echo "=== [2/6] staging ==="
-rm -rf "$STAGE"; mkdir -p "$STAGE"
-tar -xzf "$RELEASE" -C "$STAGE"
-echo "staged $(find "$STAGE" -type f | wc -l) files"
-
 echo "=== [3/6] swapping tree ==="
 sudo rsync -a --delete \
-  --exclude=".env.production" --exclude=".release-commit" \
+  --exclude=".env.production" --exclude=".env.production.bak.*" \
+  --exclude=".release-commit" \
   "$STAGE"/ "$APP"/
 sudo chown -R deploy:deploy "$APP" 2>/dev/null || true
 sudo chown root:root "$APP/.env.production" "$APP/.release-commit"
-sudo chmod 600 "$APP/.env.production"; sudo chown -R root:root "$BACKUPS"
+sudo chmod 600 "$APP/.env.production"
+sudo find "$APP" -maxdepth 1 -type f -name '.env.production.bak.*' \
+  -exec chown root:root {} + -exec chmod 600 {} +
+sudo chown -R root:root "$BACKUPS"
 rm -rf "$STAGE"
 sudo test -s "$APP/.env.production" || { echo "FATAL: env vanished"; exit 1; }
 echo "env ok: $(sudo stat -c%s "$APP/.env.production") bytes"
