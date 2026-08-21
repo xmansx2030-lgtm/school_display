@@ -176,6 +176,16 @@
           <p class="text-sm text-slate-500">ادخل إلى لوحة المدرسة بإسم المستخدم أو رقم الجوال المسجل.</p>
         </div>
 
+        {% if session_replaced %}
+          <div class="mb-5 rounded-xl px-4 py-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2.5" role="alert">
+            <svg class="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 14.5v-8ZM9 20l3-3 3 3M8 9h8M8 12h5"/></svg>
+            <div>
+              <strong class="block font-black">تم إنهاء هذه الجلسة لحماية الحساب</strong>
+              <span class="block mt-0.5 text-xs leading-6">تم تسجيل الدخول إلى الحساب من جهاز آخر، ويسمح النظام بجلسة واحدة فقط.</span>
+            </div>
+          </div>
+        {% endif %}
+
         {% if messages %}
           <div class="mb-5 space-y-2">
             {% for message in messages %}

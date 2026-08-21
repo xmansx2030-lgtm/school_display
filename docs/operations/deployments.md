@@ -38,7 +38,7 @@ nothing.
 |------|--------|
 | 1 | PostgreSQL dump + a tarball snapshot of the current tree, then `pg_restore --list` to prove the dump is readable |
 | 2 | Unpack the release into a staging directory |
-| 3 | `rsync --delete` into `/opt/school-display`, preserving `.env.production`, `backups/` and `.release-commit` |
+| 3 | `rsync --delete` into `/opt/school-display/app`, preserving `.env.production` and `.release-commit` |
 | 4 | Build **every** service image |
 | 5 | `migrate --noinput` |
 | 6 | `up -d`, then stamp `.release-commit` with the full SHA |
@@ -70,17 +70,17 @@ docker images --format '{{.Repository}} {{.CreatedSince}}' | grep school-display
 
 ```bash
 # the stamp must equal the commit you shipped
-ssh deploy@<host> "sudo cat /opt/school-display/.release-commit"
+ssh deploy@<host> "sudo cat /opt/school-display/app/.release-commit"
 
 # containers up and healthy
 ssh deploy@<host> "docker ps --format '{{.Names}}|{{.Status}}'"
 
 # nothing left to migrate, anywhere
-ssh deploy@<host> "cd /opt/school-display && sudo docker compose -f compose.production.yaml \
+ssh deploy@<host> "cd /opt/school-display/app && sudo docker compose -f compose.production.yaml \
   exec -T web python manage.py showmigrations | grep -c '\[ \]'"     # expect 0
 
 # no errors since the release
-ssh deploy@<host> "cd /opt/school-display && sudo docker compose -f compose.production.yaml \
+ssh deploy@<host> "cd /opt/school-display/app && sudo docker compose -f compose.production.yaml \
   logs --since 10m | grep -icE 'traceback|exception|critical'"        # expect 0
 ```
 
@@ -112,14 +112,14 @@ readable, so a bad migration is recoverable — see
 
 The server runs `~/deploy.sh`. `deploy/deploy.sh` in this repository is the
 reviewed source; a release only puts it at
-`/opt/school-display/deploy/deploy.sh`. After shipping a change to it:
+`/opt/school-display/app/deploy/deploy.sh`. After shipping a change to it:
 
 ```bash
 ssh deploy@<host> "cp ~/deploy.sh ~/deploy.sh.bak-\$(date -u +%Y%m%dT%H%M%SZ) && \
-  cp /opt/school-display/deploy/deploy.sh ~/deploy.sh && chmod +x ~/deploy.sh && bash -n ~/deploy.sh"
+  cp /opt/school-display/app/deploy/deploy.sh ~/deploy.sh && chmod +x ~/deploy.sh && bash -n ~/deploy.sh"
 
 # confirm they match
-ssh deploy@<host> "sha256sum ~/deploy.sh /opt/school-display/deploy/deploy.sh"
+ssh deploy@<host> "sha256sum ~/deploy.sh /opt/school-display/app/deploy/deploy.sh"
 ```
 
 Drift here is silent and was how the `build web` bug survived: the script lived

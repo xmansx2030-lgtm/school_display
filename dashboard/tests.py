@@ -579,6 +579,25 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(response, "قبل أقل من دقيقة")
         self.assertNotContains(response, "لم تتصل بعد")
 
+    def test_screen_list_opens_a_read_only_live_preview_inside_the_dashboard(self):
+        screen = DisplayScreen.objects.create(
+            name="شاشة المدخل",
+            school=self.school,
+            is_active=True,
+            bound_device_id="tv-device-1",
+        )
+
+        response = self.client.get(reverse("dashboard:screen_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "معاينة حية")
+        self.assertContains(response, "data-live-preview-open")
+        self.assertContains(response, 'id="livePreviewDialog"')
+        self.assertContains(response, f'/s/{screen.short_code}?preview=1')
+        self.assertContains(response, "لا تُحتسب كشاشة متصلة")
+        self.assertContains(response, "screen-live-preview.css")
+        self.assertContains(response, "screen-live-preview.js")
+
     def test_manager_can_customize_each_screen_independently(self):
         first = DisplayScreen.objects.create(name="شاشة المدخل", school=self.school)
         second = DisplayScreen.objects.create(name="شاشة المعلمين", school=self.school)

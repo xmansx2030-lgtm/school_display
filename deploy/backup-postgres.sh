@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-project_dir=/opt/school-display
-backup_dir="$project_dir/backups"
+project_dir=/opt/school-display/app
+backup_dir=/opt/school-display/backups
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 target="$backup_dir/postgres-$timestamp.dump"
 temporary="$target.tmp"

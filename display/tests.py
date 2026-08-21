@@ -3,10 +3,10 @@ from unittest.mock import AsyncMock, patch
 
 from asgiref.sync import async_to_sync
 from django.conf import settings
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_settings
 
 from core.display_presence import display_live_threshold_seconds
-from display.consumers import DisplayConsumer, _presence_touch_interval_seconds
+from display.consumers import DisplayConsumer, DisplayPreviewConsumer, _presence_touch_interval_seconds
 
 
 class DisplayClientTimingRegressionTests(SimpleTestCase):
@@ -47,6 +47,11 @@ class DisplayClientTimingRegressionTests(SimpleTestCase):
         self.assertNotIn("heroSubtitle", self.source)
         self.assertNotIn('id="heroSubtitle"', self.template)
         self.assertNotIn("متابعة مباشرة للحصة والنشاط الحالي", self.source)
+
+    def test_preview_uses_manager_session_and_a_non_binding_realtime_channel(self):
+        self.assertIn('credentials: IS_PREVIEW ? "same-origin" : "omit"', self.source)
+        self.assertIn('IS_PREVIEW ? "/ws/display-preview/" : "/ws/display/"', self.source)
+        self.assertNotIn('ws_skipped_in_preview', self.source)
 
     def test_device_binding_notice_is_actionable_and_does_not_expose_the_url(self):
         self.assertIn("هذه الشاشة مفعّلة على جهاز آخر", self.template)
@@ -149,6 +154,27 @@ class DisplayConsumerEventTests(SimpleTestCase):
 
         self.assertEqual(sent, [])
 
+    def test_preview_receives_invalidation_without_counting_as_a_display_broadcast(self):
+        consumer = DisplayPreviewConsumer()
+        consumer.screen = SimpleNamespace(id=10, school_id=7)
+        sent = []
+
+        async def fake_send(*, text_data=None, bytes_data=None):
+            sent.append(text_data)
+
+        consumer.send = fake_send
+
+        with patch("display.consumers.ws_metrics.broadcast_sent") as metric, patch(
+            "display.consumers._ws_metric_incr"
+        ) as shared_metric:
+            async_to_sync(consumer.broadcast_invalidate)(
+                {"revision": 43, "school_id": 7, "reason": "content_changed"}
+            )
+
+        self.assertIn('"revision": 43', sent[0])
+        metric.assert_not_called()
+        shared_metric.assert_not_called()
+
     def test_targeted_commands_do_not_reach_another_screen(self):
         consumer = DisplayConsumer()
         consumer.screen = SimpleNamespace(id=10, school_id=7)
@@ -189,6 +215,85 @@ class DisplayConsumerEventTests(SimpleTestCase):
             "token_0123456789abcdef", "test-channel"
         )
         self.assertGreater(consumer._last_group_refresh_at, 0)
+
+
+class DashboardPreviewWebSocketTests(TransactionTestCase):
+    """The realtime preview is session-authenticated and never owns the TV slot."""
+
+    def setUp(self):
+        from core.models import DisplayScreen, School, UserProfile
+        from django.contrib.auth import get_user_model
+
+        self.school = School.objects.create(name="مدرسة البث الحي", slug="preview-ws-school")
+        self.screen = DisplayScreen.objects.create(
+            school=self.school,
+            name="الشاشة الرئيسية",
+            is_active=True,
+        )
+        self.manager = get_user_model().objects.create_user(
+            username="preview_ws_manager",
+            password="StrongPass123!",
+        )
+        profile = UserProfile.objects.create(user=self.manager, active_school=self.school)
+        profile.schools.add(self.school)
+
+    def test_authorised_preview_socket_connects_without_binding_or_presence(self):
+        from channels.layers import get_channel_layer
+        from channels.testing import WebsocketCommunicator
+        from config.asgi import application
+        from core.display_presence import display_is_live
+        from display.ws_groups import school_group_name
+
+        self.client.force_login(self.manager)
+        session_cookie = self.client.cookies["sessionid"].value
+
+        async def scenario():
+            communicator = WebsocketCommunicator(
+                application,
+                f"/ws/display-preview/?token={self.screen.token}",
+                headers=[
+                    (b"origin", b"http://testserver"),
+                    (b"cookie", f"sessionid={session_cookie}".encode()),
+                ],
+            )
+            connected, _ = await communicator.connect()
+            self.assertTrue(connected)
+            await communicator.send_json_to({"type": "ping"})
+            self.assertEqual((await communicator.receive_json_from())["type"], "pong")
+            await get_channel_layer().group_send(
+                school_group_name(self.school.pk),
+                {
+                    "type": "broadcast_invalidate",
+                    "school_id": self.school.pk,
+                    "revision": 91,
+                    "reason": "content_changed",
+                },
+            )
+            update = await communicator.receive_json_from()
+            self.assertEqual(update["type"], "snapshot_refresh")
+            self.assertEqual(update["revision"], 91)
+            await communicator.disconnect()
+
+        async_to_sync(scenario)()
+        self.screen.refresh_from_db()
+        self.assertFalse(self.screen.bound_device_id)
+        self.assertFalse(display_is_live(self.screen))
+
+    def test_anonymous_preview_socket_is_rejected(self):
+        from channels.testing import WebsocketCommunicator
+        from config.asgi import application
+
+        async def scenario():
+            communicator = WebsocketCommunicator(
+                application,
+                f"/ws/display-preview/?token={self.screen.token}",
+                headers=[(b"origin", b"http://testserver")],
+            )
+            connected, close_code = await communicator.connect()
+            self.assertFalse(connected)
+            self.assertEqual(close_code, 4403)
+
+        async_to_sync(scenario)()
 
 
 class PresenceTouchThrottleTests(SimpleTestCase):
@@ -382,7 +487,9 @@ class DashboardPreviewNeverClaimsTheScreenTests(TestCase):
         url = f"/s/{self.screen.short_code}/?preview=1"
 
         self.client.force_login(self.manager)
-        self.assertContains(self.client.get(url), 'data-preview-mode="1"')
+        response = self.client.get(url)
+        self.assertContains(response, 'data-preview-mode="1"')
+        self.assertEqual(response["X-Frame-Options"], "SAMEORIGIN")
 
         self.client.logout()
         self.assertNotContains(self.client.get(url), 'data-preview-mode="1"')

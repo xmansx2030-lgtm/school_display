@@ -102,8 +102,8 @@
 
   // A manager opening the board from the dashboard is looking, not broadcasting.
   // Preview mode tells the server not to hand this browser the screen's single
-  // device slot — otherwise the laptop wins it and the TV is locked out — and
-  // keeps the WebSocket closed, since that channel binds a device too.
+  // device slot — otherwise the laptop wins it and the TV is locked out. Its
+  // realtime updates use a separate, session-authenticated read-only socket.
   var IS_PREVIEW = (function readPreviewMode() {
     try {
       return screenSetting("previewMode", "0") === "1";
@@ -111,6 +111,17 @@
       return false;
     }
   })();
+
+  function notifyPreviewHost(state, detail) {
+    if (!IS_PREVIEW || window.parent === window) return;
+    try {
+      window.parent.postMessage({
+        source: "school-display-preview",
+        state: safeText(state),
+        detail: detail && typeof detail === "object" ? detail : {},
+      }, window.location.origin);
+    } catch (e) {}
+  }
 
   function applyPreviewHeaders(headers) {
     if (IS_PREVIEW) headers["X-Display-Preview"] = "1";
@@ -6257,8 +6268,9 @@
       method: "GET",
       headers,
       cache: "no-store",
-      // Never send cookies on snapshot.
-      credentials: "omit",
+      // TVs remain cookie-free. A dashboard preview needs the manager's
+      // same-origin session so the server can authorise its read-only access.
+      credentials: IS_PREVIEW ? "same-origin" : "omit",
       signal: ctrl ? ctrl.signal : undefined,
     }).then(async (r) => {
       if (isTerminalBlockedMode()) {
@@ -6471,7 +6483,7 @@
       method: "GET",
       headers,
       cache: "no-store",
-      credentials: "omit",
+      credentials: IS_PREVIEW ? "same-origin" : "omit",
       signal: ctrlStatus ? ctrlStatus.signal : undefined,
     }).then(async (r) => {
       if (isTerminalBlockedMode()) {
@@ -7554,6 +7566,7 @@
     }
     if (!rt.wsEnabled) {
       _log("ws_disabled", { reason: "feature_flag" });
+      notifyPreviewHost("polling", { reason: "feature_flag" });
       return;
     }
 
@@ -7627,25 +7640,19 @@
     
     clearNamedTimer("ws_reconnect");
     
-    // The socket binds a device server-side, so a preview must never open one.
-    // Polling alone is plenty for a manager looking at the board in a tab.
-    if (IS_PREVIEW) {
-      rt.wsEnabled = false;
-      _log("ws_skipped_in_preview", {});
-      return;
-    }
-
     var token = getToken();
-    var deviceId = getDeviceId();
+    var deviceId = IS_PREVIEW ? "" : getDeviceId();
 
-    if (!token || !deviceId) {
+    if (!token || (!IS_PREVIEW && !deviceId)) {
       _log("ws_no_credentials", {});
       return;
     }
 
     var proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     var host = window.location.host;
-    var wsUrl = proto + "//" + host + "/ws/display/?token=" + encodeURIComponent(token) + "&dk=" + encodeURIComponent(deviceId);
+    var wsPath = IS_PREVIEW ? "/ws/display-preview/" : "/ws/display/";
+    var wsUrl = proto + "//" + host + wsPath + "?token=" + encodeURIComponent(token);
+    if (!IS_PREVIEW) wsUrl += "&dk=" + encodeURIComponent(deviceId);
     
     try {
       if (rt.wsRetryCount > 0) {
@@ -7675,6 +7682,7 @@
 
         _log("ws_connected", { mode: rt.mode, openedAt: rt.wsOpenedAt });
         _log("ws_reconnect_succeeded", { mode: rt.mode });
+        notifyPreviewHost("live", { connectedAt: rt.wsOpenedAt });
 
         // Cancel any pending sleep reconnect timer (improvement #1)
         clearNamedTimer("sleep_reconnect");
@@ -7837,6 +7845,7 @@
         
         _log("ws_disconnected", { code: code, reason: reason, mode: rt.mode, attempt: rt.wsRetryCount + 1 });
         _log("ws_closed", { code: code, reason: reason, mode: rt.mode });
+        notifyPreviewHost("polling", { code: code || 0 });
 
         var wsCloseBinding = isBindingConflictWsClose(event);
         if (wsCloseBinding.matched) {
@@ -8274,7 +8283,13 @@
     } catch (e) {}
 
     cfg.REFRESH_EVERY = clamp(parseFloat(body.dataset.refresh || "30") || 30, 5, 120);
-    cfg.WS_FALLBACK_POLL_EVERY = clamp(parseFloat(body.dataset.wsFallbackPoll || "180") || 180, 30, 600);
+    var configuredFallbackPoll = parseFloat(body.dataset.wsFallbackPoll || "180") || 180;
+    // A manager keeps a preview open for a short review session, so when the
+    // read-only socket is unavailable use a brisk fallback without changing
+    // the much more conservative fleet-wide TV polling cadence.
+    cfg.WS_FALLBACK_POLL_EVERY = IS_PREVIEW
+      ? clamp(configuredFallbackPoll, 5, 15)
+      : clamp(configuredFallbackPoll, 30, 600);
     cfg.WS_LIVE_STATUS_CHECK_SEC = clamp(
       parseFloat(body.dataset.wsLiveStatusCheck || "3600") || 3600,
       15,

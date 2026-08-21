@@ -32,6 +32,7 @@ from display.services import (
     ScreenBoundError,
     ScreenNotFoundError,
     bind_device_atomic,
+    resolve_preview_screen_for_user,
 )
 from display.ws_cluster_metrics import heartbeat as ws_cluster_heartbeat
 from display.ws_cluster_metrics import register_connect as ws_cluster_register_connect
@@ -154,6 +155,7 @@ class DisplayConsumer(AsyncWebsocketConsumer):
         self._last_group_refresh_at = 0.0
         self._last_presence_touch_at = 0.0
         self._pending_ping_metric = 0
+        self.is_preview = False
 
     def _start_server_ping_task(self) -> None:
         if self._server_ping_task and not self._server_ping_task.done():
@@ -511,9 +513,10 @@ class DisplayConsumer(AsyncWebsocketConsumer):
             
             # Track successful broadcast
             latency_ms = (time.time() - start_time) * 1000
-            ws_metrics.broadcast_sent(latency_ms)
-            _ws_metric_incr("broadcast_sent")
-            _ws_metric_incr("snapshot_refresh_total")
+            if not self.is_preview:
+                ws_metrics.broadcast_sent(latency_ms)
+                _ws_metric_incr("broadcast_sent")
+                _ws_metric_incr("snapshot_refresh_total")
 
             screen_id = int(self.screen.id) if self.screen else 0
             if _should_log_ws_event("snapshot_refresh", screen_id=screen_id):
@@ -522,8 +525,9 @@ class DisplayConsumer(AsyncWebsocketConsumer):
                     f"school {school_id} revision {revision} latency {latency_ms:.1f}ms"
                 )
         except Exception as e:
-            ws_metrics.broadcast_failed()
-            _ws_metric_incr("broadcast_failed")
+            if not self.is_preview:
+                ws_metrics.broadcast_failed()
+                _ws_metric_incr("broadcast_failed")
             logger.exception(f"WS broadcast send failed: {e}")
 
 
@@ -543,11 +547,13 @@ class DisplayConsumer(AsyncWebsocketConsumer):
         try:
             await self.send(text_data=json.dumps({"type": "reload"}))
             latency_ms = (time.time() - start_time) * 1000
-            ws_metrics.broadcast_sent(latency_ms)
-            _ws_metric_incr("broadcast_sent")
+            if not self.is_preview:
+                ws_metrics.broadcast_sent(latency_ms)
+                _ws_metric_incr("broadcast_sent")
         except Exception as e:
-            ws_metrics.broadcast_failed()
-            _ws_metric_incr("broadcast_failed")
+            if not self.is_preview:
+                ws_metrics.broadcast_failed()
+                _ws_metric_incr("broadcast_failed")
             logger.exception(f"WS reload send failed: {e}")
 
     async def broadcast_patch(self, event):
@@ -573,10 +579,127 @@ class DisplayConsumer(AsyncWebsocketConsumer):
                 "patch": payload,
             }))
             latency_ms = (time.time() - start_time) * 1000
-            ws_metrics.broadcast_sent(latency_ms)
-            _ws_metric_incr("broadcast_sent")
-            _ws_metric_incr("patch_total")
+            if not self.is_preview:
+                ws_metrics.broadcast_sent(latency_ms)
+                _ws_metric_incr("broadcast_sent")
+                _ws_metric_incr("patch_total")
         except Exception as e:
-            ws_metrics.broadcast_failed()
-            _ws_metric_incr("broadcast_failed")
+            if not self.is_preview:
+                ws_metrics.broadcast_failed()
+                _ws_metric_incr("broadcast_failed")
             logger.exception(f"WS patch send failed: {e}")
+
+
+class DisplayPreviewConsumer(DisplayConsumer):
+    """Authenticated, read-only realtime channel for dashboard previews.
+
+    A manager preview joins the same server-derived broadcast groups as the TV,
+    so content invalidations arrive immediately.  It deliberately skips device
+    binding, display presence, fleet connection counters and screen diagnostics.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.is_preview = True
+
+    async def connect(self):
+        query_string = self.scope.get("query_string", b"").decode()
+        query_params = parse_qs(query_string)
+        token = query_params.get("token", [None])[0]
+
+        self.token_value = token
+        self.device_id = None
+
+        if not token:
+            await self.close(code=4400)
+            return
+
+        try:
+            from channels.db import database_sync_to_async
+
+            self.screen = await database_sync_to_async(resolve_preview_screen_for_user)(
+                self.scope.get("user"),
+                token,
+            )
+        except Exception:
+            logger.exception("Preview WS authorisation failed")
+            await self.close(code=4500)
+            return
+
+        if self.screen is None:
+            await self.close(code=4403)
+            return
+
+        # AuthMiddlewareStack can still decode an old cookie if a non-database
+        # session backend is introduced later. Keep the preview channel aligned
+        # with the same newest-session-only rule as HTTP requests.
+        try:
+            from channels.db import database_sync_to_async
+            from core.session_security import active_session_for_user
+
+            user = self.scope.get("user")
+            scope_session = self.scope.get("session")
+            session_key = (getattr(scope_session, "session_key", None) or "").strip()
+            active_key = await database_sync_to_async(active_session_for_user)(user.pk)
+        except Exception:
+            await self.close(code=4500)
+            return
+        if not session_key or (active_key and active_key != session_key):
+            await self.close(code=4403)
+            return
+
+        self.school_group_name = school_group_name(self.screen.school_id)
+        self.token_group_name = token_group_name(str(token), hash_len=16)
+
+        try:
+            await self.channel_layer.group_add(self.school_group_name, self.channel_name)
+            await self.channel_layer.group_add(self.token_group_name, self.channel_name)
+        except Exception:
+            logger.exception("Preview WS group join failed for screen %s", self.screen.pk)
+            await self.close(code=4501)
+            return
+
+        self._last_group_refresh_at = time.monotonic()
+        await self.accept()
+        self._start_server_ping_task()
+
+    async def _touch_presence(self) -> None:
+        """A dashboard viewer must never make the physical screen look online."""
+
+    async def _server_ping_loop(self) -> None:
+        interval = _ws_ping_interval_seconds()
+        while True:
+            await asyncio.sleep(interval)
+            try:
+                now = time.monotonic()
+                if now - self._last_group_refresh_at >= _ws_group_refresh_interval_seconds():
+                    await self._refresh_group_memberships()
+                await self.send(text_data=json.dumps({"type": "heartbeat"}))
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                break
+
+    async def receive(self, text_data=None, bytes_data=None):
+        if not text_data:
+            return
+        try:
+            data = json.loads(text_data)
+        except (TypeError, json.JSONDecodeError):
+            return
+        if data.get("type") == "ping":
+            await self.send(text_data=json.dumps({"type": "pong"}))
+
+    async def disconnect(self, close_code):
+        await self._stop_server_ping_task()
+
+        if self.school_group_name:
+            try:
+                await self.channel_layer.group_discard(self.school_group_name, self.channel_name)
+            except Exception:
+                pass
+        if self.token_group_name:
+            try:
+                await self.channel_layer.group_discard(self.token_group_name, self.channel_name)
+            except Exception:
+                pass
