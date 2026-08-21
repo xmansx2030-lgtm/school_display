@@ -309,6 +309,8 @@ services:
 
 networks:
   frontend:
+    external: true
+    name: school-platform-edge
   backend:
     internal: true
 
