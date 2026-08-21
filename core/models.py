@@ -129,6 +129,31 @@ class UserProfile(models.Model):
         return f"{self.user.username} - {self.active_school.name if self.active_school else 'No Active School'}"
 
 
+class UserSessionState(models.Model):
+    """The sole authenticated browser session currently allowed for a user."""
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="session_state",
+        verbose_name="المستخدم",
+    )
+    active_session_key = models.CharField(
+        "مفتاح الجلسة النشطة",
+        max_length=40,
+        blank=True,
+        default="",
+    )
+    activated_at = models.DateTimeField("وقت تفعيل الجلسة", auto_now=True)
+
+    class Meta:
+        verbose_name = "جلسة مستخدم نشطة"
+        verbose_name_plural = "جلسات المستخدمين النشطة"
+
+    def __str__(self) -> str:
+        return f"{self.user_id}: {self.active_session_key[:8]}"
+
+
 class SystemEmployeeProfile(models.Model):
     """Platform-level employee identity, separate from school managers."""
 

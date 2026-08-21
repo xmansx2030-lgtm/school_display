@@ -7,11 +7,14 @@ import logging
 import secrets
 import hashlib
 import json
+from urllib.parse import urlencode
 
 from django.apps import apps
 from django.db.models import Q
-from django.http import JsonResponse, HttpResponsePermanentRedirect
+from django.http import JsonResponse, HttpResponsePermanentRedirect, HttpResponseRedirect
 from django.conf import settings as dj_settings
+from django.contrib.auth import logout
+from django.urls import reverse
 from django.utils import timezone
 from django.core.cache import cache
 
@@ -20,6 +23,80 @@ from core.tenant_access import authorized_active_school
 
 
 logger = logging.getLogger(__name__)
+
+
+class SingleSessionMiddleware:
+    """Allow only the most recently authenticated session for each account."""
+
+    REPLACED_REASON = "session_replaced"
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    @staticmethod
+    def _clear_session_cookie(response):
+        response.delete_cookie(
+            dj_settings.SESSION_COOKIE_NAME,
+            path=getattr(dj_settings, "SESSION_COOKIE_PATH", "/"),
+            domain=getattr(dj_settings, "SESSION_COOKIE_DOMAIN", None),
+            samesite=getattr(dj_settings, "SESSION_COOKIE_SAMESITE", None),
+        )
+        return response
+
+    def _replacement_response(self, request):
+        path = (getattr(request, "path", "") or "").lower()
+        if path.startswith("/api/") or "application/json" in (request.headers.get("Accept") or ""):
+            response = JsonResponse(
+                {
+                    "detail": "session_replaced",
+                    "message": "تم تسجيل الخروج لأن الحساب فُتح من جهاز آخر.",
+                },
+                status=401,
+            )
+            response["X-Session-Replaced"] = "1"
+            return self._clear_session_cookie(response)
+
+        login_url = reverse("dashboard:login")
+        response = HttpResponseRedirect(f"{login_url}?{urlencode({'reason': self.REPLACED_REASON})}")
+        return self._clear_session_cookie(response)
+
+    def __call__(self, request):
+        path = getattr(request, "path", "") or ""
+        if path.startswith(("/static/", "/media/")):
+            return self.get_response(request)
+
+        from core.models import UserSessionState
+        from core.session_security import (
+            active_session_for_user,
+            cache_active_session,
+            was_session_replaced,
+        )
+
+        user = getattr(request, "user", None)
+        current_key = (getattr(request.session, "session_key", None) or "").strip()
+
+        if user is not None and getattr(user, "is_authenticated", False) and current_key:
+            active_key = active_session_for_user(user.pk)
+            if not active_key:
+                state, _ = UserSessionState.objects.get_or_create(
+                    user_id=user.pk,
+                    defaults={"active_session_key": current_key},
+                )
+                active_key = (state.active_session_key or "").strip()
+                cache_active_session(user.pk, active_key)
+
+            if active_key and active_key != current_key:
+                logout(request)
+                return self._replacement_response(request)
+
+        elif current_key and was_session_replaced(current_key):
+            login_path = reverse("dashboard:login")
+            if path == login_path and request.GET.get("reason") == self.REPLACED_REASON:
+                response = self.get_response(request)
+                return self._clear_session_cookie(response)
+            return self._replacement_response(request)
+
+        return self.get_response(request)
 
 
 # ==========================================================

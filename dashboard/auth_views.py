@@ -21,6 +21,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 
 from core.login_security import clear_login_rate_limit, login_rate_limit_status, record_failed_login
+from core.session_security import activate_user_session
 from core.two_factor import begin_challenge, get_enabled_config, two_factor_required_for
 
 from .access import get_active_school_or_redirect, is_system_staff_user, safe_next_url
@@ -122,6 +123,7 @@ def _has_requested_next(request) -> bool:
 @csrf_protect
 def login_view(request):
     next_url = safe_next_url(request, default_name="dashboard:index")
+    session_replaced = (request.GET.get("reason") or "").strip() == "session_replaced"
 
     if request.user.is_authenticated:
         if is_system_staff_user(request.user):
@@ -149,7 +151,12 @@ def login_view(request):
                 getattr(request, "path", ""),
             )
             messages.error(request, "تم إيقاف محاولات الدخول مؤقتًا لكثرة المحاولات. حاول لاحقًا.")
-            response = render(request, "dashboard/login.html", {"next": next_url}, status=429)
+            response = render(
+                request,
+                "dashboard/login.html",
+                {"next": next_url, "session_replaced": session_replaced},
+                status=429,
+            )
             response["Retry-After"] = str(rate_status.retry_after_seconds)
             return response
 
@@ -190,7 +197,11 @@ def login_view(request):
         messages.error(request, "بيانات الدخول غير صحيحة.")
 
     get_token(request)
-    return render(request, "dashboard/login.html", {"next": next_url})
+    return render(
+        request,
+        "dashboard/login.html",
+        {"next": next_url, "session_replaced": session_replaced},
+    )
 
 
 def logout_view(request):
@@ -206,6 +217,7 @@ def change_password(request):
         if form.is_valid():
             user = form.save()
             update_session_auth_hash(request, user)
+            activate_user_session(request, user)
             messages.success(request, "تم تغيير كلمة المرور بنجاح!")
             return redirect(next_url)
         messages.error(request, "الرجاء تصحيح الأخطاء أدناه.")
