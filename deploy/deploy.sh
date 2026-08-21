@@ -18,7 +18,7 @@
 # after changing it, ship the release and refresh the server's copy from the
 # swapped tree, otherwise the two drift silently —
 #
-#   cp /opt/school-display/deploy/deploy.sh ~/deploy.sh && chmod +x ~/deploy.sh
+#   cp /opt/school-display/app/deploy/deploy.sh ~/deploy.sh && chmod +x ~/deploy.sh
 #
 # See docs/operations/deployments.md.
 #
@@ -31,7 +31,9 @@ if [ "$#" -ne 2 ]; then
 fi
 
 SHA="$1"; FULL="$2"
-APP=/opt/school-display
+ROOT=/opt/school-display
+APP=$ROOT/app
+BACKUPS=$ROOT/backups
 STAGE=/home/deploy/releases/.stage-$SHA
 CF=$APP/compose.production.yaml
 RELEASE=/home/deploy/releases/school-display-$SHA.tar.gz
@@ -50,7 +52,7 @@ TS=$(date -u +%Y%m%dT%H%M%SZ)
 sudo tar -czf /home/deploy/releases/pre-$SHA-$TS.tar.gz \
      --exclude=./backups --exclude=./.env.production -C "$APP" . 2>/dev/null
 echo "tree snapshot: pre-$SHA-$TS.tar.gz"
-D=$(sudo bash -c "ls -1t $APP/backups/*.dump | head -1")
+D=$(sudo bash -c "ls -1t $BACKUPS/*.dump | head -1")
 sudo cp "$D" /tmp/chk.dump && sudo chmod 644 /tmp/chk.dump
 sudo docker compose -f "$CF" cp /tmp/chk.dump postgres:/tmp/chk.dump >/dev/null 2>&1
 echo "dump restorable objects: $(sudo docker compose -f "$CF" exec -T postgres pg_restore --list /tmp/chk.dump 2>/dev/null | grep -c '^[0-9;]')"
@@ -63,11 +65,11 @@ echo "staged $(find "$STAGE" -type f | wc -l) files"
 
 echo "=== [3/6] swapping tree ==="
 sudo rsync -a --delete \
-  --exclude=".env.production" --exclude="backups/" --exclude=".release-commit" \
+  --exclude=".env.production" --exclude=".release-commit" \
   "$STAGE"/ "$APP"/
 sudo chown -R deploy:deploy "$APP" 2>/dev/null || true
 sudo chown root:root "$APP/.env.production" "$APP/.release-commit"
-sudo chmod 600 "$APP/.env.production"; sudo chown -R root:root "$APP/backups"
+sudo chmod 600 "$APP/.env.production"; sudo chown -R root:root "$BACKUPS"
 rm -rf "$STAGE"
 sudo test -s "$APP/.env.production" || { echo "FATAL: env vanished"; exit 1; }
 echo "env ok: $(sudo stat -c%s "$APP/.env.production") bytes"
