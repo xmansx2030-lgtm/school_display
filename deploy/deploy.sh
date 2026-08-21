@@ -93,6 +93,10 @@ sudo docker compose -f "$CF" run --rm -T web python manage.py migrate --noinput 
 
 echo "=== [6/6] recreating services ==="
 sudo docker compose -f "$CF" up -d 2>&1 | tail -4
+# rsync replaces the bind-mounted Caddyfile inode. A running Caddy container
+# keeps the old inode even after a reload, so recreate only this lightweight
+# internal static proxy to mount and activate the reviewed release config.
+sudo docker compose -f "$CF" up -d --force-recreate caddy 2>&1 | tail -4
 sudo bash -c "printf %s $FULL > $APP/.release-commit"
 echo "stamped: $(sudo cat "$APP/.release-commit")"
 echo "=== DEPLOY COMPLETE $(date -u +%H:%M:%SZ) ==="
