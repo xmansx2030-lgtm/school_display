@@ -268,7 +268,16 @@ def resolve_preview_screen(request, token: str):
     if not _preview_requested(request):
         return None
 
-    user = getattr(request, "user", None)
+    return resolve_preview_screen_for_user(getattr(request, "user", None), token)
+
+
+def resolve_preview_screen_for_user(user, token: str):
+    """Resolve a read-only preview using an already authenticated manager.
+
+    Keeping the authorisation rule here lets both HTTP snapshot requests and the
+    preview-only WebSocket use the exact same tenant check.  This path never
+    binds a device and never touches display presence.
+    """
     if user is None or not getattr(user, "is_authenticated", False):
         return None
 
