@@ -4,7 +4,11 @@
 	}
 }
 
-school-display.com, www.school-display.com {
+# TLS terminates at the shared edge Caddy. This project Caddy is reached only
+# over the private Docker network for collected static files; declaring HTTPS
+# here would redirect the edge's HTTP upstream request back to the same public
+# URL and create a permanent redirect loop for uncached assets.
+http://school-display.com, http://www.school-display.com {
 	encode zstd gzip
 
 	# High-frequency display checks are measured inside the application. Keeping
