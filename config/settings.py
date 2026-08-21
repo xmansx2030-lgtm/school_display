@@ -512,10 +512,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
 
-    # The newest successful login owns the account. Older browser sessions are
-    # rejected before any dashboard or API view can run.
-    "core.middleware.SingleSessionMiddleware",
-
     # Project middleware
     "dashboard.middleware.TwoFactorRequiredMiddleware",
     "core.middleware.ActiveSchoolMiddleware",
