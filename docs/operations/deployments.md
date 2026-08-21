@@ -41,7 +41,7 @@ nothing.
 | 3 | `rsync --delete` into `/opt/school-display/app`, preserving `.env.production`, its backup copies, and `.release-commit` |
 | 4 | Build **every** service image |
 | 5 | `migrate --noinput` |
-| 6 | `up -d`, then stamp `.release-commit` with the full SHA |
+| 6 | `up -d`, recreate the internal Caddy so its bind-mounted config is current, then stamp `.release-commit` with the full SHA |
 
 The service keeps serving during steps 1-4. Only step 6 recreates containers.
 
