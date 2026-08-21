@@ -38,10 +38,6 @@ services:
     depends_on:
       web:
         condition: service_healthy
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - static-data:/srv/static:ro
