@@ -36,9 +36,9 @@ nothing.
 
 | step | action |
 |------|--------|
-| 1 | PostgreSQL dump + a tarball snapshot of the current tree, then `pg_restore --list` to prove the dump is readable |
-| 2 | Unpack the release into a staging directory |
-| 3 | `rsync --delete` into `/opt/school-display/app`, preserving `.env.production` and `.release-commit` |
+| 1 | Unpack the release into a staging directory |
+| 2 | PostgreSQL dump + a tarball snapshot of the current tree, then `pg_restore --list` to prove the dump is readable |
+| 3 | `rsync --delete` into `/opt/school-display/app`, preserving `.env.production`, its backup copies, and `.release-commit` |
 | 4 | Build **every** service image |
 | 5 | `migrate --noinput` |
 | 6 | `up -d`, then stamp `.release-commit` with the full SHA |
