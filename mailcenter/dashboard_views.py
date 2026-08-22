@@ -141,46 +141,58 @@ def system_mail_compose(request):
                     "In-Reply-To": reply_message.internet_message_id,
                     "References": reply_message.internet_message_id,
                 }
-            local = MailMessage.objects.create(
-                direction=MailMessage.Direction.OUTBOUND,
-                status=MailMessage.Status.QUEUED,
-                from_address=sender_address(settings.DEFAULT_FROM_EMAIL),
-                to_addresses=recipients,
-                reply_to_addresses=[sender_address(settings.EMAIL_REPLY_TO)],
-                subject=subject,
-                text_body=body,
-                preview=" ".join(body.split())[:500],
+            html_body = render_to_string(
+                "emails/platform_manual.html",
+                {"subject": subject, "body": body},
             )
-            email = EmailMultiAlternatives(
-                subject=subject,
-                body=body,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=recipients,
-                reply_to=[sender_address(settings.EMAIL_REPLY_TO)],
-                headers=headers,
-            )
-            email.attach_alternative(
-                render_to_string(
-                    "emails/platform_manual.html",
-                    {"subject": subject, "body": body},
-                ),
-                "text/html",
-            )
-            try:
-                sent = email.send(fail_silently=False)
-                if sent != 1:
-                    raise RuntimeError(f"Email backend returned sent_count={sent}")
-            except Exception as exc:
-                local.status = MailMessage.Status.FAILED
-                local.content_fetch_error = str(exc)[:500]
-                local.save(update_fields=("status", "content_fetch_error", "updated_at"))
-                messages.error(request, "تعذر إرسال الرسالة. تم حفظ الخطأ في سجل البريد.")
-            else:
-                local.status = MailMessage.Status.SENT
-                local.sent_at = timezone.now()
-                local.save(update_fields=("status", "sent_at", "updated_at"))
-                messages.success(request, "تم قبول الرسالة للإرسال، وستُحدّث حالة التسليم تلقائيًا.")
-                return redirect("dashboard:system_mail_detail", pk=local.pk)
+            sent_messages = []
+            failed_count = 0
+            # Send a separate message to each manager so recipients from different
+            # schools never see one another's email addresses.
+            for recipient in recipients:
+                local = MailMessage.objects.create(
+                    direction=MailMessage.Direction.OUTBOUND,
+                    status=MailMessage.Status.QUEUED,
+                    from_address=sender_address(settings.DEFAULT_FROM_EMAIL),
+                    to_addresses=[recipient],
+                    reply_to_addresses=[sender_address(settings.EMAIL_REPLY_TO)],
+                    subject=subject,
+                    text_body=body,
+                    preview=" ".join(body.split())[:500],
+                )
+                email = EmailMultiAlternatives(
+                    subject=subject,
+                    body=body,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[recipient],
+                    reply_to=[sender_address(settings.EMAIL_REPLY_TO)],
+                    headers=headers,
+                )
+                email.attach_alternative(html_body, "text/html")
+                try:
+                    sent = email.send(fail_silently=False)
+                    if sent != 1:
+                        raise RuntimeError(f"Email backend returned sent_count={sent}")
+                except Exception as exc:
+                    failed_count += 1
+                    local.status = MailMessage.Status.FAILED
+                    local.content_fetch_error = str(exc)[:500]
+                    local.save(update_fields=("status", "content_fetch_error", "updated_at"))
+                else:
+                    local.status = MailMessage.Status.SENT
+                    local.sent_at = timezone.now()
+                    local.save(update_fields=("status", "sent_at", "updated_at"))
+                    sent_messages.append(local)
+
+            if sent_messages:
+                messages.success(
+                    request,
+                    f"تم قبول {len(sent_messages)} رسالة للإرسال، وستُحدّث حالة التسليم تلقائيًا.",
+                )
+                if failed_count:
+                    messages.warning(request, f"تعذر إرسال {failed_count} رسالة، وتم حفظ الأخطاء في السجل.")
+                return redirect("dashboard:system_mail_detail", pk=sent_messages[0].pk)
+            messages.error(request, "تعذر إرسال الرسالة. تم حفظ الخطأ في سجل البريد.")
     else:
         form = ComposeMailForm(initial=initial)
     return render(

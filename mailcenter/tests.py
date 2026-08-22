@@ -10,6 +10,8 @@ from django.urls import reverse
 from django.utils import timezone
 from svix.webhooks import Webhook
 
+from core.models import School, UserProfile
+
 from .checks import check_mail_configuration
 from .models import MailMessage, MailWebhookEvent
 
@@ -191,3 +193,89 @@ class MailCenterDashboardTests(TestCase):
         message = MailMessage.objects.get(direction=MailMessage.Direction.OUTBOUND)
         self.assertEqual(message.status, MailMessage.Status.SENT)
         self.assertEqual(message.subject, "تفاصيل اشتراكك")
+
+    def test_compose_resolves_selected_schools_to_active_manager_emails(self):
+        first_school = School.objects.create(name="مدرسة النور", slug="mail-school-one")
+        second_school = School.objects.create(name="مدرسة الأمل", slug="mail-school-two")
+        first_manager = get_user_model().objects.create_user(
+            username="mail_manager_one",
+            email="first-manager@example.com",
+            password="StrongPass123!",
+        )
+        second_manager = get_user_model().objects.create_user(
+            username="mail_manager_two",
+            email="second-manager@example.com",
+            password="StrongPass123!",
+        )
+        first_profile = UserProfile.objects.create(user=first_manager, active_school=first_school)
+        first_profile.schools.add(first_school)
+        second_profile = UserProfile.objects.create(user=second_manager, active_school=second_school)
+        second_profile.schools.add(second_school)
+        platform_employee = get_user_model().objects.create_user(
+            username="mail_platform_employee",
+            email="platform-employee@example.com",
+            password="StrongPass123!",
+            is_staff=True,
+        )
+        employee_profile = UserProfile.objects.create(user=platform_employee, active_school=first_school)
+        employee_profile.schools.add(first_school)
+        inactive_manager = get_user_model().objects.create_user(
+            username="mail_inactive_manager",
+            email="inactive-manager@example.com",
+            password="StrongPass123!",
+            is_active=False,
+        )
+        inactive_profile = UserProfile.objects.create(user=inactive_manager, active_school=first_school)
+        inactive_profile.schools.add(first_school)
+
+        response = self.client.post(
+            reverse("dashboard:system_mail_compose"),
+            {
+                "schools": [first_school.pk, second_school.pk],
+                "recipients": "",
+                "subject": "تحديث مهم",
+                "body": "تفاصيل التحديث.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertCountEqual(
+            [message.to for message in mail.outbox],
+            [["first-manager@example.com"], ["second-manager@example.com"]],
+        )
+        self.assertEqual(MailMessage.objects.filter(direction=MailMessage.Direction.OUTBOUND).count(), 2)
+
+    def test_compose_page_lists_school_with_active_manager_email_count(self):
+        school = School.objects.create(name="مدرسة البيان", slug="mail-school-picker")
+        manager = get_user_model().objects.create_user(
+            username="mail_picker_manager",
+            email="picker-manager@example.com",
+            password="StrongPass123!",
+        )
+        profile = UserProfile.objects.create(user=manager, active_school=school)
+        profile.schools.add(school)
+
+        response = self.client.get(reverse("dashboard:system_mail_compose"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "مدرسة البيان — بريد مدير واحد")
+        self.assertContains(response, 'name="schools"')
+        self.assertContains(response, 'id="schoolPickerSearch"')
+
+    def test_compose_rejects_school_without_active_manager_email(self):
+        school = School.objects.create(name="مدرسة بلا بريد", slug="mail-school-no-email")
+
+        response = self.client.post(
+            reverse("dashboard:system_mail_compose"),
+            {
+                "schools": [school.pk],
+                "recipients": "",
+                "subject": "تنبيه",
+                "body": "نص التنبيه.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "لا يوجد بريد صالح لمدير نشط")
+        self.assertEqual(len(mail.outbox), 0)
