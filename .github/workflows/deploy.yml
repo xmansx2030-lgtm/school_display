@@ -58,15 +58,15 @@ jobs:
           short="${SOURCE_SHA:0:7}"
           archive="$RUNNER_TEMP/school-display-$short.tar.gz"
           git archive --format=tar.gz -o "$archive" "$SOURCE_SHA"
-          scp -i ~/.ssh/id_deploy -P "$SSH_PORT" \
+          scp -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -P "$SSH_PORT" \
             "$archive" "$SSH_TARGET:/tmp/school-display-$short.tar.gz"
-          scp -i ~/.ssh/id_deploy -P "$SSH_PORT" \
+          scp -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -P "$SSH_PORT" \
             deploy/deploy.sh "$SSH_TARGET:/tmp/school-display-deploy-$short.sh"
 
       - name: Back up, deploy, migrate, and verify
         run: |
           short="${SOURCE_SHA:0:7}"
-          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
+          ssh -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
             "sudo -n install -o deploy -g deploy -m 0600 \
              '/tmp/school-display-$short.tar.gz' \
              '/home/deploy/releases/school-display-$short.tar.gz' && \
@@ -76,7 +76,7 @@ jobs:
 
       - name: Keep reviewed deploy script current
         run: |
-          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
+          ssh -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
             "sudo -n cp /opt/school-display/app/deploy/deploy.sh /home/deploy/deploy.sh && \
              sudo -n chown deploy:deploy /home/deploy/deploy.sh && \
              sudo -n chmod 0755 /home/deploy/deploy.sh && \
@@ -84,7 +84,7 @@ jobs:
 
       - name: Stamp Operations Center
         run: |
-          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
+          ssh -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
             "cd '$DEPLOY_PATH' && sudo -n docker compose -f compose.hetzner.yaml \
              exec -T web python manage.py stamp_managed_project_release \
              school-display '$SOURCE_SHA'"
