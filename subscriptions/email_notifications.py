@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import date, timedelta
+from email.utils import parseaddr
 
 from django.conf import settings
 from django.core.cache import cache
@@ -337,6 +338,10 @@ def _build_message(notification: SubscriptionEmailNotification) -> EmailMultiAlt
         body=text_body,
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[notification.recipient],
+        reply_to=[
+            parseaddr(str(getattr(settings, "EMAIL_REPLY_TO", "") or ""))[1]
+            or str(getattr(settings, "EMAIL_REPLY_TO", "") or "")
+        ],
     )
     message.attach_alternative(html_body, "text/html")
     if notification.event_type == SubscriptionEmailNotification.EventType.INVOICE:

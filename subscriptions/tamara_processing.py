@@ -60,7 +60,7 @@ def _verify_remote_order(checkout: TamaraCheckout, details: dict) -> None:
         raise TamaraVerificationError("رقم طلب تمارا لا يطابق عملية الدفع المحلية.")
 
     reference = str(details.get("order_reference_id") or "").strip()
-    if reference and reference != checkout.merchant_reference:
+    if reference != checkout.merchant_reference:
         raise TamaraVerificationError("مرجع طلب تمارا لا يطابق عملية الدفع المحلية.")
 
     total = details.get("total_amount") or {}
@@ -244,7 +244,13 @@ def reconcile_checkout(checkout_id: int) -> TamaraCheckout:
         )
 
     if remote_status:
-        TamaraCheckout.objects.filter(pk=checkout.pk).update(last_event=f"pull:{remote_status}"[:40])
+        # Move still-open orders to the back of the reconciliation queue. A
+        # permanently-new checkout must not starve later customers forever.
+        TamaraCheckout.objects.filter(pk=checkout.pk).update(
+            last_event=f"pull:{remote_status}"[:40],
+            error_message="",
+            updated_at=timezone.now(),
+        )
     checkout.refresh_from_db()
     return checkout
 
@@ -257,7 +263,6 @@ def reconcile_pending_checkouts(*, limit: int | None = None) -> ReconciliationRe
     checkout_ids = list(
         TamaraCheckout.objects.filter(
             status__in=("new", "approved", "authorised"),
-            created_at__gte=timezone.now() - timedelta(days=3),
         )
         .order_by("updated_at", "id")
         .values_list("id", flat=True)[:batch_size]
@@ -266,9 +271,26 @@ def reconcile_pending_checkouts(*, limit: int | None = None) -> ReconciliationRe
     for checkout_id in checkout_ids:
         try:
             checkout = reconcile_checkout(checkout_id)
+        except TamaraVerificationError as exc:
+            failed += 1
+            logger.warning(
+                "tamara_reconciliation_verification_failed checkout_id=%s error=%s",
+                checkout_id,
+                exc,
+            )
+            TamaraCheckout.objects.filter(pk=checkout_id).update(
+                last_event="reconcile_mismatch",
+                error_message=str(exc)[:300],
+                updated_at=timezone.now(),
+            )
+            continue
         except (TamaraConfigurationError, TamaraAPIError):
             failed += 1
             logger.warning("tamara_reconciliation_failed checkout_id=%s", checkout_id)
+            TamaraCheckout.objects.filter(pk=checkout_id).update(
+                last_event="reconcile_failed",
+                updated_at=timezone.now(),
+            )
             continue
         checked += 1
         activated += int(bool(checkout.payment_operation_id))

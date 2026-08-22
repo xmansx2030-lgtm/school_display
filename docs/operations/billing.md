@@ -1,6 +1,6 @@
 # Billing operations runbook
 
-آخر تحديث: 2026-08-04
+آخر تحديث: 2026-08-22
 
 يغطي هذا المستند ضوابط الجانب التجاري: بوابة الدفع، التسوية، انتهاء
 الاشتراكات، الاستردادات، وسجل التدقيق.
@@ -52,16 +52,34 @@ completed before it will actually validate in the browser.
 
 > Apple Pay يتطلب توثيق النطاق من لوحة تحكم ميسر قبل أن يظهر الزر.
 
+### إعداد webhook في ميسر
+
+سجّل الرابط التالي في لوحة ميسر بطريقة `POST`:
+
+`https://school-display.com/subscriptions/moyasar/webhook/`
+
+اشترك على الأقل في `payment_paid` و`payment_captured` و`payment_failed`
+و`payment_refunded` و`payment_voided`. يجب أن تطابق قيمة **Secret Token**
+في لوحة ميسر قيمة `MOYASAR_WEBHOOK_SECRET` حرفيًا.
+
+نموذج الدفع يحفظ رقم دفعة ميسر ويتحقق منها في `on_completed` قبل
+الانتقال إلى 3DS. رابط العودة وwebhook وعامل التسوية تبقى قنوات
+تأكيد مستقلة.
+
 ### إعداد webhook في تمارا
 
-سجّل الرابط التالي من بوابة شركاء تمارا، واختر أحداث الطلب، وبالأخص
-`order_approved`:
+سجّل الرابط التالي من بوابة شركاء تمارا:
 
 `https://school-display.com/subscriptions/tamara/webhook/`
 
+اشترك في جميع أحداث الدورة: `order_approved`، `order_authorised`،
+`order_captured`، `order_canceled`، `order_refunded`، `order_expired`
+و`order_declined`.
+
 الخادم يتحقق من JWT بمفتاح `TAMARA_NOTIFICATION_TOKEN`، ثم يؤكد الطلب
 ويلتقط قيمة الاشتراك الرقمي. عامل التسوية يعالج أيضًا الحالات التي لم يصل
-فيها webhook أو أغلق العميل المتصفح قبل صفحة العودة.
+فيها webhook أو أغلق العميل المتصفح قبل صفحة العودة. العامل لا يسقط الطلبات
+القديمة، ويدوّر الطلبات المفتوحة حتى لا يمنع طلب مهجور مراجعة دفعة حديثة.
 
 ## 2. تسوية المدفوعات
 

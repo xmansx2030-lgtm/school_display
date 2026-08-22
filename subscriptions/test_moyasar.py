@@ -181,6 +181,21 @@ class MoyasarCheckoutTests(TestCase):
         for required in ("amount", "currency", "description", "publishable_api_key", "callback_url"):
             self.assertTrue(config.get(required), f"missing required config: {required}")
         self.assertTrue(config["callback_url"].startswith("https://"))
+        self.assertEqual(
+            config["callback_url"],
+            "https://school-display.com"
+            + reverse(
+                "subscriptions:moyasar_return_for_checkout",
+                kwargs={"reference": checkout.merchant_reference},
+            ),
+        )
+        self.assertEqual(
+            config["payment_sync_url"],
+            reverse(
+                "subscriptions:moyasar_sync",
+                kwargs={"reference": checkout.merchant_reference},
+            ),
+        )
 
     def test_wallet_methods_are_passed_through_for_moyasar(self):
         # The checkout layer should keep every enabled method and add the extra
@@ -240,6 +255,17 @@ class MoyasarCheckoutTests(TestCase):
         self.assertIsNone(result.subscription_id)
         self.assertIsNone(result.payment_operation_id)
 
+    def test_documented_payment_response_without_live_field_is_accepted(self):
+        """Fetch Payment selects its environment by API key, not a response field."""
+        checkout = self._checkout(live_mode=False)
+        details = self._details(checkout)
+        details.pop("live")
+
+        result = apply_payment_details(checkout.pk, details, event_type="return")
+
+        self.assertEqual(result.status, "paid")
+        self.assertEqual(result.payment_id, details["id"])
+
     def test_cancel_marks_own_initiated_checkout_as_voided(self):
         checkout = self._checkout(created_by=self.manager)
         self.client.force_login(self.manager)
@@ -273,6 +299,29 @@ class MoyasarCheckoutTests(TestCase):
         self.assertEqual(response.status_code, 404)
         checkout.refresh_from_db()
         self.assertEqual(checkout.status, "initiated")
+
+    @patch("subscriptions.moyasar_views.MoyasarClient.fetch_payment")
+    def test_on_completed_sync_saves_payment_id_before_redirect(self, fetch_payment):
+        checkout = self._checkout(created_by=self.manager)
+        details = self._details(checkout, status="initiated")
+        details.pop("live")
+        fetch_payment.return_value = details
+        self.client.force_login(self.manager)
+
+        response = self.client.post(
+            reverse(
+                "subscriptions:moyasar_sync",
+                kwargs={"reference": checkout.merchant_reference},
+            ),
+            data=json.dumps({"id": details["id"]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        checkout.refresh_from_db()
+        self.assertEqual(checkout.payment_id, details["id"])
+        self.assertEqual(checkout.status, "initiated")
+        self.assertEqual(checkout.last_event, "on_completed")
 
     @override_settings(
         MOYASAR_LIVE_MODE=True,
@@ -360,6 +409,34 @@ class MoyasarCheckoutTests(TestCase):
         checkout.refresh_from_db()
         self.assertIsNotNone(checkout.payment_operation_id)
         self.assertEqual(SubscriptionPaymentOperation.objects.filter(method="moyasar").count(), 1)
+
+    @override_settings(
+        MOYASAR_LIVE_MODE=True,
+        MOYASAR_PUBLISHABLE_KEY="pk_live_publishable",
+        MOYASAR_SECRET_KEY="sk_live_secret",
+    )
+    def test_webhook_uses_environment_from_event_envelope(self):
+        checkout = self._checkout(live_mode=True)
+        details = self._details(checkout)
+        details.pop("live")
+
+        response = self.client.post(
+            reverse("subscriptions:moyasar_webhook"),
+            data=json.dumps(
+                {
+                    "type": "payment_paid",
+                    "secret_token": "webhook-test-secret",
+                    "live": True,
+                    "data": details,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        checkout.refresh_from_db()
+        self.assertEqual(checkout.status, "paid")
+        self.assertIsNotNone(checkout.payment_operation_id)
 
 
 @override_settings(

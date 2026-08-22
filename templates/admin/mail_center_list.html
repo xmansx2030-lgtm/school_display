@@ -1,0 +1,98 @@
+{% extends "admin/admin_base.html" %}
+{% load humanize %}
+
+{% block title %}مركز البريد | إدارة المنصة{% endblock %}
+{% block page_icon %}envelope-open-text{% endblock %}
+{% block page_title %}مركز البريد{% endblock %}
+{% block page_description %}صندوق موحد للوارد والصادر وحالات تسليم رسائل العملاء{% endblock %}
+{% block breadcrumb %}<i class="fas fa-angle-left text-[9px]"></i><span aria-current="page">مركز البريد</span>{% endblock %}
+{% block page_actions %}
+  {% if can_mail_manage %}
+    <a href="{% url 'dashboard:system_mail_compose' %}" class="admin-btn admin-btn-primary"><i class="fas fa-pen"></i> رسالة جديدة</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<section class="admin-card p-4 md:p-5 mb-5">
+  <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <div><h2 class="font-black">جاهزية البريد</h2><p class="text-xs text-slate-500 mt-1" dir="ltr">{{ mail_health.inbound_address }}</p></div>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <span class="admin-status {% if mail_health.transactional_enabled %}admin-status-success{% else %}admin-status-danger{% endif %}">الإرسال {% if mail_health.transactional_enabled %}مفعّل{% else %}متوقف{% endif %}</span>
+      <span class="admin-status {% if mail_health.smtp_configured %}admin-status-success{% else %}admin-status-danger{% endif %}">SMTP {% if mail_health.smtp_configured %}جاهز{% else %}غير مكتمل{% endif %}</span>
+      <span class="admin-status {% if mail_health.webhook_configured %}admin-status-success{% else %}admin-status-danger{% endif %}">Webhook {% if mail_health.webhook_configured %}موثّق{% else %}غير مربوط{% endif %}</span>
+      <span class="admin-status {% if mail_health.inbound_enabled %}admin-status-success{% else %}admin-status-warning{% endif %}">الاستقبال {% if mail_health.inbound_enabled %}مفعّل{% else %}متوقف{% endif %}</span>
+    </div>
+  </div>
+</section>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+  <div class="admin-card p-4"><p class="text-xs text-slate-500">الوارد</p><p class="text-2xl font-black mt-1">{{ counts.inbound|intcomma }}</p></div>
+  <div class="admin-card p-4"><p class="text-xs text-slate-500">غير المقروء</p><p class="text-2xl font-black mt-1 text-teal-700">{{ counts.unread|intcomma }}</p></div>
+  <div class="admin-card p-4"><p class="text-xs text-slate-500">الصادر</p><p class="text-2xl font-black mt-1">{{ counts.outbound|intcomma }}</p></div>
+  <div class="admin-card p-4"><p class="text-xs text-slate-500">فشل أو ارتد</p><p class="text-2xl font-black mt-1 text-rose-700">{{ counts.failed|intcomma }}</p></div>
+</div>
+
+<section class="admin-card p-4 md:p-5 mb-5">
+  <div class="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
+    <div class="flex flex-wrap gap-2">
+      <a href="?folder=inbound" class="admin-btn {% if folder == 'inbound' %}admin-btn-primary{% else %}admin-btn-secondary{% endif %}"><i class="fas fa-inbox"></i> الوارد</a>
+      <a href="?folder=outbound" class="admin-btn {% if folder == 'outbound' %}admin-btn-primary{% else %}admin-btn-secondary{% endif %}"><i class="fas fa-paper-plane"></i> الصادر</a>
+      <a href="?folder=all" class="admin-btn {% if folder == 'all' %}admin-btn-primary{% else %}admin-btn-secondary{% endif %}">الكل</a>
+    </div>
+    <form method="get" class="flex flex-col sm:flex-row gap-2">
+      <input type="hidden" name="folder" value="{{ folder }}">
+      <input type="search" name="q" value="{{ query }}" placeholder="الموضوع، المرسل أو رقم Resend" class="admin-input min-w-64">
+      <select name="status" class="admin-input">
+        <option value="">كل الحالات</option>
+        {% for value,label in status_choices %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <button class="admin-btn admin-btn-secondary" type="submit"><i class="fas fa-search"></i> بحث</button>
+    </form>
+  </div>
+</section>
+
+<section class="admin-card overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-slate-500"><tr>
+        <th class="text-right p-4">الرسالة</th><th class="text-right p-4">الطرف الآخر</th><th class="text-right p-4">الحالة</th><th class="text-right p-4">الوقت</th>
+      </tr></thead>
+      <tbody class="divide-y divide-slate-100">
+      {% for row in page_obj %}
+        <tr class="hover:bg-slate-50/70 {% if row.direction == 'inbound' and not row.is_read %}bg-teal-50/50{% endif %}">
+          <td class="p-4 min-w-72">
+            <a href="{% url 'dashboard:system_mail_detail' row.pk %}" class="font-bold text-slate-900 hover:text-teal-700">{{ row.subject|default:"(بدون موضوع)" }}</a>
+            <p class="text-xs text-slate-500 mt-1 line-clamp-1">{{ row.preview|default:"لا توجد معاينة" }}</p>
+          </td>
+          <td class="p-4" dir="ltr">{% if row.direction == 'inbound' %}{{ row.from_address }}{% else %}{{ row.primary_recipient }}{% endif %}</td>
+          <td class="p-4"><span class="admin-status {% if row.status == 'delivered' or row.status == 'received' %}admin-status-success{% elif row.status == 'failed' or row.status == 'bounced' or row.status == 'complained' %}admin-status-danger{% else %}admin-status-info{% endif %}">{{ row.get_status_display }}</span></td>
+          <td class="p-4 whitespace-nowrap text-slate-500">{{ row.provider_created_at|default:row.created_at|date:"Y/m/d H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" class="p-12 text-center text-slate-500"><i class="fas fa-envelope-open text-4xl text-slate-300 mb-3"></i><p>لا توجد رسائل مطابقة.</p></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="flex justify-center gap-2 mt-5">
+  {% if page_obj.has_previous %}<a class="admin-btn admin-btn-secondary" href="?folder={{ folder }}&q={{ query|urlencode }}&status={{ status_filter }}&page={{ page_obj.previous_page_number }}">السابق</a>{% endif %}
+  <span class="admin-btn admin-btn-secondary">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a class="admin-btn admin-btn-secondary" href="?folder={{ folder }}&q={{ query|urlencode }}&status={{ status_filter }}&page={{ page_obj.next_page_number }}">التالي</a>{% endif %}
+</div>
+{% endif %}
+
+{% if queue %}
+<section class="admin-card mt-6 overflow-hidden">
+  <div class="p-5 border-b border-slate-100"><h2 class="font-black">قائمة رسائل الفواتير والاشتراكات</h2><p class="text-xs text-slate-500 mt-1">الصف الداخلي قبل التسليم إلى Resend</p></div>
+  <div class="overflow-x-auto"><table class="w-full text-sm"><tbody class="divide-y divide-slate-100">
+    {% for item in queue %}<tr>
+      <td class="p-4"><strong>{{ item.get_event_type_display }}</strong><p class="text-xs text-slate-500">{{ item.subscription.school.name }}</p></td>
+      <td class="p-4" dir="ltr">{{ item.recipient }}</td><td class="p-4">{{ item.get_status_display }}</td><td class="p-4">{{ item.attempts }} محاولة</td>
+      <td class="p-4 text-left">{% if can_mail_manage and item.status != 'sent' %}<form method="post" action="{% url 'dashboard:system_mail_queue_retry' item.pk %}">{% csrf_token %}<button class="admin-btn admin-btn-secondary" type="submit">إعادة المحاولة</button></form>{% endif %}</td>
+    </tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endif %}
+{% endblock %}

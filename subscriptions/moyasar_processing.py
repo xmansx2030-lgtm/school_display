@@ -63,8 +63,17 @@ def _validate_details(checkout: MoyasarCheckout, details: dict) -> tuple[str, st
     if str(metadata.get("merchant_reference") or "") != checkout.merchant_reference:
         raise MoyasarVerificationError("مرجع دفعة ميسر لا يطابق الطلب.")
 
+    # Moyasar's current Fetch/List Payments response schema does not include a
+    # ``live`` member on the payment object.  The API environment is selected
+    # by the secret key used for the request, while webhook notifications put
+    # ``live`` on the event envelope.  Older responses did include it, so keep
+    # validating it when present and otherwise validate the checkout against
+    # the configured key environment.
     live_value = details.get("live")
-    if not isinstance(live_value, bool) or live_value != checkout.live_mode:
+    if live_value is not None:
+        if not isinstance(live_value, bool) or live_value != checkout.live_mode:
+            raise MoyasarVerificationError("بيئة دفعة ميسر لا تطابق إعدادات الطلب.")
+    elif checkout.live_mode != bool(getattr(settings, "MOYASAR_LIVE_MODE", False)):
         raise MoyasarVerificationError("بيئة دفعة ميسر لا تطابق إعدادات الطلب.")
     return payment_id, status
 

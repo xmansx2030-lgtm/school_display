@@ -114,6 +114,9 @@ def sitemap_xml(request):
 
 
 urlpatterns = [
+    # Resend delivery and inbound events. The endpoint verifies the raw signed
+    # body before accepting any event.
+    path("api/mail/", include(("mailcenter.urls", "mailcenter"), namespace="mailcenter")),
     path("csp-report/", csp_report, name="csp_report"),
     path("cpanel-123/", admin.site.urls),
 

@@ -22,7 +22,17 @@ urlpatterns = [
         moyasar_views.moyasar_cancel,
         name="moyasar_cancel",
     ),
+    path(
+        "moyasar/checkout/<str:reference>/sync/",
+        moyasar_views.moyasar_sync,
+        name="moyasar_sync",
+    ),
     path("moyasar/return/", moyasar_views.moyasar_return, name="moyasar_return"),
+    path(
+        "moyasar/return/<str:reference>/",
+        moyasar_views.moyasar_return,
+        name="moyasar_return_for_checkout",
+    ),
     path("moyasar/webhook/", moyasar_views.moyasar_webhook, name="moyasar_webhook"),
     path("tamara/start/", tamara_views.tamara_start, name="tamara_start"),
     path("tamara/webhook/", tamara_views.tamara_webhook, name="tamara_webhook"),

@@ -1,0 +1,14 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}رسالة جديدة | مركز البريد{% endblock %}
+{% block page_icon %}pen-to-square{% endblock %}
+{% block page_title %}رسالة جديدة{% endblock %}
+{% block page_description %}إرسال رسالة رسمية من نطاق لوحة العرض الذكية{% endblock %}
+{% block breadcrumb %}<i class="fas fa-angle-left text-[9px]"></i><a href="{% url 'dashboard:system_mail_list' %}">مركز البريد</a><i class="fas fa-angle-left text-[9px]"></i><span>رسالة جديدة</span>{% endblock %}
+{% block content %}
+<form method="post" class="admin-card p-5 md:p-7 max-w-4xl">{% csrf_token %}{% if reply_message %}<input type="hidden" name="reply" value="{{ reply_message.pk }}"><div class="rounded-xl bg-teal-50 border border-teal-100 p-4 mb-5 text-sm">رد على: <strong>{{ reply_message.subject }}</strong></div>{% endif %}
+  {% if form.non_field_errors %}<div class="admin-toast is-error mb-4">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="space-y-5">{% for field in form %}<div><label class="block text-sm font-bold mb-2" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<p class="text-xs text-slate-500 mt-1">{{ field.help_text }}</p>{% endif %}{% for error in field.errors %}<p class="text-xs text-rose-700 mt-1">{{ error }}</p>{% endfor %}</div>{% endfor %}</div>
+  <div class="flex gap-2 mt-6"><button type="submit" class="admin-btn admin-btn-primary"><i class="fas fa-paper-plane"></i> إرسال</button><a href="{% url 'dashboard:system_mail_list' %}" class="admin-btn admin-btn-secondary">إلغاء</a></div>
+</form>
+<style>.admin-card input,.admin-card textarea,.admin-card select{width:100%;border:1px solid #cbd5e1;border-radius:.75rem;padding:.75rem 1rem;background:#fff}.admin-card input:focus,.admin-card textarea:focus{outline:2px solid #0f766e33;border-color:#0f766e}</style>
+{% endblock %}

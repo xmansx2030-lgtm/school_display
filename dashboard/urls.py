@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import auth_views, support_views, two_factor_views, views, views_pairing, views_screens
+from mailcenter import dashboard_views as mail_views
  
 app_name = "dashboard"
 
@@ -202,6 +203,13 @@ urlpatterns = [
 
     # Reports
     path("admin-panel/reports/", views.system_reports, name="system_reports"),
+
+    # Platform mail center
+    path("admin-panel/mail/", mail_views.system_mail_list, name="system_mail_list"),
+    path("admin-panel/mail/compose/", mail_views.system_mail_compose, name="system_mail_compose"),
+    path("admin-panel/mail/<int:pk>/", mail_views.system_mail_detail, name="system_mail_detail"),
+    path("admin-panel/mail/<int:pk>/sync/", mail_views.system_mail_sync, name="system_mail_sync"),
+    path("admin-panel/mail/queue/<int:pk>/retry/", mail_views.system_mail_queue_retry, name="system_mail_queue_retry"),
 
     # Support
     path("admin-panel/support/", support_views.system_support_tickets, name="system_support_tickets"),

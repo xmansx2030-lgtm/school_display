@@ -1,0 +1,37 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}{{ mail_message.subject|default:"رسالة بريد" }} | مركز البريد{% endblock %}
+{% block page_icon %}{% if mail_message.direction == 'inbound' %}inbox{% else %}paper-plane{% endif %}{% endblock %}
+{% block page_title %}{{ mail_message.subject|default:"(بدون موضوع)" }}{% endblock %}
+{% block page_description %}{{ mail_message.get_direction_display }} · {{ mail_message.get_status_display }}{% endblock %}
+{% block breadcrumb %}<i class="fas fa-angle-left text-[9px]"></i><a href="{% url 'dashboard:system_mail_list' %}">مركز البريد</a><i class="fas fa-angle-left text-[9px]"></i><span aria-current="page">التفاصيل</span>{% endblock %}
+{% block page_actions %}
+  {% if can_mail_manage and mail_message.direction == 'inbound' %}<a href="{% url 'dashboard:system_mail_compose' %}?reply={{ mail_message.pk }}" class="admin-btn admin-btn-primary"><i class="fas fa-reply"></i> رد</a>{% endif %}
+  {% if mail_message.provider_id %}<form method="post" action="{% url 'dashboard:system_mail_sync' mail_message.pk %}">{% csrf_token %}<button class="admin-btn admin-btn-secondary" type="submit"><i class="fas fa-rotate"></i> تحديث من Resend</button></form>{% endif %}
+{% endblock %}
+{% block content %}
+<div class="grid lg:grid-cols-[1fr_300px] gap-5">
+  <article class="admin-card p-5 md:p-7">
+    <dl class="grid sm:grid-cols-[110px_1fr] gap-x-4 gap-y-3 text-sm border-b border-slate-100 pb-5 mb-5">
+      <dt class="text-slate-500">من</dt><dd dir="ltr" class="break-all">{{ mail_message.from_address }}</dd>
+      <dt class="text-slate-500">إلى</dt><dd dir="ltr" class="break-all">{{ mail_message.to_addresses|join:", " }}</dd>
+      {% if mail_message.reply_to_addresses %}<dt class="text-slate-500">الرد إلى</dt><dd dir="ltr">{{ mail_message.reply_to_addresses|join:", " }}</dd>{% endif %}
+      <dt class="text-slate-500">التاريخ</dt><dd>{{ mail_message.provider_created_at|default:mail_message.created_at|date:"Y/m/d H:i:s" }}</dd>
+    </dl>
+    {% if mail_message.is_sensitive %}
+      <div class="rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-900"><i class="fas fa-shield-halved ml-2"></i>حُجب محتوى هذه الرسالة الأمنية لحماية رابط استعادة كلمة المرور أو التحقق.</div>
+    {% elif mail_message.text_body %}
+      <div class="whitespace-pre-wrap leading-8 text-slate-800">{{ mail_message.text_body }}</div>
+    {% elif mail_message.html_body %}
+      <div class="whitespace-pre-wrap leading-8 text-slate-800">{{ mail_message.html_body|striptags }}</div>
+    {% else %}
+      <div class="rounded-xl bg-slate-50 p-5 text-slate-500">لم يُجلب محتوى الرسالة بعد.</div>
+    {% endif %}
+    {% if mail_message.attachments %}<div class="mt-6 border-t border-slate-100 pt-5"><h3 class="font-bold mb-3">المرفقات</h3>{% for attachment in mail_message.attachments %}<span class="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm ml-2 mb-2"><i class="fas fa-paperclip"></i>{{ attachment.filename|default:"مرفق" }}</span>{% endfor %}</div>{% endif %}
+  </article>
+  <aside class="space-y-4">
+    <div class="admin-card p-5"><h3 class="font-black mb-4">حالة التسليم</h3><span class="admin-status admin-status-info">{{ mail_message.get_status_display }}</span><dl class="text-xs mt-4 space-y-2"><div><dt class="text-slate-500">Resend ID</dt><dd dir="ltr" class="break-all mt-1">{{ mail_message.provider_id|default:"بانتظار المزامنة" }}</dd></div>{% if mail_message.delivered_at %}<div><dt class="text-slate-500">تم التسليم</dt><dd>{{ mail_message.delivered_at|date:"Y/m/d H:i:s" }}</dd></div>{% endif %}</dl></div>
+    {% if mail_message.content_fetch_error %}<div class="admin-card p-5 border border-amber-200"><h3 class="font-bold text-amber-800">تعذر جلب المحتوى</h3><p class="text-xs text-slate-600 mt-2">{{ mail_message.content_fetch_error }}</p></div>{% endif %}
+    <div class="admin-card p-5"><h3 class="font-black mb-3">سجل الأحداث</h3><ol class="space-y-3">{% for event in mail_message.events.all %}<li class="border-r-2 border-teal-500 pr-3"><strong class="text-xs" dir="ltr">{{ event.event_type }}</strong><p class="text-[11px] text-slate-500">{{ event.occurred_at|date:"Y/m/d H:i:s" }}</p></li>{% empty %}<li class="text-xs text-slate-500">لا توجد أحداث بعد.</li>{% endfor %}</ol></div>
+  </aside>
+</div>
+{% endblock %}

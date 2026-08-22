@@ -939,14 +939,14 @@
   </div>
 
 
-  {% if moyasar_checkouts %}
+  {% if moyasar_checkouts or tamara_checkouts %}
   <div class="dashboard-section-card mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
     <div class="flex flex-col gap-1 border-b border-slate-100 bg-slate-50 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h4 class="font-black text-slate-800">المدفوعات الإلكترونية</h4>
-        <p class="mt-1 text-xs text-slate-500">آخر محاولات الدفع بالبطاقة وحالة التحقق الخلفي.</p>
+        <p class="mt-1 text-xs text-slate-500">آخر محاولات الدفع عبر ميسر وتمارا وحالة التحقق الخلفي.</p>
       </div>
-      <span class="text-xs font-bold text-slate-500">آخر {{ moyasar_checkouts|length }} عمليات</span>
+      <span class="text-xs font-bold text-slate-500">أحدث العمليات</span>
     </div>
     <div class="divide-y divide-slate-100">
       {% for checkout in moyasar_checkouts %}
@@ -973,6 +973,31 @@
           <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-black {% if checkout.status == 'paid' or checkout.status == 'captured' %}bg-emerald-100 text-emerald-800{% elif checkout.status == 'failed' or checkout.status == 'voided' or checkout.status == 'error' %}bg-rose-100 text-rose-800{% else %}bg-amber-100 text-amber-800{% endif %}">{{ checkout.get_status_display }}</span>
           {% if checkout.status == 'initiated' and moyasar_available %}
           <a href="{% url 'subscriptions:moyasar_checkout' reference=checkout.merchant_reference %}" class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-black text-white transition hover:bg-slate-700">متابعة الدفع</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      {% for checkout in tamara_checkouts %}
+      <div class="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <p class="font-bold text-slate-800">{{ checkout.plan.name }}</p>
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{{ checkout.get_request_type_display }}</span>
+            <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">تمارا</span>
+            {% if tamara_environment == 'sandbox' %}<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">اختبار</span>{% endif %}
+          </div>
+          <p class="mt-1 text-xs text-slate-500">{{ checkout.created_at|date:"Y-m-d H:i" }} · مرجع <span dir="ltr">#{{ checkout.merchant_reference|slice:"-8:" }}</span></p>
+          {% if checkout.status == 'authorised' or checkout.status == 'captured' %}
+          <p class="mt-2 text-xs text-emerald-700">تم التحقق وتفعيل الاشتراك.</p>
+          {% elif checkout.status == 'declined' or checkout.status == 'canceled' or checkout.status == 'expired' %}
+          <p class="mt-2 text-xs text-rose-700">لم تكتمل عملية تمارا ولم يُفعّل الاشتراك.</p>
+          {% endif %}
+        </div>
+        <div class="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+          <p class="font-black text-slate-800">{{ checkout.amount }} ر.س</p>
+          <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-black {% if checkout.status == 'authorised' or checkout.status == 'captured' %}bg-emerald-100 text-emerald-800{% elif checkout.status == 'declined' or checkout.status == 'canceled' or checkout.status == 'expired' or checkout.status == 'refunded' or checkout.status == 'error' %}bg-rose-100 text-rose-800{% else %}bg-amber-100 text-amber-800{% endif %}">{{ checkout.get_status_display }}</span>
+          {% if checkout.status == 'new' and checkout.checkout_url %}
+          <a href="{{ checkout.checkout_url }}" class="rounded-lg bg-rose-500 px-3 py-2 text-xs font-black text-white transition hover:bg-rose-600">متابعة الدفع عبر تمارا</a>
           {% endif %}
         </div>
       </div>

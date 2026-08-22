@@ -477,6 +477,7 @@ INSTALLED_APPS = [
     "website",
     "dashboard",
     "subscriptions.apps.SubscriptionsConfig",
+    "mailcenter.apps.MailcenterConfig",
     "telegram_alerts.apps.TelegramAlertsConfig",
 ]
 
@@ -1123,7 +1124,25 @@ DEFAULT_FROM_EMAIL = os.getenv(
     "لوحة العرض الذكية <no-reply@school-display.com>",
 ).strip()
 SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL).strip()
+EMAIL_REPLY_TO = os.getenv(
+    "EMAIL_REPLY_TO",
+    "دعم لوحة العرض الذكية <support@mail.school-display.com>",
+).strip()
 TRANSACTIONAL_EMAIL_ENABLED = env_bool("TRANSACTIONAL_EMAIL_ENABLED", "False")
+RESEND_API_KEY = env_secret("RESEND_API_KEY", "RESEND_API_KEY_FILE")
+RESEND_WEBHOOK_SECRET = env_secret(
+    "RESEND_WEBHOOK_SECRET", "RESEND_WEBHOOK_SECRET_FILE"
+)
+RESEND_API_BASE_URL = os.getenv(
+    "RESEND_API_BASE_URL", "https://api.resend.com"
+).strip().rstrip("/")
+RESEND_INBOUND_ADDRESS = os.getenv(
+    "RESEND_INBOUND_ADDRESS", "support@mail.school-display.com"
+).strip().casefold()
+RESEND_INBOUND_ENABLED = env_bool("RESEND_INBOUND_ENABLED", "False")
+RESEND_HTTP_TIMEOUT_SECONDS = env_int_clamped(
+    "RESEND_HTTP_TIMEOUT_SECONDS", 10, 2, 30
+)
 EMAIL_NOTIFICATION_POLL_INTERVAL_SECONDS = env_int_clamped(
     "EMAIL_NOTIFICATION_POLL_INTERVAL_SECONDS", 30, 5, 300
 )

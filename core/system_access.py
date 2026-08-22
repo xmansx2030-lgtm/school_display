@@ -178,6 +178,23 @@ PERMISSION_DEFINITIONS = (
         "implies": "support.view",
     },
     {
+        "key": "mail.view",
+        "category": "operations",
+        "category_label": "الدعم والتشغيل",
+        "label": "عرض مركز البريد",
+        "description": "قراءة الوارد والصادر وحالات تسليم رسائل العملاء.",
+        "level": "view",
+    },
+    {
+        "key": "mail.manage",
+        "category": "operations",
+        "category_label": "الدعم والتشغيل",
+        "label": "إدارة البريد",
+        "description": "إرسال الردود وإعادة محاولة إشعارات العملاء.",
+        "level": "manage",
+        "implies": "mail.view",
+    },
+    {
         "key": "emergency_alerts.view",
         "category": "operations",
         "category_label": "الدعم والتشغيل",
@@ -216,6 +233,8 @@ ROLE_PRESETS = {
             "subscriptions.view",
             "support.view",
             "support.manage",
+            "mail.view",
+            "mail.manage",
         },
     },
     ROLE_FINANCE: {
@@ -233,6 +252,7 @@ ROLE_PRESETS = {
             "discounts.manage",
             "screen_addons.view",
             "reports.view",
+            "mail.view",
         },
     },
     ROLE_CUSTOMER_SUCCESS: {
@@ -249,6 +269,8 @@ ROLE_PRESETS = {
             "reports.view",
             "support.view",
             "support.manage",
+            "mail.view",
+            "mail.manage",
         },
     },
     ROLE_OPERATIONS: {
@@ -277,6 +299,7 @@ NAV_PERMISSION_MAP = {
     "reports": "reports.view",
     "emergency_alerts": "emergency_alerts.view",
     "support": "support.view",
+    "mail": "mail.view",
 }
 
 

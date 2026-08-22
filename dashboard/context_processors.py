@@ -102,6 +102,7 @@ def _build_admin_nav_links(
     is_superuser: bool,
     open_subscription_requests_count: int,
     open_support_tickets_count: int,
+    unread_mail_count: int,
 ):
     """Single source of truth for SaaS admin navigation + dashboard action cards."""
 
@@ -286,6 +287,21 @@ def _build_admin_nav_links(
             "visible": True,
             "badge_count": int(open_support_tickets_count or 0),
         },
+        {
+            "key": "mail",
+            "group": "operations",
+            "group_title": "المتابعة والتشغيل",
+            "title": "مركز البريد",
+            "description": "متابعة البريد الوارد والصادر وحالات التسليم",
+            "url_name": "dashboard:system_mail_list",
+            "icon": "fa-envelope-open-text",
+            "emoji": "✉️",
+            "tone": "teal",
+            "exact": (),
+            "startswith": ("system_mail",),
+            "visible": True,
+            "badge_count": int(unread_mail_count or 0),
+        },
     ]
 
     links = []
@@ -351,6 +367,15 @@ def admin_support_ticket_badges(request):
         if has_system_permission(user, "support.view")
         else 0
     )
+    unread_mail_count = 0
+    if has_system_permission(user, "mail.view"):
+        try:
+            MailMessage = apps.get_model("mailcenter", "MailMessage")
+            unread_mail_count = MailMessage.objects.filter(
+                direction="inbound", is_read=False
+            ).count()
+        except Exception:
+            unread_mail_count = 0
     counts = {
         "is_system_staff": True,
         # Backward-compatible template name: now means any delegated employee.
@@ -359,6 +384,7 @@ def admin_support_ticket_badges(request):
         "is_superuser": is_superuser,
         "platform_role_label": "مالك المنصة" if is_superuser else role_label(get_system_role(user)),
         "admin_new_support_tickets_count": open_support_tickets_count,
+        "admin_unread_mail_count": int(unread_mail_count or 0),
     }
 
     for permission_key in (
@@ -379,6 +405,8 @@ def admin_support_ticket_badges(request):
         "reports.view",
         "support.view",
         "support.manage",
+        "mail.view",
+        "mail.manage",
         "emergency_alerts.view",
         "emergency_alerts.manage",
     ):
@@ -405,6 +433,7 @@ def admin_support_ticket_badges(request):
         is_superuser=is_superuser,
         open_subscription_requests_count=int(open_subscription_requests_count or 0),
         open_support_tickets_count=int(open_support_tickets_count or 0),
+        unread_mail_count=int(unread_mail_count or 0),
     )
 
     return counts

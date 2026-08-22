@@ -6,7 +6,6 @@ import logging
 import re
 from datetime import date, timedelta
 from decimal import Decimal
-from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
@@ -276,10 +275,13 @@ def moyasar_checkout(request, reference: str):
         return redirect("dashboard:my_subscription")
 
     callback_base = str(getattr(settings, "MOYASAR_CALLBACK_BASE_URL", "") or "").rstrip("/")
-    callback_url = (
-        f"{callback_base}{reverse('subscriptions:moyasar_return')}?"
-        f"{urlencode({'reference': checkout.merchant_reference})}"
+    # Keep our reference in the path. Moyasar appends its own query string
+    # (id/status/message), so a query parameter here is needlessly fragile.
+    callback_path = reverse(
+        "subscriptions:moyasar_return_for_checkout",
+        kwargs={"reference": checkout.merchant_reference},
     )
+    callback_url = f"{callback_base}{callback_path}"
     config = {
         "amount": amount_to_minor_units(checkout.amount),
         "currency": checkout.currency,
@@ -296,6 +298,12 @@ def moyasar_checkout(request, reference: str):
             "school_id": str(checkout.school_id),
             "plan_id": str(checkout.plan_id),
         },
+        # Removed by our JavaScript before Moyasar.init(). Used by
+        # ``on_completed`` to persist/verify the payment id before 3DS.
+        "payment_sync_url": reverse(
+            "subscriptions:moyasar_sync",
+            kwargs={"reference": checkout.merchant_reference},
+        ),
     }
     if "applepay" in config["methods"]:
         config["apple_pay"] = {
@@ -362,9 +370,9 @@ def moyasar_cancel(request, reference: str):
 
 @login_required(login_url="dashboard:login")
 @require_GET
-def moyasar_return(request):
+def moyasar_return(request, reference: str | None = None):
     school = _active_school(request)
-    reference = (request.GET.get("reference") or "").strip()
+    reference = (reference or request.GET.get("reference") or "").strip()
     payment_id = (request.GET.get("id") or "").strip()
     checkout = MoyasarCheckout.objects.filter(
         merchant_reference=reference,
@@ -399,6 +407,46 @@ def moyasar_return(request):
     return redirect("dashboard:my_subscription")
 
 
+@login_required(login_url="dashboard:login")
+@require_POST
+def moyasar_sync(request, reference: str):
+    """Persist and verify the payment created by Moyasar before 3DS redirect."""
+    school = _active_school(request)
+    checkout = MoyasarCheckout.objects.filter(
+        merchant_reference=reference,
+        school=school,
+        created_by=request.user,
+    ).first()
+    if checkout is None:
+        return JsonResponse({"detail": "checkout_not_found"}, status=404)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return JsonResponse({"detail": "invalid_json"}, status=400)
+    payment_id = str(payload.get("id") or "").strip() if isinstance(payload, dict) else ""
+    if not _PAYMENT_ID_RE.fullmatch(payment_id):
+        return JsonResponse({"detail": "invalid_payment_id"}, status=400)
+
+    try:
+        details = MoyasarClient().fetch_payment(payment_id)
+        checkout = apply_payment_details(checkout.pk, details, event_type="on_completed")
+    except (MoyasarConfigurationError, MoyasarAPIError):
+        logger.warning("moyasar_sync_fetch_failed reference=%s", reference)
+        return JsonResponse({"detail": "gateway_unavailable"}, status=503)
+    except MoyasarVerificationError:
+        logger.warning("moyasar_sync_verification_failed reference=%s", reference)
+        return JsonResponse({"detail": "verification_failed"}, status=409)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "status": checkout.status,
+            "activated": bool(checkout.payment_operation_id),
+        }
+    )
+
+
 @csrf_exempt
 @require_POST
 def moyasar_webhook(request):
@@ -420,6 +468,15 @@ def moyasar_webhook(request):
     details = payload.get("data")
     if not isinstance(details, dict):
         return JsonResponse({"detail": "missing_payment"}, status=400)
+    details = dict(details)
+    envelope_live = payload.get("live")
+    detail_live = details.get("live")
+    if envelope_live is not None and not isinstance(envelope_live, bool):
+        return JsonResponse({"detail": "invalid_environment"}, status=400)
+    if isinstance(envelope_live, bool):
+        if detail_live is not None and detail_live != envelope_live:
+            return JsonResponse({"detail": "environment_mismatch"}, status=409)
+        details["live"] = envelope_live
     metadata = details.get("metadata")
     metadata = metadata if isinstance(metadata, dict) else {}
     reference = str(metadata.get("merchant_reference") or "").strip()

@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -15,6 +16,7 @@ from subscriptions.models import (
     SubscriptionPaymentOperation,
     TamaraCheckout,
 )
+from subscriptions.tamara_processing import reconcile_pending_checkouts
 
 
 TAMARA_TEST_SETTINGS = {
@@ -56,6 +58,28 @@ class TamaraCheckoutTests(TestCase):
         )
         profile.schools.add(self.school)
         self.client.force_login(self.user)
+
+    def _checkout(self, *, order_id: str, status: str = "new") -> TamaraCheckout:
+        return TamaraCheckout.objects.create(
+            school=self.school,
+            created_by=self.user,
+            plan=self.plan,
+            request_type="new",
+            starts_at=timezone.localdate(),
+            amount=Decimal("500.00"),
+            tamara_order_id=order_id,
+            checkout_id=f"checkout-{order_id}",
+            checkout_url=f"https://checkout.tamara.co/session/{order_id}",
+            status=status,
+        )
+
+    def _order_details(self, checkout: TamaraCheckout, *, status: str) -> dict:
+        return {
+            "order_id": checkout.tamara_order_id,
+            "order_reference_id": checkout.merchant_reference,
+            "total_amount": {"amount": 500, "currency": "SAR"},
+            "status": status,
+        }
 
     @patch("subscriptions.tamara.TamaraClient.create_checkout")
     @patch("subscriptions.tamara.TamaraClient.is_eligible", return_value=True)
@@ -193,6 +217,17 @@ class TamaraCheckoutTests(TestCase):
         self.assertContains(response, reverse("subscriptions:tamara_start"), count=1)
         self.assertContains(response, 'id="tamara-plan-id"')
 
+    def test_subscription_page_shows_tamara_checkout_status(self):
+        checkout = self._checkout(order_id="order-visible")
+
+        response = self.client.get(reverse("dashboard:my_subscription"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, checkout.merchant_reference[-8:])
+        self.assertContains(response, "تمارا")
+        self.assertContains(response, checkout.get_status_display())
+        self.assertContains(response, checkout.checkout_url)
+
     def test_invalid_webhook_token_is_rejected(self):
         response = self.client.post(
             reverse("subscriptions:tamara_webhook"),
@@ -202,3 +237,68 @@ class TamaraCheckoutTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 403)
+
+    @patch("subscriptions.tamara_processing.TamaraClient.get_order")
+    def test_reconciliation_recovers_payment_older_than_three_days(self, get_order):
+        checkout = self._checkout(order_id="order-old-paid")
+        stale = timezone.now() - timedelta(days=10)
+        TamaraCheckout.objects.filter(pk=checkout.pk).update(
+            created_at=stale,
+            updated_at=stale,
+        )
+        get_order.return_value = self._order_details(checkout, status="fully_captured")
+
+        result = reconcile_pending_checkouts()
+
+        self.assertEqual(result.checked, 1)
+        self.assertEqual(result.activated, 1)
+        self.assertEqual(result.captured, 1)
+        checkout.refresh_from_db()
+        self.assertEqual(checkout.status, "captured")
+        self.assertIsNotNone(checkout.payment_operation_id)
+
+    @patch("subscriptions.tamara_processing.TamaraClient.get_order")
+    def test_open_checkout_rotates_and_does_not_starve_later_orders(self, get_order):
+        first = self._checkout(order_id="order-still-new-1")
+        second = self._checkout(order_id="order-still-new-2")
+        old = timezone.now() - timedelta(days=2)
+        TamaraCheckout.objects.filter(pk=first.pk).update(updated_at=old)
+        TamaraCheckout.objects.filter(pk=second.pk).update(updated_at=old + timedelta(seconds=1))
+        details_by_id = {
+            first.tamara_order_id: self._order_details(first, status="new"),
+            second.tamara_order_id: self._order_details(second, status="new"),
+        }
+        get_order.side_effect = lambda order_id: details_by_id[order_id]
+
+        reconcile_pending_checkouts(limit=1)
+        reconcile_pending_checkouts(limit=1)
+
+        self.assertEqual(
+            [call.args[0] for call in get_order.call_args_list],
+            [first.tamara_order_id, second.tamara_order_id],
+        )
+
+    @patch("subscriptions.tamara_processing.TamaraClient.get_order")
+    def test_reconciliation_mismatch_does_not_block_next_paid_order(self, get_order):
+        mismatched = self._checkout(order_id="order-mismatched")
+        paid = self._checkout(order_id="order-valid-paid")
+        mismatched_details = self._order_details(mismatched, status="fully_captured")
+        mismatched_details.pop("order_reference_id")
+        details_by_id = {
+            mismatched.tamara_order_id: mismatched_details,
+            paid.tamara_order_id: self._order_details(paid, status="fully_captured"),
+        }
+        get_order.side_effect = lambda order_id: details_by_id[order_id]
+
+        result = reconcile_pending_checkouts(limit=2)
+
+        self.assertEqual(result.failed, 1)
+        self.assertEqual(result.checked, 1)
+        self.assertEqual(result.activated, 1)
+        mismatched.refresh_from_db()
+        paid.refresh_from_db()
+        self.assertEqual(mismatched.status, "new")
+        self.assertEqual(mismatched.last_event, "reconcile_mismatch")
+        self.assertTrue(mismatched.error_message)
+        self.assertEqual(paid.status, "captured")
+        self.assertIsNotNone(paid.payment_operation_id)
