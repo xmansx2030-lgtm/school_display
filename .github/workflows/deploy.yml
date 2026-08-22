@@ -59,18 +59,18 @@ jobs:
           archive="$RUNNER_TEMP/school-display-$short.tar.gz"
           git archive --format=tar.gz -o "$archive" "$SOURCE_SHA"
           scp -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -P "$SSH_PORT" \
-            "$archive" "$SSH_TARGET:/tmp/school-display-$short.tar.gz"
+            "$archive" "$SSH_TARGET:/tmp/school-display-$short-$GITHUB_RUN_ID.tar.gz"
           scp -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -P "$SSH_PORT" \
-            deploy/deploy.sh "$SSH_TARGET:/tmp/school-display-deploy-$short.sh"
+            deploy/deploy.sh "$SSH_TARGET:/tmp/school-display-deploy-$short-$GITHUB_RUN_ID.sh"
 
       - name: Back up, deploy, migrate, and verify
         run: |
           short="${SOURCE_SHA:0:7}"
           ssh -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
             "sudo -n install -o deploy -g deploy -m 0600 \
-             '/tmp/school-display-$short.tar.gz' \
+             '/tmp/school-display-$short-$GITHUB_RUN_ID.tar.gz' \
              '/home/deploy/releases/school-display-$short.tar.gz' && \
-             sudo -n bash '/tmp/school-display-deploy-$short.sh' '$short' '$SOURCE_SHA'"
+             sudo -n bash '/tmp/school-display-deploy-$short-$GITHUB_RUN_ID.sh' '$short' '$SOURCE_SHA'"
           curl --fail --silent --show-error --max-time 20 \
             https://school-display.com/ > /dev/null
 
