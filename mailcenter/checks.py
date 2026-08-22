@@ -30,7 +30,13 @@ def check_mail_configuration(app_configs, **kwargs):
                 id="mailcenter.W001",
             )
         )
-    if not str(getattr(settings, "RESEND_WEBHOOK_SECRET", "") or "").strip():
+    email_host = str(getattr(settings, "EMAIL_HOST", "") or "").casefold()
+    resend_events_expected = (
+        "resend.com" in email_host or getattr(settings, "RESEND_INBOUND_ENABLED", False)
+    )
+    if resend_events_expected and not str(
+        getattr(settings, "RESEND_WEBHOOK_SECRET", "") or ""
+    ).strip():
         issues.append(
             Error(
                 "Resend delivery events are enabled without a webhook signing secret.",

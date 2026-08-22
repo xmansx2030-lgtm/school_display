@@ -10,10 +10,44 @@ from django.urls import reverse
 from django.utils import timezone
 from svix.webhooks import Webhook
 
+from .checks import check_mail_configuration
 from .models import MailMessage, MailWebhookEvent
 
 
 WEBHOOK_SECRET = "whsec_dGVzdC1yZXNlbmQtc2VjcmV0"
+
+
+class MailConfigurationCheckTests(TestCase):
+    @override_settings(
+        DEBUG=False,
+        RUNNING_TESTS=False,
+        TRANSACTIONAL_EMAIL_ENABLED=True,
+        EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend",
+        EMAIL_HOST="smtp-relay.brevo.com",
+        DEFAULT_FROM_EMAIL="School Display <no-reply@school-display.com>",
+        RESEND_WEBHOOK_SECRET="",
+        RESEND_INBOUND_ENABLED=False,
+    )
+    def test_non_resend_smtp_does_not_require_resend_webhook_secret(self):
+        issue_ids = {issue.id for issue in check_mail_configuration(None)}
+
+        self.assertNotIn("mailcenter.E002", issue_ids)
+        self.assertIn("mailcenter.W001", issue_ids)
+
+    @override_settings(
+        DEBUG=False,
+        RUNNING_TESTS=False,
+        TRANSACTIONAL_EMAIL_ENABLED=True,
+        EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend",
+        EMAIL_HOST="smtp.resend.com",
+        DEFAULT_FROM_EMAIL="School Display <no-reply@mail.school-display.com>",
+        RESEND_WEBHOOK_SECRET="",
+        RESEND_INBOUND_ENABLED=False,
+    )
+    def test_resend_smtp_requires_webhook_secret(self):
+        issue_ids = {issue.id for issue in check_mail_configuration(None)}
+
+        self.assertIn("mailcenter.E002", issue_ids)
 
 
 @override_settings(
