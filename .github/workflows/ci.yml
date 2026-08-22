@@ -53,6 +53,14 @@ jobs:
           CACHE_REDIS_URL: redis://localhost:6379/0
           REDIS_CHANNELS_URL: redis://localhost:6379/1
           CHANNELS_REDIS_URL: redis://localhost:6379/1
+          EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+          EMAIL_HOST: smtp.resend.com
+          EMAIL_HOST_USER: resend
+          EMAIL_HOST_PASSWORD: ci-only-email-password
+          DEFAULT_FROM_EMAIL: لوحة العرض الذكية <no-reply@mail.school-display.com>
+          RESEND_API_KEY: ci-only-resend-api-key
+          RESEND_WEBHOOK_SECRET: whsec_ci_only
+          RESEND_INBOUND_ENABLED: "True"
         run: |
           python manage.py check --deploy
           python manage.py makemigrations --check --dry-run
