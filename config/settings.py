@@ -1121,7 +1121,7 @@ EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", "False")
 EMAIL_TIMEOUT = env_int_clamped("EMAIL_TIMEOUT", 15, 1, 60)
 DEFAULT_FROM_EMAIL = os.getenv(
     "DEFAULT_FROM_EMAIL",
-    "لوحة العرض الذكية <no-reply@school-display.com>",
+    "لوحة العرض الذكية <no-reply@mail.school-display.com>",
 ).strip()
 SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL).strip()
 EMAIL_REPLY_TO = os.getenv(
