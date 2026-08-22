@@ -85,6 +85,6 @@ jobs:
       - name: Stamp Operations Center
         run: |
           ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
-            "cd '$DEPLOY_PATH' && docker compose -f compose.hetzner.yaml \
+            "cd '$DEPLOY_PATH' && sudo -n docker compose -f compose.hetzner.yaml \
              exec -T web python manage.py stamp_managed_project_release \
              school-display '$SOURCE_SHA'"
