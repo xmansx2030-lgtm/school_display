@@ -971,6 +971,7 @@ TAMARA_API_BASE_URL = os.getenv(
     "TAMARA_API_BASE_URL",
     "https://api.tamara.co",
 ).strip().rstrip("/")
+TAMARA_ENVIRONMENT = os.getenv("TAMARA_ENVIRONMENT", "production").strip().lower()
 TAMARA_API_TOKEN = env_secret("TAMARA_API_TOKEN", "TAMARA_API_TOKEN_FILE")
 TAMARA_NOTIFICATION_TOKEN = env_secret(
     "TAMARA_NOTIFICATION_TOKEN",
@@ -993,12 +994,21 @@ TAMARA_RECONCILIATION_BATCH_SIZE = env_int_clamped(
 )
 
 if TAMARA_ENABLED and not DEBUG and not RUNNING_TESTS:
+    if TAMARA_ENVIRONMENT not in {"production", "sandbox"}:
+        raise RuntimeError("TAMARA_ENVIRONMENT must be either production or sandbox")
     if not TAMARA_API_TOKEN or TAMARA_API_TOKEN.startswith("CHANGE_ME"):
         raise RuntimeError("TAMARA_API_TOKEN or TAMARA_API_TOKEN_FILE is required when Tamara is enabled")
     if not TAMARA_NOTIFICATION_TOKEN or TAMARA_NOTIFICATION_TOKEN.startswith("CHANGE_ME"):
         raise RuntimeError("TAMARA_NOTIFICATION_TOKEN or TAMARA_NOTIFICATION_TOKEN_FILE is required when Tamara is enabled")
-    if TAMARA_API_BASE_URL != "https://api.tamara.co":
-        raise RuntimeError("Production Tamara checkout must use https://api.tamara.co")
+    expected_tamara_base_url = (
+        "https://api-sandbox.tamara.co"
+        if TAMARA_ENVIRONMENT == "sandbox"
+        else "https://api.tamara.co"
+    )
+    if TAMARA_API_BASE_URL != expected_tamara_base_url:
+        raise RuntimeError(
+            f"Tamara {TAMARA_ENVIRONMENT} checkout must use {expected_tamara_base_url}"
+        )
     if not TAMARA_CALLBACK_BASE_URL.startswith("https://"):
         raise RuntimeError("TAMARA_CALLBACK_BASE_URL must use HTTPS in production")
 

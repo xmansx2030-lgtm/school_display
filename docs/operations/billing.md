@@ -19,10 +19,18 @@ MOYASAR_CALLBACK_BASE_URL=https://school-display.com
 TRANSACTIONAL_EMAIL_ENABLED=True       # وإلا لن تصل الفواتير
 
 TAMARA_ENABLED=True
+TAMARA_ENVIRONMENT=production
 TAMARA_API_BASE_URL=https://api.tamara.co
 TAMARA_API_TOKEN=...
 TAMARA_NOTIFICATION_TOKEN=...
 TAMARA_CALLBACK_BASE_URL=https://school-display.com
+```
+
+لاستخدام حساب اختبار تمارا بشكل صريح:
+
+```dotenv
+TAMARA_ENVIRONMENT=sandbox
+TAMARA_API_BASE_URL=https://api-sandbox.tamara.co
 ```
 
 `manage.py check --deploy` يرفض الإقلاع أو ينبّه عند أي نقص:
