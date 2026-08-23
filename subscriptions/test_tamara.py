@@ -16,6 +16,7 @@ from subscriptions.models import (
     SubscriptionPaymentOperation,
     TamaraCheckout,
 )
+from subscriptions.tamara import TamaraAPIError
 from subscriptions.tamara_processing import reconcile_pending_checkouts
 
 
@@ -181,6 +182,59 @@ class TamaraCheckoutTests(TestCase):
             ).exists()
         )
         self.assertTrue(SubscriptionInvoice.objects.filter(operation=checkout.payment_operation).exists())
+
+    @patch("subscriptions.tamara_processing.TamaraClient.capture_order")
+    @patch("subscriptions.tamara_processing.TamaraClient.get_order")
+    def test_capture_conflict_rechecks_remote_status_and_marks_captured(
+        self,
+        get_order,
+        capture_order,
+    ):
+        checkout = self._checkout(order_id="order-already-captured", status="authorised")
+        get_order.side_effect = [
+            self._order_details(checkout, status="authorised"),
+            self._order_details(checkout, status="fully_captured"),
+        ]
+        capture_order.side_effect = TamaraAPIError("conflict", status_code=409)
+
+        result = reconcile_pending_checkouts()
+
+        self.assertEqual(result.checked, 1)
+        self.assertEqual(result.activated, 1)
+        self.assertEqual(result.captured, 1)
+        checkout.refresh_from_db()
+        self.assertEqual(checkout.status, "captured")
+        self.assertEqual(SubscriptionPaymentOperation.objects.filter(method="tamara").count(), 1)
+
+    @patch("subscriptions.tamara_processing.TamaraClient.get_order")
+    def test_activation_reuses_existing_tamara_payment_operation(self, get_order):
+        checkout = self._checkout(order_id="order-existing-operation")
+        subscription = SchoolSubscription.objects.create(
+            school=self.school,
+            plan=self.plan,
+            starts_at=checkout.starts_at,
+            status="active",
+            notes="Existing subscription",
+        )
+        operation = SubscriptionPaymentOperation.objects.create(
+            school=self.school,
+            subscription=subscription,
+            plan=self.plan,
+            amount=checkout.amount,
+            method="tamara",
+            source="request",
+            created_by=self.user,
+            note=f"Tamara {checkout.merchant_reference} / {checkout.tamara_order_id}",
+        )
+        get_order.return_value = self._order_details(checkout, status="fully_captured")
+
+        result = reconcile_pending_checkouts()
+
+        self.assertEqual(result.checked, 1)
+        self.assertEqual(result.activated, 1)
+        checkout.refresh_from_db()
+        self.assertEqual(checkout.payment_operation_id, operation.pk)
+        self.assertEqual(SubscriptionPaymentOperation.objects.filter(method="tamara").count(), 1)
 
     @patch("subscriptions.tamara_processing.TamaraClient.get_order")
     def test_amount_mismatch_never_activates(self, get_order):

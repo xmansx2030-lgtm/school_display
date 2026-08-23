@@ -86,6 +86,10 @@ def activate_checkout(checkout_id: int, *, status: str, event_type: str) -> Tama
             .select_related("school", "plan", "created_by", "payment_operation")
             .get(pk=checkout_id)
         )
+        # A success callback and webhook can reconcile the same checkout almost
+        # simultaneously. Refresh after the row lock so the second worker sees
+        # the payment_operation saved by the first one.
+        checkout.refresh_from_db()
 
         subscription, _created = SchoolSubscription.objects.get_or_create(
             school=checkout.school,
@@ -108,34 +112,49 @@ def activate_checkout(checkout_id: int, *, status: str, event_type: str) -> Tama
 
         operation = checkout.payment_operation
         if operation is None:
-            operation = SubscriptionPaymentOperation.objects.create(
-                school=checkout.school,
-                subscription=subscription,
-                plan=checkout.plan,
-                amount=checkout.amount,
-                method="tamara",
-                source="request",
-                created_by=checkout.created_by,
-                note=f"Tamara {checkout.merchant_reference} / {checkout.tamara_order_id}",
+            note = f"Tamara {checkout.merchant_reference} / {checkout.tamara_order_id}"
+            operation = (
+                SubscriptionPaymentOperation.objects.filter(
+                    school=checkout.school,
+                    subscription=subscription,
+                    plan=checkout.plan,
+                    amount=checkout.amount,
+                    method="tamara",
+                    source="request",
+                    note=note,
+                )
+                .order_by("id")
+                .first()
             )
+            if operation is None:
+                operation = SubscriptionPaymentOperation.objects.create(
+                    school=checkout.school,
+                    subscription=subscription,
+                    plan=checkout.plan,
+                    amount=checkout.amount,
+                    method="tamara",
+                    source="request",
+                    created_by=checkout.created_by,
+                    note=note,
+                )
 
-            from .audit import record
+                from .audit import record
 
-            record(
-                "payment_recorded",
-                school=checkout.school,
-                subscription=subscription,
-                actor=checkout.created_by,
-                amount=checkout.amount,
-                summary="تفعيل اشتراك عبر تمارا",
-                context={
-                    "gateway": "tamara",
-                    "merchant_reference": checkout.merchant_reference,
-                    "order_id": checkout.tamara_order_id or "",
-                    "event": event_type,
-                    "request_type": checkout.request_type,
-                },
-            )
+                record(
+                    "payment_recorded",
+                    school=checkout.school,
+                    subscription=subscription,
+                    actor=checkout.created_by,
+                    amount=checkout.amount,
+                    summary="تفعيل اشتراك عبر تمارا",
+                    context={
+                        "gateway": "tamara",
+                        "merchant_reference": checkout.merchant_reference,
+                        "order_id": checkout.tamara_order_id or "",
+                        "event": event_type,
+                        "request_type": checkout.request_type,
+                    },
+                )
 
         if not SubscriptionInvoice.objects.filter(operation=operation).exists():
             build_invoice_from_operation(operation)
@@ -216,7 +235,35 @@ def reconcile_checkout(checkout_id: int) -> TamaraCheckout:
             return checkout
         try:
             result = client.capture_order(checkout)
-        except (TamaraConfigurationError, TamaraAPIError, TamaraVerificationError):
+        except TamaraAPIError as exc:
+            if exc.status_code == 409:
+                try:
+                    details = client.get_order(checkout.tamara_order_id)
+                    _verify_remote_order(checkout, details)
+                except (TamaraConfigurationError, TamaraAPIError, TamaraVerificationError):
+                    logger.exception(
+                        "tamara_capture_status_check_failed reference=%s order_id=%s",
+                        checkout.merchant_reference,
+                        checkout.tamara_order_id,
+                    )
+                    return checkout
+                else:
+                    captured_status = normalize_remote_status(details.get("status"))
+                    if captured_status in _CAPTURED_STATUSES:
+                        return activate_checkout(
+                            checkout.pk,
+                            status="captured",
+                            event_type=f"pull:{captured_status}",
+                        )
+                    if captured_status in _AUTHORISED_STATUSES:
+                        return checkout
+            logger.exception(
+                "tamara_capture_failed reference=%s order_id=%s",
+                checkout.merchant_reference,
+                checkout.tamara_order_id,
+            )
+            return checkout
+        except (TamaraConfigurationError, TamaraVerificationError):
             logger.exception(
                 "tamara_capture_failed reference=%s order_id=%s",
                 checkout.merchant_reference,
