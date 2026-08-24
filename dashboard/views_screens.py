@@ -450,6 +450,29 @@ def _screen_limit_message(max_screens: int) -> str:
     return f"لا يمكن إنشاء أكثر من {int(max_screens)} شاشة لهذه المدرسة."
 
 
+def _seed_screen_appearance_overrides(screen, school) -> None:
+    """Start new screens with their own visual identity controls enabled."""
+    settings_obj, _ = _school_settings_model().objects.get_or_create(
+        school=school,
+        defaults={"name": school.name},
+    )
+    theme = (getattr(settings_obj, "theme", "") or "indigo").strip().lower()
+    theme = {
+        "default": "indigo",
+        "boys": "emerald",
+        "girls": "rose",
+    }.get(theme, theme)
+    screen.theme_override = theme
+    screen.display_accent_color_override = (
+        getattr(settings_obj, "display_accent_color", "")
+        or SchoolSettingsForm.THEME_ACCENTS.get(theme, "#6366F1")
+    )
+    screen.featured_panel_override = (
+        getattr(settings_obj, "featured_panel", "")
+        or _school_settings_model().FEATURE_PANEL_EXCELLENCE
+    )
+
+
 @manager_required
 def screen_create(request):
     display_screen = _display_screen_model()
@@ -480,6 +503,7 @@ def screen_create(request):
 
                 screen = form.save(commit=False)
                 screen.school = school
+                _seed_screen_appearance_overrides(screen, school)
                 screen.save()
             messages.success(
                 request,

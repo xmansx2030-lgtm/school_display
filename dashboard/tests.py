@@ -46,7 +46,7 @@ from core.two_factor import (
 )
 from dashboard.access import get_active_school_or_redirect
 from dashboard.decorators import manager_required, superuser_required, system_staff_required
-from dashboard.forms import SubscriptionNewRequestForm
+from dashboard.forms import ScreenDisplayCustomizationForm, SubscriptionNewRequestForm
 from subscriptions.models import (
     MoyasarCheckout,
     SubscriptionInvoice,
@@ -2424,6 +2424,34 @@ class ScreenInheritanceTests(TestCase):
 
         response = self.client.get(reverse("dashboard:screen_list"))
         self.assertContains(response, "تخصيص مستقل")
+
+    def test_new_screen_starts_with_appearance_inheritance_off(self):
+        self.settings_obj.theme = "emerald"
+        self.settings_obj.display_accent_color = "#22C55E"
+        self.settings_obj.featured_panel = SchoolSettings.FEATURE_PANEL_DUTY
+        self.settings_obj.save(update_fields=["theme", "display_accent_color", "featured_panel"])
+
+        response = self.client.post(
+            reverse("dashboard:screen_create"),
+            {
+                "name": "شاشة جديدة",
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard:screen_list"),
+            fetch_redirect_response=False,
+        )
+        new_screen = DisplayScreen.objects.get(name="شاشة جديدة", school=self.school)
+        self.assertEqual(new_screen.theme_override, "emerald")
+        self.assertEqual(new_screen.display_accent_color_override, "#22C55E")
+        self.assertEqual(new_screen.featured_panel_override, SchoolSettings.FEATURE_PANEL_DUTY)
+
+        response = self.client.get(reverse("dashboard:screen_edit", args=[new_screen.pk]))
+        inherit_selected = response.context["inherit_selected"]
+        self.assertNotIn(ScreenDisplayCustomizationForm.INHERIT_APPEARANCE, inherit_selected)
 
     def test_screen_limit_is_rechecked_under_lock_before_creating(self):
         DisplayScreen.objects.filter(school=self.school).delete()
