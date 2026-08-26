@@ -311,6 +311,12 @@ def screen_list(request):
     current_count = qs.count()
     max_screens = get_school_max_screens_limit(school)
     plan_name = get_school_effective_plan_label(school)
+    try:
+        from subscriptions.utils import school_has_paid_active_subscription
+
+        can_purchase_screen_addon = school_has_paid_active_subscription(school.pk)
+    except Exception:
+        can_purchase_screen_addon = False
 
     now = timezone.now()
     live_threshold_seconds = display_live_threshold_seconds()
@@ -438,6 +444,7 @@ def screen_list(request):
             "screen_live_threshold_seconds": live_threshold_seconds,
             "screen_live_threshold_minutes": live_threshold_minutes,
             "plan_name": plan_name,
+            "can_purchase_screen_addon": can_purchase_screen_addon,
             "screens_remaining": screens_remaining,
             "auto_disabled_count": auto_disabled_count,
         },
@@ -864,6 +871,16 @@ def request_screen_addon(request):
     school, response = get_active_school_or_redirect(request)
     if response:
         return response
+
+    try:
+        from subscriptions.utils import school_has_paid_active_subscription
+
+        has_paid_subscription = school_has_paid_active_subscription(school.pk)
+    except Exception:
+        has_paid_subscription = False
+    if not has_paid_subscription:
+        messages.warning(request, "فعّل اشتراكًا مدفوعًا أولًا قبل طلب شاشات إضافية.")
+        return redirect("dashboard:my_subscription")
 
     current_count = display_screen.objects.filter(school=school).count()
     max_screens = get_school_max_screens_limit(school)
