@@ -34,8 +34,8 @@
       {% endif %}
 
       {% if show_screen_limit_message %}
-        <a href="{% url 'dashboard:my_subscription' %}#screen-addon-purchase" class="screen-secondary-action">
-          <span>زيادة الباقة</span>
+        <a href="{% url 'dashboard:my_subscription' %}{% if can_purchase_screen_addon %}#screen-addon-purchase{% endif %}" class="screen-secondary-action">
+          <span>{% if can_purchase_screen_addon %}زيادة الباقة{% else %}اختيار باقة مدفوعة{% endif %}</span>
           <svg class="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </a>
       {% endif %}
@@ -365,7 +365,9 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
         </a>
       {% else %}
-        <a href="{% url 'dashboard:my_subscription' %}#screen-addon-purchase" class="pairing-guide-primary">زيادة باقة الشاشات</a>
+        <a href="{% url 'dashboard:my_subscription' %}{% if can_purchase_screen_addon %}#screen-addon-purchase{% endif %}" class="pairing-guide-primary">
+          {% if can_purchase_screen_addon %}زيادة باقة الشاشات{% else %}اختيار باقة مدفوعة{% endif %}
+        </a>
       {% endif %}
       <button type="button" class="pairing-guide-secondary" data-pairing-guide-close>لاحقًا</button>
     </div>

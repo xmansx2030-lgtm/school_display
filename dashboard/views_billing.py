@@ -1297,15 +1297,25 @@ def my_subscription(request):
     # customer discovers it at the moment they try to pay.
     email_verified = user_email_is_verified(request.user)
 
-    # Mid-term screen top-up: only offered while a term is actually running,
-    # and priced for the days that remain in it.
+    # A trial includes its bundled screen, but screen add-ons are only offered
+    # after a paid base plan is active.
     screen_addon_offer = None
-    if current_subscription is not None and moyasar_available:
-        subscription_ends_at = getattr(current_subscription, "ends_at", None)
+    try:
+        from subscriptions.utils import school_active_paid_subscription
+
+        screen_addon_subscription = school_active_paid_subscription(
+            getattr(school, "pk", None),
+            on_date=today,
+        )
+    except Exception:
+        screen_addon_subscription = None
+
+    if screen_addon_subscription is not None and moyasar_available:
+        subscription_ends_at = getattr(screen_addon_subscription, "ends_at", None)
         if subscription_ends_at:
             remaining_days = max(1, (subscription_ends_at - today).days + 1)
         else:
-            remaining_days = int(getattr(current_subscription.plan, "duration_days", 0) or 365)
+            remaining_days = int(getattr(screen_addon_subscription.plan, "duration_days", 0) or 365)
         raw_options = [30, 90, 182, 365, remaining_days]
         duration_options = []
         price_matrix = {}
@@ -1326,7 +1336,7 @@ def my_subscription(request):
                 ends_at = subscription_ends_at
             unit_price = prorated_screen_addon_price(
                 1,
-                plan=current_subscription.plan,
+                plan=screen_addon_subscription.plan,
                 starts_at=today,
                 ends_at=ends_at,
             )
@@ -1336,7 +1346,7 @@ def my_subscription(request):
                 str(count): str(
                     prorated_screen_addon_price(
                         count,
-                        plan=current_subscription.plan,
+                        plan=screen_addon_subscription.plan,
                         starts_at=today,
                         ends_at=ends_at,
                     )
@@ -1368,7 +1378,7 @@ def my_subscription(request):
             screen_addon_offer = {
                 "max_screens": MAX_EXTRA_SCREENS,
                 "ends_at": subscription_ends_at,
-                "plan_name": current_subscription.plan.name,
+                "plan_name": screen_addon_subscription.plan.name,
                 "duration_options": duration_options,
                 "default_option": duration_options[0],
                 "price_matrix": price_matrix,

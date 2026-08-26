@@ -180,27 +180,12 @@ class ScreenPurchaseCheckoutTests(TestCase):
             status="active",
         )
 
-    # ---- buying screens alongside a plan ---------------------------------
-    def test_new_subscription_can_include_extra_screens(self):
-        self._start(request_type="new", plan_id=self.plan.pk, extra_screens="3")
+    # ---- the base plan must be active before buying add-ons ---------------
+    def test_new_subscription_cannot_include_extra_screens(self):
+        response = self._start(request_type="new", plan_id=self.plan.pk, extra_screens="3")
 
-        checkout = MoyasarCheckout.objects.get()
-        self.assertEqual(checkout.extra_screens, 3)
-        # 1000 plan + (3 screens x 60 x 10 months)
-        self.assertEqual(checkout.amount, Decimal("2800.00"))
-
-    def test_paying_grants_the_screens(self):
-        self._start(request_type="new", plan_id=self.plan.pk, extra_screens="3")
-        checkout = MoyasarCheckout.objects.get()
-
-        self._pay(checkout)
-
-        addon = SubscriptionScreenAddon.objects.get()
-        self.assertEqual(addon.screens_added, 3)
-        self.assertEqual(addon.status, "paid")
-        self.assertEqual(addon.total_price, Decimal("1800.00"))
-        # Plan allows 2, purchase adds 3.
-        self.assertEqual(school_max_screens(self.school.id), 5)
+        self.assertRedirects(response, reverse("dashboard:my_subscription"))
+        self.assertFalse(MoyasarCheckout.objects.exists())
 
     def test_plan_without_extra_screens_creates_no_addon(self):
         self._start(request_type="new", plan_id=self.plan.pk, extra_screens="0")
@@ -275,6 +260,16 @@ class ScreenPurchaseCheckoutTests(TestCase):
         self.assertRedirects(response, reverse("dashboard:my_subscription"))
         self.assertFalse(MoyasarCheckout.objects.exists())
 
+    def test_trial_subscription_cannot_buy_extra_screens(self):
+        self.plan.price = Decimal("0.00")
+        self.plan.save(update_fields=["price"])
+        self._activate(ends_at=timezone.localdate() + timedelta(days=13))
+
+        response = self._start(request_type="screens", extra_screens="1")
+
+        self.assertRedirects(response, reverse("dashboard:my_subscription"))
+        self.assertFalse(MoyasarCheckout.objects.exists())
+
     def test_screens_purchase_requires_a_positive_count(self):
         self._activate(ends_at=timezone.localdate() + timedelta(days=181))
 
@@ -285,19 +280,27 @@ class ScreenPurchaseCheckoutTests(TestCase):
 
     # ---- integrity --------------------------------------------------------
     def test_tampered_screen_count_cannot_inflate_the_charge(self):
-        self._start(request_type="new", plan_id=self.plan.pk, extra_screens="100000")
+        today = timezone.localdate()
+        self._activate(ends_at=today + timedelta(days=364))
+        self._start(request_type="screens", extra_screens="100000")
 
         checkout = MoyasarCheckout.objects.get()
         self.assertEqual(checkout.extra_screens, MAX_EXTRA_SCREENS)
         self.assertEqual(
             checkout.amount,
-            checkout_total(self.plan, MAX_EXTRA_SCREENS),
+            prorated_screen_addon_price(
+                MAX_EXTRA_SCREENS,
+                plan=self.plan,
+                starts_at=today,
+                ends_at=today + timedelta(days=364),
+            ),
         )
 
     def test_changing_screen_count_starts_a_separate_checkout(self):
         """Reusing a recent order must not bill the wrong screen count."""
-        self._start(request_type="new", plan_id=self.plan.pk, extra_screens="1")
-        self._start(request_type="new", plan_id=self.plan.pk, extra_screens="4")
+        self._activate(ends_at=timezone.localdate() + timedelta(days=181))
+        self._start(request_type="screens", extra_screens="1")
+        self._start(request_type="screens", extra_screens="4")
 
         self.assertEqual(MoyasarCheckout.objects.count(), 2)
         self.assertEqual(
@@ -306,8 +309,9 @@ class ScreenPurchaseCheckoutTests(TestCase):
         )
 
     def test_identical_request_reuses_the_pending_checkout(self):
-        self._start(request_type="new", plan_id=self.plan.pk, extra_screens="2")
-        self._start(request_type="new", plan_id=self.plan.pk, extra_screens="2")
+        self._activate(ends_at=timezone.localdate() + timedelta(days=181))
+        self._start(request_type="screens", extra_screens="2")
+        self._start(request_type="screens", extra_screens="2")
 
         self.assertEqual(MoyasarCheckout.objects.count(), 1)
 
@@ -338,6 +342,28 @@ class ScreenPurchaseCheckoutTests(TestCase):
 
         self.assertNotContains(response, "تحتاج شاشة إضافية؟")
 
+    def test_purchase_is_hidden_during_free_trial(self):
+        self.plan.price = Decimal("0.00")
+        self.plan.save(update_fields=["price"])
+        self._activate(ends_at=timezone.localdate() + timedelta(days=13))
+
+        response = self.client.get(reverse("dashboard:my_subscription"))
+
+        self.assertNotContains(response, "تحتاج شاشة إضافية؟")
+        self.assertIsNone(response.context["screen_addon_offer"])
+
+    def test_trial_limit_points_to_paid_plans_not_addon_checkout(self):
+        self.plan.price = Decimal("0.00")
+        self.plan.max_screens = 1
+        self.plan.save(update_fields=["price", "max_screens"])
+        self._activate(ends_at=timezone.localdate() + timedelta(days=13))
+        DisplayScreen.objects.create(school=self.school, name="الشاشة التجريبية")
+
+        response = self.client.get(reverse("dashboard:screen_list"))
+
+        self.assertContains(response, "اختيار باقة مدفوعة")
+        self.assertNotContains(response, "#screen-addon-purchase")
+
     def test_screen_limit_cta_points_to_electronic_purchase(self):
         self._activate(ends_at=timezone.localdate() + timedelta(days=181))
         DisplayScreen.objects.create(school=self.school, name="الشاشة الأولى")
@@ -352,7 +378,8 @@ class ScreenPurchaseCheckoutTests(TestCase):
         self.assertNotContains(response, reverse("dashboard:request_screen_addon"))
 
     def test_screens_are_granted_once_even_if_payment_is_applied_twice(self):
-        self._start(request_type="new", plan_id=self.plan.pk, extra_screens="2")
+        self._activate(ends_at=timezone.localdate() + timedelta(days=181))
+        self._start(request_type="screens", extra_screens="2")
         checkout = MoyasarCheckout.objects.get()
 
         self._pay(checkout)

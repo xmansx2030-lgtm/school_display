@@ -35,6 +35,7 @@ from .moyasar_processing import (
     amount_to_minor_units,
     apply_payment_details,
 )
+from .utils import school_active_paid_subscription
 
 
 logger = logging.getLogger(__name__)
@@ -68,21 +69,8 @@ def _user_may_checkout(user) -> bool:
 
 
 def _active_subscription(school):
-    """The running subscription a screens-only purchase attaches to."""
-    from django.db.models import Q
-
-    today = timezone.localdate()
-    return (
-        SchoolSubscription.objects.filter(
-            school=school,
-            status="active",
-            starts_at__lte=today,
-        )
-        .filter(Q(ends_at__isnull=True) | Q(ends_at__gte=today))
-        .select_related("plan")
-        .order_by("-ends_at", "-starts_at", "-id")
-        .first()
-    )
+    """The running paid subscription a screens-only purchase attaches to."""
+    return school_active_paid_subscription(getattr(school, "pk", None))
 
 
 def _renewal_start(school, plan) -> date:
@@ -154,10 +142,20 @@ def moyasar_start(request):
 
     extra_screens = normalize_extra_screens(request.POST.get("extra_screens"))
 
+    # Screen add-ons are a post-subscription operation. Never allow a crafted
+    # first-subscription/renewal request to bundle them before the base plan is
+    # active.
+    if request_type != "screens" and extra_screens > 0:
+        messages.error(
+            request,
+            "أكمل تفعيل الاشتراك الأساسي أولًا، ثم أضف الشاشات من صفحة اشتراكي.",
+        )
+        return redirect("dashboard:my_subscription")
+
     if request_type == "screens":
         current = _active_subscription(school)
         if current is None:
-            messages.error(request, "لا يوجد اشتراك ساري لإضافة شاشات إليه.")
+            messages.error(request, "يلزم وجود اشتراك مدفوع وسارٍ قبل شراء شاشات إضافية.")
             return redirect("dashboard:my_subscription")
         if extra_screens <= 0:
             messages.error(request, "حدد عدد الشاشات الإضافية المطلوبة.")

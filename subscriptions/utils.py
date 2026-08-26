@@ -22,6 +22,35 @@ def school_has_active_subscription(school_id: int, on_date=None) -> bool:
     )
 
 
+def school_active_paid_subscription(school_id: int, on_date=None):
+    """Return the running paid base subscription, if one exists.
+
+    A free trial grants its bundled screen, but it must not be treated as a
+    paid base subscription for purchasing screen add-ons.
+    """
+    if not school_id:
+        return None
+
+    today = on_date or timezone.localdate()
+    return (
+        SchoolSubscription.objects.filter(
+            school_id=school_id,
+            status="active",
+            starts_at__lte=today,
+            plan__price__gt=0,
+        )
+        .filter(Q(ends_at__isnull=True) | Q(ends_at__gte=today))
+        .select_related("plan")
+        .order_by("-ends_at", "-starts_at", "-id")
+        .first()
+    )
+
+
+def school_has_paid_active_subscription(school_id: int, on_date=None) -> bool:
+    """Whether the school may buy add-ons for an already-paid base plan."""
+    return school_active_paid_subscription(school_id, on_date=on_date) is not None
+
+
 def school_effective_max_screens(school_id: int, on_date=None) -> int | None:
     """يرجع حد الشاشات الفعلي = حد الخطة + زيادات الشاشات المدفوعة.
 
