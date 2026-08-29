@@ -742,14 +742,26 @@ def school_data_import(request):
         return response
     parsed = None
     import_token = ""
+    impact = None
+    completed_import = None
+    undo_ttl_seconds = 30 * 60
+    latest_undo_key = f"school-data-import-latest:{request.user.pk}:{school.pk}"
     if request.method == "POST" and request.POST.get("action") == "preview":
         uploaded = request.FILES.get("excel_file")
         if not uploaded:
             messages.error(request, "اختر ملف Excel أولًا.")
         elif getattr(uploaded, "size", 0) > 5 * 1024 * 1024:
             messages.error(request, "حجم الملف يتجاوز 5 م.ب.")
+        elif not (getattr(uploaded, "name", "") or "").lower().endswith(".xlsx"):
+            messages.error(request, "صيغة الملف غير مدعومة. ارفع ملفًا بامتداد xlsx.")
         else:
             parsed = parse_workbook(uploaded)
+            parsed["file"] = {
+                "name": (getattr(uploaded, "name", "") or "school-data.xlsx")[:180],
+                "size": int(getattr(uploaded, "size", 0) or 0),
+            }
+            if not parsed["errors"]:
+                impact = build_import_impact(school=school, parsed=parsed)
             import_token = get_random_string(40)
             cache.set(
                 f"school-data-import:{request.user.pk}:{school.pk}:{import_token}",
@@ -771,6 +783,20 @@ def school_data_import(request):
         else:
             result = apply_import(school=school, parsed=parsed)
             cache.delete(key)
+            undo_token = get_random_string(40)
+            undo_payload = {
+                "token": undo_token,
+                "result": {key: value for key, value in result.items() if key != "undo"},
+                "undo": result["undo"],
+                "file": parsed.get("file") or {},
+                "created_at": timezone.now().isoformat(),
+            }
+            cache.set(
+                f"school-data-import-undo:{request.user.pk}:{school.pk}:{undo_token}",
+                undo_payload,
+                timeout=undo_ttl_seconds,
+            )
+            cache.set(latest_undo_key, undo_token, timeout=undo_ttl_seconds)
             _invalidate_display_cache(school, force_bump=True)
             messages.success(
                 request,
@@ -780,11 +806,53 @@ def school_data_import(request):
                     f"{result['teachers']} معلم/ـة."
                 ),
             )
-            return redirect("dashboard:school_data")
+            return redirect(
+                f"{reverse('dashboard:school_data_import')}?completed={undo_token}"
+            )
+    elif request.method == "POST" and request.POST.get("action") == "undo":
+        undo_token = (request.POST.get("undo_token") or "").strip()
+        undo_key = f"school-data-import-undo:{request.user.pk}:{school.pk}:{undo_token}"
+        undo_payload = cache.get(undo_key)
+        if not undo_payload:
+            messages.error(request, "انتهت مهلة التراجع أو تم استخدامه مسبقًا.")
+        elif cache.get(latest_undo_key) != undo_token:
+            messages.error(request, "لا يمكن التراجع عن استيراد قديم بعد تنفيذ استيراد أحدث.")
+        else:
+            undo_result = undo_import(school=school, undo=undo_payload["undo"])
+            cache.delete(undo_key)
+            cache.delete(latest_undo_key)
+            _invalidate_display_cache(school, force_bump=True)
+            messages.success(
+                request,
+                (
+                    "تم التراجع عن آخر استيراد بنجاح: "
+                    f"استُعيد {undo_result['restored']} سجل وحُذف "
+                    f"{undo_result['deleted']} سجل أنشأه الاستيراد."
+                ),
+            )
+        return redirect("dashboard:school_data_import")
+
+    completed_token = (request.GET.get("completed") or "").strip()
+    if completed_token and cache.get(latest_undo_key) == completed_token:
+        completed_import = cache.get(
+            f"school-data-import-undo:{request.user.pk}:{school.pk}:{completed_token}"
+        )
+    if parsed and impact is None and not parsed.get("errors"):
+        impact = build_import_impact(school=school, parsed=parsed)
     return render(
         request,
         "dashboard/school_data_import.html",
-        {"parsed": parsed, "import_token": import_token},
+        {
+            "parsed": parsed,
+            "preview_rows": (parsed or {}).get("rows", [])[:200],
+            "hidden_preview_rows": max(0, len((parsed or {}).get("rows", [])) - 200),
+            "preview_issues": (parsed or {}).get("issues", [])[:200],
+            "hidden_preview_issues": max(0, len((parsed or {}).get("issues", [])) - 200),
+            "impact": impact,
+            "import_token": import_token,
+            "completed_import": completed_import,
+            "undo_minutes": undo_ttl_seconds // 60,
+        },
     )
 
 # Setting up a school means typing dozens of class, subject and teacher names.

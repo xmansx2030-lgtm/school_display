@@ -13,6 +13,7 @@ from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.core import mail
 from django.core.exceptions import PermissionDenied
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import HttpResponse
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.test.client import RequestFactory
@@ -23,6 +24,7 @@ import pyotp
 from core.models import (
     DisplayScreen,
     School,
+    ScreenOutage,
     SubscriptionPlan,
     SupportTicket,
     SystemEmployeeProfile,
@@ -57,7 +59,7 @@ from subscriptions.models import (
 )
 from schedule.models import ClassLesson, DaySchedule, Period, SchoolClass, SchoolSettings, Subject, Teacher
 from notices.models import Announcement, EmergencyAlert
-from dashboard.excel_import import apply_import, build_template_bytes, parse_workbook
+from dashboard.excel_import import apply_import, build_template_bytes, parse_workbook, undo_import
 from schedule.api_views import _merge_real_data_into_snapshot
 
 
@@ -578,6 +580,32 @@ class CustomerExperienceRegressionTests(TestCase):
         self.assertContains(response, "متصلة الآن")
         self.assertContains(response, "قبل أقل من دقيقة")
         self.assertNotContains(response, "لم تتصل بعد")
+
+    def test_screen_monitoring_center_reports_outage_health_and_history(self):
+        screen = DisplayScreen.objects.create(
+            name="شاشة الساحة",
+            school=self.school,
+            is_active=True,
+            bound_device_id="tv-device-outage",
+            last_seen=timezone.now() - timedelta(minutes=35),
+        )
+        ScreenOutage.objects.create(
+            screen=screen,
+            detected_at=timezone.now() - timedelta(minutes=30),
+            last_seen_at=timezone.now() - timedelta(minutes=35),
+            cause="network_drop",
+            cause_detail="انقطاع اتصال الجهاز بالإنترنت",
+        )
+        cache.set("screen-monitor:heartbeat", timezone.now().isoformat(), timeout=180)
+
+        response = self.client.get(reverse("dashboard:screen_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "منقطعة الآن")
+        self.assertContains(response, "متوسط التشغيل خلال 7 أيام")
+        self.assertContains(response, "سجل الانقطاعات الأخير")
+        self.assertContains(response, "انقطاع اتصال الجهاز بالإنترنت")
+        self.assertContains(response, "تعمل بصورة طبيعية")
 
     def test_screen_list_opens_a_read_only_live_preview_inside_the_dashboard(self):
         screen = DisplayScreen.objects.create(
@@ -1777,6 +1805,107 @@ class EmergencyAlertsAndExcelImportTests(TestCase):
         with self.assertRaises(ValueError):
             apply_import(school=self.school, parsed=parsed)
         self.assertFalse(ClassLesson.objects.filter(settings=self.settings).exists())
+
+    def test_excel_preview_identifies_header_and_teacher_conflicts_by_column(self):
+        from openpyxl import load_workbook
+
+        workbook = load_workbook(BytesIO(build_template_bytes()))
+        workbook["الجدول"].append(
+            ["الأحد", 1, "07:00", "07:45", "الثاني أ", "العلوم", "أحمد محمد"]
+        )
+        conflicted = BytesIO()
+        workbook.save(conflicted)
+        conflicted.seek(0)
+
+        parsed = parse_workbook(conflicted)
+
+        self.assertTrue(parsed["errors"])
+        teacher_issue = next(
+            issue for issue in parsed["issues"] if "مرتبط في الوقت نفسه" in issue["message"]
+        )
+        self.assertEqual(teacher_issue["row"], 3)
+        self.assertEqual(teacher_issue["column"], "المعلم")
+
+        workbook = load_workbook(BytesIO(build_template_bytes()))
+        workbook["الجدول"]["A1"] = "اسم اليوم"
+        bad_headers = BytesIO()
+        workbook.save(bad_headers)
+        bad_headers.seek(0)
+        parsed_headers = parse_workbook(bad_headers)
+        self.assertTrue(any(issue["row"] == 1 for issue in parsed_headers["issues"]))
+
+    def test_excel_import_can_restore_the_previous_lesson(self):
+        school_class = SchoolClass.objects.create(settings=self.settings, name="الأول أ")
+        old_subject = Subject.objects.create(school=self.school, name="المادة السابقة")
+        old_teacher = Teacher.objects.create(school=self.school, name="المعلم السابق")
+        lesson = ClassLesson.objects.create(
+            settings=self.settings,
+            weekday=7,
+            period_index=1,
+            school_class=school_class,
+            subject=old_subject,
+            teacher=old_teacher,
+        )
+        parsed = parse_workbook(BytesIO(build_template_bytes()))
+
+        result = apply_import(school=self.school, parsed=parsed)
+        lesson.refresh_from_db()
+        self.assertEqual(lesson.subject.name, "الرياضيات")
+        self.assertEqual(lesson.teacher.name, "أحمد محمد")
+
+        undo_import(school=self.school, undo=result["undo"])
+        lesson.refresh_from_db()
+        self.assertEqual(lesson.subject, old_subject)
+        self.assertEqual(lesson.teacher, old_teacher)
+        self.assertFalse(Subject.objects.filter(school=self.school, name="الرياضيات").exists())
+        self.assertFalse(Teacher.objects.filter(school=self.school, name="أحمد محمد").exists())
+
+    def test_excel_import_view_exposes_one_click_undo_for_latest_import(self):
+        preview = self.client.post(
+            reverse("dashboard:school_data_import"),
+            {
+                "action": "preview",
+                "excel_file": SimpleUploadedFile(
+                    "school-data.xlsx",
+                    build_template_bytes(),
+                    content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ),
+            },
+        )
+        self.assertEqual(preview.status_code, 200)
+        token = preview.context["import_token"]
+        self.assertContains(preview, "الأثر المتوقع قبل الحفظ")
+
+        imported = self.client.post(
+            reverse("dashboard:school_data_import"),
+            {"action": "import", "import_token": token},
+        )
+        self.assertEqual(imported.status_code, 302)
+        completed_token = imported.url.split("completed=", 1)[1]
+        completed = self.client.get(imported.url)
+        self.assertContains(completed, "التراجع عن آخر استيراد")
+
+        undone = self.client.post(
+            reverse("dashboard:school_data_import"),
+            {"action": "undo", "undo_token": completed_token},
+        )
+        self.assertRedirects(
+            undone,
+            reverse("dashboard:school_data_import"),
+            fetch_redirect_response=False,
+        )
+        self.assertFalse(ClassLesson.objects.filter(settings=self.settings).exists())
+
+
+class ConfirmationDialogAssetTests(SimpleTestCase):
+    def test_data_confirm_uses_accessible_dialog_instead_of_browser_confirm(self):
+        source = (Path(settings.BASE_DIR) / "static" / "js" / "csp-actions.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("window.confirm", source)
+        self.assertIn('document.createElement("dialog")', source)
+        self.assertIn('setAttribute("aria-labelledby"', source)
+        self.assertIn("requestSubmit", source)
 
 
 class SelfServiceSchoolCreationTests(TestCase):

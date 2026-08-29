@@ -127,7 +127,13 @@ from schedule.cache_utils import (
     invalidate_display_snapshot_cache_for_school_id,
 )
 from schedule.time_engine import build_day_snapshot
-from .excel_import import apply_import, build_template_bytes, parse_workbook
+from .excel_import import (
+    apply_import,
+    build_import_impact,
+    build_template_bytes,
+    parse_workbook,
+    undo_import,
+)
 
 if TYPE_CHECKING:
     pass
@@ -990,8 +996,10 @@ __all__ = [
     'invalidate_display_snapshot_cache_for_school_id',
     'build_day_snapshot',
     'apply_import',
+    'build_import_impact',
     'build_template_bytes',
     'parse_workbook',
+    'undo_import',
     'UserModel',
     'WEEKDAY_MAP',
     'SCHOOL_WEEK',

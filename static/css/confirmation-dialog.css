@@ -1,0 +1,131 @@
+.app-confirm-dialog {
+  width: min(31rem, calc(100vw - 2rem));
+  max-width: 31rem;
+  padding: 0;
+  border: 0;
+  border-radius: 1.35rem;
+  color: #0f172a;
+  background: transparent;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.3);
+}
+
+.app-confirm-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(5px);
+}
+
+.app-confirm-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 1.35rem;
+  background: #ffffff;
+  text-align: start;
+}
+
+.app-confirm-icon {
+  display: grid;
+  place-items: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 0.9rem;
+  color: #be123c;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  font-size: 1.15rem;
+  font-weight: 950;
+}
+
+.app-confirm-eyebrow {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.app-confirm-copy h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 950;
+}
+
+.app-confirm-copy p {
+  margin: 0.45rem 0 0;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.8;
+  white-space: pre-line;
+}
+
+.app-confirm-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eef2f7;
+}
+
+.app-confirm-actions button {
+  min-height: 2.65rem;
+  padding: 0 1rem;
+  border-radius: 0.8rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.app-confirm-cancel {
+  color: #334155;
+  background: #ffffff;
+  border: 1px solid #dbe3ea;
+}
+
+.app-confirm-cancel:hover {
+  background: #f8fafc;
+}
+
+.app-confirm-submit {
+  color: #ffffff;
+  background: #145a6a;
+  border: 1px solid #0e3b48;
+}
+
+.app-confirm-submit:hover {
+  background: #0e4654;
+}
+
+.app-confirm-submit.is-danger {
+  background: #be123c;
+  border-color: #9f1239;
+}
+
+.app-confirm-submit.is-danger:hover {
+  background: #9f1239;
+}
+
+@media (max-width: 540px) {
+  .app-confirm-card {
+    grid-template-columns: 1fr;
+  }
+
+  .app-confirm-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .app-confirm-actions {
+    flex-direction: column-reverse;
+  }
+
+  .app-confirm-actions button {
+    width: 100%;
+  }
+}

@@ -21,9 +21,35 @@
     <div class="dp-step">
       <span class="dp-step__n">٣</span>
       <strong>نفّذ</strong>
-      <p>يتم الاستيراد كاملًا أو يُتراجع عنه كاملًا عند أي خطأ.</p>
+      <p>يُدمج الملف ذريًا مع بيانات المدرسة ويمكن التراجع عن آخر عملية.</p>
     </div>
   </section>
+
+  {% if completed_import %}
+    <section class="dp-panel" style="border-color:#a7f3d0;background:linear-gradient(135deg,#ecfdf5,#fff)">
+      <div class="dp-panel__body" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+        <div>
+          <span class="dp-pill dp-pill--green dp-pill--dot">اكتمل الاستيراد</span>
+          <h3 style="margin:.65rem 0 .2rem;font-size:1rem;font-weight:900;color:#064e3b">تم دمج البيانات بنجاح</h3>
+          <p style="margin:0;color:#047857;font-size:.78rem;font-weight:700">
+            {{ completed_import.result.lessons }} حصة — يتاح التراجع الآمن لمدة {{ undo_minutes }} دقيقة ما لم تنفذ استيرادًا أحدث.
+          </p>
+        </div>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="undo">
+          <input type="hidden" name="undo_token" value="{{ completed_import.token }}">
+          <button type="submit" class="dp-btn dp-btn--soft"
+                  data-confirm-title="التراجع عن استيراد Excel"
+                  data-confirm-action="تراجع عن الاستيراد"
+                  data-confirm="سيُعاد الجدول إلى حالته السابقة وتُحذف فقط السجلات التي أنشأها هذا الاستيراد. هل تريد المتابعة؟">
+            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+            <span>التراجع عن آخر استيراد</span>
+          </button>
+        </form>
+      </div>
+    </section>
+  {% endif %}
 
   <section class="dp-panel">
     <div class="dp-panel__head">
@@ -62,7 +88,7 @@
         <div>
           <h3 style="margin:0;font-size:.92rem;font-weight:900">نتيجة المعاينة</h3>
           <p style="margin:.2rem 0 0;font-size:.74rem;font-weight:650">
-            {{ parsed.rows|length }} صف — {{ parsed.errors|length }} خطأ
+            {{ parsed.file.name|default:"ملف Excel" }} — {{ parsed.rows|length }} صف — {{ parsed.errors|length }} خطأ
           </p>
         </div>
         {% if not parsed.errors %}
@@ -70,13 +96,35 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="import">
             <input type="hidden" name="import_token" value="{{ import_token }}">
-            <button type="submit" class="dp-btn dp-btn--primary" data-confirm="تنفيذ استيراد البيانات الآن؟ سيحل الجدول المستورد محل الجدول الحالي.">
+            <button type="submit" class="dp-btn dp-btn--primary"
+                    data-confirm-title="اعتماد استيراد Excel"
+                    data-confirm-action="اعتماد ودمج البيانات"
+                    data-confirm="سيتم دمج الصفوف السليمة مع بيانات المدرسة وتحديث الحصص المطابقة دون حذف الحصص الأخرى. يمكنك التراجع خلال 30 دقيقة. هل تريد المتابعة؟">
               <i class="fa-solid fa-check" aria-hidden="true"></i>
-              <span>تنفيذ الاستيراد</span>
+              <span>اعتماد ودمج البيانات</span>
             </button>
           </form>
         {% endif %}
       </div>
+
+      {% if impact and not parsed.errors %}
+        <div style="padding:1rem;border-bottom:1px solid #e2e8f0">
+          <div class="dp-note dp-note--success" role="status">
+            <i class="fa-solid fa-chart-simple" aria-hidden="true"></i>
+            <div style="width:100%">
+              <strong>الأثر المتوقع قبل الحفظ</strong>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.55rem;margin-top:.7rem">
+                <span class="dp-pill dp-pill--green">{{ impact.new_lessons }} حصة جديدة</span>
+                <span class="dp-pill dp-pill--blue">{{ impact.updated_lessons }} حصة ستُحدّث</span>
+                <span class="dp-pill">{{ impact.new_classes }} فصل جديد</span>
+                <span class="dp-pill">{{ impact.new_subjects }} مادة جديدة</span>
+                <span class="dp-pill">{{ impact.new_teachers }} معلم جديد</span>
+              </div>
+              <p style="margin:.65rem 0 0;font-size:.73rem;color:#475569;font-weight:650">لن تُحذف أي حصة أو بيانات غير موجودة في الملف.</p>
+            </div>
+          </div>
+        </div>
+      {% endif %}
 
       {% if parsed.errors %}
         <div style="padding:1rem">
@@ -85,8 +133,17 @@
             <div>
               <strong>صحّح هذه الأخطاء ثم أعد الرفع</strong>
               <ul style="margin:.4rem 0 0;padding-inline-start:1.1rem;font-size:.75rem;line-height:1.9">
-                {% for error in parsed.errors %}<li>{{ error }}</li>{% endfor %}
+                {% for issue in preview_issues %}
+                  <li>
+                    <b>{{ issue.sheet }}</b>{% if issue.row %} — الصف {{ issue.row }}{% endif %}{% if issue.column %} — {{ issue.column }}{% endif %}:
+                    {{ issue.message }}
+                    {% if issue.value %}<code dir="auto">{{ issue.value }}</code>{% endif %}
+                  </li>
+                {% endfor %}
               </ul>
+              {% if hidden_preview_issues %}
+                <p style="margin:.55rem 0 0;font-size:.73rem;font-weight:800">يوجد {{ hidden_preview_issues }} خطأ إضافيًا. عالج الأخطاء الأولى ثم أعد المعاينة.</p>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -101,8 +158,8 @@
             </tr>
           </thead>
           <tbody>
-            {% for row in parsed.rows %}
-              <tr>
+            {% for row in preview_rows %}
+              <tr{% if row.errors %} style="background:#fff7f7"{% endif %}>
                 <td>{{ row.row }}</td>
                 <td>{{ row.day_label }}</td>
                 <td>{{ row.period_index }}</td>
@@ -112,7 +169,10 @@
                 <td>{{ row.teacher_name }}</td>
                 <td>
                   {% if row.errors %}
-                    <span class="dp-pill dp-pill--rose dp-pill--dot">خطأ</span>
+                    <span class="dp-pill dp-pill--rose dp-pill--dot">{{ row.errors|length }} خطأ</span>
+                    <ul style="margin:.35rem 0 0;padding-inline-start:1rem;font-size:.68rem;line-height:1.6;color:#be123c">
+                      {% for error in row.errors %}<li>{{ error }}</li>{% endfor %}
+                    </ul>
                   {% else %}
                     <span class="dp-pill dp-pill--green dp-pill--dot">سليم</span>
                   {% endif %}
@@ -122,6 +182,12 @@
           </tbody>
         </table>
       </div>
+      {% if hidden_preview_rows %}
+        <div class="dp-note" style="margin:1rem">
+          <i class="fa-solid fa-table-list" aria-hidden="true"></i>
+          <div><strong>عُرض أول 200 صف للحفاظ على سرعة الصفحة</strong><p>سيعالج الاستيراد جميع الصفوف، ومنها {{ hidden_preview_rows }} صفًا غير معروض.</p></div>
+        </div>
+      {% endif %}
     </section>
   {% endif %}
 </div>
