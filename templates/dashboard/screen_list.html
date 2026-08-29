@@ -3,7 +3,7 @@
 
 {% block title %}شاشات العرض{% endblock %}
 {% block page_title %}شاشات العرض{% endblock %}
-{% block page_description %}اربط شاشات التلفاز بنظام المدرسة وتحكم في المحتوى{% endblock %}
+{% block page_description %}راقب الاتصال والانقطاعات ونسبة التشغيل وتحكم في كل شاشة من مكان واحد{% endblock %}
 
 {% block extra_css %}
   <link rel="stylesheet" href="{% static 'css/screen-live-preview.css' %}?v=2026-08-21-live1">
@@ -25,6 +25,10 @@
       <a href="{% url 'dashboard:screens_customize_all' %}" class="screen-secondary-action">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3a9 9 0 1 0 0 18h1.4a1.6 1.6 0 0 0 .2-3.2h-.7a1.9 1.9 0 0 1-1.9-1.9v-.2a1.9 1.9 0 0 1 1.9-1.9H16A5 5 0 0 0 21 9c0-3.3-4-6-9-6Z"/></svg>
         <span>تخصيص جميع الشاشات</span>
+      </a>
+      <a href="{{ request.get_full_path }}" class="screen-secondary-action" aria-label="تحديث حالة الشاشات الآن">
+        <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+        <span>تحديث الحالة</span>
       </a>
       {% if can_create_screen %}
         <a href="{% url 'dashboard:screen_create' %}" class="screen-primary-action">
@@ -52,12 +56,34 @@
       <strong>{{ screens_live_count|default:"0" }}</strong>
     </div>
     <div class="screen-summary-item">
-      <span>مرتبطة بجهاز</span>
-      <strong>{{ screens_linked_count|default:"0" }}</strong>
+      <span>منقطعة وتحتاج متابعة</span>
+      <strong class="{% if screens_offline_count %}is-danger{% endif %}">{{ screens_offline_count|default:"0" }}</strong>
     </div>
     <div class="screen-summary-item">
-      <span>المتبقي في الباقة</span>
-      <strong>{% if screens_remaining is None %}∞{% else %}{{ screens_remaining }}{% endif %}</strong>
+      <span>بانتظار التشغيل أو الربط</span>
+      <strong>{{ screens_waiting_count|default:"0" }}</strong>
+    </div>
+    <div class="screen-summary-item">
+      <span>متوسط التشغيل خلال 7 أيام</span>
+      <strong>{% if screens_uptime_7d is not None %}{{ screens_uptime_7d }}<small>%</small>{% else %}—{% endif %}</strong>
+    </div>
+  </section>
+
+  <section class="screen-monitor-health mb-4" aria-labelledby="screen-monitor-health-title">
+    <div class="screen-monitor-health__status {% if monitor_worker_live %}is-healthy{% else %}is-warning{% endif %}">
+      <span class="screen-monitor-health__icon" aria-hidden="true"><i class="fa-solid fa-satellite-dish"></i></span>
+      <div>
+        <span class="screen-monitor-health__eyebrow">خدمة المراقبة</span>
+        <h3 id="screen-monitor-health-title">{% if monitor_worker_live %}تعمل بصورة طبيعية{% else %}لم يصل نبض حديث من خدمة المراقبة{% endif %}</h3>
+        <p>آخر فحص: {{ monitor_heartbeat_display }} — حد اكتشاف الانقطاع: {{ monitoring_threshold_minutes }} دقائق</p>
+      </div>
+    </div>
+    <div class="screen-monitor-health__actions">
+      <span class="screen-monitor-policy {% if monitoring_enabled %}is-enabled{% endif %}">
+        <i class="fa-solid fa-bell{% if not monitoring_enabled %}-slash{% endif %}" aria-hidden="true"></i>
+        {% if monitoring_enabled %}تنبيهات الانقطاع مفعلة{% else %}تنبيهات الانقطاع متوقفة{% endif %}
+      </span>
+      <a href="{% url 'dashboard:settings' %}#runtime-monitor-title" class="screen-secondary-action">إعدادات المراقبة</a>
     </div>
   </section>
 
@@ -95,7 +121,7 @@
     {% if screens %}
       <div class="screen-card-grid">
         {% for screen in screens %}
-          <article class="screen-card {% if screen.dashboard_is_live %}is-live{% elif screen.dashboard_bound_device %}is-bound{% endif %}">
+          <article class="screen-card is-{{ screen.dashboard_status_key }}" data-screen-status="{{ screen.dashboard_status_key }}">
             <div class="screen-card-top">
               <div class="screen-name-cell">
                 <div class="screen-icon">
@@ -129,7 +155,25 @@
                   <strong>غير مرتبط</strong>
                 {% endif %}
               </div>
+              <div>
+                <span>نسبة التشغيل — آخر 7 أيام</span>
+                <strong>{% if screen.dashboard_uptime_percent is not None %}{{ screen.dashboard_uptime_percent }}%{% else %}لا توجد بيانات كافية{% endif %}</strong>
+              </div>
+              <div>
+                <span>الانقطاعات المسجلة — 7 أيام</span>
+                <strong>{{ screen.dashboard_incidents_7d }}</strong>
+              </div>
             </div>
+
+            {% if screen.dashboard_open_outage %}
+              <div class="screen-outage-alert" role="status">
+                <span class="screen-outage-alert__icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                <div>
+                  <strong>انقطاع مفتوح منذ {{ screen.dashboard_outage_duration }}</strong>
+                  <p>السبب المرجح: {{ screen.dashboard_outage_cause }}{% if screen.dashboard_outage_detail %} — {{ screen.dashboard_outage_detail }}{% endif %}</p>
+                </div>
+              </div>
+            {% endif %}
 
             <div class="screen-link-panel">
               <div class="screen-link-title">
@@ -235,6 +279,41 @@
         {% if can_create_screen %}
           <a href="{% url 'dashboard:screen_create' %}" class="screen-primary-action">إضافة شاشة الآن</a>
         {% endif %}
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="screen-incidents-section" aria-labelledby="recent-screen-incidents-title">
+    <div class="screen-section-heading">
+      <div>
+        <h3 id="recent-screen-incidents-title">سجل الانقطاعات الأخير</h3>
+        <p>آخر ثمانية أحداث مسجلة مع السبب والمدة وحالة الاستعادة.</p>
+      </div>
+      <span class="screen-section-count">{{ recent_incidents|length }} حدث</span>
+    </div>
+    {% if recent_incidents %}
+      <div class="screen-incidents-list">
+        {% for incident in recent_incidents %}
+          <article class="screen-incident {% if incident.dashboard_is_open %}is-open{% endif %}">
+            <span class="screen-incident__state" aria-hidden="true"></span>
+            <div class="screen-incident__main">
+              <strong>{{ incident.screen.name }}</strong>
+              <span>{{ incident.dashboard_cause }}{% if incident.cause_detail %} — {{ incident.cause_detail }}{% endif %}</span>
+            </div>
+            <div class="screen-incident__meta">
+              <span>{{ incident.dashboard_started_at }}</span>
+              <strong>{{ incident.dashboard_duration }}</strong>
+            </div>
+            <span class="screen-incident__badge">
+              {% if incident.dashboard_is_open %}مفتوح{% else %}عاد الاتصال{% endif %}
+            </span>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="screen-incidents-empty">
+        <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+        <div><strong>لا توجد انقطاعات مسجلة خلال الأيام السبعة الماضية</strong><span>ستظهر الأحداث هنا تلقائيًا عند رصد أي انقطاع.</span></div>
       </div>
     {% endif %}
   </section>
@@ -764,7 +843,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .screen-summary-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   overflow: hidden;
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -798,6 +877,86 @@ document.addEventListener('DOMContentLoaded', function() {
   color: #94a3b8;
   font-size: 0.9rem;
   font-weight: 900;
+}
+
+.screen-summary-item strong.is-danger {
+  color: #be123c;
+}
+
+.screen-monitor-health {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #dbe5e7;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f8fafc, #ffffff);
+}
+
+.screen-monitor-health__status,
+.screen-monitor-health__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.screen-monitor-health__icon {
+  display: grid;
+  place-items: center;
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: 0.8rem;
+  color: #b45309;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  flex: 0 0 auto;
+}
+
+.screen-monitor-health__status.is-healthy .screen-monitor-health__icon {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.screen-monitor-health__eyebrow {
+  display: block;
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.screen-monitor-health h3 {
+  margin: 0.12rem 0 0;
+  color: #0f172a;
+  font-size: 0.88rem;
+  font-weight: 950;
+}
+
+.screen-monitor-health p {
+  margin: 0.18rem 0 0;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.screen-monitor-policy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.screen-monitor-policy.is-enabled {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
 }
 
 .screen-help-panel {
@@ -904,8 +1063,13 @@ document.addEventListener('DOMContentLoaded', function() {
   background: #10b981;
 }
 
-.screen-card.is-bound::before {
+.screen-card.is-pending::before,
+.screen-card.is-waiting::before {
   background: #f59e0b;
+}
+
+.screen-card.is-offline::before {
+  background: #e11d48;
 }
 
 .screen-card-top {
@@ -939,9 +1103,15 @@ document.addEventListener('DOMContentLoaded', function() {
   color: #059669;
 }
 
-.screen-card.is-bound .screen-icon {
+.screen-card.is-pending .screen-icon,
+.screen-card.is-waiting .screen-icon {
   background: #fffbeb;
   color: #d97706;
+}
+
+.screen-card.is-offline .screen-icon {
+  background: #fff1f2;
+  color: #e11d48;
 }
 
 .screen-name-cell strong,
@@ -988,8 +1158,13 @@ document.addEventListener('DOMContentLoaded', function() {
   background: #10b981;
 }
 
-.screen-card.is-bound .screen-status-dot {
+.screen-card.is-pending .screen-status-dot,
+.screen-card.is-waiting .screen-status-dot {
   background: #f59e0b;
+}
+
+.screen-card.is-offline .screen-status-dot {
+  background: #e11d48;
 }
 
 .screen-card-meta {
@@ -1007,6 +1182,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .screen-card-meta span {
   margin: 0 0 0.18rem;
+}
+
+.screen-outage-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid #fecdd3;
+  border-radius: 0.85rem;
+  color: #881337;
+  background: #fff1f2;
+}
+
+.screen-outage-alert__icon {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+  color: #e11d48;
+}
+
+.screen-outage-alert strong {
+  display: block;
+  font-size: 0.77rem;
+  font-weight: 950;
+}
+
+.screen-outage-alert p {
+  margin: 0.18rem 0 0;
+  font-size: 0.71rem;
+  font-weight: 650;
+  line-height: 1.65;
 }
 
 .screen-link-panel {
@@ -1124,6 +1329,112 @@ document.addEventListener('DOMContentLoaded', function() {
   padding-top: 0.85rem;
 }
 
+.screen-incidents-section {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.screen-incidents-list {
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.screen-incident {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.screen-incident:last-child {
+  border-bottom: 0;
+}
+
+.screen-incident__state {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 999px;
+  background: #10b981;
+  box-shadow: 0 0 0 4px #ecfdf5;
+}
+
+.screen-incident.is-open .screen-incident__state {
+  background: #e11d48;
+  box-shadow: 0 0 0 4px #fff1f2;
+}
+
+.screen-incident__main strong,
+.screen-incident__meta strong {
+  display: block;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.screen-incident__main span,
+.screen-incident__meta span {
+  display: block;
+  margin-top: 0.12rem;
+  color: #64748b;
+  font-size: 0.69rem;
+  font-weight: 650;
+}
+
+.screen-incident__meta {
+  min-width: 8rem;
+  text-align: end;
+}
+
+.screen-incident__badge {
+  min-width: 5.1rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.screen-incident.is-open .screen-incident__badge {
+  color: #be123c;
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+.screen-incidents-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #a7f3d0;
+  border-radius: 14px;
+  color: #047857;
+  background: #ecfdf5;
+}
+
+.screen-incidents-empty strong,
+.screen-incidents-empty span {
+  display: block;
+}
+
+.screen-incidents-empty strong {
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.screen-incidents-empty span {
+  margin-top: 0.12rem;
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
 .screen-action-btn.danger-soft {
   color: #be123c;
   border-color: #fecdd3;
@@ -1184,13 +1495,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
 @media (max-width: 1100px) {
   .screen-command-panel,
-  .screen-section-heading {
+  .screen-section-heading,
+  .screen-monitor-health {
     align-items: stretch;
     flex-direction: column;
   }
 
   .screen-command-actions {
     justify-content: flex-start;
+  }
+
+  .screen-monitor-health__actions {
+    flex-wrap: wrap;
   }
 
   .screen-summary-strip {
@@ -1239,6 +1555,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
   .screen-card-actions form {
     flex: 1 1 10rem;
+  }
+
+
+  .screen-incident {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .screen-incident__meta {
+    grid-column: 2 / -1;
+    min-width: 0;
+    text-align: start;
   }
 }
 

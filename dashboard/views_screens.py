@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from datetime import datetime, timedelta
 from urllib.parse import quote
 
 from django.apps import apps
@@ -18,6 +19,7 @@ from django.views.decorators.http import require_POST
 
 from display.ws_groups import school_group_name
 from core.display_presence import display_live_threshold_seconds, latest_display_presence
+from core.screen_monitoring import format_duration
 from .access import get_active_school_or_redirect
 from .decorators import manager_required
 from .forms import DisplayScreenForm, SchoolSettingsForm, ScreenDisplayCustomizationForm
@@ -323,6 +325,52 @@ def screen_list(request):
     live_threshold_minutes = max(1, int(round(live_threshold_seconds / 60)))
     live_count = 0
     linked_count = 0
+    offline_count = 0
+    waiting_count = 0
+    disabled_count = 0
+    uptime_values = []
+    seven_days_ago = now - timedelta(days=7)
+    screen_ids = list(qs.values_list("pk", flat=True))
+    outage_model = apps.get_model("core", "ScreenOutage")
+    recent_outages = list(
+        outage_model.objects.filter(screen_id__in=screen_ids)
+        .filter(
+            Q(detected_at__gte=seven_days_ago)
+            | Q(resolved_at__gte=seven_days_ago)
+            | Q(resolved_at__isnull=True)
+        )
+        .select_related("screen")
+        .order_by("-detected_at")
+    )
+    outages_by_screen = {}
+    for outage in recent_outages:
+        outages_by_screen.setdefault(outage.screen_id, []).append(outage)
+
+    monitoring_settings = getattr(school, "schedule_settings", None)
+    monitoring_enabled = bool(
+        getattr(monitoring_settings, "screen_offline_alerts_enabled", True)
+    )
+    monitoring_threshold_minutes = int(
+        getattr(monitoring_settings, "screen_offline_threshold_minutes", 10) or 10
+    )
+    monitor_heartbeat = cache.get("screen-monitor:heartbeat")
+    monitor_worker_live = False
+    monitor_heartbeat_display = "غير متاح"
+    if monitor_heartbeat:
+        try:
+            if isinstance(monitor_heartbeat, str):
+                monitor_heartbeat = datetime.fromisoformat(monitor_heartbeat)
+            if timezone.is_naive(monitor_heartbeat):
+                monitor_heartbeat = timezone.make_aware(monitor_heartbeat)
+            monitor_age = max(0, int((now - monitor_heartbeat).total_seconds()))
+            monitor_worker_live = monitor_age <= 180
+            monitor_heartbeat_display = (
+                "قبل أقل من دقيقة"
+                if monitor_age < 60
+                else f"قبل {max(1, monitor_age // 60)} دقيقة"
+            )
+        except (TypeError, ValueError, OverflowError):
+            monitor_worker_live = False
     screen_rows = []
     for screen in qs:
         last_seen = latest_display_presence(screen)
@@ -366,22 +414,51 @@ def screen_list(request):
             status_key = "disabled"
             status_label = "متوقفة"
             status_hint = "الشاشة غير مفعلة من لوحة التحكم"
+            disabled_count += 1
         elif is_live:
             status_key = "live"
             status_label = "متصلة الآن"
             status_hint = "الشاشة تعمل وتستقبل التحديثات"
         elif bound_device and last_seen:
-            status_key = "linked"
-            status_label = "غير متصلة الآن"
+            status_key = "offline"
+            status_label = "منقطعة الآن"
             status_hint = "الجهاز مرتبط، لكن لم يصل نبض حديث"
+            offline_count += 1
         elif bound_device:
-            status_key = "linked"
+            status_key = "pending"
             status_label = "مرتبطة وجاهزة"
             status_hint = "تم ربط الجهاز؛ سيظهر الاتصال عند أول نبض"
+            waiting_count += 1
         else:
             status_key = "waiting"
             status_label = "بانتظار الربط"
             status_hint = "افتح الرابط على التلفاز لربط الشاشة"
+            waiting_count += 1
+
+        screen_outages = outages_by_screen.get(screen.pk, [])
+        open_outage = next(
+            (outage for outage in screen_outages if outage.resolved_at is None),
+            None,
+        )
+        downtime_seconds = 0
+        for outage in screen_outages:
+            outage_start = outage.last_seen_at or outage.detected_at
+            overlap_start = max(outage_start, seven_days_ago)
+            overlap_end = min(outage.resolved_at or now, now)
+            if overlap_end > overlap_start:
+                downtime_seconds += int((overlap_end - overlap_start).total_seconds())
+        if is_enabled and bound_device and last_seen and not is_live and open_outage is None:
+            fallback_start = max(last_seen, seven_days_ago)
+            if now > fallback_start:
+                downtime_seconds += int((now - fallback_start).total_seconds())
+        period_seconds = 7 * 24 * 60 * 60
+        uptime_percent = None
+        if last_seen:
+            uptime_percent = max(
+                0.0,
+                min(100.0, round((period_seconds - min(downtime_seconds, period_seconds)) * 100 / period_seconds, 1)),
+            )
+            uptime_values.append(uptime_percent)
 
         screen.dashboard_status_key = status_key
         screen.dashboard_status_label = status_label
@@ -390,6 +467,21 @@ def screen_list(request):
         screen.dashboard_last_seen_full = last_seen_full
         screen.dashboard_is_live = is_live
         screen.dashboard_bound_device = bound_device
+        screen.dashboard_last_seen_seconds = last_seen_seconds
+        screen.dashboard_open_outage = open_outage
+        screen.dashboard_incidents_7d = len(screen_outages)
+        screen.dashboard_uptime_percent = uptime_percent
+        screen.dashboard_outage_duration = (
+            format_duration(now - (open_outage.last_seen_at or open_outage.detected_at))
+            if open_outage
+            else ""
+        )
+        screen.dashboard_outage_cause = (
+            open_outage.get_cause_display() if open_outage else ""
+        )
+        screen.dashboard_outage_detail = (
+            (open_outage.cause_detail or "").strip() if open_outage else ""
+        )
         # مجموعة موروثة = كل حقول التخصيص فيها فارغة، أي أن الشاشة ما زالت
         # تتبع "تخصيص جميع الشاشات" وتصلها تعديلاته تلقائيًا.
         inherited_groups = set(ScreenDisplayCustomizationForm.inherited_groups_for(screen))
@@ -408,6 +500,18 @@ def screen_list(request):
             or not bool(getattr(screen, "show_excellence", True))
         )
         screen_rows.append(screen)
+
+    recent_incidents = []
+    for outage in recent_outages[:8]:
+        outage.dashboard_started_at = timezone.localtime(outage.detected_at).strftime(
+            "%Y-%m-%d %H:%M"
+        )
+        outage.dashboard_is_open = outage.resolved_at is None
+        outage.dashboard_duration = format_duration(
+            (outage.resolved_at or now) - (outage.last_seen_at or outage.detected_at)
+        )
+        outage.dashboard_cause = outage.get_cause_display()
+        recent_incidents.append(outage)
 
     if max_screens is None:
         screens_remaining = None
@@ -441,8 +545,22 @@ def screen_list(request):
             "screens_count": current_count,
             "screens_live_count": live_count,
             "screens_linked_count": linked_count,
+            "screens_offline_count": offline_count,
+            "screens_waiting_count": waiting_count,
+            "screens_disabled_count": disabled_count,
+            "screens_attention_count": offline_count + waiting_count + disabled_count,
+            "screens_uptime_7d": (
+                round(sum(uptime_values) / len(uptime_values), 1)
+                if uptime_values
+                else None
+            ),
             "screen_live_threshold_seconds": live_threshold_seconds,
             "screen_live_threshold_minutes": live_threshold_minutes,
+            "monitoring_enabled": monitoring_enabled,
+            "monitoring_threshold_minutes": monitoring_threshold_minutes,
+            "monitor_worker_live": monitor_worker_live,
+            "monitor_heartbeat_display": monitor_heartbeat_display,
+            "recent_incidents": recent_incidents,
             "plan_name": plan_name,
             "can_purchase_screen_addon": can_purchase_screen_addon,
             "screens_remaining": screens_remaining,
