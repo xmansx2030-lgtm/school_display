@@ -177,6 +177,10 @@ urlpatterns = [
     path("admin-panel/subscriptions/<int:pk>/delete/", views.system_subscription_delete, name="system_subscription_delete"),
     path("admin-panel/subscriptions/invoices/<int:pk>/", views.system_subscription_invoice_view, name="system_subscription_invoice_view"),
 
+    # Payments and invoices ledger
+    path("admin-panel/payments/", views.system_payments_list, name="system_payments_list"),
+    path("admin-panel/payments/<int:pk>/", views.system_payment_detail, name="system_payment_detail"),
+
     # Subscription Requests (Renewal / New)
     path("admin-panel/subscription-requests/", views.system_subscription_requests_list, name="system_subscription_requests_list"),
     path("admin-panel/subscription-requests/<int:pk>/", views.system_subscription_request_detail, name="system_subscription_request_detail"),

@@ -292,6 +292,7 @@ NAV_PERMISSION_MAP = {
     "users": "users.view",
     "employees": "employees.owner_only",
     "subscriptions": "subscriptions.view",
+    "payments": "subscriptions.view",
     "subscription_requests": "subscription_requests.view",
     "plans": "plans.view",
     "discounts": "discounts.view",

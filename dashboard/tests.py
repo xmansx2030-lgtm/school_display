@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from django.conf import settings
 from datetime import date, time, timedelta
+from decimal import Decimal
 from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -1042,6 +1043,52 @@ class SystemAdminExperienceTests(TestCase):
         self.assertContains(response, "إحصائيات مسار البيع")
         self.assertContains(response, "متوسط الشاشات/مدرسة")
 
+    def test_admin_payments_ledger_and_detail_expose_recorded_payment(self):
+        subscription = SchoolSubscription.objects.get(school=self.school, plan=self.plan)
+        operation = SubscriptionPaymentOperation.objects.create(
+            school=self.school,
+            subscription=subscription,
+            plan=self.plan,
+            amount=Decimal("990.00"),
+            method="moyasar",
+            source="request",
+            created_by=self.admin,
+            note="دفعة إلكترونية موثقة للاختبار",
+        )
+        invoice = SubscriptionInvoice.objects.get(operation=operation)
+        checkout = MoyasarCheckout.objects.create(
+            school=self.school,
+            created_by=self.admin,
+            plan=self.plan,
+            request_type="new",
+            amount=operation.amount,
+            status="captured",
+            live_mode=True,
+            payment_id="pay_admin_test_001",
+            payment_operation=operation,
+            subscription=subscription,
+            last_event="payment_captured",
+            processed_at=timezone.now(),
+        )
+
+        list_response = self.client.get(
+            reverse("dashboard:system_payments_list"),
+            {"q": checkout.payment_id, "method": "moyasar"},
+        )
+        detail_response = self.client.get(
+            reverse("dashboard:system_payment_detail", args=[operation.pk])
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertContains(list_response, self.school.name)
+        self.assertContains(list_response, invoice.invoice_number)
+        self.assertContains(list_response, "990,00")
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, "دفعة إلكترونية موثقة للاختبار")
+        self.assertContains(detail_response, "pay_admin_test_001")
+        self.assertContains(detail_response, "payment_captured")
+        self.assertContains(detail_response, invoice.invoice_number)
+
     def test_admin_lists_expose_school_manager_and_subscription_filters(self):
         admin_profile = UserProfile.objects.create(user=self.admin, active_school=self.school)
         admin_profile.schools.add(self.school)
@@ -1367,7 +1414,7 @@ class SystemEmployeePermissionTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         nav_keys = {item["key"] for item in response.context["admin_nav_links"]}
-        self.assertEqual(nav_keys, {"home", "subscriptions", "support"})
+        self.assertEqual(nav_keys, {"home", "subscriptions", "payments", "support"})
         self.assertNotContains(response, reverse("dashboard:system_employees_list"))
         self.assertNotContains(response, reverse("dashboard:system_schools_list"))
 

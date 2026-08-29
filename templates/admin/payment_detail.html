@@ -1,0 +1,137 @@
+{% extends "admin/admin_base.html" %}
+{% load humanize %}
+
+{% block title %}تفاصيل الدفعة #{{ operation.pk }}{% endblock %}
+{% block page_icon %}receipt{% endblock %}
+{% block page_title %}تفاصيل الدفعة #{{ operation.pk }}{% endblock %}
+{% block page_description %}بيانات السداد والفاتورة ومرجع بوابة الدفع والاستردادات المرتبطة.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i>
+  <a href="{% url 'dashboard:system_payments_list' %}" class="hover:text-blue-600">المدفوعات</a>
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">#{{ operation.pk }}</span>
+{% endblock %}
+{% block page_actions %}
+  {% if operation.invoice %}
+    <a href="{% url 'dashboard:system_subscription_invoice_view' operation.invoice.pk %}" target="_blank" class="admin-btn admin-btn-primary">
+      <i class="fas fa-file-invoice"></i> فتح الفاتورة
+    </a>
+  {% endif %}
+  <a href="{% url 'dashboard:system_payments_list' %}" class="admin-btn admin-btn-secondary"><i class="fas fa-arrow-right"></i> رجوع</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl space-y-5">
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="admin-metric-card" style="--metric-color:#059669">
+      <span class="admin-metric-icon"><i class="fas fa-coins"></i></span>
+      <p class="admin-metric-value">{{ operation.amount|floatformat:2|intcomma:False }}</p>
+      <p class="admin-metric-label">المبلغ المدفوع (ر.س)</p>
+    </div>
+    <div class="admin-metric-card" style="--metric-color:#e11d48">
+      <span class="admin-metric-icon"><i class="fas fa-rotate-left"></i></span>
+      <p class="admin-metric-value">{{ completed_refund_total|floatformat:2|intcomma:False }}</p>
+      <p class="admin-metric-label">المبلغ المسترد (ر.س)</p>
+    </div>
+    <div class="admin-metric-card" style="--metric-color:#7c3aed">
+      <span class="admin-metric-icon"><i class="fas fa-sack-dollar"></i></span>
+      <p class="admin-metric-value">{{ net_amount|floatformat:2|intcomma:False }}</p>
+      <p class="admin-metric-label">الصافي (ر.س)</p>
+    </div>
+    <div class="admin-metric-card" style="--metric-color:#2563eb">
+      <span class="admin-metric-icon"><i class="fas fa-credit-card"></i></span>
+      <p class="admin-metric-value" style="font-size:1.15rem">{{ operation.get_method_display }}</p>
+      <p class="admin-metric-label">طريقة الدفع</p>
+    </div>
+  </section>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+    <section class="admin-panel">
+      <div class="admin-panel-header">
+        <div>
+          <h2 class="text-base font-black text-slate-900">بيانات العملية</h2>
+          <p class="mt-1 text-xs text-slate-500">البيانات المحاسبية الأساسية للدفعة.</p>
+        </div>
+        <span class="admin-status admin-status-success">دفعة مسجلة</span>
+      </div>
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-5">
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">رقم العملية</dt><dd class="mt-1 font-black text-slate-900">#{{ operation.pk }}</dd></div>
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">تاريخ التسجيل</dt><dd class="mt-1 font-bold text-slate-900">{{ operation.created_at|date:"Y-m-d H:i:s" }}</dd></div>
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">المدرسة</dt><dd class="mt-1 font-bold text-slate-900">{{ operation.school.name }}</dd></div>
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">الباقة</dt><dd class="mt-1 font-bold text-slate-900">{{ operation.plan.name }}</dd></div>
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">مصدر العملية</dt><dd class="mt-1 font-bold text-slate-900">{{ operation.get_source_display }}</dd></div>
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">سجلها</dt><dd class="mt-1 font-bold text-slate-900">{{ operation.created_by.get_full_name|default:operation.created_by.username|default:"النظام" }}</dd></div>
+        <div class="rounded-2xl bg-slate-50 p-4 sm:col-span-2"><dt class="text-xs text-slate-500">فترة الاشتراك</dt><dd class="mt-1 font-bold text-slate-900">{{ operation.subscription.starts_at|date:"Y-m-d" }} — {{ operation.subscription.ends_at|date:"Y-m-d"|default:"مفتوحة" }}</dd></div>
+        {% if operation.note %}<div class="rounded-2xl bg-slate-50 p-4 sm:col-span-2"><dt class="text-xs text-slate-500">ملاحظة</dt><dd class="mt-1 text-sm text-slate-800">{{ operation.note }}</dd></div>{% endif %}
+      </dl>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-header">
+        <div>
+          <h2 class="text-base font-black text-slate-900">الفاتورة</h2>
+          <p class="mt-1 text-xs text-slate-500">الفاتورة الإلكترونية الصادرة عن هذه العملية.</p>
+        </div>
+      </div>
+      {% if operation.invoice %}
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-5">
+          <div class="rounded-2xl bg-teal-50 p-4 sm:col-span-2"><dt class="text-xs text-teal-700">رقم الفاتورة</dt><dd class="mt-1 font-black text-teal-950">{{ operation.invoice.invoice_number }}</dd></div>
+          <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">تاريخ الإصدار</dt><dd class="mt-1 font-bold text-slate-900">{{ operation.invoice.issued_at|date:"Y-m-d H:i" }}</dd></div>
+          <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">العملة</dt><dd class="mt-1 font-bold text-slate-900">{{ operation.invoice.get_currency_display }}</dd></div>
+          <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">البائع</dt><dd class="mt-1 font-bold text-slate-900">{{ operation.invoice.seller_name|default:"—" }}</dd></div>
+          <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">المشتري</dt><dd class="mt-1 font-bold text-slate-900">{{ operation.invoice.buyer_name|default:"—" }}</dd></div>
+          <a href="{% url 'dashboard:system_subscription_invoice_view' operation.invoice.pk %}" target="_blank" class="admin-btn admin-btn-primary sm:col-span-2"><i class="fas fa-arrow-up-right-from-square"></i> عرض الفاتورة وطباعتها</a>
+        </dl>
+      {% else %}
+        <div class="admin-empty"><i class="fas fa-file-circle-exclamation mb-3 text-3xl text-amber-400"></i><h3 class="font-black text-slate-700">لم تصدر فاتورة لهذه العملية</h3></div>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="admin-panel">
+    <div class="admin-panel-header">
+      <div>
+        <h2 class="text-base font-black text-slate-900">تفاصيل بوابة الدفع</h2>
+        <p class="mt-1 text-xs text-slate-500">المراجع والحالة التي سجلتها بوابة الدفع الإلكترونية.</p>
+      </div>
+      {% if gateway %}<span class="admin-status admin-status-info">{{ gateway.provider }}</span>{% endif %}
+    </div>
+    {% if gateway %}
+      <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-5">
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">مرجع التاجر</dt><dd class="mt-1 font-bold text-slate-900 break-all admin-ltr">{{ gateway.reference|default:"—" }}</dd></div>
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">رقم الدفع لدى المزود</dt><dd class="mt-1 font-bold text-slate-900 break-all admin-ltr">{{ gateway.payment_id|default:"—" }}</dd></div>
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">الحالة</dt><dd class="mt-1 font-bold text-slate-900">{{ gateway.status_label }}</dd></div>
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">نوع الطلب</dt><dd class="mt-1 font-bold text-slate-900">{{ gateway.request_type }}</dd></div>
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">البيئة</dt><dd class="mt-1 font-bold text-slate-900">{% if gateway.live_mode %}فعلية{% else %}اختبارية{% endif %}</dd></div>
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">آخر حدث</dt><dd class="mt-1 font-bold text-slate-900 admin-ltr">{{ gateway.last_event|default:"—" }}</dd></div>
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">تاريخ المعالجة</dt><dd class="mt-1 font-bold text-slate-900">{{ gateway.processed_at|date:"Y-m-d H:i:s"|default:"—" }}</dd></div>
+        <div class="rounded-2xl bg-slate-50 p-4"><dt class="text-xs text-slate-500">آخر تحديث</dt><dd class="mt-1 font-bold text-slate-900">{{ gateway.updated_at|date:"Y-m-d H:i:s" }}</dd></div>
+        {% if gateway.discount_code or gateway.discount_amount %}<div class="rounded-2xl bg-emerald-50 p-4 sm:col-span-2"><dt class="text-xs text-emerald-700">الخصم</dt><dd class="mt-1 font-bold text-emerald-950">{{ gateway.discount_code|default:"خصم مطبق" }} — {{ gateway.discount_amount|floatformat:2 }} ر.س</dd></div>{% endif %}
+        {% if gateway.error_message %}<div class="rounded-2xl bg-rose-50 p-4 sm:col-span-2"><dt class="text-xs text-rose-700">رسالة الخطأ</dt><dd class="mt-1 text-sm text-rose-900">{{ gateway.error_message }}</dd></div>{% endif %}
+      </dl>
+    {% else %}
+      <div class="admin-empty"><i class="fas fa-building-columns mb-3 text-3xl text-slate-300"></i><h3 class="font-black text-slate-700">دفعة يدوية أو تحويل بنكي</h3><p class="mt-1 text-xs">لا يوجد مرجع لبوابة دفع إلكترونية مرتبط بهذه العملية.</p></div>
+    {% endif %}
+  </section>
+
+  <section class="admin-panel">
+    <div class="admin-panel-header">
+      <div><h2 class="text-base font-black text-slate-900">الاستردادات</h2><p class="mt-1 text-xs text-slate-500">جميع طلبات الاسترداد المسجلة على الدفعة.</p></div>
+      <span class="text-xs font-bold text-slate-500">{{ refunds|length }} سجل</span>
+    </div>
+    {% if refunds %}
+      <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>التاريخ</th><th>المبلغ</th><th>السبب</th><th>الحالة</th><th>مرجع المزود</th><th>ملاحظات</th></tr></thead><tbody>
+        {% for refund in refunds %}<tr>
+          <td class="whitespace-nowrap">{{ refund.created_at|date:"Y-m-d H:i" }}</td>
+          <td class="font-black">{{ refund.amount|floatformat:2|intcomma:False }} ر.س</td>
+          <td>{{ refund.get_reason_display }}</td>
+          <td><span class="admin-status {% if refund.status == 'completed' %}admin-status-success{% elif refund.status == 'failed' %}admin-status-danger{% else %}admin-status-warning{% endif %}">{{ refund.get_status_display }}</span></td>
+          <td class="admin-ltr">{{ refund.gateway_reference|default:"—" }}</td>
+          <td>{{ refund.notes|default:"—" }}</td>
+        </tr>{% endfor %}
+      </tbody></table></div>
+    {% else %}
+      <div class="admin-empty"><i class="fas fa-circle-check mb-3 text-3xl text-emerald-300"></i><h3 class="font-black text-slate-700">لا توجد استردادات</h3></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

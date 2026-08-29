@@ -1,0 +1,174 @@
+{% extends "admin/admin_base.html" %}
+{% load humanize %}
+
+{% block title %}المدفوعات{% endblock %}
+{% block page_icon %}money-check-dollar{% endblock %}
+{% block page_title %}المدفوعات والفواتير{% endblock %}
+{% block page_description %}راجع جميع الدفعات المسجلة وصافي الإيراد والفواتير والاستردادات من مكان واحد.{% endblock %}
+{% block breadcrumb %}
+  <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">المدفوعات</span>
+{% endblock %}
+{% block page_actions %}
+  <a href="{% url 'dashboard:system_subscriptions_list' %}" class="admin-btn admin-btn-secondary">
+    <i class="fas fa-file-invoice-dollar"></i> الاشتراكات
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="admin-metric-card" style="--metric-color:#2563eb">
+      <span class="admin-metric-icon"><i class="fas fa-receipt"></i></span>
+      <p class="admin-metric-value">{{ payment_count|intcomma:False }}</p>
+      <p class="admin-metric-label">عملية دفع</p>
+    </div>
+    <div class="admin-metric-card" style="--metric-color:#059669">
+      <span class="admin-metric-icon"><i class="fas fa-coins"></i></span>
+      <p class="admin-metric-value">{{ total_amount|floatformat:2|intcomma:False }}</p>
+      <p class="admin-metric-label">إجمالي المدفوعات (ر.س)</p>
+    </div>
+    <div class="admin-metric-card" style="--metric-color:#e11d48">
+      <span class="admin-metric-icon"><i class="fas fa-rotate-left"></i></span>
+      <p class="admin-metric-value">{{ refund_total|floatformat:2|intcomma:False }}</p>
+      <p class="admin-metric-label">المسترد المكتمل (ر.س)</p>
+    </div>
+    <div class="admin-metric-card" style="--metric-color:#7c3aed">
+      <span class="admin-metric-icon"><i class="fas fa-sack-dollar"></i></span>
+      <p class="admin-metric-value">{{ net_amount|floatformat:2|intcomma:False }}</p>
+      <p class="admin-metric-label">صافي المدفوعات (ر.س)</p>
+    </div>
+  </section>
+
+  <form method="get" class="admin-filter-bar admin-no-print">
+    <div class="admin-filter-field is-search">
+      <label for="paymentSearch">بحث</label>
+      <input id="paymentSearch" type="search" name="q" value="{{ q }}" placeholder="المدرسة، الباقة، الفاتورة أو المرجع...">
+    </div>
+    <div class="admin-filter-field">
+      <label for="paymentMethod">طريقة الدفع</label>
+      <select id="paymentMethod" name="method">
+        <option value="">كل الطرق</option>
+        {% for value, label in method_choices %}
+          <option value="{{ value }}" {% if method == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="admin-filter-field">
+      <label for="paymentSource">مصدر العملية</label>
+      <select id="paymentSource" name="source">
+        <option value="">كل المصادر</option>
+        {% for value, label in source_choices %}
+          <option value="{{ value }}" {% if source == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="admin-filter-field">
+      <label for="paymentDateFrom">من تاريخ</label>
+      <input id="paymentDateFrom" type="date" name="date_from" value="{{ date_from }}">
+    </div>
+    <div class="admin-filter-field">
+      <label for="paymentDateTo">إلى تاريخ</label>
+      <input id="paymentDateTo" type="date" name="date_to" value="{{ date_to }}">
+    </div>
+    <button type="submit" class="admin-btn admin-btn-primary"><i class="fas fa-filter"></i> تطبيق</button>
+    {% if q or method or source or date_from or date_to %}
+      <a href="{% url 'dashboard:system_payments_list' %}" class="admin-btn admin-btn-secondary"><i class="fas fa-xmark"></i> مسح</a>
+    {% endif %}
+  </form>
+
+  <section class="admin-panel">
+    <div class="admin-panel-header">
+      <div>
+        <h2 class="text-base font-black text-slate-900">سجل المدفوعات</h2>
+        <p class="mt-1 text-xs text-slate-500">يعرض الدفعات المكتملة والمسجلة فعليًا، وليس محاولات الدفع غير المكتملة.</p>
+      </div>
+      <span class="text-xs font-bold text-slate-500">{{ page_obj.paginator.count|default:0 }} نتيجة</span>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table has-actions">
+        <thead>
+          <tr>
+            <th>العملية</th>
+            <th>المدرسة والباقة</th>
+            <th>طريقة الدفع</th>
+            <th>المبلغ</th>
+            <th>الفاتورة</th>
+            <th class="admin-no-print">التفاصيل</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            {% with payment=row.operation %}
+            <tr>
+              <td class="whitespace-nowrap">
+                <strong class="block text-sm text-slate-900">#{{ payment.pk }}</strong>
+                <span class="block text-[10px] text-slate-400">{{ payment.created_at|date:"Y-m-d H:i" }}</span>
+                <span class="text-[10px] text-slate-500">{{ payment.get_source_display }}</span>
+              </td>
+              <td>
+                <strong class="block text-sm text-slate-900">{{ payment.school.name }}</strong>
+                <span class="text-[10px] text-slate-500">{{ payment.plan.name }}</span>
+              </td>
+              <td>
+                {% if payment.method == "bank_transfer" %}
+                  <span class="admin-status admin-status-info"><i class="fas fa-building-columns"></i> {{ payment.get_method_display }}</span>
+                {% elif payment.method == "tamara" %}
+                  <span class="admin-status admin-status-warning">{{ payment.get_method_display }}</span>
+                {% else %}
+                  <span class="admin-status admin-status-success">{{ payment.get_method_display }}</span>
+                {% endif %}
+              </td>
+              <td class="whitespace-nowrap">
+                <strong class="block text-sm text-slate-900">{{ payment.amount|floatformat:2|intcomma:False }} ر.س</strong>
+                {% if row.refunded_amount %}
+                  <span class="block text-[10px] text-rose-600">مسترد {{ row.refunded_amount|floatformat:2|intcomma:False }}</span>
+                  <span class="text-[10px] text-slate-500">الصافي {{ row.net_amount|floatformat:2|intcomma:False }}</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if payment.invoice %}
+                  <a href="{% url 'dashboard:system_subscription_invoice_view' payment.invoice.pk %}" target="_blank" class="text-xs font-black text-teal-700 hover:text-teal-900">
+                    <i class="fas fa-file-invoice"></i> {{ payment.invoice.invoice_number }}
+                  </a>
+                {% else %}
+                  <span class="admin-status admin-status-warning">لم تُصدر</span>
+                {% endif %}
+              </td>
+              <td>
+                <a href="{% url 'dashboard:system_payment_detail' payment.pk %}" class="admin-btn admin-btn-secondary" style="min-height:2.15rem;padding:.35rem .65rem">
+                  <i class="fas fa-eye"></i> عرض التفاصيل
+                </a>
+              </td>
+            </tr>
+            {% endwith %}
+          {% empty %}
+            <tr>
+              <td colspan="6">
+                <div class="admin-empty">
+                  <i class="fas fa-money-check-dollar mb-3 text-3xl text-slate-300"></i>
+                  <h3 class="font-black text-slate-700">لا توجد مدفوعات مطابقة</h3>
+                  <p class="mt-1 text-xs">غيّر الفلاتر أو تأكد من تسجيل عملية الدفع.</p>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+      <div class="flex items-center justify-between gap-3 border-t border-slate-100 p-4 admin-no-print">
+        <span class="text-xs text-slate-500">عرض {{ page_obj.start_index }}–{{ page_obj.end_index }} من {{ page_obj.paginator.count }}</span>
+        <div class="flex gap-2">
+          {% if page_obj.has_previous %}
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.previous_page_number }}&q={{ q|urlencode }}&method={{ method }}&source={{ source }}&date_from={{ date_from }}&date_to={{ date_to }}">السابقة</a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a class="admin-btn admin-btn-secondary" href="?page={{ page_obj.next_page_number }}&q={{ q|urlencode }}&method={{ method }}&source={{ source }}&date_from={{ date_from }}&date_to={{ date_to }}">التالية</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

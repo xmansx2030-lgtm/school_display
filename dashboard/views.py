@@ -55,6 +55,11 @@ from .views_billing import (  # noqa: F401  (re-exported for urls.py and callers
     system_subscriptions_list,
 )
 
+from .views_payments import (  # noqa: F401  (re-exported for urls.py and callers)
+    system_payment_detail,
+    system_payments_list,
+)
+
 from .views_schedule import (  # noqa: F401  (re-exported for urls.py and callers)
     closure_delete,
     closures_list,

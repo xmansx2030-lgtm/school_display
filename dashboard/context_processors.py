@@ -198,6 +198,21 @@ def _build_admin_nav_links(
             "badge_count": int(open_subscription_requests_count or 0),
         },
         {
+            "key": "payments",
+            "group": "billing",
+            "group_title": "الاشتراكات والفوترة",
+            "title": "المدفوعات",
+            "description": "سجل المدفوعات والفواتير والاستردادات",
+            "url_name": "dashboard:system_payments_list",
+            "icon": "fa-money-check-dollar",
+            "emoji": "💰",
+            "tone": "teal",
+            "exact": (),
+            "startswith": ("system_payment",),
+            "visible": True,
+            "badge_count": 0,
+        },
+        {
             "key": "plans",
             "group": "billing",
             "group_title": "الاشتراكات والفوترة",
@@ -338,7 +353,7 @@ def _build_admin_nav_links(
         }
 
         if resolved["key"] == "subscriptions":
-            if (current_url_name or "").startswith("system_subscription_request"):
+            if (current_url_name or "").startswith(("system_subscription_request", "system_payment")):
                 resolved["active"] = False
 
         links.append(resolved)

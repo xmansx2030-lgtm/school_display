@@ -9,6 +9,7 @@
   <i class="fas fa-angle-left text-[9px]"></i><span class="text-slate-500">الاشتراكات</span>
 {% endblock %}
 {% block page_actions %}
+  <a href="{% url 'dashboard:system_payments_list' %}" class="admin-btn admin-btn-secondary"><i class="fas fa-money-check-dollar"></i> المدفوعات</a>
   {% if can_plans_view %}
     <a href="{% url 'dashboard:system_plans_list' %}" class="admin-btn admin-btn-secondary"><i class="fas fa-tags"></i> الباقات</a>
   {% endif %}
