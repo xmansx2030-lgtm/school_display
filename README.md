@@ -6,7 +6,7 @@
 
 المصدر الرسمي والوحيد للمشروع هو:
 
-`https://github.com/xmansx1/school_display`
+`https://github.com/xmansx2030-lgtm/school_display`
 
 فرع الإنتاج هو `main`. يعمل فحص CI تلقائيًا عند الدفع إليه، بينما يبدأ النشر
 إلى الإنتاج يدويًا من سير عمل **Deploy production** بعد نجاح CI.

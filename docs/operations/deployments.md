@@ -1,7 +1,7 @@
 # Production deployment runbook
 
 The canonical repository is
-`https://github.com/xmansx1/school_display`. Its `production` environment owns
+`https://github.com/xmansx2030-lgtm/school_display`. Its `production` environment owns
 the SSH credentials used by `.github/workflows/deploy.yml`.
 
 Deployments are manual and tarball-based. There is no CD pipeline: CI on `main`
