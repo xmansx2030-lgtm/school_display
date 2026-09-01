@@ -1,7 +1,16 @@
 # Production deployment runbook
 
+The canonical repository is
+`https://github.com/xmansx1/school_display`. Its `production` environment owns
+the SSH credentials used by `.github/workflows/deploy.yml`.
+
 Deployments are manual and tarball-based. There is no CD pipeline: CI on `main`
 runs tests and builds the image, but nothing ships on its own.
+
+The production application directory is intentionally not a Git checkout.
+GitHub Actions archives the exact approved commit and uploads it over SSH, so
+repository migrations must update the workflow environment credentials rather
+than adding a Git remote under `/opt/school-display/app`.
 
 `deploy/deploy.sh` is the reviewed copy of the script; the server executes
 `~/deploy.sh`. Keep the two in sync — see [Keeping the script in sync](#keeping-the-script-in-sync).
