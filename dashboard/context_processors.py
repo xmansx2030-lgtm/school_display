@@ -3,7 +3,7 @@ from __future__ import annotations
 from urllib.parse import quote
 
 from django.apps import apps
-from django.db.models import Q
+from django.db.models import F, Q
 from django.urls import reverse
 from django.utils import timezone
 
@@ -42,10 +42,14 @@ def school_whatsapp_contact(request):
     Subscription = apps.get_model("subscriptions", "SchoolSubscription")
     today = timezone.localdate()
     subscriptions = Subscription.objects.filter(school=school).select_related("plan")
+    # A school can hold more than one live row — a trial it upgraded out of, or
+    # an early renewal — so "the current subscription" is the one whose cover
+    # reaches furthest, not the one that started last. Picking the wrong row is
+    # what puts a "3 days left" warning in front of a paid-up customer.
     current_subscription = (
         subscriptions.filter(status="active", starts_at__lte=today)
         .filter(Q(ends_at__isnull=True) | Q(ends_at__gte=today))
-        .order_by("-starts_at", "-created_at")
+        .order_by(F("ends_at").desc(nulls_first=True), "-starts_at", "-created_at")
         .first()
     )
     subscription = current_subscription or subscriptions.order_by("-created_at").first()

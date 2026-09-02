@@ -12,6 +12,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .models import MoyasarCheckout, SchoolSubscription, SubscriptionPaymentOperation
+from .trials import close_superseded_trials_quietly
 
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,19 @@ def _validate_details(checkout: MoyasarCheckout, details: dict) -> tuple[str, st
 
 
 def _current_subscription_for(checkout: MoyasarCheckout):
-    """The live subscription a screens-only purchase attaches to."""
+    """The live subscription a screens-only purchase attaches to.
+
+    A school upgrading mid-trial briefly holds both rows, and the trial can
+    outlast the paid term on paper. Attaching the add-on to the trial would
+    quietly void screens the customer paid for the moment the trial closes, so
+    a paid base plan always wins the tie.
+    """
+    from .utils import school_active_paid_subscription
+
+    paid = school_active_paid_subscription(checkout.school_id)
+    if paid is not None:
+        return paid
+
     today = timezone.localdate()
     return (
         SchoolSubscription.objects.filter(
@@ -249,6 +262,9 @@ def _activate_paid_checkout(checkout: MoyasarCheckout, *, status: str, event_typ
                     subscription.ends_at = today + timedelta(days=term_days)
                     changed.append("ends_at")
                 subscription.save(update_fields=changed)
+
+            # التجربة المجانية لا يجوز أن تستمر بالعد التنازلي بعد الاشتراك المدفوع.
+            close_superseded_trials_quietly(checkout.school_id)
 
         operation = checkout.payment_operation
         if operation is None:

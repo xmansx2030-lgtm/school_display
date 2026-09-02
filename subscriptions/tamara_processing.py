@@ -18,6 +18,7 @@ from .models import (
     TamaraCheckout,
 )
 from .tamara import TamaraAPIError, TamaraClient, TamaraConfigurationError
+from .trials import close_superseded_trials_quietly
 
 
 logger = logging.getLogger(__name__)
@@ -109,6 +110,9 @@ def activate_checkout(checkout_id: int, *, status: str, event_type: str) -> Tama
                 subscription.ends_at = today + timedelta(days=term_days)
                 changed.append("ends_at")
             subscription.save(update_fields=changed)
+
+        # التجربة المجانية لا يجوز أن تستمر بالعد التنازلي بعد الاشتراك المدفوع.
+        close_superseded_trials_quietly(checkout.school_id)
 
         operation = checkout.payment_operation
         if operation is None:

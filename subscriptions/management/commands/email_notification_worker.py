@@ -17,6 +17,7 @@ from subscriptions.email_notifications import (
 )
 from subscriptions.expiry import expire_due_subscriptions
 from subscriptions.invoicing import reconcile_missing_invoices
+from subscriptions.trials import close_superseded_trials
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,15 @@ class Command(BaseCommand):
                 # Billing state must settle even when email delivery is off,
                 # so this runs outside the transactional-email guard below.
                 if last_subscription_expiry_date != timezone.localdate():
+                    # Retire trials a paid plan already took over first, so the
+                    # expiry pass and the reminder scan below both see one
+                    # honest term per school.
+                    trials = close_superseded_trials()
+                    if trials.trimmed:
+                        self.stdout.write(
+                            f"trial_closure trimmed={trials.trimmed} "
+                            f"expired={trials.expired} schools={trials.schools}"
+                        )
                     expiry = expire_due_subscriptions()
                     last_subscription_expiry_date = timezone.localdate()
                     if expiry.expired:

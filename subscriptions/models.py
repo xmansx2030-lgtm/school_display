@@ -55,6 +55,7 @@ class SchoolSubscription(models.Model):
         ("competitor", "الانتقال إلى منافس"),
         ("school_closed", "إغلاق أو دمج المدرسة"),
         ("no_response", "تعذر التواصل"),
+        ("upgraded", "الترقية إلى باقة مدفوعة"),
         ("other", "سبب آخر"),
     ]
 
