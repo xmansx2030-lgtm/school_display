@@ -1,0 +1,99 @@
+name: Close superseded trials
+
+# Retires free trials that a paid plan already took over.
+#
+# The application does this on its own — on payment activation and once a day
+# inside `email-notification-worker`. This workflow exists for the case the
+# scheduler cannot serve: settling a backlog now instead of waiting for the
+# next daily pass, and reading the count before anything is written.
+#
+# Deliberately NOT a generic "run a management command" runner. A workflow that
+# takes an arbitrary command as input turns repository write access into
+# arbitrary code execution on the production host; this one can only ever run
+# `close_superseded_trials`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Preview the count, or write the change
+        required: true
+        default: dry-run
+        type: choice
+        options: [dry-run, apply]
+      school_id:
+        description: Limit to one school id (optional; blank sweeps every school)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-school-display
+  cancel-in-progress: false
+
+jobs:
+  close-trials:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      SSH_TARGET: ${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}
+      SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+      APP_PATH: /opt/school-display/app
+      MODE: ${{ inputs.mode }}
+      SCHOOL_ID: ${{ inputs.school_id }}
+
+    steps:
+      - name: Validate inputs
+        run: |
+          case "$MODE" in
+            dry-run|apply) ;;
+            *) echo "::error::unknown mode '$MODE'"; exit 1 ;;
+          esac
+          # A school id reaches a shell on the production host. Digits only.
+          if [ -n "$SCHOOL_ID" ] && ! [[ "$SCHOOL_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::school_id must be digits only"
+            exit 1
+          fi
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY_B64: ${{ secrets.DEPLOY_SSH_KEY_B64 }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          umask 077
+          printf '%s' "$DEPLOY_SSH_KEY_B64" | base64 --decode > ~/.ssh/id_deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Run close_superseded_trials
+        run: |
+          # Built with `if`, not `[ … ] && …`: the runner's shell carries -e, and
+          # a false test as the last command would fail the step outright.
+          args=""
+          if [ "$MODE" = "dry-run" ]; then
+            args="--dry-run"
+          fi
+          if [ -n "$SCHOOL_ID" ]; then
+            args="$args --school $SCHOOL_ID"
+          fi
+
+          echo "mode=$MODE school=${SCHOOL_ID:-all}"
+          ssh -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
+            "cd '$APP_PATH' && sudo -n docker compose -f compose.production.yaml \
+             exec -T web python manage.py close_superseded_trials $args" \
+            | tee "$RUNNER_TEMP/result.txt"
+
+          {
+            echo "### close_superseded_trials (\`$MODE\`)"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/result.txt"
+            echo '```'
+            if [ "$MODE" = "dry-run" ]; then
+              echo
+              echo "No rows were written. Re-run with **apply** to commit this."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
