@@ -183,16 +183,28 @@ class CloseSupersededTrialsTests(TrialUpgradeTestCase):
 
         self.assertEqual(second.trimmed, 0)
 
+    def _addon(self, trial, *, price="500.00", status="paid", ends_at=None):
+        """``total_price`` is recomputed on every save, so drive it, don't set it.
+
+        ``manual_bundle`` is the one strategy that takes the figure as given;
+        under the ``auto_bundle`` default the model prices the add-on from the
+        plan and would quietly overwrite whatever the test asked for.
+        """
+        addon = SubscriptionScreenAddon.objects.create(
+            subscription=trial,
+            screens_added=2,
+            status=status,
+            pricing_strategy="manual_bundle",
+            bundle_price=Decimal(price),
+            starts_at=trial.starts_at,
+            ends_at=ends_at or trial.ends_at,
+        )
+        return addon
+
     def test_a_trial_carrying_paid_screen_addons_is_left_alone(self):
         """Trimming it would silently void screens the customer paid for."""
         trial = self._trial()
-        SubscriptionScreenAddon.objects.create(
-            subscription=trial,
-            screens_added=2,
-            status="paid",
-            starts_at=self.today,
-            ends_at=trial.ends_at,
-        )
+        self._addon(trial)
         self._paid()
         original_end = trial.ends_at
 
@@ -201,6 +213,48 @@ class CloseSupersededTrialsTests(TrialUpgradeTestCase):
         trial.refresh_from_db()
         self.assertEqual(result.trimmed, 0)
         self.assertEqual(trial.ends_at, original_end)
+
+    def test_a_free_bundled_screen_does_not_block_the_tidy_up(self):
+        """The trial's own screen is recorded as a zero-priced add-on.
+
+        Treating that as untouchable left the trial to lapse with no closure
+        reason, so a school that had upgraded showed up as churn.
+        """
+        trial = self._trial(starts_at=self.today - timedelta(days=3))
+        self._addon(trial, price="0.00")
+        self._paid()
+
+        result = close_superseded_trials(self.school.pk, on_date=self.today)
+
+        trial.refresh_from_db()
+        self.assertEqual(result.trimmed, 1)
+        self.assertEqual(trial.closure_reason, "upgraded")
+
+    def test_an_unpaid_addon_does_not_block_the_tidy_up(self):
+        trial = self._trial(starts_at=self.today - timedelta(days=3))
+        self._addon(trial, status="pending")
+        self._paid()
+
+        self.assertEqual(close_superseded_trials(self.school.pk, on_date=self.today).trimmed, 1)
+
+    def test_a_paid_addon_already_over_by_the_new_end_does_not_block_it(self):
+        """Nothing is cut short if the add-on has run its course anyway."""
+        trial = self._trial(starts_at=self.today - timedelta(days=6))
+        self._addon(trial, ends_at=self.today - timedelta(days=4))
+        self._paid(starts_at=self.today - timedelta(days=2))
+
+        result = close_superseded_trials(self.school.pk, on_date=self.today)
+
+        trial.refresh_from_db()
+        self.assertEqual(result.trimmed, 1)
+        self.assertEqual(trial.ends_at, self.today - timedelta(days=3))
+
+    def test_a_paid_addon_that_outlives_the_new_end_still_blocks_it(self):
+        trial = self._trial(starts_at=self.today - timedelta(days=6))
+        self._addon(trial, ends_at=self.today + timedelta(days=5))
+        self._paid(starts_at=self.today - timedelta(days=2))
+
+        self.assertEqual(close_superseded_trials(self.school.pk, on_date=self.today).trimmed, 0)
 
     def test_the_school_stays_active_after_its_trial_is_retired(self):
         self._trial(starts_at=self.today - timedelta(days=3))
