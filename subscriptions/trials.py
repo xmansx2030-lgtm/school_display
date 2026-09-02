@@ -93,21 +93,18 @@ def close_superseded_trials(
         if paid_start is None:
             continue
 
-        # A trial the customer bought screen add-ons against is not ours to
-        # close quietly: shortening it would silently void screens they paid
-        # for. Leave it to a human and let the reminder guard cover the noise.
-        if SubscriptionScreenAddon.objects.filter(subscription=trial).exists():
+        # End the day before paid cover begins, so not a single covered day is
+        # taken away — and never before the trial's own start date.
+        new_end = max(trial.starts_at, paid_start - timedelta(days=1))
+        if new_end >= trial.ends_at:
+            continue
+
+        if _would_void_paid_screens(trial, new_end):
             logger.info(
                 "trial_closure_skipped_has_addons subscription_id=%s school_id=%s",
                 trial.pk,
                 trial.school_id,
             )
-            continue
-
-        # End the day before paid cover begins, so not a single covered day is
-        # taken away — and never before the trial's own start date.
-        new_end = max(trial.starts_at, paid_start - timedelta(days=1))
-        if new_end >= trial.ends_at:
             continue
 
         closes_now = new_end < today
@@ -132,6 +129,29 @@ def close_superseded_trials(
             int(dry_run),
         )
     return TrialClosureResult(trimmed=trimmed, expired=expired, schools=len(touched_schools))
+
+
+def _would_void_paid_screens(trial: SchoolSubscription, new_end) -> bool:
+    """Whether trimming to ``new_end`` cuts short screens the customer bought.
+
+    An add-on's screens only count while the subscription carrying them is
+    running, so ending the trial early ends any add-on that would have outlived
+    it. That is worth refusing — but only when money actually changed hands.
+
+    The trial's own bundled screen is recorded as an add-on too, priced at
+    zero, and treating that as untouchable was too blunt: it left the trial to
+    lapse on its own, with no closure reason, so a school that had upgraded and
+    was paying for a year landed in the churn report as a lost customer.
+    """
+    return (
+        SubscriptionScreenAddon.objects.filter(
+            subscription=trial,
+            status="paid",
+            total_price__gt=0,
+        )
+        .filter(Q(ends_at__isnull=True) | Q(ends_at__gt=new_end))
+        .exists()
+    )
 
 
 def _apply_closure(trial: SchoolSubscription, *, new_end, closes_now: bool) -> None:
