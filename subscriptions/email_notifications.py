@@ -20,6 +20,7 @@ from .models import (
     SubscriptionEmailNotification,
     SubscriptionInvoice,
 )
+from .utils import subscription_is_superseded
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +142,18 @@ def enqueue_expiry_email_reminders(*, on_date: date | None = None) -> int:
     for subscription in subscriptions.iterator():
         days_left = (subscription.ends_at - today).days
         if days_left not in reminder_days:
+            continue
+        # A school that upgraded mid-trial, or renewed early, still owns the
+        # lapsing row. Warning them that "your subscription ends in 3 days"
+        # while their paid plan runs on is the fastest way to make a healthy
+        # customer doubt the platform, so ask about the school's cover, not
+        # about this row alone.
+        if subscription_is_superseded(subscription):
+            logger.debug(
+                "expiry_reminder_skipped_superseded subscription_id=%s school_id=%s",
+                subscription.pk,
+                subscription.school_id,
+            )
             continue
         for recipient in _school_recipient_emails(subscription):
             _, created = SubscriptionEmailNotification.objects.get_or_create(

@@ -114,8 +114,11 @@ def system_admin_dashboard(request):
             incomplete_payments_count += SubModel.objects.filter(status="pending").count()
             if _model_has_field(SubModel, "closure_reason"):
                 reason_labels = dict(getattr(SubModel, "CLOSURE_REASON_CHOICES", ()))
+                # A trial retired because the school upgraded is not churn, and
+                # counting it here would quietly inflate the loss picture.
                 reason_rows = (
                     SubModel.objects.filter(status__in=("cancelled", "expired"))
+                    .exclude(closure_reason="upgraded")
                     .values("closure_reason")
                     .annotate(total=Count("id"))
                     .order_by("-total")

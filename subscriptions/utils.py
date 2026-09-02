@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.db.models import Q
 from django.utils import timezone
 
@@ -108,3 +110,47 @@ def school_effective_max_screens(school_id: int, on_date=None) -> int | None:
             best = effective
 
     return best
+
+
+def school_is_covered_after(
+    school_id: int,
+    boundary_date,
+    *,
+    exclude_subscription_id: int | None = None,
+) -> bool:
+    """Whether another subscription keeps the school running past ``boundary_date``.
+
+    A school can legitimately hold more than one active subscription row at a
+    time — a free trial the customer never used up, then the paid plan they
+    bought on top of it, or an early renewal bought before the running term
+    ends. Anything that warns about "your subscription is about to end" has to
+    ask this question at the *school* level, otherwise the lapsing row alarms a
+    customer whose service is not going anywhere.
+
+    The follow-on cover must start no later than the day after ``boundary_date``
+    to count: a subscription resuming after a real gap leaves days uncovered,
+    and the customer deserves to hear about those.
+    """
+    if not school_id or boundary_date is None:
+        return False
+
+    successors = SchoolSubscription.objects.filter(
+        school_id=school_id,
+        status="active",
+        starts_at__lte=boundary_date + timedelta(days=1),
+    ).filter(Q(ends_at__isnull=True) | Q(ends_at__gt=boundary_date))
+    if exclude_subscription_id:
+        successors = successors.exclude(pk=exclude_subscription_id)
+    return successors.exists()
+
+
+def subscription_is_superseded(subscription) -> bool:
+    """Whether this row's end date is already covered by another subscription."""
+    ends_at = getattr(subscription, "ends_at", None)
+    if ends_at is None:
+        return False
+    return school_is_covered_after(
+        subscription.school_id,
+        ends_at,
+        exclude_subscription_id=subscription.pk,
+    )
