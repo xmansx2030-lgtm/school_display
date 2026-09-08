@@ -5007,7 +5007,6 @@
       _exImageCache.delete(first);
     }
     var preImg = new Image();
-    preImg.crossOrigin = "anonymous";
     preImg.src = src;
     _exImageCache.set(src, preImg);
   }
@@ -5068,7 +5067,6 @@
       const img = document.createElement("img");
       img.alt = "صورة المتميز " + safeText(name);
       img.loading = "eager";
-      img.crossOrigin = "anonymous";
       img.className = "honor-avatar";
       
       const fallbackSvg =
@@ -5501,6 +5499,28 @@
     badge.classList.remove("u-hidden");
   }
 
+  /**
+   * A successful status response or WebSocket open proves connectivity even
+   * when the schedule revision did not change.  Do not wait for a new snapshot
+   * to remove the stale offline badge: the server is reachable now.
+   *
+   * The persisted snapshot deliberately remains untouched.  If the connection
+   * drops again before a fresh snapshot arrives, it is still the honest
+   * fallback and will be marked offline again when loaded.
+   */
+  function markConnectivityRestored(source) {
+    const payload = lastPayloadForFiltering;
+    if (!payload || !payload._offlineCached) return;
+
+    delete payload._offlineCached;
+    delete payload._offlineSavedAt;
+    delete payload._offlineAgeMs;
+    delete payload._offlineDayShifted;
+    delete payload._offlineHasDayPlan;
+    renderOfflineMode(payload);
+    _log("offline_mode_cleared", { source: safeText(source || "connectivity") });
+  }
+
 
   function renderState(payload) {
     if (!payload) return;
@@ -5516,7 +5536,13 @@
     if (payload.now) {
       const serverMs = new Date(payload.now).getTime();
       const hasFreshHeaderSync = lastServerHeaderSyncAt > 0 && Date.now() - lastServerHeaderSyncAt < 5000;
-      if (!isNaN(serverMs) && !hasFreshHeaderSync) applyServerNowMs(serverMs, "payload");
+      // A cached payload carries the time at which it was saved. Applying that
+      // value after the network disappears rewinds the display clock on every
+      // retry and can repeat a lesson or delay the bell. Offline mode trusts the
+      // device clock while retaining only the school's timezone offset below.
+      if (!payload._offlineCached && !isNaN(serverMs) && !hasFreshHeaderSync) {
+        applyServerNowMs(serverMs, "payload");
+      }
 
       // Learn server timezone offset + local date (stable even when payload is cached).
       try {
@@ -6051,6 +6077,71 @@
     }
   }
 
+  let lastOfflineMediaSignature = "";
+
+  function _offlineMediaUrl(raw) {
+    const resolved = resolveImageURL(raw);
+    if (!resolved || /^data:|^blob:/i.test(resolved)) return "";
+    try {
+      const parsed = new URL(resolved, window.location.origin);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+      return parsed.href;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  /** Collect every media resource referenced by the saved board payload. */
+  function collectOfflineMediaUrls(payload) {
+    const urls = [];
+    const seen = Object.create(null);
+    const add = function (raw) {
+      const url = _offlineMediaUrl(raw);
+      if (!url || seen[url] || urls.length >= 48) return;
+      seen[url] = 1;
+      urls.push(url);
+    };
+
+    const settings = (payload && payload.settings) || {};
+    add(screenSetting("screenLogoUrl", ""));
+    add(settings.logo_url);
+    add(payload && payload.logo_url);
+    add(cfg.BELL_SOUND_URL || "/static/sounds/bell.mp3");
+
+    const excellence = Array.isArray(payload && payload.excellence)
+      ? payload.excellence
+      : ((payload && payload.excellence && payload.excellence.items) || []);
+    for (let i = 0; i < excellence.length; i++) {
+      const item = excellence[i] || {};
+      const student = item.student || {};
+      const teacher = item.teacher || {};
+      add(item.image_src || item.photo_url || item.image_url || item.photo || item.image || item.avatar);
+      add(student.photo_url || student.image_url || student.photo || student.image);
+      add(teacher.photo_url || teacher.image_url || teacher.photo || teacher.image);
+    }
+    return urls;
+  }
+
+  /**
+   * Ask the Service Worker to download the complete day's media while the
+   * network is healthy. This covers images that have not rotated into view yet
+   * and a full bell file that can later satisfy an offline byte-range request.
+   */
+  function warmOfflineMedia(payload) {
+    if (!payload || payload._offlineCached || !("serviceWorker" in navigator)) return;
+    const urls = collectOfflineMediaUrls(payload);
+    if (!urls.length) return;
+    const signature = JSON.stringify(urls);
+    if (signature === lastOfflineMediaSignature) return;
+
+    navigator.serviceWorker.ready.then(function (registration) {
+      const worker = navigator.serviceWorker.controller || registration.active;
+      if (!worker) return;
+      worker.postMessage({ type: "CACHE_DISPLAY_MEDIA", urls: urls });
+      lastOfflineMediaSignature = signature;
+    }).catch(function () {});
+  }
+
   // ===== Offline resilience =================================================
   // النسخة المحفوظة تُبقي الشاشة تعمل بلا إنترنت، لكن الثقة بها تتناقص مع
   // الوقت. القاعدة: نعرض ما نعرف أنه ما زال صحيحًا، ونُسقط ما لا نستطيع
@@ -6061,16 +6152,98 @@
   // أقل من هذا العمر لا يستحق إزعاجًا بصريًا: الانقطاعات القصيرة طبيعية.
   const OFFLINE_QUIET_MS = 15 * 60 * 1000;
 
+  function _offlineWallClock(ms) {
+    const value = typeof ms === "number" ? ms : nowMs();
+    const hasServerOffset = serverTzOffsetMin !== null && isFinite(Number(serverTzOffsetMin));
+    return {
+      date: new Date(value + (hasServerOffset ? Number(serverTzOffsetMin) * 60 * 1000 : 0)),
+      utc: hasServerOffset,
+    };
+  }
+
   function _localDateKey(ms) {
-    const d = new Date(typeof ms === "number" ? ms : nowMs());
+    const wall = _offlineWallClock(ms);
+    const d = wall.date;
     const pad = (n) => (n < 10 ? "0" + n : String(n));
-    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    const year = wall.utc ? d.getUTCFullYear() : d.getFullYear();
+    const month = wall.utc ? d.getUTCMonth() : d.getMonth();
+    const day = wall.utc ? d.getUTCDate() : d.getDate();
+    return year + "-" + pad(month + 1) + "-" + pad(day);
   }
 
   /** ترقيم قاعدة البيانات لليوم: الاثنين=1 .. الأحد=7 */
   function _dbWeekday(ms) {
-    const jsDay = new Date(typeof ms === "number" ? ms : nowMs()).getDay(); // الأحد=0
+    const wall = _offlineWallClock(ms);
+    const jsDay = wall.utc ? wall.date.getUTCDay() : wall.date.getDay(); // الأحد=0
     return jsDay === 0 ? 7 : jsDay;
+  }
+
+  function _offlineDayStartMs(ms) {
+    const base = typeof ms === "number" ? ms : nowMs();
+    const serverStart = _serverDayStartMsForBase(base);
+    if (serverStart && isFinite(Number(serverStart))) return Number(serverStart);
+    const d = new Date(base);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
+  }
+
+  function _offlineMinuteOfDay(hm) {
+    const parts = String(hm || "").split(":");
+    if (parts.length < 2) return null;
+    const hour = parseInt(parts[0], 10);
+    const minute = parseInt(parts[1], 10);
+    if (!isFinite(hour) || !isFinite(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return null;
+    }
+    return hour * 60 + minute;
+  }
+
+  function _offlinePlanBounds(plan, dayStartMs) {
+    if (!Array.isArray(plan) || !plan.length || !isFinite(Number(dayStartMs))) return null;
+    let firstMinute = null;
+    let lastMinute = null;
+    for (let i = 0; i < plan.length; i++) {
+      const block = plan[i] || {};
+      const fromMinute = _offlineMinuteOfDay(block.from);
+      const toMinute = _offlineMinuteOfDay(block.to);
+      if (fromMinute === null || toMinute === null || toMinute <= fromMinute) continue;
+      if (firstMinute === null || fromMinute < firstMinute) firstMinute = fromMinute;
+      if (lastMinute === null || toMinute > lastMinute) lastMinute = toMinute;
+    }
+    if (firstMinute === null || lastMinute === null) return null;
+    const firstMs = Number(dayStartMs) + firstMinute * 60 * 1000;
+    const lastMs = Number(dayStartMs) + lastMinute * 60 * 1000;
+    return {
+      firstMs: firstMs,
+      lastMs: lastMs,
+      activeStartMs: firstMs - 30 * 60 * 1000,
+      activeEndMs: lastMs + 15 * 60 * 1000,
+    };
+  }
+
+  function _offlineNextSchoolDay(weekPlan, currentDayStartMs) {
+    if (!weekPlan || typeof weekPlan !== "object") return null;
+    const dayMs = 24 * 60 * 60 * 1000;
+    for (let daysAhead = 1; daysAhead <= 7; daysAhead++) {
+      // Midday is immune to DST/day-boundary rounding when deriving the
+      // weekday and display date. School deployments currently use Riyadh,
+      // but the fallback remains sound for any configured timezone offset.
+      const candidateStart = Number(currentDayStartMs) + daysAhead * dayMs;
+      const candidateMidday = candidateStart + 12 * 60 * 60 * 1000;
+      const weekday = _dbWeekday(candidateMidday);
+      const plan = weekPlan[String(weekday)];
+      const bounds = _offlinePlanBounds(plan, candidateStart);
+      if (!Array.isArray(plan) || !plan.length || !bounds) continue;
+      return {
+        date: _localDateKey(candidateMidday),
+        weekday: weekday,
+        days_ahead: daysAhead,
+        first_start: new Date(bounds.firstMs).toISOString(),
+        last_end: new Date(bounds.lastMs).toISOString(),
+        active_start: new Date(bounds.activeStartMs).toISOString(),
+        active_end: new Date(bounds.activeEndMs).toISOString(),
+      };
+    }
+    return null;
   }
 
   /**
@@ -6083,10 +6256,55 @@
   function _rehydrateForNewDay(payload) {
     const weekPlan = (payload.meta && payload.meta.week_plan) || null;
     const todayPlan = weekPlan ? weekPlan[String(_dbWeekday())] : null;
+    const now = nowMs();
+    const todayKey = _localDateKey(now);
+    const todayStart = _offlineDayStartMs(now);
+    const todayBounds = _offlinePlanBounds(todayPlan, todayStart);
+    const nextSchoolDay = _offlineNextSchoolDay(weekPlan, todayStart);
 
     payload._offlineDayShifted = true;
     payload.day_path = Array.isArray(todayPlan) ? todayPlan.slice() : [];
     payload._offlineHasDayPlan = Array.isArray(todayPlan);
+
+    // The cached payload's meta belongs to yesterday. Rebuild every field the
+    // sleep/wake engine consumes; leaving even one old active-window timestamp
+    // can put a real school day back to sleep until the next network retry.
+    const meta = payload.meta && typeof payload.meta === "object" ? payload.meta : {};
+    payload.meta = meta;
+    meta.date = todayKey;
+    meta.weekday = _dbWeekday(now);
+    meta.next_school_day = nextSchoolDay;
+
+    if (!payload._offlineHasDayPlan) {
+      meta.is_school_day = true;
+      meta.is_active_window = false;
+      meta.active_window = null;
+      // Unknown plans stay awake and retry gently instead of sleeping forever.
+      meta.next_wake_at = new Date(now + 5 * 60 * 1000).toISOString();
+    } else if (!payload.day_path.length || !todayBounds) {
+      meta.is_school_day = false;
+      meta.is_active_window = false;
+      meta.active_window = null;
+      meta.next_wake_at = nextSchoolDay ? nextSchoolDay.active_start : new Date(now + 15 * 60 * 1000).toISOString();
+    } else {
+      meta.is_school_day = true;
+      meta.is_active_window = now >= todayBounds.activeStartMs && now <= todayBounds.activeEndMs;
+      meta.active_window = {
+        start: new Date(todayBounds.activeStartMs).toISOString(),
+        end: new Date(todayBounds.activeEndMs).toISOString(),
+      };
+      if (now < todayBounds.activeStartMs) {
+        meta.next_wake_at = new Date(todayBounds.activeStartMs).toISOString();
+      } else if (now > todayBounds.activeEndMs) {
+        meta.next_wake_at = nextSchoolDay ? nextSchoolDay.active_start : new Date(now + 15 * 60 * 1000).toISOString();
+      } else {
+        meta.next_wake_at = null;
+      }
+    }
+
+    if (serverTzOffsetMin !== null && isFinite(Number(serverTzOffsetMin))) {
+      applyServerCalendar(todayKey, Number(serverTzOffsetMin));
+    }
 
     // محتوى اليوم السابق: إسقاطه أصدق من عرضه.
     payload.period_classes = [];
@@ -6118,13 +6336,27 @@
         label: "بانتظار الاتصال لتحديث جدول اليوم",
         badge: "غير متصلة",
       };
-    } else if (!payload.day_path.length) {
+    } else if (!payload.day_path.length || !todayBounds) {
       // إجازة معروفة من خطة الأسبوع → رسالة الإجازة المعتادة للمدرسة.
       payload.state = {
         type: "off",
         reason: "holiday",
         label: safeText(settings.display_holiday_title || "") || "إجازة",
         badge: safeText(settings.display_holiday_badge || "") || "إجازة",
+      };
+    } else if (now < todayBounds.activeStartMs) {
+      payload.state = {
+        type: "off",
+        reason: "before_hours",
+        label: safeText(settings.display_before_title || "") || "استعدوا لبداية يوم دراسي جميل",
+        badge: safeText(settings.display_before_badge || "") || "أهلا بكم",
+      };
+    } else if (now > todayBounds.activeEndMs) {
+      payload.state = {
+        type: "after",
+        reason: "after_hours",
+        label: safeText(settings.display_after_title || "") || "أحسنتم اليوم، ونلقاكم غدا بإذن الله",
+        badge: safeText(settings.display_after_badge || "") || "أحسنتم",
       };
     } else {
       // يوم دراسي معروف → المحرك المحلي يتولى حساب الحالة من الجدول.
@@ -6142,6 +6374,14 @@
 
       const payload = stored.payload;
       const savedAt = Number(stored.savedAt) || 0;
+
+      // Learn only the school's timezone from the cached timestamp. The
+      // absolute timestamp itself is stale and must never become clock truth.
+      try {
+        const cachedOffset = _parseTzOffsetMinFromIso(payload.now);
+        if (cachedOffset !== null) applyServerCalendar(_localDateKey(), cachedOffset);
+      } catch (e) {}
+
       payload._offlineCached = true;
       payload._offlineSavedAt = savedAt || null;
       payload._offlineAgeMs = savedAt ? Math.max(0, nowMs() - savedAt) : null;
@@ -6398,6 +6638,7 @@
         return null;
       }
       persistOfflineSnapshot(payload);
+      warmOfflineMedia(payload);
       return payload;
     });
 
@@ -6500,6 +6741,7 @@
       } catch (e) {}
 
       if (r.status === 304) {
+        markConnectivityRestored("status_304");
         // If server provides revision in headers, learn it even on 304.
         try {
           const revH = r.headers.get("X-Schedule-Revision");
@@ -6546,6 +6788,8 @@
         // Non-binding status errors: fall back to snapshot.
         return { fetch_required: true };
       }
+
+      markConnectivityRestored("status_ok");
 
       const body = await r.json().catch(() => null);
       if (isTerminalBlockedMode()) {
@@ -7679,6 +7923,7 @@
         rt.wsSuppressedUntilTs = 0;
         rt.wsOpenedAt = Date.now(); // cooldown reference for fetch dedup
         rt.wsLastMessageAt = rt.wsOpenedAt;
+        markConnectivityRestored("websocket_open");
 
         _log("ws_connected", { mode: rt.mode, openedAt: rt.wsOpenedAt });
         _log("ws_reconnect_succeeded", { mode: rt.mode });
