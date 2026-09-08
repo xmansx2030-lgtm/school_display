@@ -12,7 +12,16 @@
     }
 
     window.addEventListener("load", function () {
-        navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(function () {
+        navigator.serviceWorker.register("/sw.js", { scope: "/" }).then(function () {
+            // The first navigation happens before a newly-installed worker can
+            // control it. Cache the exact display URL now so one successful
+            // online visit is enough for a later offline reboot.
+            return navigator.serviceWorker.ready.then(function (registration) {
+                var worker = navigator.serviceWorker.controller || registration.active;
+                if (!worker) return;
+                worker.postMessage({ type: "CACHE_DISPLAY_PAGE", url: window.location.href });
+            });
+        }).catch(function () {
             // A screen that cannot register the worker still displays normally.
         });
     });

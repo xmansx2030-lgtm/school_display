@@ -20,6 +20,45 @@ class DisplayClientTimingRegressionTests(SimpleTestCase):
         self.assertIn('lastServerHeaderSyncAt', self.source)
         self.assertIn('!hasFreshHeaderSync', self.source)
         self.assertIn('applyServerNowMs(h, "header")', self.source)
+        render_state = self.source.split("function renderState", 1)[1].split(
+            "function computeDayOver", 1
+        )[0]
+        self.assertIn("!payload._offlineCached", render_state)
+
+    def test_connectivity_success_clears_an_offline_badge_without_a_revision_change(self):
+        clear_source = self.source.split("function markConnectivityRestored", 1)[1].split(
+            "function renderState", 1
+        )[0]
+        status_source = self.source.split("async function safeFetchStatus", 1)[1].split(
+            "// ===== Refresh loop", 1
+        )[0]
+
+        self.assertIn("delete payload._offlineCached", clear_source)
+        self.assertIn('markConnectivityRestored("status_304")', status_source)
+        self.assertIn('markConnectivityRestored("status_ok")', status_source)
+        self.assertIn('markConnectivityRestored("websocket_open")', self.source)
+
+    def test_new_offline_day_rebuilds_sleep_metadata_from_the_saved_week_plan(self):
+        rehydrate = self.source.split("function _rehydrateForNewDay", 1)[1].split(
+            "function loadOfflineSnapshot", 1
+        )[0]
+
+        self.assertIn("meta.date = todayKey", rehydrate)
+        self.assertIn("meta.is_school_day", rehydrate)
+        self.assertIn("meta.is_active_window", rehydrate)
+        self.assertIn("meta.active_window", rehydrate)
+        self.assertIn("meta.next_wake_at", rehydrate)
+        self.assertIn("_offlineNextSchoolDay(weekPlan, todayStart)", rehydrate)
+
+    def test_fresh_snapshot_warms_every_referenced_display_media_file(self):
+        collector = self.source.split("function collectOfflineMediaUrls", 1)[1].split(
+            "function warmOfflineMedia", 1
+        )[0]
+
+        self.assertIn('cfg.BELL_SOUND_URL || "/static/sounds/bell.mp3"', collector)
+        self.assertIn("settings.logo_url", collector)
+        self.assertIn("item.image_src", collector)
+        self.assertIn("CACHE_DISPLAY_MEDIA", self.source)
 
     def test_bell_uses_preloaded_audio_and_exact_boundary_timer(self):
         self.assertIn('scheduleNextBoundaryBell()', self.source)

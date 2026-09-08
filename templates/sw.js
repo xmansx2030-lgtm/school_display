@@ -95,7 +95,9 @@ async function handleAsset(request) {
 
   try {
     const response = await fetch(request);
-    if (response && response.ok) {
+    /* Cross-origin display images are opaque in no-cors mode. They are still
+     * valid cache entries and can be replayed to an <img> while offline. */
+    if (response && (response.ok || response.type === 'opaque')) {
       await cache.put(request, response.clone());
       await dropSupersededVersions(cache, request);
     }
@@ -107,6 +109,52 @@ async function handleAsset(request) {
     if (anyVersion) return anyVersion;
     throw offline;
   }
+}
+
+function parseByteRange(value, size) {
+  const match = /^bytes=(\d*)-(\d*)$/i.exec(String(value || '').trim());
+  if (!match || !size) return null;
+  let start = match[1] ? parseInt(match[1], 10) : null;
+  let end = match[2] ? parseInt(match[2], 10) : null;
+
+  if (start === null && end !== null) {
+    const suffixLength = Math.min(size, end);
+    start = size - suffixLength;
+    end = size - 1;
+  } else {
+    start = start === null ? 0 : start;
+    end = end === null ? size - 1 : Math.min(end, size - 1);
+  }
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || start > end || start >= size) {
+    return null;
+  }
+  return { start, end };
+}
+
+/**
+ * Audio/video players commonly request byte ranges. We never cache the 206
+ * network response, but a complete file warmed earlier can satisfy that range
+ * after a TV reboot with no network.
+ */
+async function handleRangeRequest(request) {
+  const cache = await caches.open(RUNTIME_CACHE);
+  const cached = await cache.match(request.url);
+  if (cached && cached.type !== 'opaque') {
+    const buffer = await cached.arrayBuffer();
+    const range = parseByteRange(request.headers.get('range'), buffer.byteLength);
+    if (range) {
+      const headers = new Headers(cached.headers);
+      headers.set('Accept-Ranges', 'bytes');
+      headers.set('Content-Range', `bytes ${range.start}-${range.end}/${buffer.byteLength}`);
+      headers.set('Content-Length', String(range.end - range.start + 1));
+      return new Response(buffer.slice(range.start, range.end + 1), {
+        status: 206,
+        statusText: 'Partial Content',
+        headers,
+      });
+    }
+  }
+  return fetch(request);
 }
 
 /**
@@ -127,16 +175,78 @@ async function handleNavigation(request) {
   }
 }
 
+async function cacheDisplayPage(rawUrl) {
+  let url;
+  try {
+    url = new URL(rawUrl, self.location.origin);
+  } catch (_) {
+    return;
+  }
+  if (
+    url.origin !== self.location.origin ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/dashboard/') ||
+    url.pathname.startsWith('/admin/')
+  ) return;
+
+  const request = new Request(url.href, { credentials: 'same-origin' });
+  const response = await fetch(request);
+  if (!response || !response.ok) return;
+  const cache = await caches.open(RUNTIME_CACHE);
+  await cache.put(request, response.clone());
+}
+
+async function cacheDisplayMedia(rawUrls) {
+  const urls = Array.isArray(rawUrls) ? rawUrls.slice(0, 48) : [];
+  const cache = await caches.open(RUNTIME_CACHE);
+  await Promise.all(urls.map(async (rawUrl) => {
+    let url;
+    try {
+      url = new URL(rawUrl, self.location.origin);
+    } catch (_) {
+      return;
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
+    const sameOrigin = url.origin === self.location.origin;
+    const request = new Request(url.href, {
+      mode: sameOrigin ? 'same-origin' : 'no-cors',
+      credentials: sameOrigin ? 'same-origin' : 'omit',
+      cache: 'no-cache',
+    });
+    try {
+      if (await cache.match(request)) return;
+      const response = await fetch(request);
+      if (response && (response.ok || response.type === 'opaque')) {
+        await cache.put(request, response.clone());
+      }
+    } catch (_) {
+      /* Best effort: one unavailable image must not discard the other media. */
+    }
+  }));
+}
+
+self.addEventListener('message', (event) => {
+  const data = event.data || {};
+  if (data.type === 'CACHE_DISPLAY_PAGE') {
+    event.waitUntil(cacheDisplayPage(data.url).catch(() => undefined));
+    return;
+  }
+  if (data.type === 'CACHE_DISPLAY_MEDIA') {
+    event.waitUntil(cacheDisplayMedia(data.urls).catch(() => undefined));
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
 
-  /* Media elements use byte-range requests for playback and seeking. Cache
-   * Storage cannot store a 206 Partial Content response; trying to do so makes
-   * handleAsset fall into its offline branch and turns a successful audio
-   * response into a playback error. Leave range requests to the browser's
-   * normal HTTP cache, which understands 206 responses. */
-  if (request.headers.has('range')) return;
+  /* Never store a 206 response. A pre-warmed complete media file can satisfy
+   * the byte range locally; otherwise the request continues to the network. */
+  if (request.headers.has('range')) {
+    event.respondWith(handleRangeRequest(request));
+    return;
+  }
 
   let url;
   try {
@@ -145,7 +255,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin) {
+    if (request.destination === 'image' || request.destination === 'audio') {
+      event.respondWith(handleAsset(request));
+    }
+    return;
+  }
   if (
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/dashboard/') ||

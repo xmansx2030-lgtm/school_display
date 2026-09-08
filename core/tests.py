@@ -936,21 +936,32 @@ class RootAssetTests(SimpleTestCase):
         )
         self.assertIn("ignoreSearch", offline_branch[1])
 
-    def test_service_worker_bypasses_range_requests(self):
-        """Audio/video byte ranges must not be written to Cache Storage.
+    def test_service_worker_serves_ranges_from_a_warmed_complete_file(self):
+        """The bell remains playable after an offline television restart.
 
-        Cache Storage rejects 206 Partial Content responses. If the worker
-        intercepts those requests, a playable bell file becomes a media error
-        even though the origin returned it successfully.
+        Cache Storage cannot store an origin 206 response, so the worker warms
+        the complete file and synthesises the requested range from that cached
+        200 response.
         """
         source = self.client.get(reverse("sw_js")).content.decode("utf-8")
 
-        range_guard = "if (request.headers.has('range')) return;"
-        self.assertIn(range_guard, source)
-        self.assertLess(
-            source.index(range_guard),
-            source.index("event.respondWith(handleAsset(request))"),
-        )
+        self.assertIn("async function handleRangeRequest(request)", source)
+        self.assertIn("const cached = await cache.match(request.url);", source)
+        self.assertIn("'Content-Range'", source)
+        self.assertIn("event.respondWith(handleRangeRequest(request));", source)
+
+    def test_service_worker_warms_the_first_display_page_and_payload_media(self):
+        source = self.client.get(reverse("sw_js")).content.decode("utf-8")
+        registration = (
+            Path(settings.BASE_DIR) / "static" / "js" / "display-sw-register.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("CACHE_DISPLAY_PAGE", registration)
+        self.assertIn("window.location.href", registration)
+        self.assertIn("CACHE_DISPLAY_PAGE", source)
+        self.assertIn("cacheDisplayPage(data.url)", source)
+        self.assertIn("CACHE_DISPLAY_MEDIA", source)
+        self.assertIn("cacheDisplayMedia(data.urls)", source)
 
     def test_service_worker_precaches_the_bundle_the_page_actually_loads(self):
         """The shell list must track what display.html links.
