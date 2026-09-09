@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="{% static 'css/fonts.css' %}?v=2026-08-05-perf1">
 
   <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-04-15b">
-  <link rel="stylesheet" href="{% static 'css/display-controls.css' %}?v=2026-07-23-b4">
+  <link rel="stylesheet" href="{% static 'css/display-controls.css' %}?v=2026-09-09-bell1">
   <link rel="stylesheet" href="{% static 'css/app.css' %}?v=2026-02-08-standby-chip-contrast-v2">
   <link rel="stylesheet" href="{% static 'css/display-board.css' %}?v=2026-08-13-honor3">
   {% comment %}
@@ -193,7 +193,7 @@
   </div>
 
         <!-- Sound Enable Button (for TVs / no-interaction displays) -->
-        <button id="bellEnableBtn" title="تفعيل صوت الجرس" aria-label="تفعيل صوت الجرس"
+        <button id="bellEnableBtn" type="button" title="تفعيل صوت الجرس" aria-label="تفعيل صوت الجرس" aria-pressed="false"
             class="display-control display-control--sound"
         >
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -204,6 +204,7 @@
                 <path d="M15.54 8.46a5 5 0 0 1 0 7.07" id="bellWave2"/>
             </svg>
         </button>
+        <span id="bellEnableStatus" class="sr-only" aria-live="polite">الصوت بانتظار التفعيل. اضغط الأيقونة لاختباره.</span>
 
         <!-- Fullscreen Toggle Button -->
         <button id="fullscreenBtn" type="button" title="ملء الشاشة" aria-label="تبديل وضع ملء الشاشة"
@@ -560,12 +561,12 @@
     {% endcomment %}
     <script type="application/json" id="occasionThemeMeta">{{ occasion_theme_meta_json|safe }}</script>
 
-    <script defer src="{% static 'js/display-controls.js' %}?v=2026-07-23-b4"></script>
+    <script defer src="{% static 'js/display-controls.js' %}?v=2026-09-09-bell1"></script>
     {% if display_use_minified_js %}
-    <script defer src="{% static 'js/display.min.js' %}?v=2026-09-08-offline-duty1"></script>
+    <script defer src="{% static 'js/display.min.js' %}?v=2026-09-09-bell1"></script>
     {% else %}
-    <script defer src="{% static 'js/display.js' %}?v=2026-09-08-offline-duty1"></script>
+    <script defer src="{% static 'js/display.js' %}?v=2026-09-09-bell1"></script>
     {% endif %}
-    <script defer src="{% static 'js/display-sw-register.js' %}?v=2026-09-08-offline-duty1"></script>
+    <script defer src="{% static 'js/display-sw-register.js' %}?v=2026-09-09-bell1"></script>
 </body>
 </html>

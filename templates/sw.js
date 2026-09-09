@@ -12,7 +12,7 @@
  * nothing. It never runs while the screen is online.
  */
 
-const RELEASE = 'v7';
+const RELEASE = 'v8';
 const SHELL_CACHE = 'school-display-shell-' + RELEASE;
 const RUNTIME_CACHE = 'school-display-runtime-' + RELEASE;
 const EXPECTED_CACHES = [SHELL_CACHE, RUNTIME_CACHE];

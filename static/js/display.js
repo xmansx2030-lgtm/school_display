@@ -3484,6 +3484,7 @@
   // ===== Bell Sound (MP3) =====
   let bellAudio = null;
   let bellUnlocked = false;
+  let bellUnlockAttempt = null;
   let lastBellPlayedAt = 0;
   let lastBellStateKey = "";
   let lastBoundaryBellStateKey = "";
@@ -3503,6 +3504,70 @@
     return bellAudio;
   }
 
+  function setBellEnableButtonState(state) {
+    try {
+      var btn = document.getElementById("bellEnableBtn");
+      if (!btn) return;
+      var nextState = state || "ready";
+      // Older builds hid this control with inline styles. Always restore the
+      // persistent control before applying the current state.
+      btn.style.display = "flex";
+      btn.style.opacity = "";
+      btn.style.transition = "";
+      btn.style.animation = "";
+      btn.style.background = "";
+      btn.style.color = "";
+      btn.classList.remove("is-sound-enabled", "is-sound-blocked", "is-sound-testing");
+      if (nextState === "enabled") btn.classList.add("is-sound-enabled");
+      if (nextState === "blocked") btn.classList.add("is-sound-blocked");
+      if (nextState === "testing") btn.classList.add("is-sound-testing");
+      btn.setAttribute("data-sound-state", nextState);
+      btn.setAttribute("aria-pressed", nextState === "enabled" ? "true" : "false");
+
+      var title = "تفعيل صوت الجرس";
+      var statusText = "الصوت بانتظار التفعيل. اضغط الأيقونة لاختباره.";
+      if (nextState === "enabled") {
+        title = "صوت الجرس مفعّل — اضغط لاختباره";
+        statusText = "تم تفعيل صوت الجرس. يمكنك الضغط على الأيقونة لاختباره مرة أخرى.";
+      } else if (nextState === "blocked") {
+        title = "تعذّر تشغيل الصوت — اضغط للمحاولة مرة أخرى";
+        statusText = "لم يسمح الجهاز بتشغيل الصوت. اضغط الأيقونة للمحاولة مرة أخرى.";
+      } else if (nextState === "testing") {
+        title = "جارٍ اختبار صوت الجرس";
+        statusText = "جارٍ اختبار صوت الجرس.";
+      }
+      btn.title = title;
+      btn.setAttribute("aria-label", title);
+
+      var status = document.getElementById("bellEnableStatus");
+      if (status) status.textContent = statusText;
+      var muteX1 = document.getElementById("bellMuteX1");
+      var muteX2 = document.getElementById("bellMuteX2");
+      var wave1 = document.getElementById("bellWave1");
+      var wave2 = document.getElementById("bellWave2");
+      var showBlocked = nextState === "blocked";
+      if (muteX1) muteX1.style.display = showBlocked ? "" : "none";
+      if (muteX2) muteX2.style.display = showBlocked ? "" : "none";
+      if (wave1) wave1.style.display = showBlocked ? "none" : "";
+      if (wave2) wave2.style.display = showBlocked ? "none" : "";
+    } catch (e) {}
+  }
+
+  function markBellAudioUnlocked(source) {
+    bellUnlocked = true;
+    setBellEnableButtonState("enabled");
+    _log("bell_audio_unlocked", { source: safeText(source || "interaction") });
+  }
+
+  function markBellAudioBlocked(error, source) {
+    bellUnlocked = false;
+    setBellEnableButtonState("blocked");
+    _log("bell_audio_blocked", {
+      source: safeText(source || "playback"),
+      error: safeText(error && error.message ? error.message : error),
+    });
+  }
+
   function setBellSoundUrl(url) {
     var nextUrl = safeText(url).trim();
     if (!nextUrl || nextUrl === cfg.BELL_SOUND_URL) return;
@@ -3514,6 +3579,9 @@
       }
     } catch (e) {}
     bellAudio = null;
+    bellUnlocked = false;
+    bellUnlockAttempt = null;
+    setBellEnableButtonState("ready");
     try {
       var audio = ensureBellAudio();
       if (audio && typeof audio.load === "function") audio.load();
@@ -3521,50 +3589,58 @@
   }
 
   // Unlock audio on first user interaction (browser autoplay policy)
-  function unlockBellAudio() {
-    if (bellUnlocked) return;
+  function unlockBellAudio(options) {
+    var opts = options || {};
+    var preview = opts.preview === true;
+    var source = safeText(opts.source || (preview ? "sound_button" : "interaction"));
+    if (bellUnlockAttempt) return bellUnlockAttempt;
+    if (bellUnlocked && !preview) return true;
     var audio = ensureBellAudio();
-    if (!audio) return;
-    // Play+pause immediately to unlock
+    if (!audio) {
+      markBellAudioBlocked("audio_unavailable", source);
+      return false;
+    }
+    if (preview) setBellEnableButtonState("testing");
+    // A button preview must remain audible. Other interactions play and pause
+    // only after playback has genuinely started, which unlocks later bells.
     try {
-      var p = audio.play();
-      if (p && p.then) {
-        p.then(function () {
-          audio.pause();
-          audio.currentTime = 0;
-        }).catch(function () {});
-      } else {
+      if (preview) {
         audio.pause();
         audio.currentTime = 0;
       }
-    } catch (e) {}
-    bellUnlocked = true;
-    // Hide the bell-enable button and show "sound enabled" feedback
-    hideBellEnableBtn();
-  }
-
-  function hideBellEnableBtn() {
-    try {
-      var btn = document.getElementById("bellEnableBtn");
-      if (!btn) return;
-      // Brief green flash to confirm
-      btn.style.animation = "none";
-      btn.style.background = "rgba(34,197,94,0.25)";
-      btn.style.color = "rgba(34,197,94,0.9)";
-      btn.style.opacity = "1";
-      setTimeout(function () {
-        btn.style.transition = "opacity 0.8s";
-        btn.style.opacity = "0";
-        setTimeout(function () { btn.style.display = "none"; }, 900);
-      }, 1200);
-    } catch (e) {}
+      var playResult = audio.play();
+      if (playResult && playResult.then) {
+        bellUnlockAttempt = playResult.then(function () {
+          if (!preview) {
+            audio.pause();
+            audio.currentTime = 0;
+          }
+          bellUnlockAttempt = null;
+          markBellAudioUnlocked(source);
+          return true;
+        }, function (error) {
+          bellUnlockAttempt = null;
+          markBellAudioBlocked(error, source);
+          return false;
+        });
+        return bellUnlockAttempt;
+      }
+      if (!preview) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+      markBellAudioUnlocked(source);
+      return true;
+    } catch (error) {
+      bellUnlockAttempt = null;
+      markBellAudioBlocked(error, source);
+      return false;
+    }
   }
 
   // Expose for the HTML onclick handler
   window._unlockBellFromBtn = function () {
-    unlockBellAudio();
-    // Play the bell so user knows it works
-    try { playBellSound(); } catch (e) {}
+    return unlockBellAudio({ preview: true, source: "sound_button" });
   };
 
   ["click", "touchstart", "keydown"].forEach(function (evt) {
@@ -3595,21 +3671,58 @@
       audio.currentTime = 0;
       // Keep the preloaded buffer. Calling load() here discards it and makes the
       // bell wait for another network read exactly when the boundary is reached.
-      audio.play().catch(function () {
-        // Retry with a fresh element only when the buffered element genuinely fails.
-        try {
-          bellAudio = null;
-          var fresh = ensureBellAudio();
-          if (fresh) fresh.play().catch(function () {});
-        } catch (e2) {}
-      });
+      var playResult = audio.play();
+      if (playResult && playResult.then) {
+        playResult.then(function () {
+          markBellAudioUnlocked("scheduled_bell");
+        }, function (firstError) {
+          // Retry with a fresh element only when the buffered element genuinely fails.
+          try {
+            bellAudio = null;
+            var fresh = ensureBellAudio();
+            if (!fresh) {
+              markBellAudioBlocked(firstError, "scheduled_bell");
+              return;
+            }
+            var retryResult = fresh.play();
+            if (retryResult && retryResult.then) {
+              retryResult.then(function () {
+                markBellAudioUnlocked("scheduled_bell_retry");
+              }, function (retryError) {
+                markBellAudioBlocked(retryError, "scheduled_bell_retry");
+              });
+            } else {
+              markBellAudioUnlocked("scheduled_bell_retry");
+            }
+          } catch (e2) {
+            markBellAudioBlocked(e2, "scheduled_bell_retry");
+          }
+        });
+      } else {
+        markBellAudioUnlocked("scheduled_bell");
+      }
     } catch (e) {
       // Last resort: recreate and try once more
       try {
         bellAudio = null;
         var fresh2 = ensureBellAudio();
-        if (fresh2) fresh2.play().catch(function () {});
-      } catch (e2) {}
+        if (!fresh2) {
+          markBellAudioBlocked(e, "scheduled_bell_exception");
+          return;
+        }
+        var fallbackResult = fresh2.play();
+        if (fallbackResult && fallbackResult.then) {
+          fallbackResult.then(function () {
+            markBellAudioUnlocked("scheduled_bell_exception_retry");
+          }, function (fallbackError) {
+            markBellAudioBlocked(fallbackError, "scheduled_bell_exception_retry");
+          });
+        } else {
+          markBellAudioUnlocked("scheduled_bell_exception_retry");
+        }
+      } catch (e2) {
+        markBellAudioBlocked(e2, "scheduled_bell_exception_retry");
+      }
     }
   }
 

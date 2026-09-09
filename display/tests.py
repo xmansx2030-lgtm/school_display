@@ -65,6 +65,34 @@ class DisplayClientTimingRegressionTests(SimpleTestCase):
         self.assertIn('"bell_boundary_exact"', self.source)
         self.assertNotIn('audio.load();\n      audio.play()', self.source)
 
+    def test_bell_unlock_waits_for_playback_and_keeps_a_retry_control(self):
+        unlock = self.source.split("function unlockBellAudio", 1)[1].split(
+            "// Expose for the HTML onclick handler", 1
+        )[0]
+
+        self.assertIn("bellUnlockAttempt = playResult.then", unlock)
+        self.assertIn("markBellAudioUnlocked(source)", unlock)
+        self.assertIn("markBellAudioBlocked(error, source)", unlock)
+        self.assertLess(
+            unlock.index("bellUnlockAttempt = playResult.then"),
+            unlock.index("markBellAudioUnlocked(source)"),
+        )
+        self.assertNotIn("hideBellEnableBtn", self.source)
+        self.assertIn('id="bellEnableStatus"', self.template)
+
+    def test_sound_button_plays_one_audible_unlock_attempt_without_a_pause_race(self):
+        handler = self.source.split("window._unlockBellFromBtn", 1)[1].split(
+            '["click", "touchstart", "keydown"]', 1
+        )[0]
+
+        self.assertIn(
+            'unlockBellAudio({ preview: true, source: "sound_button" })',
+            handler,
+        )
+        self.assertNotIn("playBellSound()", handler)
+        button_markup = self.template.split('id="bellEnableBtn"', 1)[1].split(">", 1)[0]
+        self.assertIn('type="button"', button_markup)
+
     def test_screen_wake_lock_is_reacquired_after_release_and_visibility_change(self):
         self.assertIn('navigator.wakeLock.request("screen")', self.source)
         self.assertIn('sentinel.addEventListener("release"', self.source)
