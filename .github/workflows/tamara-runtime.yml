@@ -55,10 +55,13 @@ jobs:
             "sudo -n python3 '$remote_script' --mode '$MODE' --backup '$backup'"
           if [ "$MODE" = activate ]; then
             if ! ssh -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
-              "cd /opt/school-display/app && \
-               sudo -n docker compose -f compose.production.yaml up -d --no-deps --force-recreate web tamara-reconciliation-worker && \
-               sudo -n docker compose -f compose.production.yaml exec -T web python manage.py check --deploy && \
-               sudo -n docker compose -f compose.production.yaml exec -T web python manage.py tamara_reconciliation_worker --healthcheck"; then
+              "set -e; cd /opt/school-display/app; \
+               sudo -n docker compose -f compose.production.yaml up -d --no-deps --force-recreate web tamara-reconciliation-worker; \
+               sudo -n docker compose -f compose.production.yaml exec -T web python manage.py check --deploy; \
+               ready=0; for attempt in \$(seq 1 30); do \
+                 if sudo -n docker compose -f compose.production.yaml exec -T web python manage.py tamara_reconciliation_worker --healthcheck >/dev/null 2>&1; then ready=1; break; fi; \
+                 sleep 2; \
+               done; test \"\$ready\" -eq 1"; then
               ssh -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
                 "sudo -n cp '$backup' /opt/school-display/app/.env.production && \
                  sudo -n chmod 600 /opt/school-display/app/.env.production && \

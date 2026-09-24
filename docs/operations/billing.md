@@ -84,6 +84,12 @@ completed before it will actually validate in the browser.
 
 `https://school-display.com/subscriptions/tamara/webhook/`
 
+إذا كان حساب التاجر مستخدمًا في توثيق أيضًا، **أضف** هذا الرابط كويب هوك
+مستقل للأحداث السبعة (`approved`, `declined`, `authorised`, `canceled`,
+`captured`, `refunded`, `expired`). لا تعدّل رابط توثيق القائم. بعد التحقق من
+توقيع الإشعار، تتجاهل كل منصة مراجع الطلبات الخاصة بالمنصة الأخرى، بينما
+يبقى المرجع المحلي المفقود خطأً ظاهرًا.
+
 اشترك في جميع أحداث الدورة: `order_approved`، `order_authorised`،
 `order_captured`، `order_canceled`، `order_refunded`، `order_expired`
 و`order_declined`.
