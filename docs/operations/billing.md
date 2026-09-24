@@ -60,6 +60,11 @@ completed before it will actually validate in the browser.
 
 > Apple Pay يتطلب توثيق النطاق من لوحة تحكم ميسر قبل أن يظهر الزر.
 
+شعارات البطاقات في خيار الدفع الإلكتروني محفوظة محليًا في
+`static/img/payment-cards/` من ملفات [مدى](https://moyasar.com/payment-methods/mada.svg)،
+[فيزا](https://moyasar.com/payment-methods/visa.svg)، و[ماستركارد](https://moyasar.com/payment-methods/master-card.svg)
+التي ينشرها ميسر.
+
 ### إعداد webhook في ميسر
 
 سجّل الرابط التالي في لوحة ميسر بطريقة `POST`:
