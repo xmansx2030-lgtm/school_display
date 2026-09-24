@@ -1,0 +1,57 @@
+name: Tamara production preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY_B64: ${{ secrets.DEPLOY_SSH_KEY_B64 }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          umask 077
+          printf '%s' "$DEPLOY_SSH_KEY_B64" | base64 --decode > ~/.ssh/id_deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Inspect payment configuration without printing secrets
+        env:
+          SSH_TARGET: ${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+        run: |
+          set -euo pipefail
+          ssh -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" 'sudo -n python3 -' <<'PY'
+          from pathlib import Path
+
+          def inspect(label, path):
+              if not path.is_file():
+                  print(f'{label}: env_file=missing')
+                  return
+              values = {}
+              for line in path.read_text(encoding='utf-8-sig').splitlines():
+                  line = line.strip()
+                  if '=' in line and not line.startswith('#'):
+                      key, value = line.split('=', 1)
+                      values[key.strip()] = value.strip().strip('"').strip("'")
+              def configured(key):
+                  value = values.get(key, '')
+                  return bool(value and not value.startswith('CHANGE_ME'))
+              print(f'{label}: env_file=present enabled={values.get("TAMARA_ENABLED", "unset")} '
+                    f'environment={values.get("TAMARA_ENVIRONMENT", "unset")} '
+                    f'api_token={"configured" if configured("TAMARA_API_TOKEN") else "missing"} '
+                    f'notification_token={"configured" if configured("TAMARA_NOTIFICATION_TOKEN") else "missing"} '
+                    f'api_token_file={"configured" if configured("TAMARA_API_TOKEN_FILE") else "missing"} '
+                    f'notification_token_file={"configured" if configured("TAMARA_NOTIFICATION_TOKEN_FILE") else "missing"}')
+
+          inspect('school_display', Path('/opt/school-display/app/.env.production'))
+          inspect('school_reports', Path('/opt/school_reports/deploy/hetzner/env.production'))
+          PY
