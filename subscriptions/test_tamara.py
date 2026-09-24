@@ -270,6 +270,17 @@ class TamaraCheckoutTests(TestCase):
         self.assertTrue(response.context["tamara_available"])
         self.assertContains(response, reverse("subscriptions:tamara_start"), count=1)
         self.assertContains(response, 'id="tamara-plan-id"')
+        self.assertContains(response, 'img/tamara-app-icon.png')
+
+    @override_settings(TAMARA_ENABLED=False)
+    def test_subscription_page_shows_tamara_pending_without_checkout(self):
+        response = self.client.get(reverse("dashboard:my_subscription"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["tamara_available"])
+        self.assertContains(response, 'data-payment-method="tamara"')
+        self.assertContains(response, 'img/tamara-app-icon.png')
+        self.assertNotContains(response, reverse("subscriptions:tamara_start"))
 
     def test_subscription_page_shows_tamara_checkout_status(self):
         checkout = self._checkout(order_id="order-visible")

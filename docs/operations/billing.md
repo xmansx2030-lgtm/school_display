@@ -76,6 +76,10 @@ completed before it will actually validate in the browser.
 
 ### إعداد webhook في تمارا
 
+أيقونة تمارا في صفحة الاشتراك مأخوذة من [حزمة أصول العلامة الرسمية](https://cdn.tamara.co/merchant_docs/Tamara__Brand__Assets_v2.zip)
+(`Tamara_Brand_Assets_Arabic/PNG/App icon.png`) ومحفوظة محليًا في
+`static/img/tamara-app-icon.png` حتى تظهر دون اعتماد على خدمة صور خارجية.
+
 سجّل الرابط التالي من بوابة شركاء تمارا:
 
 `https://school-display.com/subscriptions/tamara/webhook/`
