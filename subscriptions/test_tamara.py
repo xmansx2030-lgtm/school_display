@@ -303,6 +303,27 @@ class TamaraCheckoutTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_signed_webhook_for_other_platform_is_acknowledged_without_payment(self):
+        token = jwt.encode(
+            {"iss": "Tamara", "iat": int(timezone.now().timestamp()), "exp": int(timezone.now().timestamp()) + 300},
+            TAMARA_TEST_SETTINGS["TAMARA_NOTIFICATION_TOKEN"],
+            algorithm="HS256",
+        )
+        response = self.client.post(
+            reverse("subscriptions:tamara_webhook"),
+            data=json.dumps({
+                "order_id": "11111111-1111-1111-1111-111111111111",
+                "order_reference_id": "TWQ-OTHER-PLATFORM",
+                "event_type": "order_approved",
+            }),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["ignored"], "other_platform")
+        self.assertFalse(TamaraCheckout.objects.exists())
+
     @patch("subscriptions.tamara_processing.TamaraClient.get_order")
     def test_reconciliation_recovers_payment_older_than_three_days(self, get_order):
         checkout = self._checkout(order_id="order-old-paid")

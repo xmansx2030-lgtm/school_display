@@ -225,7 +225,14 @@ def tamara_webhook(request):
     if not reference or not order_id or not event_type:
         return JsonResponse({"detail": "missing_fields"}, status=400)
 
-    checkout = get_object_or_404(TamaraCheckout, merchant_reference=reference)
+    checkout = TamaraCheckout.objects.filter(merchant_reference=reference).first()
+    if checkout is None:
+        # Webhooks are registered for the merchant account, which is shared
+        # with other applications. Acknowledge their signed events so Tamara
+        # does not retry them, while still surfacing missing School Display orders.
+        if not reference.startswith("TM-"):
+            return JsonResponse({"ok": True, "ignored": "other_platform"})
+        return JsonResponse({"detail": "unknown_order"}, status=404)
     if checkout.tamara_order_id and checkout.tamara_order_id != order_id:
         logger.warning("tamara_webhook_order_mismatch reference=%s", reference)
         return JsonResponse({"detail": "order_mismatch"}, status=409)
