@@ -1,0 +1,69 @@
+name: Configure School Display Tamara
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Prepare credentials with Tamara off, or activate after release and webhook verification
+        type: choice
+        required: true
+        options: [prepare, activate]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-school-display
+  cancel-in-progress: false
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY_B64: ${{ secrets.DEPLOY_SSH_KEY_B64 }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          umask 077
+          printf '%s' "$DEPLOY_SSH_KEY_B64" | base64 --decode > ~/.ssh/id_deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Prepare or activate without changing the source application
+        env:
+          SSH_TARGET: ${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+          MODE: ${{ inputs.mode }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          remote_script="/tmp/school-display-tamara-$GITHUB_RUN_ID.py"
+          backup="/opt/school-display/app/.env.production.bak.tamara-$GITHUB_RUN_ID"
+          scp -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -P "$SSH_PORT" \
+            deploy/tamara_runtime.py "$SSH_TARGET:$remote_script"
+          if [ "$MODE" = activate ]; then
+            ssh -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
+              "test \"\$(sudo -n cat /opt/school-display/app/.release-commit)\" = '$SOURCE_SHA'"
+          fi
+          ssh -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
+            "sudo -n python3 '$remote_script' --mode '$MODE' --backup '$backup'"
+          if [ "$MODE" = activate ]; then
+            if ! ssh -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
+              "cd /opt/school-display/app && \
+               sudo -n docker compose -f compose.production.yaml up -d --no-deps --force-recreate web tamara-reconciliation-worker && \
+               sudo -n docker compose -f compose.production.yaml exec -T web python manage.py check --deploy && \
+               sudo -n docker compose -f compose.production.yaml exec -T web python manage.py tamara_reconciliation_worker --healthcheck"; then
+              ssh -o IdentitiesOnly=yes -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_TARGET" \
+                "sudo -n cp '$backup' /opt/school-display/app/.env.production && \
+                 sudo -n chmod 600 /opt/school-display/app/.env.production && \
+                 cd /opt/school-display/app && \
+                 sudo -n docker compose -f compose.production.yaml up -d --no-deps --force-recreate web tamara-reconciliation-worker"
+              exit 1
+            fi
+          fi
