@@ -145,6 +145,9 @@ def customer_support_tickets(request):
 def customer_support_ticket_detail(request, pk: int):
     ticket = get_object_or_404(SupportTicket, pk=pk, user=request.user)
     if request.method == "POST":
+        if ticket.status == "closed":
+            messages.error(request, "هذه التذكرة مغلقة ولا تقبل ردودًا جديدة. يمكنك فتح تذكرة أخرى.")
+            return redirect("dashboard:customer_support_ticket_detail", pk=pk)
         comment_form = TicketCommentForm(request.POST)
         if comment_form.is_valid():
             comment = comment_form.save(commit=False)

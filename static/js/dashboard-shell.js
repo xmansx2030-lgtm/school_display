@@ -30,19 +30,50 @@
     var openIcon = document.getElementById("dashboardSidebarOpenIcon");
     var closeIcon = document.getElementById("dashboardSidebarCloseIcon");
     if (!sidebar || !overlay || !toggle) return;
+    var mobileOpen = false;
+    var lockedElements = [];
+    var bodyOverflow = "";
 
     function isDesktop() {
       return window.matchMedia("(min-width: 1024px)").matches;
     }
 
     function setOpen(open) {
-      var effectiveOpen = isDesktop() || Boolean(open);
+      var desktop = isDesktop();
+      var wasOpen = mobileOpen;
+      mobileOpen = !desktop && Boolean(open);
+      var effectiveOpen = desktop || mobileOpen;
+      if (!effectiveOpen && sidebar.contains(document.activeElement)) toggle.focus();
+      sidebar.inert = !effectiveOpen;
+      if (effectiveOpen) sidebar.removeAttribute("aria-hidden");
+      else sidebar.setAttribute("aria-hidden", "true");
       sidebar.classList.toggle("translate-x-full", !effectiveOpen);
       sidebar.classList.toggle("translate-x-0", effectiveOpen);
-      overlay.classList.toggle("show", !isDesktop() && effectiveOpen);
-      toggle.setAttribute("aria-expanded", String(!isDesktop() && effectiveOpen));
-      if (openIcon) openIcon.classList.toggle("hidden", !isDesktop() && effectiveOpen);
-      if (closeIcon) closeIcon.classList.toggle("hidden", isDesktop() || !effectiveOpen);
+      overlay.classList.toggle("show", mobileOpen);
+      toggle.setAttribute("aria-expanded", String(mobileOpen));
+      toggle.setAttribute("aria-label", mobileOpen ? "إغلاق قائمة التنقل" : "فتح قائمة التنقل");
+      if (openIcon) openIcon.classList.toggle("hidden", mobileOpen);
+      if (closeIcon) closeIcon.classList.toggle("hidden", !mobileOpen);
+      document.body.classList.toggle("dashboard-sidebar-open", mobileOpen);
+
+      if (mobileOpen && !wasOpen) {
+        bodyOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        lockedElements = Array.prototype.map.call(document.querySelectorAll(
+          ".dashboard-main, .dashboard-topbar-actions, .dashboard-whatsapp-float"
+        ), function (element) {
+          var previous = element.inert;
+          element.inert = true;
+          return { element: element, inert: previous };
+        });
+        var firstLink = sidebar.querySelector("a[href], button:not([disabled])");
+        if (firstLink) firstLink.focus({ preventScroll: true });
+      } else if (!mobileOpen && wasOpen) {
+        document.body.style.overflow = bodyOverflow;
+        lockedElements.forEach(function (entry) { entry.element.inert = entry.inert; });
+        lockedElements = [];
+        if (!desktop) toggle.focus({ preventScroll: true });
+      }
     }
 
     toggle.addEventListener("click", function () {
@@ -50,22 +81,46 @@
     });
     overlay.addEventListener("click", function () { setOpen(false); });
     document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") setOpen(false);
+      if (!mobileOpen) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+      } else if (event.key === "Tab") {
+        var links = Array.prototype.filter.call(sidebar.querySelectorAll(
+          "a[href], button:not([disabled]), [tabindex]:not([tabindex='-1'])"
+        ), function (element) { return element.getClientRects().length > 0; });
+        var last = links[links.length - 1] || toggle;
+        if (event.shiftKey && document.activeElement === toggle) {
+          event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault(); toggle.focus();
+        }
+      }
     });
-    window.addEventListener("resize", function () { setOpen(false); });
+    var desktopLayout = isDesktop();
+    window.addEventListener("resize", function () {
+      if (isDesktop() === desktopLayout) return;
+      desktopLayout = isDesktop();
+      setOpen(false);
+    });
     setOpen(false);
   }
 
   function initializeResponsiveTables() {
     document.querySelectorAll(".dashboard-main table").forEach(function (table) {
-      if (table.closest(".dashboard-table-scroll") || !table.parentElement) return;
-      var wrapper = document.createElement("div");
-      wrapper.className = "dashboard-table-scroll";
-      wrapper.setAttribute("role", "region");
-      wrapper.setAttribute("aria-label", "جدول قابل للتمرير أفقيًا");
-      wrapper.setAttribute("tabindex", "0");
-      table.parentElement.insertBefore(wrapper, table);
-      wrapper.appendChild(table);
+      if (!table.parentElement) return;
+      var wrapper = table.closest(".dashboard-table-scroll");
+      if (!wrapper) {
+        wrapper = document.createElement("div");
+        wrapper.className = "dashboard-table-scroll";
+        table.parentElement.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+      }
+      if (!wrapper.hasAttribute("role")) wrapper.setAttribute("role", "region");
+      if (!wrapper.hasAttribute("aria-label") && !wrapper.hasAttribute("aria-labelledby")) {
+        wrapper.setAttribute("aria-label", "جدول قابل للتمرير أفقيًا");
+      }
+      if (!wrapper.hasAttribute("tabindex")) wrapper.setAttribute("tabindex", "0");
     });
   }
 

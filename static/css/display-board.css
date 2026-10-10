@@ -87,10 +87,60 @@
     #emergencyOverlay[data-kind="suspension"] { background: radial-gradient(circle at center, #6d28d9, #4c1d95 60%, #2e1065); }
     #emergencyOverlay[data-kind="evacuation"] { background: radial-gradient(circle at center, #ea580c, #9a3412 60%, #431407); }
     #emergencyOverlay.u-hidden, #offlineModeBadge.u-hidden { display: none !important; }
-    .emergency-symbol { font-size: clamp(5rem, 10vw, 12rem); line-height: 1; }
-    #emergencyTitle { margin-top: 2rem; font-size: clamp(3rem, 7vw, 8rem); font-weight: 900; line-height: 1.1; }
-    #emergencyMessage { margin-top: 1.5rem; max-width: 1500px; font-size: clamp(1.8rem, 3.5vw, 4.5rem); font-weight: 700; line-height: 1.5; white-space: pre-line; }
-    #emergencyKind { margin-top: 2rem; display: inline-block; border: 2px solid rgba(255,255,255,.45); border-radius: 999px; padding: .5rem 1.5rem; font-size: clamp(1.2rem, 2vw, 2.2rem); font-weight: 900; }
+    /* Emergency text uses the real viewport, outside #fitStage. Definite
+       boxes let JS paginate its full text even on a small handheld screen. */
+    #emergencyOverlay > div {
+      width: 100%;
+      height: 100%;
+      max-width: 1700px;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .emergency-symbol { flex: 0 0 auto; font-size: clamp(36px, 7vh, 100px); line-height: 1; }
+    #emergencyTitle {
+      flex: 0 0 auto;
+      width: 100%;
+      height: 3.6em;
+      margin-top: 16px;
+      font-size: clamp(26px, 4vw, 76px);
+      font-weight: 900;
+      line-height: 1.2;
+      overflow: hidden;
+      overflow-wrap: break-word;
+    }
+    #emergencyMessage {
+      flex: 1 1 0;
+      min-height: 0;
+      width: 100%;
+      max-width: 1500px;
+      margin-top: 16px;
+      font-size: clamp(20px, 2.7vw, 48px);
+      font-weight: 700;
+      line-height: 1.5;
+      white-space: pre-line;
+      overflow: hidden;
+      overflow-wrap: break-word;
+    }
+    #emergencyKind { flex: 0 0 auto; margin-top: 16px; display: inline-block; border: 2px solid rgba(255,255,255,.45); border-radius: 999px; padding: .5rem 1.5rem; font-size: clamp(1.2rem, 2vw, 2.2rem); font-weight: 900; }
+    #emergencyOverlay[data-paginated="1"]::after {
+      content: attr(data-page-current) " / " attr(data-page-total);
+      position: absolute;
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      direction: ltr;
+      font-size: 14px;
+      color: rgba(255,255,255,.8);
+    }
+    @media (max-width: 600px), (max-height: 650px) {
+      #emergencyOverlay { padding: 18px 16px; }
+      #emergencyOverlay .emergency-symbol { font-size: 36px; }
+      #emergencyOverlay #emergencyTitle { margin-top: 10px; font-size: 26px; }
+      #emergencyOverlay #emergencyMessage { margin-top: 10px; font-size: 20px; }
+      #emergencyOverlay #emergencyKind { margin-top: 10px; padding: 5px 12px; font-size: 16px; }
+    }
 
     /* Occasion themes are activated by a scheduled announcement and disappear
        automatically when that announcement expires or is disabled. */
@@ -3164,3 +3214,354 @@
     .display-preview-badge { animation: none; }
     .display-preview-badge__dot::after { animation: none; }
 }
+
+/* Viewport-aware kiosk layout. applyAutoFit supplies a flexible design canvas
+   in CSS pixels. Typography uses canvas units, not viewport media queries, so
+   a 720p screen is scaled once. Overflowing lists retain their auto-scrollers. */
+body[data-board-shape] {
+    --slot-chip: 24px;
+    --slot-sub: 28px;
+    --slot-meta: 22px;
+}
+body[data-board-shape="portrait"] {
+    --slot-chip: 22px;
+    --slot-sub: 25px;
+    --slot-meta: 20px;
+}
+body[data-board-shape="compact"] {
+    --slot-chip: 20px;
+    --slot-sub: 23px;
+    --slot-meta: 19px;
+}
+body[data-board-shape] .slot-class,
+body[data-board-shape] .slot-subject,
+body[data-board-shape] .slot-teacher .name {
+    max-width: 100%;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    text-overflow: clip;
+}
+body[data-board-shape] .slot-teacher { align-items: flex-start; }
+body[data-board-shape] .slot-teacher .name { flex: 1 1 auto; }
+body[data-board-shape] #fitStage > header { flex: 0 0 auto; }
+body[data-board-shape] #fitStage > main {
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+}
+body[data-board-shape] .header-shell {
+    min-height: 120px !important;
+    gap: 20px;
+    padding: 16px 22px !important;
+}
+body[data-board-shape] #schoolName {
+    font-size: 42px !important;
+    line-height: 1.22;
+    white-space: normal;
+    overflow-wrap: break-word;
+    text-overflow: clip;
+}
+body[data-board-shape] .header-brand { gap: 18px !important; }
+body[data-board-shape] .header-date-row { font-size: 21px; }
+body[data-board-shape] .header-clock { min-width: 240px; }
+body[data-board-shape] .header-clock #clock { font-size: 50px !important; }
+body[data-board-shape] .header-clock-label,
+body[data-board-shape] .header-live-status__copy small { font-size: 17px; }
+body[data-board-shape] .header-live-status { min-width: 210px; }
+body[data-board-shape] .header-live-status__copy strong { font-size: 20px; }
+body[data-board-shape] .glass-panel { font-size: 24px !important; }
+body[data-board-shape] #heroTitle { font-size: 72px !important; }
+body[data-board-shape][data-layout-mode="ambient"] #heroTitle { font-size: 84px !important; }
+body[data-board-shape] .hero-card > .relative.z-10 {
+    min-height: 0;
+    padding: 28px !important;
+    gap: 20px !important;
+}
+body[data-board-shape] .hero-card > .relative.z-10 > div:first-child { flex-wrap: nowrap; }
+body[data-board-shape] .hero-card > .relative.z-10 > div:first-child > .space-y-4 { min-width: 0; }
+body[data-board-shape] #heroRange { font-size: 26px !important; }
+body[data-board-shape] #badgeKind { font-size: 22px !important; }
+body[data-board-shape] #countdown { font-size: 34px !important; }
+body[data-board-shape] #countdownLabel { font-size: 17px !important; }
+body[data-board-shape] #currentScheduleList,
+body[data-board-shape] .hero-empty-message { font-size: 26px !important; }
+body[data-board-shape] #activityLabel { font-size: 20px; }
+body[data-board-shape] .hero-card > .relative.z-10 > div:first-child > .relative {
+    width: 144px !important;
+    height: 144px !important;
+}
+body[data-board-shape] .day-timeline-panel {
+    flex: 0 0 130px;
+    min-height: 130px;
+    max-height: 130px;
+}
+body[data-board-shape] .day-timeline-panel > div:first-child > span,
+body[data-board-shape] #nextLabel { font-size: 20px !important; }
+body[data-board-shape] .mini-schedule-item { min-width: 132px !important; gap: 4px !important; }
+body[data-board-shape] .mini-schedule-item__time { font-size: 18px !important; }
+body[data-board-shape] .mini-schedule-item__label { font-size: 22px !important; }
+body[data-board-shape] .slot-item { font-size: 30px !important; line-height: 1.45 !important; }
+body[data-board-shape] #pcCount,
+body[data-board-shape] #sbCount { font-size: 24px; }
+body[data-board-shape] #periodCard h3,
+body[data-board-shape] #standbyCard h3 { font-size: 28px; }
+
+/* Text is paginated by display.js against these definite text boxes. Neither
+   ellipsis nor line-clamp may hide the remainder of an announcement page. */
+body[data-board-shape] #alertContainer {
+    position: relative;
+    flex: 0 0 142px;
+    min-height: 142px;
+    max-height: 142px;
+}
+body[data-board-shape] #alertContainer > div:first-child {
+    flex-basis: 25%;
+    padding: 12px 18px !important;
+}
+body[data-board-shape] #alertContainer > div:last-child { padding: 12px 22px !important; }
+body[data-board-shape] #alertTitle,
+body[data-board-shape] #alertDetails {
+    display: block !important;
+    height: 108px;
+    min-width: 0;
+    overflow: hidden;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+    text-overflow: clip;
+    -webkit-line-clamp: unset !important;
+    font-size: 26px !important;
+    line-height: 36px !important;
+}
+body[data-board-shape] #alertTitle { flex: 1 1 auto; }
+body[data-board-shape] #alertContainer[data-paginated="1"]::after {
+    content: attr(data-page-current) " / " attr(data-page-total);
+    position: absolute;
+    left: 10px;
+    bottom: 2px;
+    direction: ltr;
+    font-size: 14px;
+    line-height: 16px;
+    color: #cbd5e1;
+}
+body[data-board-shape] #exCard {
+    flex: 0 0 240px;
+    min-height: 240px;
+    --honor-photo-size: 132px;
+    --honor-gap: 18px;
+}
+body[data-board-shape] #exCard .honor-side { width: 230px !important; gap: 8px; padding: 14px; }
+body[data-board-shape] #exSlot { min-height: 0; padding: 18px !important; }
+body[data-board-shape] #exCard .honor-wrap {
+    grid-template-columns: var(--honor-photo-size) minmax(0, 1fr);
+    --honor-photo-size: 132px;
+    text-align: right;
+}
+body[data-board-shape] #exCard .honor-meta { align-items: stretch; }
+body[data-board-shape] #exCard .honor-title { font-size: 26px; }
+body[data-board-shape] #exCard .honor-subtitle { font-size: 19px; }
+body[data-board-shape] #exCard .honor-name { font-size: 30px !important; }
+body[data-board-shape] #exCard .honor-reason { font-size: 23px !important; }
+body[data-board-shape] #exCard .honor-wrap--long-reason .honor-reason { font-size: 21px !important; }
+body[data-board-shape] #dutyCard { flex: 0 0 240px; min-height: 240px; }
+body[data-board-shape] #dutyCard > div.relative.w-80 { width: 260px; padding: 18px; }
+body[data-board-shape] #dutySlot { min-width: 0; }
+body[data-board-shape] .duty-name {
+    flex-direction: column;
+    align-items: flex-start;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: break-word;
+    font-size: 28px;
+    line-height: 1.3;
+    gap: 8px;
+}
+body[data-board-shape] .duty-name > span { max-width: 100%; white-space: normal; }
+body[data-board-shape] .duty-name > span + span { font-size: 20px; }
+
+/* A wide wall display uses its extra width for two simultaneous list columns. */
+body[data-board-shape="wide"] #boardMainColumn { grid-column: span 7 / span 7; }
+body[data-board-shape="wide"] #boardSideColumn {
+    grid-column: span 5 / span 5;
+    flex-direction: row;
+}
+body[data-board-shape="wide"] #boardSideColumn > .glass-panel { min-width: 0; }
+body[data-board-shape="wide"][data-side-mode="period-only"] #periodCard,
+body[data-board-shape="wide"][data-side-mode="standby-only"] #standbyCard {
+    flex: 1 1 0 !important;
+    height: auto;
+}
+
+/* Portrait: the activity and featured panel form the upper section, while
+   current classes and standby share the lower section. Empty sections expand
+   through the existing data attributes, in both grid and legacy flex layouts. */
+body[data-board-shape="portrait"] #fitStage > main,
+body[data-board-shape="compact"] #fitStage > main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+}
+body[data-board-shape="portrait"] #boardMainColumn,
+body[data-board-shape="compact"] #boardMainColumn {
+    flex: 0 0 760px;
+    gap: 16px;
+}
+body[data-board-shape="portrait"][data-side-empty="1"] #boardMainColumn,
+body[data-board-shape="compact"][data-side-empty="1"] #boardMainColumn { flex: 1 1 0; }
+body[data-board-shape="portrait"] #boardSideColumn,
+body[data-board-shape="compact"] #boardSideColumn {
+    flex: 1 1 0;
+    flex-direction: row;
+    gap: 16px;
+}
+body[data-board-shape="portrait"] #boardSideColumn > .glass-panel,
+body[data-board-shape="compact"] #boardSideColumn > .glass-panel {
+    flex: 1 1 0 !important;
+    min-width: 0;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+}
+body[data-board-shape="portrait"] .header-shell,
+body[data-board-shape="compact"] .header-shell {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 12px;
+    min-height: 0 !important;
+}
+body[data-board-shape="portrait"] .header-brand,
+body[data-board-shape="compact"] .header-brand { grid-column: 1 / -1; }
+body[data-board-shape="portrait"] .header-live-status,
+body[data-board-shape="compact"] .header-live-status { padding: 6px 14px; }
+body[data-board-shape="portrait"] .header-live-status__copy,
+body[data-board-shape="compact"] .header-live-status__copy { flex-direction: row; align-items: center; gap: 12px; }
+body[data-board-shape="portrait"] .header-clock,
+body[data-board-shape="compact"] .header-clock { display: flex; align-items: center; gap: 14px; min-width: 0; }
+body[data-board-shape="portrait"] .header-clock #clock { font-size: 36px !important; }
+body[data-board-shape="portrait"] #schoolName { font-size: 36px !important; }
+body[data-board-shape="portrait"] #heroTitle,
+body[data-board-shape="compact"] #heroTitle { font-size: 52px !important; }
+body[data-board-shape="portrait"] .hero-card > .relative.z-10,
+body[data-board-shape="compact"] .hero-card > .relative.z-10 { padding: 20px !important; gap: 12px !important; }
+body[data-board-shape="portrait"] .hero-card > .relative.z-10 { padding: 16px !important; }
+body[data-board-shape="portrait"] .hero-card > .relative.z-10 > div:first-child > .relative { width: 112px !important; height: 112px !important; }
+body[data-board-shape="portrait"] #exCard,
+body[data-board-shape="portrait"] #dutyCard { flex-basis: 200px; min-height: 200px; }
+body[data-board-shape="portrait"] #exCard .honor-side { width: 190px !important; gap: 4px; padding: 12px; }
+body[data-board-shape="portrait"] #exCard .honor-badge { width: 28px; height: 28px; margin: 0; }
+body[data-board-shape="portrait"] #exCard .honor-title { font-size: 24px; }
+body[data-board-shape="portrait"] #exCard .honor-subtitle { font-size: 17px; }
+body[data-board-shape="portrait"] #exCard .honor-counter { font-size: 20px; padding: 3px 10px; }
+body[data-board-shape="portrait"] #exCard .honor-wrap { --honor-photo-size: 104px; }
+body[data-board-shape="portrait"] .slot-item { font-size: 27px !important; padding: 14px; }
+body[data-board-shape="portrait"] #alertContainer { flex-basis: 136px; min-height: 136px; max-height: 136px; }
+
+/* Narrow portrait keeps full-width list rows. Fewer rows are visible at once,
+   and the existing automatic paging still exposes every class and teacher. */
+body[data-board-shape="compact"] #fitStage > header { padding: 12px 12px 0; }
+body[data-board-shape="compact"] .header-shell { padding: 12px 16px !important; gap: 8px; }
+body[data-board-shape="compact"] #schoolName { font-size: 29px !important; }
+body[data-board-shape="compact"] #schoolLogo { width: 54px; height: 54px; }
+body[data-board-shape="compact"] .header-brand { gap: 12px !important; }
+body[data-board-shape="compact"] .header-date-row { font-size: 17px; }
+body[data-board-shape="compact"] .header-clock #clock { font-size: 30px !important; }
+body[data-board-shape="compact"] .header-clock-label { font-size: 14px; }
+body[data-board-shape="compact"] .header-live-status { min-width: 0; gap: 10px; }
+body[data-board-shape="compact"] .header-live-status__copy small { font-size: 14px; }
+body[data-board-shape="compact"] .header-live-status__copy strong { font-size: 17px; }
+body[data-board-shape="compact"] #fitStage > main { padding: 12px; gap: 12px; }
+body[data-board-shape="compact"] #boardMainColumn { gap: 12px; flex-basis: 716px; }
+body[data-board-shape="compact"] #boardSideColumn { flex-direction: column; gap: 12px; }
+body[data-board-shape="compact"] #heroTitle { font-size: 44px !important; }
+body[data-board-shape="compact"] #heroRange { font-size: 22px !important; }
+body[data-board-shape="compact"] #badgeKind { font-size: 19px !important; padding: 5px 12px !important; }
+body[data-board-shape="compact"] .hero-card > .relative.z-10 { padding: 16px !important; }
+body[data-board-shape="compact"] .hero-card > .relative.z-10 > div:first-child { gap: 10px; }
+body[data-board-shape="compact"] .hero-card > .relative.z-10 > div:first-child > .relative { width: 112px !important; height: 112px !important; }
+body[data-board-shape="compact"] #countdown { font-size: 28px !important; }
+body[data-board-shape="compact"] #countdownLabel { font-size: 14px !important; }
+body[data-board-shape="compact"] #currentScheduleList,
+body[data-board-shape="compact"] .hero-empty-message { font-size: 22px !important; min-height: 34px; }
+body[data-board-shape="compact"] #activityLabel { font-size: 17px; }
+body[data-board-shape="compact"] .day-timeline-panel { flex-basis: 120px; min-height: 120px; max-height: 120px; }
+body[data-board-shape="compact"] .day-timeline-panel > div:first-child > span,
+body[data-board-shape="compact"] #nextLabel { font-size: 17px !important; }
+body[data-board-shape="compact"] #miniSchedule { min-height: 58px; }
+body[data-board-shape="compact"] .mini-schedule-item { min-height: 54px; }
+body[data-board-shape="compact"] .mini-schedule-item__time { font-size: 16px !important; }
+body[data-board-shape="compact"] .mini-schedule-item__label { font-size: 19px !important; }
+body[data-board-shape="compact"] #alertContainer { flex-basis: 132px; min-height: 132px; max-height: 132px; }
+body[data-board-shape="compact"] #alertContainer > div:first-child { flex-basis: 26%; padding: 10px !important; gap: 6px; }
+body[data-board-shape="compact"] #alertContainer > div:last-child { padding: 10px 12px !important; }
+body[data-board-shape="compact"] #alertTitle,
+body[data-board-shape="compact"] #alertDetails { font-size: 22px !important; line-height: 32px !important; height: 96px; }
+body[data-board-shape="compact"] #exCard {
+    flex: 0 0 200px;
+    min-height: 200px;
+    flex-direction: row !important;
+}
+body[data-board-shape="compact"] #exCard .honor-side {
+    width: 130px !important;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 0;
+}
+body[data-board-shape="compact"] #exCard .honor-badge { width: 28px; height: 28px; margin: 0; }
+body[data-board-shape="compact"] #exCard .honor-title { font-size: 19px; }
+body[data-board-shape="compact"] #exCard .honor-subtitle { font-size: 15px; }
+body[data-board-shape="compact"] #exCard .honor-counter { margin-top: auto; margin-right: 0; font-size: 16px; padding: 2px 8px; }
+body[data-board-shape="compact"] #exSlot { padding: 8px !important; }
+body[data-board-shape="compact"] #exCard .honor-wrap { --honor-photo-size: 70px; gap: 10px; padding: 0; }
+body[data-board-shape="compact"] #exCard .honor-name { font-size: 22px !important; }
+body[data-board-shape="compact"] #exCard .honor-reason { font-size: 18px !important; padding: 5px 8px; }
+body[data-board-shape="compact"] #exCard .honor-wrap--long-reason .honor-reason {
+    font-size: 17px !important;
+    line-height: 1.35 !important;
+    -webkit-line-clamp: 6;
+}
+body[data-board-shape="compact"] #dutyCard { flex-basis: 172px; min-height: 172px; }
+body[data-board-shape="compact"] #dutyCard > div.relative.w-80 { width: 160px; padding: 10px; }
+body[data-board-shape="compact"] #dutyCard > div.relative.w-80 h2 { font-size: 20px; margin-bottom: 8px; }
+body[data-board-shape="compact"] #dutyCard > div.relative.w-80 .w-16 { width: 32px; height: 32px; }
+body[data-board-shape="compact"] #dutyTrack { padding: 10px; }
+body[data-board-shape="compact"] .duty-item { padding: 10px; gap: 8px; }
+body[data-board-shape="compact"] .duty-item > .flex { gap: 8px; padding-right: 4px; }
+body[data-board-shape="compact"] .duty-item .w-14 { width: 30px; height: 36px; }
+body[data-board-shape="compact"] .duty-role { padding: 5px 8px; font-size: 15px; }
+body[data-board-shape="compact"] .duty-name { font-size: 22px; gap: 6px; }
+body[data-board-shape="compact"] .duty-name > span + span { font-size: 17px; padding: 3px; }
+body[data-board-shape="compact"] #periodCard > div:first-child,
+body[data-board-shape="compact"] #standbyCard > div:first-child { padding: 10px 14px; }
+body[data-board-shape="compact"] #periodCard h3,
+body[data-board-shape="compact"] #standbyCard h3 { font-size: 23px; }
+body[data-board-shape="compact"] #pcCount,
+body[data-board-shape="compact"] #sbCount { font-size: 20px; padding: 2px 10px; }
+body[data-board-shape="compact"] .slot-item { font-size: 25px !important; padding: 10px 14px; }
+
+/* Short handheld viewports reserve enough space for a complete list row. */
+body[data-board-density="short"] #boardMainColumn { flex-basis: 656px; }
+body[data-board-density="short"] .hero-card > .relative.z-10 { padding: 10px !important; gap: 8px !important; }
+body[data-board-density="short"] .hero-card > .relative.z-10 > div:first-child > .relative { width: 92px !important; height: 92px !important; }
+body[data-board-density="short"] #heroTitle { font-size: 40px !important; }
+body[data-board-density="short"] #heroRange { font-size: 20px !important; }
+body[data-board-density="short"] #badgeKind { font-size: 17px !important; }
+body[data-board-density="short"] #countdown { font-size: 24px !important; }
+body[data-board-density="short"] #exCard,
+body[data-board-density="short"] #dutyCard { flex-basis: 168px; min-height: 168px; }
+body[data-board-density="short"] #exCard .honor-side { padding: 6px; gap: 2px; }
+body[data-board-density="short"] #exCard .honor-subtitle { font-size: 14px; }
+body[data-board-density="short"] #exCard .honor-badge { width: 20px; height: 20px; }
+body[data-board-density="short"] #exCard .honor-meta { gap: 4px; }
+body[data-board-density="short"] #exCard .honor-wrap--long-reason .honor-reason {
+    font-size: 16px !important;
+    line-height: 1.3 !important;
+}
+body[data-board-density="short"] #periodCard > div:first-child,
+body[data-board-density="short"] #standbyCard > div:first-child { padding: 6px 12px; }
+body[data-board-density="short"] #periodCard h3,
+body[data-board-density="short"] #standbyCard h3 { font-size: 21px; }
+body[data-board-density="short"] #pcCount,
+body[data-board-density="short"] #sbCount { font-size: 18px; padding: 1px 8px; }

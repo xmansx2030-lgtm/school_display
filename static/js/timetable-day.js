@@ -5,9 +5,8 @@
  * and a reload to discover:
  *
  *   1. How much of the day is actually filled in.
- *   2. That a period with a subject but no teacher is silently discarded by the
- *      server — the manager saves, the row comes back empty, and nothing says
- *      why. Those rows are flagged here, before the save.
+ *   2. A period must contain both a subject and teacher, or be completely
+ *      empty. Incomplete rows are flagged before any save.
  *   3. Whether there are unsaved edits at all.
  *   4. Save completed rows automatically without moving the manager away from
  *      the part of the page they are editing.
@@ -30,7 +29,7 @@
     if (!buttons.length) return;
 
     if (!select || select.disabled || select.options.length < 2) {
-      buttons.forEach(function (btn) { btn.classList.add("is-disabled"); });
+      buttons.forEach(function (btn) { btn.classList.add("is-disabled"); btn.disabled = true; });
       return;
     }
 
@@ -38,7 +37,9 @@
       buttons.forEach(function (btn) {
         var step = parseInt(btn.dataset.ttClassStep, 10);
         var next = select.selectedIndex + step;
-        btn.classList.toggle("is-disabled", next < 0 || next >= select.options.length);
+        var disabled = next < 0 || next >= select.options.length;
+        btn.classList.toggle("is-disabled", disabled);
+        btn.disabled = disabled;
       });
     }
 
@@ -76,7 +77,7 @@
     var autosaveDelay = 900;
     var toastTimer = null;
     var manualSubmit = false;
-    var saving = false;
+    var pendingManualSubmit = null;
 
     // Snapshot of what the server sent, so "undo" is exact and the dirty check
     // compares against the saved state rather than "did anything fire".
@@ -99,8 +100,8 @@
       });
     }
 
-    function snapshotCurrentValues() {
-      initial = rows.map(function (row) {
+    function currentValues() {
+      return rows.map(function (row) {
         return {
           subject: valueOf(row, "[data-tt-subject]"),
           teacher: valueOf(row, "[data-tt-teacher]"),
@@ -112,12 +113,6 @@
       return rows.filter(function (row) {
         return Boolean(valueOf(row, "[data-tt-subject]")) !== Boolean(valueOf(row, "[data-tt-teacher]"));
       });
-    }
-
-    function formSignature() {
-      return rows.map(function (row) {
-        return valueOf(row, "[data-tt-subject]") + ":" + valueOf(row, "[data-tt-teacher]");
-      }).join("|");
     }
 
     function showAutosave(message, status, stayVisible) {
@@ -144,6 +139,9 @@
     function scheduleAutosave() {
       if (!form.dataset.ttAutosave || form.dataset.ttAutosave === "false") return;
       clearAutosaveTimer();
+      // The running request will compare its saved snapshot with the latest
+      // fields when it finishes. Never race two writes to the same timetable.
+      if (autosaveRequest || pendingManualSubmit) return;
 
       if (!isDirty()) {
         showAutosave("لا توجد تغييرات للحفظ", "success");
@@ -161,12 +159,11 @@
 
     function saveAutomatically() {
       clearAutosaveTimer();
-      if (!isDirty() || partialRows().length) return;
+      if (autosaveRequest || !isDirty() || partialRows().length) return;
 
-      if (autosaveRequest) autosaveRequest.abort();
-      autosaveRequest = new AbortController();
-      var submittedSignature = formSignature();
-      saving = true;
+      var submittedValues = currentValues();
+      var succeeded = false;
+      autosaveRequest = {};
       showAutosave("جارٍ حفظ الجدول تلقائيًا...", "saving", true);
       if (stateLabel) stateLabel.textContent = "جارٍ الحفظ تلقائيًا...";
 
@@ -178,31 +175,44 @@
           "X-Requested-With": "XMLHttpRequest",
           "Accept": "application/json",
         },
-        signal: autosaveRequest.signal,
       })
         .then(function (response) {
-          if (!response.ok) throw new Error("save_failed");
-          return response.json();
+          return response.json().then(function (payload) {
+            if (!response.ok || !payload || payload.ok !== true) {
+              var error = new Error("save_failed");
+              if (payload && typeof payload.message === "string") error.userMessage = payload.message;
+              throw error;
+            }
+            return payload;
+          });
         })
         .then(function (payload) {
-          if (!payload || payload.ok !== true) throw new Error("save_failed");
-          if (formSignature() === submittedSignature) {
-            snapshotCurrentValues();
-            render();
+          // The server saved these values, even if the manager edited or
+          // pressed Undo while waiting. Keeping the old baseline loses Undo.
+          initial = submittedValues;
+          succeeded = true;
+          render();
+          if (!isDirty()) {
             if (stateLabel) stateLabel.textContent = "لا توجد تغييرات";
             showAutosave(payload.message || "تم حفظ الجدول تلقائيًا", "success");
-          } else {
-            scheduleAutosave();
           }
         })
         .catch(function (error) {
           if (error && error.name === "AbortError") return;
-          showAutosave("تعذر الحفظ التلقائي. استخدم زر الحفظ.", "error", true);
+          showAutosave(error.userMessage || "تعذر الحفظ التلقائي. استخدم زر الحفظ.", "error", true);
           if (stateLabel) stateLabel.textContent = "تعذر الحفظ التلقائي";
         })
         .finally(function () {
           autosaveRequest = null;
-          if (!manualSubmit) saving = false;
+          if (pendingManualSubmit) {
+            var pending = pendingManualSubmit;
+            pendingManualSubmit = null;
+            // requestSubmit runs validation and the partial-row guard again
+            // against the latest fields, after the previous write completed.
+            form.requestSubmit(pending.submitter || undefined);
+          } else if (succeeded && isDirty()) {
+            scheduleAutosave();
+          }
         });
     }
 
@@ -227,7 +237,7 @@
 
       if (summary) {
         var text = filled + " من " + total + " حصة مكتملة";
-        if (partial) text += " · " + partial + " حصة ناقصة لن تُحفظ";
+        if (partial) text += " · " + partial + " حصة تحتاج إلى استكمال قبل الحفظ";
         summary.textContent = text;
       }
 
@@ -243,8 +253,7 @@
       var target = event.target;
       if (!target || target.tagName !== "SELECT") return;
 
-      // Picking a subject almost always means picking its teacher next, and
-      // leaving only one of the two set is exactly the case the server drops.
+      // Picking a subject almost always means picking its teacher next.
       if (target.matches("[data-tt-subject]") && target.value) {
         var row = target.closest("[data-tt-row]");
         var teacher = row && row.querySelector("[data-tt-teacher]");
@@ -266,6 +275,7 @@
 
     if (resetButton) {
       resetButton.addEventListener("click", function () {
+        clearAutosaveTimer();
         rows.forEach(function (row, index) {
           var subject = row.querySelector("[data-tt-subject]");
           var teacher = row.querySelector("[data-tt-teacher]");
@@ -273,35 +283,41 @@
           if (teacher) teacher.value = initial[index].teacher;
         });
         render();
-        showAutosave("تم التراجع عن التعديلات", "success");
+        showAutosave(
+          autosaveRequest ? "جارٍ تثبيت التراجع عن التعديلات..." : "تم التراجع عن التعديلات",
+          autosaveRequest ? "saving" : "success",
+          Boolean(autosaveRequest)
+        );
       });
     }
 
     form.addEventListener("submit", function (event) {
       clearAutosaveTimer();
-      manualSubmit = true;
-      saving = true;
-      if (autosaveRequest) autosaveRequest.abort();
+      if (autosaveRequest) {
+        event.preventDefault();
+        pendingManualSubmit = { submitter: event.submitter || null };
+        showAutosave("جارٍ إكمال الحفظ السابق قبل حفظ التعديلات...", "saving", true);
+        return;
+      }
 
       var partial = partialRows();
 
       if (partial.length) {
-        var proceed = window.confirm(
-          partial.length + " حصة تحتوي على مادة بدون معلم (أو العكس) ولن يتم حفظها.\n\n"
-          + "اضغط «إلغاء» لإكمالها الآن، أو «موافق» للحفظ وتجاهلها."
+        event.preventDefault();
+        showAutosave("أكمل المادة والمعلم لكل حصة أو أفرغ الحقلين قبل الحفظ.", "warning", true);
+        if (stateLabel) stateLabel.textContent = "أكمل الحصص الناقصة قبل الحفظ";
+        partial[0].scrollIntoView({ behavior: "smooth", block: "center" });
+        var missing = partial[0].querySelector(
+          valueOf(partial[0], "[data-tt-subject]") ? "[data-tt-teacher]" : "[data-tt-subject]"
         );
-        if (!proceed) {
-          event.preventDefault();
-          manualSubmit = false;
-          saving = false;
-          partial[0].scrollIntoView({ behavior: "smooth", block: "center" });
-          return;
-        }
+        if (missing) missing.focus({ preventScroll: true });
+        return;
       }
+      manualSubmit = true;
     });
 
     window.addEventListener("beforeunload", function (event) {
-      if (saving || !isDirty()) return;
+      if (manualSubmit || (!autosaveRequest && !isDirty())) return;
       event.preventDefault();
       // Browsers show their own wording; a non-empty returnValue is the signal.
       event.returnValue = "";

@@ -595,7 +595,7 @@
               {% include "dashboard/_bank_transfer_account.html" %}
               
               <div class="space-y-1">
-                <label class="block text-sm font-bold text-slate-700">صورة الإيصال</label>
+                <label class="block text-sm font-bold text-slate-700" for="{{ renew_form.receipt_image.id_for_label }}">صورة الإيصال</label>
                 <div class="relative">
                    {{ renew_form.receipt_image }}
                    <!-- Custom file input styling can be added via JS or CSS, keeping default for compatibility but styled wrappers -->
@@ -607,7 +607,7 @@
               </div>
 
                <div class="space-y-1">
-                <label class="block text-sm font-bold text-slate-700">ملاحظات (اختياري)</label>
+                <label class="block text-sm font-bold text-slate-700" for="{{ renew_form.transfer_note.id_for_label }}">ملاحظات (اختياري)</label>
                 {{ renew_form.transfer_note }}
                  {% if renew_form.transfer_note.errors %}
                    <p class="text-xs text-red-500 mt-1">{{ renew_form.transfer_note.errors }}</p>

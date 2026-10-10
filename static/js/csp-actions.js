@@ -130,10 +130,16 @@
 
             if (pending.form) {
                 confirmedForms.add(pending.form);
-                if (typeof pending.form.requestSubmit === "function") {
-                    pending.form.requestSubmit(pending.submitter || undefined);
-                } else {
-                    pending.form.submit();
+                try {
+                    if (typeof pending.form.requestSubmit === "function") {
+                        pending.form.requestSubmit(pending.submitter || undefined);
+                    } else {
+                        pending.form.submit();
+                    }
+                } finally {
+                    // Native validation can stop requestSubmit before a submit
+                    // event exists. That must not authorize a later attempt.
+                    confirmedForms.delete(pending.form);
                 }
                 return;
             }

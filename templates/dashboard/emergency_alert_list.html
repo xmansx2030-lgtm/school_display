@@ -48,7 +48,7 @@
             <h3 class="dp-record__title" style="margin-top:.6rem">{{ alert.title }}</h3>
           </div>
 
-          {% if can_emergency_alerts_manage %}
+          {% if can_emergency_alerts_manage and alert.can_manage_for_user %}
             {% if alert.active_now %}
               <form method="post" action="{% url 'dashboard:emergency_alert_cancel' alert.pk %}">
                 {% csrf_token %}
@@ -81,6 +81,8 @@
             <dd>
               {% if alert.screens.all %}
                 {% for screen in alert.screens.all %}{{ screen.name }}{% if not forloop.last %}، {% endif %}{% endfor %}
+              {% elif alert.has_targeted_screens %}
+                شاشات محددة خارج نطاق إدارتك
               {% else %}
                 كل شاشات المدارس المحددة
               {% endif %}

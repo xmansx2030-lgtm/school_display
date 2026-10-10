@@ -100,7 +100,7 @@
 
     /* ── Mobile Overlay ── */
     .mobile-overlay {
-      position: fixed; inset: 0; z-index: 45;
+      position: fixed; inset: var(--header-h) 0 0; z-index: 45;
       background: rgba(15,23,42,.4);
       backdrop-filter: blur(4px);
       opacity: 0; pointer-events: none;
@@ -137,6 +137,7 @@
     }
 
     .dashboard-main {
+      min-width: 0;
       /* `overflow-x: hidden` computes the other axis to `auto`, which makes
          this a scroll container. It never actually scrolls — the document
          does — and a scrollport that never scrolls freezes every
@@ -246,6 +247,8 @@
       .dashboard-main-inner {
         padding-inline: 0.95rem;
       }
+
+      .dashboard-user-badge { display: none; }
     }
 
     @media (max-width: 767px) {
@@ -299,7 +302,7 @@
       .dashboard-whatsapp-copy small { font-size: .64rem; }
     }
   </style>
-  <link rel="stylesheet" href="{% static 'css/dashboard-luxury.css' %}?v=2026-08-13-teal1">
+  <link rel="stylesheet" href="{% static 'css/dashboard-luxury.css' %}?v=2026-10-10-layout1">
   {% comment %} Premium primitives (dp-*). Sits after the luxury layer so it can
      restore depth where that file flattened everything, and before extra_css so
      a page can still overrule it. {% endcomment %}
@@ -401,7 +404,7 @@
       </a>
       {% endif %}
 
-      <div class="hidden sm:flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
+      <div class="dashboard-user-badge hidden sm:flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
         <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
           <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
         </div>
@@ -415,7 +418,7 @@
       </div>
 
       {% if request.user.is_authenticated %}
-          <a href="{% url 'dashboard:logout' %}"
+          <a href="{% url 'dashboard:logout' %}" aria-label="تسجيل الخروج"
             class="dashboard-logout-btn flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 transition-all">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
           <span class="hidden md:inline">خروج</span>
@@ -469,7 +472,7 @@
 <div class="dashboard-layout-shell min-h-screen flex">
 
   <!-- ═══ SIDEBAR ═══ -->
-  <aside id="dashboardSidebar" style="top: var(--header-h);" class="dashboard-sidebar fixed right-0 bottom-0 w-[var(--sidebar-w)] bg-white border-l border-slate-200/80 z-50 overflow-y-auto
+  <aside id="dashboardSidebar" aria-label="قائمة التنقل" style="top: var(--header-h);" class="dashboard-sidebar fixed right-0 bottom-0 w-[var(--sidebar-w)] bg-white border-l border-slate-200/80 z-50 overflow-y-auto
                 transition-transform duration-300 ease-[cubic-bezier(.4,0,.2,1)]
                 translate-x-full lg:translate-x-0">
 
@@ -708,7 +711,7 @@
 {% endif %}
 
 {% block extra_js %}{% endblock %}
-<script defer src="{% static 'js/csp-actions.js' %}?v=2026-08-29-modal1"></script>
-<script defer src="{% static 'js/dashboard-shell.js' %}?v=2026-07-23-b4"></script>
+<script defer src="{% static 'js/csp-actions.js' %}?v=2026-10-10-confirm1"></script>
+<script defer src="{% static 'js/dashboard-shell.js' %}?v=2026-10-10-focus1"></script>
 </body>
 </html>

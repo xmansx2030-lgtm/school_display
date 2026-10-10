@@ -576,142 +576,46 @@
 
   function applyAutoFit() {
     if (!dom.fitRoot) return;
-
-    // allow disabling via ?fit=0 for troubleshooting
-    if (isFitDisabled()) {
-      try {
-        dom.fitRoot.style.transform = "scale(1)";
-        dom.fitRoot.style.transformOrigin = "top left";
-        dom.fitRoot.style.left = "0px";
-        dom.fitRoot.style.top = "0px";
-      } catch (e) {}
-      return;
-    }
-
     const viewport = getViewportSize();
     const viewportWidth = Number(viewport.width || 0);
     const viewportHeight = Number(viewport.height || 0);
-    
     if (viewportWidth <= 0 || viewportHeight <= 0) return;
-
-    // Design canvas dimensions (what we designed for)
-    const designWidth = 1920;
-    const designHeight = 1080;
-
-    // Guarded compensation for TVs that report a half-sized CSS viewport
-    // (e.g. 960x540 on a physical 1080p panel). This branch is intentionally
-    // narrow to avoid impacting displays that already render correctly.
-    let effectiveWidth = viewportWidth;
-    let effectiveHeight = viewportHeight;
-    let fitSource = "inner";
-    try {
-      const dpr = Number(window.devicePixelRatio || 1);
-      const sw = Number(window.screen && window.screen.width ? window.screen.width : 0);
-      const sh = Number(window.screen && window.screen.height ? window.screen.height : 0);
-      const baseContain = Math.min(viewportWidth / designWidth, viewportHeight / designHeight);
-
-      const looksHalfViewport =
-        viewportWidth <= 1100 &&
-        viewportHeight <= 650 &&
-        baseContain <= 0.65 &&
-        (dpr >= 1.45 || (sw >= 1600 && sh >= 900));
-
-      if (looksHalfViewport) {
-        const candidates = [];
-        if (dpr > 1.1) {
-          candidates.push({
-            w: viewportWidth * dpr,
-            h: viewportHeight * dpr,
-            src: "dpr",
-          });
-        }
-        if (sw > 0 && sh > 0) {
-          candidates.push({ w: sw, h: sh, src: "screen" });
-        }
-
-        let best = null;
-        for (const c of candidates) {
-          if (!c || !isFinite(c.w) || !isFinite(c.h) || c.w <= 0 || c.h <= 0) continue;
-          const contain = Math.min(c.w / designWidth, c.h / designHeight);
-          // Accept only meaningful improvements in the expected range.
-          if (contain < 0.9 || contain > 1.35) continue;
-          if (!best || contain > best.contain) {
-            best = { ...c, contain };
-          }
-        }
-
-        if (best) {
-          effectiveWidth = best.w;
-          effectiveHeight = best.h;
-          fitSource = best.src;
-        }
-      }
-    } catch (e) {}
-
-    // Optional overscan-safe margin (defaults to full fill == 1.0)
+    // Layout and physical pixels are different coordinate systems. Always fit
+    // inside the actual CSS viewport, including windowed and high-DPI devices.
+    // A flexible canvas keeps the viewport's aspect ratio: no cover cropping,
+    // no minimum scale that makes a narrow screen wider than its own viewport.
     const fitMargin = getFitMargin();
-    const safeWidth = effectiveWidth * fitMargin;
-    const safeHeight = effectiveHeight * fitMargin;
-
-    // Calculate scale ratios
-    const scaleX = safeWidth / designWidth;
-    const scaleY = safeHeight / designHeight;
-    
-    // ✅ الحل 2 + 3: تحديد وضع الملء (cover أو contain)
-    let fitMode = getFitMode(); // من الـ URL parameter
-    
-    // ✅ الحل 3: كشف تلقائي للشاشات غير القياسية
-    if (fitMode === "cover") { // فقط إذا لم يحدد المستخدم contain يدوياً
-      const aspectRatio = viewportWidth / viewportHeight;
-      const designAspectRatio = designWidth / designHeight; // 1.778 (16:9)
-      const aspectDiff = Math.abs(aspectRatio - designAspectRatio);
-      const threshold = getAspectThreshold();
-      
-      if (aspectDiff > threshold) {
-        // شاشة بنسبة مختلفة كثيراً عن 16:9 (مثل IQTouch)
-        fitMode = "contain";
-        if (isDebug()) console.log(`[Auto-fit] Non-standard aspect ratio detected (${aspectRatio.toFixed(3)} vs ${designAspectRatio.toFixed(3)}), switching to contain mode`);
-      }
-    }
-    
-    // تطبيق الوضع المناسب
-    let scale;
-    if (fitMode === "contain") {
-      // CONTAIN: إظهار كل المحتوى (قد تظهر حواف سوداء)
-      scale = Math.min(scaleX, scaleY);
-    } else {
-      // COVER: ملء الشاشة بالكامل (قد يتم قص الحواف)
-      scale = Math.max(scaleX, scaleY);
-    }
-    
-    // Allow scaling UP for large TVs, but cap at reasonable maximum
-    const maxScale = getFitMaxScale();
-    scale = clamp(scale, 0.5, maxScale);
-
-    // Center the fixed 16:9 design canvas. In contain mode this distributes
-    // spare space evenly; in cover mode it crops both sides symmetrically.
-    const renderedWidth = designWidth * scale;
-    const renderedHeight = designHeight * scale;
-    const offsetX = (viewportWidth - renderedWidth) / 2;
-    const offsetY = (viewportHeight - renderedHeight) / 2;
-    dom.fitRoot.style.transform = `scale(${scale.toFixed(4)})`;
+    const safeWidth = viewportWidth * fitMargin;
+    const safeHeight = viewportHeight * fitMargin;
+    const aspect = safeWidth / safeHeight;
+    const shape = aspect < 0.95
+      ? (safeWidth < 600 ? "compact" : "portrait")
+      : (aspect > 2.1 ? "wide" : "landscape");
+    let scale = shape === "compact"
+      ? Math.min(safeWidth / 600, safeHeight / 1080)
+      : (shape === "portrait"
+        ? Math.min(safeWidth / 960, safeHeight / 1200)
+        : Math.min(safeHeight / 1080, safeWidth / 1440));
+    scale = isFitDisabled() ? 1 : Math.min(scale, getFitMaxScale());
+    dom.fitRoot.style.width = `${safeWidth / scale}px`;
+    dom.fitRoot.style.height = `${safeHeight / scale}px`;
+    dom.fitRoot.style.transform = `scale(${scale})`;
     dom.fitRoot.style.transformOrigin = "top left";
-    dom.fitRoot.style.left = `${offsetX.toFixed(2)}px`;
-    dom.fitRoot.style.top = `${offsetY.toFixed(2)}px`;
+    dom.fitRoot.style.left = `${(viewportWidth - safeWidth) / 2}px`;
+    dom.fitRoot.style.top = `${(viewportHeight - safeHeight) / 2}px`;
 
     try {
       const body = document.body || document.documentElement;
       body.dataset.uiScale = scale.toFixed(4);
-      body.dataset.fitMode = fitMode; // للـ debugging
-      body.dataset.fitSource = fitSource; // inner | dpr | screen
+      body.dataset.boardShape = shape;
+      body.dataset.boardDensity = shape === "compact" && safeHeight / scale < 1200 ? "short" : "regular";
+      body.dataset.fitMode = getFitMode(); // Both modes fit the flexible canvas.
+      body.dataset.fitSource = "viewport";
       body.dataset.fitMargin = String(fitMargin);
-      
-      // Keep typography locked to the 1920x1080 design canvas.
-      // The stage is already scaled via transform(), so increasing body font-size
-      // here creates a second enlargement that can break the fixed board layout
-      // on high-DPI / very large displays.
       body.style.fontSize = "";
     } catch (e) {}
+    try { refreshAnnouncementLayout(); } catch (e) {}
+    try { refreshEmergencyLayout(); } catch (e) {}
   }
 
   // ===== Debug overlay =====
@@ -2143,22 +2047,55 @@
     ringPoints: [],   // sorted epoch-ms boundaries to ring on
   };
 
+  function _snapshotScheduleDate(payload) {
+    var meta = (payload && payload.meta) || {};
+    var value = safeText(meta.date || meta.local_date || (payload && payload.now) || "");
+    var match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+    return match ? match[1] : "";
+  }
+
+  function _snapshotBlocksLocalSchedule(payload) {
+    var state = (payload && payload.state) || {};
+    var type = normalizeDisplayStateType(state.type || "");
+    var reason = getStateReason(state);
+    return type === "holiday" || type === "setup" || reason === "holiday" ||
+      reason === "awaiting_setup" || reason === "offline_unknown_day" ||
+      !!(payload && payload.meta && payload.meta.is_school_day === false);
+  }
+
   /**
    * Load day_path from a snapshot payload.
    * Call once per snapshot render (idempotent if data unchanged).
    */
   function dayEngineLoad(payload) {
     if (!payload) return;
+    var base = nowMs();
+    var today = _localDateKey(base);
+    var snapshotDate = _snapshotScheduleDate(payload);
+    // Server closures/setup take priority, even if a legacy response retains blocks.
+    // Yesterday's snapshot must be rehydrated before it can drive today's clock.
+    if (_snapshotBlocksLocalSchedule(payload) || (snapshotDate && snapshotDate !== today)) {
+      dayEngineClear();
+      return;
+    }
     var dp = payload.day_path;
-    if (!Array.isArray(dp) || !dp.length) return;
+    // Missing day_path is a legacy/partial response; [] is an authoritative cancellation.
+    if (!Array.isArray(dp)) {
+      if (_dayEngine.lastDayKey && _dayEngine.lastDayKey.split("|")[0] !== today) dayEngineClear();
+      return;
+    }
+    if (!dp.length) {
+      dayEngineClear();
+      return;
+    }
 
-    // Build a signature to avoid re-processing identical data.
+    // Include the school-local date: identical hours tomorrow need new epoch times.
     var sig = "";
     try { sig = JSON.stringify(dp); } catch (e) { sig = String(dp.length); }
+    sig = today + "|" + snapshotDate + "|" + sig;
     if (sig === _dayEngine.lastDayKey) return;
     _dayEngine.lastDayKey = sig;
 
-    var base = nowMs();
     var blocks = [];
     for (var i = 0; i < dp.length; i++) {
       var b = dp[i];
@@ -2360,6 +2297,11 @@
 
     var range = fmtTimeRange(block.from, block.to);
 
+    // Local transitions write the same DOM that renderState memoizes. Invalidate
+    // its snapshot signatures so a later identical slot (including tomorrow)
+    // still restores the title/range/next label after a local transition.
+    last.stateSig = "";
+    last.nextSig = "";
     setTextIfChanged(dom.heroTitle, title);
     setTextIfChanged(dom.heroRange, range);
     setTextIfChanged(dom.badgeKind, badge);
@@ -2486,6 +2428,8 @@
 
   function dayEngineApplyDayOver() {
     const afterCopy = getAfterDayOverCopy();
+    last.stateSig = "";
+    last.nextSig = "";
     rt.dayOver = true;
     rt.isPeriodDayWindow = false;
     rt.activePeriodIndex = null;
@@ -2518,22 +2462,34 @@
   /**
    * تفريغ محرك اليوم.
    *
-   * ``dayEngineLoad`` يتجاهل الجداول الفارغة عمدًا حتى لا تمحو استجابةٌ ناقصة
-   * جدولًا سليمًا. لكن عند الانتقال إلى يوم بلا دوام يجب أن تختفي كتل الأمس
-   * فعليًا، وإلا استمر المحرك في تحريك حصص لا وجود لها اليوم.
+   * يستبدل الجدول الفارغ الصريح الجدول السابق، بينما غياب day_path يحافظ
+   * على توافق الاستجابات القديمة. تُلغى أهداف العد والجرس مع الجدول نفسه.
    */
   function dayEngineClear() {
     _dayEngine.blocks = [];
     _dayEngine.ringPoints = [];
     _dayEngine.lastDayKey = "";
+    clearNamedTimer("bell_boundary");
+    lastBellBoundaryCheckMs = nowMs();
     lastBellBoundaryDaySig = "";
     for (var key in bellBoundarySeen) {
       if (Object.prototype.hasOwnProperty.call(bellBoundarySeen, key)) delete bellBoundarySeen[key];
     }
+    countdownSeconds = null;
+    hasActiveCountdown = false;
+    progressRange = { start: null, end: null };
+    rt.activePeriodIndex = null;
+    rt.activeFromHM = null;
+    rt.activeToHM = null;
+    rt.activeTargetHM = null;
+    rt.activeTargetMs = null;
+    rt.isPeriodDayWindow = false;
+    rt.transitionUntilTs = 0;
   }
 
   function dayEngineSyncToLocalNow() {
     if (!_dayEngine.blocks.length) return false;
+    if (_snapshotBlocksLocalSchedule(lastPayloadForFiltering)) return false;
     var res = dayEngineFindNow();
     var want = dayEngineDesiredSlotSig(res);
     if (!want) return false;
@@ -2703,6 +2659,13 @@
     // A corrected offset changes every epoch boundary derived from HH:MM.
     // Re-arm the precise bell timer so it remains aligned after clock sync.
     try { scheduleNextBoundaryBell(); } catch (e) {}
+    // Status responses can correct the clock without fetching a new snapshot.
+    // Re-evaluate timed content after a real jump; sub-second jitter must not
+    // keep rearming boundaries or interrupting the current announcement page.
+    if (Math.abs(delta) >= 1000) {
+      try { renderAnnouncements(annSource); } catch (e) {}
+      try { renderEmergencyAlerts(emergencySource); } catch (e) {}
+    }
   }
 
   // ✅ CLOCK DRIFT DETECTION: كشف تغييرات التوقيت المحلي الفجائية
@@ -4149,7 +4112,8 @@
         ? "--:--"
         : fmtTimeRange(cur.from || st.from, cur.to || st.to);
 
-    const sig = cls + "||" + periodTitle + "||" + activity + "||" + range + "||" + stType;
+    const stateReason = getStateReason(st);
+    const sig = cls + "||" + periodTitle + "||" + activity + "||" + range + "||" + stType + "||" + stateReason;
     if (sig === last.currentSig) return;
     last.currentSig = sig;
 
@@ -4165,7 +4129,9 @@
         day: "تظهر تفاصيل النشاط هنا عند بدء الجدول",
       };
       msg.className = "hero-empty-message";
-      msg.textContent = emptyMessages[stType] || "لا توجد حصة جارية الآن";
+      msg.textContent = stateReason === "offline_unknown_day"
+        ? "سيُحدَّث جدول اليوم تلقائيًا عند عودة الاتصال"
+        : (emptyMessages[stType] || "لا توجد حصة جارية الآن");
       msg.setAttribute("role", "status");
       dom.currentScheduleList.appendChild(msg);
       return;
@@ -4256,9 +4222,12 @@
   }
 
   // ===== Announcements =====
-  let annTimer = null;
   let annPtr = 0;
   let annList = [];
+  let annSource = [];
+  let annPages = [];
+  let annPagePtr = 0;
+  let annLayoutKey = "";
   const ANN_INT = 6500;
   // بيانات المناسبات تأتي من سجل واحد في الخادم (core/occasions.py) تُحقنه
   // الصفحة في كتلة JSON. لا تُعرَّف هنا: أي تكرار سينحرف عن ألوان CSS وعن
@@ -4323,7 +4292,7 @@
         const body = safeText(x.body || x.details || x.text || x.message || "");
         const id = safeText(x.id || x.pk || "");
         const occasionTheme = safeText(x.occasion_theme || "");
-        return [id, title, body, occasionTheme];
+        return [id, title, body, occasionTheme, x.level || x.kind || x.type || "", x.starts_at || "", x.expires_at || "", x.screen_ids || []];
       })
     );
   }
@@ -4386,21 +4355,125 @@
     forceThemeRepaint();
   }
 
-  function showAnnouncement(i) {
+  // Measure text in the actual box: a kiosk has no hover/click to reveal an
+  // ellipsis. Each part stays on screen long enough to read before advancing.
+  // Splitting uses DOM text, never HTML, and also handles a single long word.
+  function paginateAnnouncementText(el, text) {
+    if (!el || !el.clientWidth || !el.clientHeight) return [text];
+    const tokens = text.match(/\S+\s*/g) || [text];
+    const pages = [];
+    let start = 0;
+    function fits(value) {
+      el.textContent = value;
+      return el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1;
+    }
+    while (start < tokens.length) {
+      let lo = start + 1;
+      let hi = tokens.length;
+      let end = start;
+      while (lo <= hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (fits(tokens.slice(start, mid).join("").trim())) {
+          end = mid;
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
+        }
+      }
+      if (end > start) {
+        pages.push(tokens.slice(start, end).join("").trim());
+        start = end;
+      } else {
+        const chars = Array.from(tokens[start]);
+        lo = 1;
+        hi = chars.length;
+        let count = 1;
+        while (lo <= hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          if (fits(chars.slice(0, mid).join("").trim())) {
+            count = mid;
+            lo = mid + 1;
+          } else {
+            hi = mid - 1;
+          }
+        }
+        pages.push(chars.slice(0, count).join("").trim());
+        if (count < chars.length) tokens[start] = chars.slice(count).join("");
+        else start += 1;
+      }
+    }
+    return pages.length ? pages : [text];
+  }
+
+  function textBoxesLayoutKey(elements) {
+    return elements.map(function (el) {
+      if (!el) return "";
+      const css = window.getComputedStyle(el);
+      return [el.clientWidth, el.clientHeight, css.fontSize, css.fontFamily, css.lineHeight].join(":");
+    }).join("|");
+  }
+
+  function announcementLayoutKey() {
+    return textBoxesLayoutKey([dom.alertTitle, dom.alertDetails]);
+  }
+
+  function showAnnouncement(i, pageIndex) {
+    clearNamedTimer("announcement_rotate");
     if (!annList.length) return;
-    annPtr = (i + annList.length) % annList.length;
-    const a = annList[annPtr] || {};
-    renderAlert(
-      safeText(a.title || a.heading || "تنبيه"),
-      safeText(a.body || a.details || a.text || a.message || "—"),
-      safeText(a.level || a.kind || a.type || "info")
-    );
+    const nextPtr = (i + annList.length) % annList.length;
+    const a = annList[nextPtr] || {};
+    const expiresMs = a.expires_at ? Date.parse(String(a.expires_at)) : NaN;
+    if (!isNaN(expiresMs) && expiresMs <= nowMs()) {
+      renderAnnouncements(annSource);
+      return;
+    }
+    const title = safeText(a.title || a.heading || "تنبيه");
+    const details = safeText(a.body || a.details || a.text || a.message || "—");
+    renderAlert(title, details, safeText(a.level || a.kind || a.type || "info"));
+    const layoutKey = nextPtr + "|" + announcementLayoutKey();
+    if (!annPages.length || nextPtr !== annPtr || layoutKey !== annLayoutKey) {
+      const titles = paginateAnnouncementText(dom.alertTitle, title);
+      const bodies = paginateAnnouncementText(dom.alertDetails, details);
+      annPages = [];
+      for (let p = 0; p < Math.max(titles.length, bodies.length); p++) {
+        annPages.push({ title: titles[p % titles.length], body: bodies[p % bodies.length] });
+      }
+      annLayoutKey = layoutKey;
+    }
+    annPtr = nextPtr;
+    annPagePtr = clamp(Number(pageIndex) || 0, 0, Math.max(0, annPages.length - 1));
+    const page = annPages[annPagePtr];
+    setTextIfChanged(dom.alertTitle, page.title);
+    setTextIfChanged(dom.alertDetails, page.body);
+    if (dom.alertTitle) dom.alertTitle.setAttribute("aria-label", title);
+    if (dom.alertDetails) dom.alertDetails.setAttribute("aria-label", details);
+    if (dom.alertContainer) {
+      dom.alertContainer.dataset.paginated = annPages.length > 1 ? "1" : "0";
+      dom.alertContainer.dataset.pageCurrent = String(annPagePtr + 1);
+      dom.alertContainer.dataset.pageTotal = String(annPages.length);
+    }
+    if (annList.length > 1 || annPages.length > 1) {
+      const readingMs = Math.max(ANN_INT, Math.min(20000, (page.title.length + page.body.length) * 65));
+      setNamedTimer("announcement_rotate", function () {
+        if (annPagePtr + 1 < annPages.length) showAnnouncement(annPtr, annPagePtr + 1);
+        else showAnnouncement(annPtr + 1, 0);
+      }, readingMs, "announcement_reading_time");
+    }
+  }
+
+  function refreshAnnouncementLayout(force) {
+    if (!annList.length || (!force && annLayoutKey === annPtr + "|" + announcementLayoutKey())) return;
+    annPages = [];
+    showAnnouncement(annPtr, 0);
   }
 
   function renderAnnouncements(arr) {
+    clearNamedTimer("announcement_boundary");
+    annSource = Array.isArray(arr) ? arr.slice() : [];
     const screenId = parseInt(document.body.getAttribute("data-screen-id") || "0", 10);
     const currentMs = nowMs();
-    const sourceList = (Array.isArray(arr) ? arr.slice() : []).filter((item) => {
+    let nextBoundaryMs = null;
+    const sourceList = annSource.filter((item) => {
       item = item || {};
       const targets = Array.isArray(item.screen_ids) ? item.screen_ids.map(Number) : [];
       if (targets.length && targets.indexOf(screenId) < 0) return false;
@@ -4410,10 +4483,22 @@
       // "اجتماع اليوم الساعة ٩" معروضًا بعد انتهائه بأيام.
       const startsMs = item.starts_at ? Date.parse(String(item.starts_at)) : NaN;
       const expiresMs = item.expires_at ? Date.parse(String(item.expires_at)) : NaN;
+      [startsMs, expiresMs].forEach(function (timeMs) {
+        if (!isNaN(timeMs) && timeMs > currentMs && (nextBoundaryMs === null || timeMs < nextBoundaryMs)) {
+          nextBoundaryMs = timeMs;
+        }
+      });
       if (!isNaN(startsMs) && startsMs > currentMs) return false;
       if (!isNaN(expiresMs) && expiresMs <= currentMs) return false;
       return true;
     });
+    // Rearm even for an unchanged content signature: a manager can extend the
+    // time window, and this timer must work while polling is paused/asleep.
+    if (nextBoundaryMs !== null) {
+      setNamedTimer("announcement_boundary", function () {
+        renderAnnouncements(annSource);
+      }, Math.min(2147483000, Math.max(50, nextBoundaryMs - currentMs + 50)), "announcement_time_boundary");
+    }
     const showAnnouncements = screenFlag("screenShowAnnouncements", true);
     const sig = annSignature(sourceList) + "||" + (showAnnouncements ? "1" : "0");
     if (sig && sig === last.annSig) {
@@ -4426,10 +4511,9 @@
     // شاشة أُخفيت عنها التنبيهات يجب ألا ترث قالب مناسبةٍ مصدرُه تنبيهٌ لا يظهر
     // عليها أصلًا؛ وإلا تغيّر مظهرها بسبب محتوى غير مرئي فيها.
     applyOccasionTheme(annList);
-    if (annTimer) {
-      clearInterval(annTimer);
-      annTimer = null;
-    }
+    clearNamedTimer("announcement_rotate");
+    annPages = [];
+    annLayoutKey = "";
 
     if (!annList.length) {
       annPtr = 0;
@@ -4440,8 +4524,7 @@
 
     setBoardData("announcementEmpty", "0");
     annPtr = clamp(annPtr, 0, Math.max(0, annList.length - 1));
-    showAnnouncement(annPtr);
-    if (annList.length > 1) annTimer = setInterval(() => showAnnouncement(annPtr + 1), ANN_INT);
+    showAnnouncement(annPtr, 0);
   }
 
   // ===== Independent Auto-Scroller (لكل كرت لوحده) =====
@@ -4721,6 +4804,17 @@
 
   let lastPayloadForFiltering = null;
   const periodClassesByIndex = Object.create(null);
+  let periodClassesDayKey = "";
+  let periodClassesScheduleKey = "";
+
+  function _clearPeriodClassesCache() {
+    Object.keys(periodClassesByIndex).forEach((key) => { delete periodClassesByIndex[key]; });
+  }
+
+  function _hasPeriodClassesMap(payload) {
+    const map = payload && payload.period_classes_map;
+    return !!map && typeof map === "object" && !Array.isArray(map);
+  }
 
   function _normalizePeriodClassRow(item, fallbackIdx) {
     const x = item || {};
@@ -4744,7 +4838,7 @@
     const idx = Number(index);
     if (!isFinite(idx) || idx <= 0) return;
     const key = String(Math.floor(idx));
-    if (!overwrite && Array.isArray(periodClassesByIndex[key]) && periodClassesByIndex[key].length) return;
+    if (!overwrite && Object.prototype.hasOwnProperty.call(periodClassesByIndex, key)) return;
     const rows = Array.isArray(items) ? items : [];
     const seen = new Set();
     const norm = [];
@@ -4770,22 +4864,34 @@
   function ingestPeriodClassesFromPayload(payload) {
     if (!payload || typeof payload !== "object") return;
 
-    const map = payload.period_classes_map;
-    if (map && typeof map === "object" && !Array.isArray(map)) {
+    const today = _localDateKey(nowMs());
+    const snapshotDate = _snapshotScheduleDate(payload);
+    const dayKey = today + "|" + snapshotDate;
+    let scheduleKey = periodClassesScheduleKey;
+    if (Array.isArray(payload.day_path)) scheduleKey = JSON.stringify(payload.day_path);
+    if (dayKey !== periodClassesDayKey || scheduleKey !== periodClassesScheduleKey) {
+      _clearPeriodClassesCache();
+    }
+    periodClassesDayKey = dayKey;
+    periodClassesScheduleKey = scheduleKey;
+    if (_snapshotBlocksLocalSchedule(payload) || (snapshotDate && snapshotDate !== today) ||
+        (Array.isArray(payload.day_path) && !payload.day_path.length)) {
+      _clearPeriodClassesCache();
+      return;
+    }
+
+    // This is a full snapshot, not a patch: absent keys and [] both remove rows.
+    // Do not repopulate it from potentially older current-period or day_path rows.
+    if (_hasPeriodClassesMap(payload)) {
+      const map = payload.period_classes_map;
+      _clearPeriodClassesCache();
       Object.keys(map).forEach((k) => {
         _cachePeriodClassesForIndex(k, map[k], true);
       });
+      return;
     }
 
-    const curIdx =
-      getPeriodIndex((payload && payload.current_period) || null) ||
-      getPeriodIndex((payload && payload.state) || null) ||
-      Number(rt && rt.activePeriodIndex);
-    if (curIdx && Array.isArray(payload.period_classes) && payload.period_classes.length) {
-      _cachePeriodClassesForIndex(curIdx, payload.period_classes, true);
-    }
-
-    // Minimal fallback from day_path in case map is missing (single-row per period).
+    // Legacy payloads without a full map can still supply one row per period.
     if (Array.isArray(payload.day_path)) {
       payload.day_path.forEach((b) => {
         if (!b) return;
@@ -4805,6 +4911,23 @@
         if (!row.class_name && !row.teacher_name) return;
         _cachePeriodClassesForIndex(idx, [row], false);
       });
+    }
+
+    const state = payload.state || {};
+    const current = payload.current_period || state.current || null;
+    let curIdx = getPeriodIndex(current) || getPeriodIndex(state);
+    if (!curIdx) {
+      const from = safeText((current && (current.from || current.starts_at)) || state.from || "");
+      const to = safeText((current && (current.to || current.ends_at)) || state.to || "");
+      // Unindexed legacy rows are safe only while the snapshot and runtime agree.
+      // A local transition must never assign yesterday's/current snapshot rows to
+      // the next period simply because activePeriodIndex has advanced.
+      if (from && to && from === rt.activeFromHM && to === rt.activeToHM) {
+        curIdx = Number(rt.activePeriodIndex);
+      }
+    }
+    if (curIdx && Array.isArray(payload.period_classes)) {
+      _cachePeriodClassesForIndex(curIdx, payload.period_classes, true);
     }
   }
 
@@ -4882,6 +5005,9 @@
   function pickRuntimePeriodClasses(payload) {
     const src = payload || lastPayloadForFiltering || null;
     ingestPeriodClassesFromPayload(src);
+    const snapshotDate = _snapshotScheduleDate(src);
+    if (_snapshotBlocksLocalSchedule(src) || (snapshotDate && snapshotDate !== _localDateKey(nowMs())) ||
+        (src && Array.isArray(src.day_path) && !src.day_path.length)) return [];
 
     const stType = safeText((rt && rt.activeStateType) || ((src && src.state && src.state.type) || "")).toLowerCase();
     if (stType !== "period") return [];
@@ -4903,7 +5029,7 @@
       if (!arr.length) _cachePeriodClassesForIndex(idx, [], true);
     }
 
-    if ((!arr || !arr.length) && src && Array.isArray(src.period_classes) && src.period_classes.length) {
+    if ((!arr || !arr.length) && src && !_hasPeriodClassesMap(src) && Array.isArray(src.period_classes) && src.period_classes.length) {
       const srcCur = (src && src.current_period) || null;
       const srcState = (src && src.state) || {};
       const srcIdx = Number(getPeriodIndex(srcCur) || getPeriodIndex(srcState) || 0);
@@ -5491,6 +5617,61 @@
 
   // ===== Main state render =====
 
+  let emergencySource = [];
+  let emergencySelected = null;
+  let emergencySignature = "";
+  let emergencyPages = [];
+  let emergencyPagePtr = 0;
+  let emergencyLayoutKey = "";
+
+  function emergencyTextBoxes() {
+    return [document.getElementById("emergencyTitle"), document.getElementById("emergencyMessage")];
+  }
+
+  function showEmergencyPage(pageIndex, force) {
+    clearNamedTimer("emergency_rotate");
+    if (!emergencySelected) return;
+    const expiresMs = Date.parse(String(emergencySelected.expires_at || ""));
+    if (!isNaN(expiresMs) && expiresMs <= nowMs()) {
+      renderEmergencyAlerts(emergencySource);
+      return;
+    }
+    const boxes = emergencyTextBoxes();
+    const title = safeText(emergencySelected.title || "تنبيه طارئ");
+    const message = safeText(emergencySelected.message || "");
+    const layoutKey = textBoxesLayoutKey(boxes);
+    if (force || !emergencyPages.length || layoutKey !== emergencyLayoutKey) {
+      const titles = paginateAnnouncementText(boxes[0], title);
+      const messages = paginateAnnouncementText(boxes[1], message);
+      emergencyPages = [];
+      for (let p = 0; p < Math.max(titles.length, messages.length); p++) {
+        emergencyPages.push({ title: titles[p % titles.length], message: messages[p % messages.length] });
+      }
+      emergencyLayoutKey = layoutKey;
+    }
+    emergencyPagePtr = clamp(Number(pageIndex) || 0, 0, emergencyPages.length - 1);
+    const page = emergencyPages[emergencyPagePtr];
+    setTextIfChanged(boxes[0], page.title);
+    setTextIfChanged(boxes[1], page.message);
+    if (boxes[0]) boxes[0].setAttribute("aria-label", title);
+    if (boxes[1]) boxes[1].setAttribute("aria-label", message);
+    const overlay = document.getElementById("emergencyOverlay");
+    overlay.dataset.paginated = emergencyPages.length > 1 ? "1" : "0";
+    overlay.dataset.pageCurrent = String(emergencyPagePtr + 1);
+    overlay.dataset.pageTotal = String(emergencyPages.length);
+    if (emergencyPages.length > 1) {
+      const readingMs = Math.max(ANN_INT, Math.min(20000, (page.title.length + page.message.length) * 65));
+      setNamedTimer("emergency_rotate", function () {
+        showEmergencyPage((emergencyPagePtr + 1) % emergencyPages.length, false);
+      }, readingMs, "emergency_reading_time");
+    }
+  }
+
+  function refreshEmergencyLayout(force) {
+    if (!emergencySelected || (!force && emergencyLayoutKey === textBoxesLayoutKey(emergencyTextBoxes()))) return;
+    showEmergencyPage(0, true);
+  }
+
   function renderEmergencyAlerts(alerts) {
     const overlay = document.getElementById("emergencyOverlay");
     if (!overlay) return;
@@ -5498,6 +5679,7 @@
 
     const screenId = parseInt(document.body.getAttribute("data-screen-id") || "0", 10);
     const list = Array.isArray(alerts) ? alerts : [];
+    emergencySource = list;
     const currentMs = nowMs();
     let selected = null;
     let nextBoundaryMs = null;
@@ -5535,6 +5717,11 @@
     }
 
     if (!selected) {
+      clearNamedTimer("emergency_rotate");
+      emergencySelected = null;
+      emergencySignature = "";
+      emergencyPages = [];
+      emergencyLayoutKey = "";
       overlay.classList.add("u-hidden");
       overlay.removeAttribute("data-kind");
       return;
@@ -5548,10 +5735,15 @@
     };
     overlay.setAttribute("data-kind", safeText(selected.kind || "urgent"));
     setTextIfChanged(document.getElementById("emergencySymbol"), symbols[selected.kind] || "⚠️");
-    setTextIfChanged(document.getElementById("emergencyTitle"), selected.title || "تنبيه طارئ");
-    setTextIfChanged(document.getElementById("emergencyMessage"), selected.message || "");
     setTextIfChanged(document.getElementById("emergencyKind"), selected.kind_label || "رسالة عاجلة");
     overlay.classList.remove("u-hidden");
+    const signature = JSON.stringify(selected);
+    const changed = signature !== emergencySignature;
+    emergencySignature = signature;
+    emergencySelected = selected;
+    // Polling must not keep resetting the first page of a long alert.
+    if (changed || !emergencyPages.length) showEmergencyPage(0, true);
+    else refreshEmergencyLayout();
   }
 
   function _formatOfflineAge(ageMs) {
@@ -5850,7 +6042,13 @@
     let range = (stateFrom || stateTo) ? fmtTimeRange(stateFrom, stateTo) : fmtTimeRange(null, null);
     let badge = "حالة اليوم";
 
-    if (stType === "period") {
+    if (stateReason === "offline_unknown_day") {
+      badge = "غير متصلة";
+      title = safeText(s.label || "بانتظار الاتصال لتحديث جدول اليوم");
+      range = "--:--";
+      setTextIfChanged(dom.boardStatusText, "بانتظار تحديث الجدول");
+      setTextIfChanged(dom.countdownLabel, "جدول غير مؤكد");
+    } else if (stType === "period") {
       badge = "درس";
       title = formatPeriodTitle(current);
     } else if (stType === "break") {
@@ -5873,6 +6071,11 @@
     } else if (stType === "off") {
       badge = stateReason === "after_hours" ? DISPLAY_COPY.afterHolidayBadge : DISPLAY_COPY.holidayBadge;
       title = stateReason === "after_hours" ? DISPLAY_COPY.afterHolidayTitle : DISPLAY_COPY.holidayTitle;
+      // A rebuilt offline date may have a different closure (or be a normal
+      // weekend). Its calendar label supersedes yesterday's settings copy.
+      if (payload._offlineDayShifted && stateReason === "holiday") {
+        title = safeText(s.label || "") || title;
+      }
       range = "--:--";
     }
 
@@ -6333,21 +6536,42 @@
     };
   }
 
-  function _offlineNextSchoolDay(weekPlan, currentDayStartMs) {
+  function _offlineCalendarForDate(calendar, dateKey) {
+    if (!calendar || Number(calendar.version) !== 1) return null;
+    const isoDate = /^\d{4}-\d{2}-\d{2}$/;
+    const start = String(calendar.valid_from || "");
+    const end = String(calendar.valid_through || "");
+    if (!isoDate.test(dateKey) || !isoDate.test(start) || !isoDate.test(end) || dateKey < start || dateKey > end) return null;
+    const closures = calendar.closed_dates;
+    if (!closures || typeof closures !== "object" || Array.isArray(closures)) return null;
+    // The backend ends this window before DST changes. A cached offset from
+    // another timezone/window must not reconstruct wall-clock period times.
+    if (serverTzOffsetMin === null || !isFinite(Number(serverTzOffsetMin)) ||
+        typeof calendar.utc_offset_minutes !== "number" || !isFinite(calendar.utc_offset_minutes) ||
+        Number(calendar.utc_offset_minutes) !== Number(serverTzOffsetMin)) return null;
+    return calendar;
+  }
+
+  function _offlineNextSchoolDay(weekPlan, currentDayStartMs, calendar) {
     if (!weekPlan || typeof weekPlan !== "object") return null;
     const dayMs = 24 * 60 * 60 * 1000;
-    for (let daysAhead = 1; daysAhead <= 7; daysAhead++) {
-      // Midday is immune to DST/day-boundary rounding when deriving the
-      // weekday and display date. School deployments currently use Riyadh,
-      // but the fallback remains sound for any configured timezone offset.
+    for (let daysAhead = 1; daysAhead <= 20; daysAhead++) {
+      // Calendar validity guarantees a constant school offset in this range.
       const candidateStart = Number(currentDayStartMs) + daysAhead * dayMs;
       const candidateMidday = candidateStart + 12 * 60 * 60 * 1000;
+      const dateKey = _localDateKey(candidateMidday);
+      const knownCalendar = _offlineCalendarForDate(calendar, dateKey);
+      if (!knownCalendar) return null;
+      if (Object.prototype.hasOwnProperty.call(knownCalendar.closed_dates, dateKey)) continue;
       const weekday = _dbWeekday(candidateMidday);
       const plan = weekPlan[String(weekday)];
+      // Missing weekday data cannot establish which later day is *next*.
+      if (!Array.isArray(plan)) return null;
       const bounds = _offlinePlanBounds(plan, candidateStart);
-      if (!Array.isArray(plan) || !plan.length || !bounds) continue;
+      if (!plan.length) continue;
+      if (!bounds) return null;
       return {
-        date: _localDateKey(candidateMidday),
+        date: dateKey,
         weekday: weekday,
         days_ahead: daysAhead,
         first_start: new Date(bounds.firstMs).toISOString(),
@@ -6368,16 +6592,18 @@
    */
   function _rehydrateForNewDay(payload) {
     const weekPlan = (payload.meta && payload.meta.week_plan) || null;
-    const todayPlan = weekPlan ? weekPlan[String(_dbWeekday())] : null;
     const now = nowMs();
     const todayKey = _localDateKey(now);
+    const calendar = _offlineCalendarForDate(payload.meta && payload.meta.offline_calendar, todayKey);
+    const isClosed = !!(calendar && Object.prototype.hasOwnProperty.call(calendar.closed_dates, todayKey));
+    const todayPlan = calendar ? (isClosed ? [] : (weekPlan && weekPlan[String(_dbWeekday(now))])) : null;
     const todayStart = _offlineDayStartMs(now);
     const todayBounds = _offlinePlanBounds(todayPlan, todayStart);
-    const nextSchoolDay = _offlineNextSchoolDay(weekPlan, todayStart);
+    const nextSchoolDay = _offlineNextSchoolDay(weekPlan, todayStart, calendar);
 
     payload._offlineDayShifted = true;
-    payload.day_path = Array.isArray(todayPlan) ? todayPlan.slice() : [];
-    payload._offlineHasDayPlan = Array.isArray(todayPlan);
+    payload._offlineHasDayPlan = Array.isArray(todayPlan) && (!todayPlan.length || !!todayBounds);
+    payload.day_path = payload._offlineHasDayPlan ? todayPlan.slice() : [];
 
     // The cached payload's meta belongs to yesterday. Rebuild every field the
     // sleep/wake engine consumes; leaving even one old active-window timestamp
@@ -6421,13 +6647,15 @@
 
     // محتوى اليوم السابق: إسقاطه أصدق من عرضه.
     payload.period_classes = [];
+    payload.period_classes_map = {};
     payload.standby = { items: [] };
     payload.duty = { items: [] };
+    // Honor-board entries are selected for a particular date by the server.
+    payload.excellence = [];
     payload.current_period = null;
     payload.next_period = null;
 
-    // اسمح لمحرك اليوم بإعادة البناء بدل الإبقاء على توقيع الأمس. اليوم بلا
-    // جدول يُفرَّغ صراحةً لأن ``dayEngineLoad`` يتجاهل الجداول الفارغة.
+    // Rebuild this day's engine; no dates or boundary timers survive midnight.
     if (payload.day_path.length) {
       _dayEngine.lastDayKey = "";
     } else {
@@ -6442,7 +6670,8 @@
     // ثلاث حالات مختلفة، ولكل واحدة رسالتها الصادقة:
     const settings = payload.settings || {};
     if (!payload._offlineHasDayPlan) {
-      // لا خطة أسبوع أصلًا (نسخة قديمة) → لا نعرف شيئًا عن اليوم.
+      // Missing/expired calendar or legacy payload: a weekday plan alone
+      // cannot rule out a dated closure. Keep retrying for an online snapshot.
       payload.state = {
         type: "off",
         reason: "offline_unknown_day",
@@ -6450,11 +6679,12 @@
         badge: "غير متصلة",
       };
     } else if (!payload.day_path.length || !todayBounds) {
-      // إجازة معروفة من خطة الأسبوع → رسالة الإجازة المعتادة للمدرسة.
+      // A dated closure overrides the normal weekly school timetable.
       payload.state = {
         type: "off",
         reason: "holiday",
-        label: safeText(settings.display_holiday_title || "") || "إجازة",
+        label: safeText((isClosed && calendar.closed_dates[todayKey]) ||
+          (calendar && calendar.default_holiday_title) || settings.display_holiday_title || "") || "إجازة",
         badge: safeText(settings.display_holiday_badge || "") || "إجازة",
       };
     } else if (now < todayBounds.activeStartMs) {
@@ -7790,6 +8020,12 @@
     if (isTerminalBlockedMode()) return 86400;
     // Sleeping: no poll (wake system handles resumption)
     if (rt.mode === "sleeping") return 86400;
+    // An unknown offline date needs a fresh calendar; it is not confirmed
+    // off-hours. Retain the normal fetch budget/backoff and shorten only the
+    // base recovery interval so the display does not wait another half hour.
+    if (getStateReason((lastPayloadForFiltering && lastPayloadForFiltering.state) || {}) === "offline_unknown_day") {
+      return 300;
+    }
 
     try {
       var wsOpen = !!(rt.ws && rt.ws.readyState === WebSocket.OPEN);
@@ -8693,6 +8929,16 @@
     dutyScroller = dom.dutyTrack ? createScroller(dom.dutyTrack, () => cfg.PERIODS_SPEED, scrollerOpts) : null;
 
     renderAlert("جاري التحميل…", "يتم الآن جلب البيانات من الخادم.");
+    // Re-measure paginated Arabic copy once the local web font has loaded.
+    // Older TV engines simply keep the measured system-font pages.
+    try {
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(function () {
+          refreshAnnouncementLayout(true);
+          refreshEmergencyLayout(true);
+        });
+      }
+    } catch (e) {}
     
     // Push-first bootstrap: the first HTTP request is the full snapshot. After
     // that, WS drives freshness and /status is reserved for WS outage fallback.

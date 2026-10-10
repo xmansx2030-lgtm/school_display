@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from django.db.models import Prefetch
 from django.utils import timezone
 
-from schedule.closures import closed_dates, closure_title_on
+from schedule.closures import LOOKAHEAD_DAYS, closed_dates, closure_title_on, closure_titles
 from schedule.models import (
     Break,
     DEFAULT_DISPLAY_AFTER_BADGE,
@@ -281,7 +281,8 @@ def build_week_plan(settings, reference_date, tz, *, active_days_index: dict[int
 
     المفتاح هو ترقيم قاعدة البيانات لليوم (الاثنين=1 .. الأحد=7)، والقيمة قائمة
     الكتل مرتبة زمنيًا. اليوم بلا دوام تكون قيمته قائمة فارغة — وهذا مقصود، إذ
-    يميّز "إجازة معروفة" عن "يوم غير معروف" (مفتاح غائب).
+    يميّز يوم الأسبوع المعطّل عن "يوم غير معروف" (مفتاح غائب). وجود الخطة
+    وحده لا يكفي: إعادة استخدامها لتاريخ جديد تتطلب ``offline_calendar`` صالحًا.
     """
     if active_days_index is None:
         active_days_index = _build_active_days_index(settings)
@@ -317,7 +318,10 @@ def build_week_plan(settings, reference_date, tz, *, active_days_index: dict[int
     return plan
 
 
-def _next_school_day_info(settings, start_date, tz, *, include_today: bool = False, active_days_index: dict[int, list] | None = None):
+def _next_school_day_info(
+    settings, start_date, tz, *, include_today: bool = False,
+    active_days_index: dict[int, list] | None = None, closed_date_keys: set[str] | None = None,
+):
     day_qs = getattr(settings, "day_schedules", None)
     if day_qs is None or not hasattr(day_qs, "filter"):
         return None
@@ -329,10 +333,13 @@ def _next_school_day_info(settings, start_date, tz, *, include_today: bool = Fal
     start_offset = 0 if include_today else 1
     # الإجازات تُقرأ مرة واحدة للمدى كله: النداء ليومٍ ليوم كان يعني خمسة عشر
     # استعلاماً في كل لقطة عرض.
-    closed = closed_dates(settings, start=start_date, days=15 + start_offset)
+    closed = (
+        closed_date_keys if closed_date_keys is not None else
+        {day.isoformat() for day in closed_dates(settings, start=start_date, days=15 + start_offset)}
+    )
     for days_ahead in range(start_offset, 15):
         candidate = start_date + timedelta(days=days_ahead)
-        if candidate in closed:
+        if candidate.isoformat() in closed:
             # يومٌ في إجازة ليس «اليوم الدراسي التالي»، وعدّه كذلك يوقظ
             # الشاشات صباح الإجازة ويعدُ المارّ بدوامٍ لا يأتي.
             continue
@@ -424,6 +431,37 @@ def _after_hours_copy(settings_payload: dict[str, str], next_school_day):
     }
 
 
+def _offline_calendar(settings, now, tz, closures: dict[str, str]) -> dict | None:
+    """A bounded calendar for the client's fixed-offset offline clock.
+
+    Weekly timetables alone cannot prove that a future date is a school day.
+    Include dated exceptions and an inclusive validity range. Stop before a
+    timezone offset transition: older TV browsers cannot reliably apply IANA
+    timezone rules, so that date must await a fresh online snapshot.
+    """
+    today = now.date()
+    offset = now.utcoffset()
+    last = None
+    for days_ahead in range(LOOKAHEAD_DAYS):
+        candidate = today + timedelta(days=days_ahead)
+        start = _to_aware_dt(candidate, dt_time.min, tz)
+        end = _to_aware_dt(candidate, dt_time.max, tz)
+        if start.utcoffset() != offset or end.utcoffset() != offset:
+            break
+        last = candidate
+    if last is None:
+        return None
+    return {
+        "version": 1,
+        "timezone_name": tz.key,
+        "utc_offset_minutes": int(offset.total_seconds() // 60),
+        "valid_from": today.isoformat(),
+        "valid_through": last.isoformat(),
+        "closed_dates": {key: title for key, title in closures.items() if today.isoformat() <= key <= last.isoformat()},
+        "default_holiday_title": _resolve_display_messages(settings)["display_holiday_title"],
+    }
+
+
 def build_day_snapshot(settings, now=None):
     """
     Snapshot contract for /api/display/snapshot
@@ -432,21 +470,28 @@ def build_day_snapshot(settings, now=None):
       meta, settings, state, current_period, next_period, day_path,
       period_classes, standby{items}, excellence{items}
 
-    ``meta.week_plan`` يحمل جدول الأسبوع كاملًا حتى تستطيع الشاشة الاستمرار
-    بجدول صحيح لأيام بعد انقطاع الإنترنت. انظر :func:`build_week_plan`.
+    ``meta.week_plan`` holds the reusable weekday timetable. New offline dates
+    also require ``meta.offline_calendar``: dated closures, school timezone and
+    a bounded validity window, all from the same revision-scoped cache read.
     """
     # الفهرس يُبنى مرة واحدة ويُشارك بين لقطة اليوم وخطة الأسبوع، فلا يضيف
     # بناء الخطة أي استعلام إضافي.
     active_days_index = _build_active_days_index(settings)
-    snapshot = _build_day_snapshot(settings, now=now, active_days_index=active_days_index)
+    tz_name = getattr(settings, "timezone_name", None) or "Asia/Riyadh"
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = ZoneInfo("Asia/Riyadh")
+    local_now = timezone.localtime(now or timezone.now(), tz)
+    reference_date = local_now.date()
+    # One bounded, revision-keyed read serves today, next school day and offline
+    # metadata. It is scoped by settings PK even for schools without a tenant.
+    closures = closure_titles(settings, start=reference_date, days=LOOKAHEAD_DAYS)
+    snapshot = _build_day_snapshot(
+        settings, now=local_now, active_days_index=active_days_index, closure_titles_by_date=closures,
+    )
 
     try:
-        tz_name = getattr(settings, "timezone_name", None) or "Asia/Riyadh"
-        try:
-            tz = ZoneInfo(tz_name)
-        except Exception:
-            tz = ZoneInfo("Asia/Riyadh")
-        reference_date = timezone.localtime(now, tz).date() if now else timezone.localtime(timezone.now(), tz).date()
         meta = snapshot.get("meta") if isinstance(snapshot, dict) else None
         if isinstance(meta, dict):
             meta["week_plan"] = build_week_plan(
@@ -455,6 +500,9 @@ def build_day_snapshot(settings, now=None):
                 tz,
                 active_days_index=active_days_index,
             )
+            calendar = _offline_calendar(settings, local_now, tz, closures)
+            if calendar is not None:
+                meta["offline_calendar"] = calendar
     except Exception:
         # خطة الأسبوع تحسين للصمود بلا اتصال؛ فشلها يجب ألا يمنع عرض اليوم.
         logger.exception("week_plan_build_failed settings_id=%s", getattr(settings, "pk", None))
@@ -462,7 +510,10 @@ def build_day_snapshot(settings, now=None):
     return snapshot
 
 
-def _build_day_snapshot(settings, now=None, *, active_days_index: dict[int, list] | None = None):
+def _build_day_snapshot(
+    settings, now=None, *, active_days_index: dict[int, list] | None = None,
+    closure_titles_by_date: dict[str, str] | None = None,
+):
     if now is None:
         now = timezone.localtime()
 
@@ -511,7 +562,10 @@ def _build_day_snapshot(settings, now=None, *, active_days_index: dict[int, list
 
     # إجازةٌ بتاريخها تُلغي جدول اليوم مهما كان يوم دوامٍ في الأسبوع. بدون هذا
     # كانت الشاشة تعرض جدول يوم عيدٍ كاملاً لأن «الأحد» يوم دوام.
-    closure_title = closure_title_on(settings, today)
+    closure_title = (
+        closure_titles_by_date.get(today.isoformat()) if closure_titles_by_date is not None else
+        closure_title_on(settings, today)
+    )
     if closure_title is not None:
         actual_days = []
         if closure_title:
@@ -536,6 +590,7 @@ def _build_day_snapshot(settings, now=None, *, active_days_index: dict[int, list
         tz,
         include_today=False,
         active_days_index=active_days_index,
+        closed_date_keys=set(closure_titles_by_date) if closure_titles_by_date is not None else None,
     )
 
     # الحصول على جدول اليوم (All Active Schedules for this weekday)

@@ -5,6 +5,8 @@ supervision duty and emergency alerts.
 
 from __future__ import annotations
 
+from django.db.models import Exists, OuterRef, Prefetch
+
 from .view_helpers import *  # noqa: F401,F403  (shared view layer)
 
 
@@ -152,6 +154,20 @@ def _emergency_allowed_schools(request):
     profile = _get_or_create_profile(request.user)
     return profile.schools.filter(is_active=True)
 
+
+def _emergency_manageable_alerts(request, allowed_schools):
+    from notices.models import EmergencyAlert
+
+    alerts = EmergencyAlert.objects.filter(schools__in=allowed_schools).distinct()
+    if not is_system_staff_user(request.user):
+        # Cancelling/deleting changes the shared alert for *every* target.
+        # Membership in one target school grants visibility, not authority over
+        # other tenants. Include inactive schools in this boundary as well.
+        foreign_schools = SchoolModel().objects.exclude(pk__in=allowed_schools.values("pk"))
+        alerts = alerts.exclude(schools__in=foreign_schools)
+    return alerts
+
+
 @manager_or_system_permission_required("emergency_alerts.view")
 def emergency_alert_list(request):
     from notices.models import EmergencyAlert
@@ -160,17 +176,35 @@ def emergency_alert_list(request):
     now = timezone.now()
     alerts = (
         EmergencyAlert.objects.filter(schools__in=allowed_schools)
+        .annotate(has_targeted_screens=Exists(
+            EmergencyAlert.screens.through.objects.filter(emergencyalert_id=OuterRef("pk"))
+        ))
         .select_related("created_by", "cancelled_by")
-        .prefetch_related("schools", "screens")
         .distinct()
         .order_by("-created_at")
     )
+    if is_system_staff_user(request.user):
+        alerts = alerts.prefetch_related("schools", "screens")
+    else:
+        alerts = alerts.prefetch_related(
+            Prefetch("schools", queryset=allowed_schools),
+            Prefetch("screens", queryset=DisplayScreenModel().objects.filter(school__in=allowed_schools)),
+        )
+    can_manage = not is_system_staff_user(request.user) or has_system_permission(request.user, "emergency_alerts.manage")
+    visible_alerts = list(alerts[:100])
+    manageable_ids = set(
+        _emergency_manageable_alerts(request, allowed_schools)
+        .filter(pk__in=[alert.pk for alert in visible_alerts])
+        .values_list("pk", flat=True)
+    ) if can_manage else set()
+    for alert in visible_alerts:
+        alert.can_manage_for_user = alert.pk in manageable_ids
     return render(
         request,
         "dashboard/emergency_alert_list.html",
         {
             "base_template": _shell_base_template(request),
-            "alerts": alerts[:100],
+            "alerts": visible_alerts,
             "active_count": alerts.filter(
                 is_active=True,
                 cancelled_at__isnull=True,
@@ -178,10 +212,7 @@ def emergency_alert_list(request):
             )
             .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
             .count(),
-            "can_emergency_alerts_manage": (
-                not is_system_staff_user(request.user)
-                or has_system_permission(request.user, "emergency_alerts.manage")
-            ),
+            "can_emergency_alerts_manage": can_manage,
         },
     )
 
@@ -229,7 +260,7 @@ def emergency_alert_cancel(request, pk: int):
 
     allowed_schools = _emergency_allowed_schools(request)
     alert = get_object_or_404(
-        EmergencyAlert.objects.filter(schools__in=allowed_schools).distinct(),
+        _emergency_manageable_alerts(request, allowed_schools),
         pk=pk,
     )
     if alert.cancelled_at is None:
@@ -249,7 +280,7 @@ def emergency_alert_delete(request, pk: int):
 
     allowed_schools = _emergency_allowed_schools(request)
     alert = get_object_or_404(
-        EmergencyAlert.objects.filter(schools__in=allowed_schools).distinct(),
+        _emergency_manageable_alerts(request, allowed_schools),
         pk=pk,
     )
     if alert.active_now:

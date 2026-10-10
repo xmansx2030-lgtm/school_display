@@ -7,7 +7,7 @@
 
 {% block extra_css %}
 <style>
-  .tt { display: grid; gap: 0.9rem; }
+  .tt { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 0.9rem; }
 
   /* ── Picker ──────────────────────────────────────────────────────────
      The old page asked for two dropdowns and a page reload to see a day.
@@ -15,6 +15,7 @@
      seven weekdays become chips: one tap, and you can see at a glance which
      day you are on. */
   .tt-picker { display: grid; gap: 0.8rem; padding: 0.9rem; }
+  .tt-picker > * { min-width: 0; }
 
   .tt-picker__row {
     display: grid;
@@ -28,7 +29,7 @@
     font-weight: 900;
     white-space: nowrap;
   }
-  .tt-picker__row select { width: 100%; }
+  .tt-picker__row select { width: 100%; min-width: 0; }
 
   .tt-nav {
     display: inline-flex;
@@ -83,9 +84,7 @@
   }
   .tt-row.is-filled { border-color: rgba(20, 90, 106, .22); background: linear-gradient(140deg, rgba(20, 90, 106, .035), #fff 55%); }
 
-  /* Half-filled is the trap this page used to hide: the server drops a period
-     that has a subject but no teacher, so the manager saves and the entry just
-     disappears. Flagging it here is the whole point of the state. */
+  /* Incomplete periods must be completed or cleared before saving the day. */
   .tt-row.is-partial { border-color: rgba(245, 158, 11, .45); background: linear-gradient(140deg, rgba(245, 158, 11, .07), #fff 55%); }
 
   .tt-row__period { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
@@ -181,9 +180,20 @@
   }
 
   @media (max-width: 767px) {
+    .tt > .dp-scroll-x { flex-wrap: wrap; }
+    .tt-days { flex-wrap: wrap; border-radius: 12px; }
+    .tt-days .dp-seg__item { flex: 1 0 calc(25% - 0.3rem); }
     .tt-picker { padding: 0.75rem; gap: 0.65rem; }
     .tt-picker__label { font-size: 0.68rem; }
     .tt-progress { padding: 0.7rem 0.75rem; }
+  }
+
+  /* A tall sticky footer can cover the final teacher field even at maximum
+     page scroll. On compact viewports autosave remains available, while the
+     manual actions follow the rows and clear the floating support link. */
+  @media (max-width: 767px), (max-height: 600px) {
+    .dashboard-timetable-day { padding-bottom: calc(4.9rem + env(safe-area-inset-bottom)); }
+    .dashboard-timetable-day [data-tt-form] > .dp-actionbar { position: static; }
   }
 </style>
 {% endblock %}
@@ -360,7 +370,7 @@
 
             <p class="tt-row__flag" role="status">
               <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-              اختر المادة والمعلم معًا، وإلا لن تُحفظ هذه الحصة.
+              اختر المادة والمعلم معًا، أو أفرغ الحقلين، قبل حفظ الجدول.
             </p>
           </div>
         {% endfor %}
@@ -389,5 +399,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script defer src="{% static 'js/timetable-day.js' %}?v=2026-08-13-autosave"></script>
+<script defer src="{% static 'js/timetable-day.js' %}?v=2026-10-10-autosave"></script>
 {% endblock %}

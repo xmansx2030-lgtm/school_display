@@ -493,15 +493,15 @@
                   {{ f.id }}
                   <div class="day-row-grid">
                     <div class="day-field">
-                      <label>رقم الحصة</label>
+                      <label for="{{ f.index.id_for_label }}">رقم الحصة</label>
                       {{ f.index }}
                     </div>
                     <div class="day-field">
-                      <label>يبدأ عند</label>
+                      <label for="{{ f.starts_at.id_for_label }}">يبدأ عند</label>
                       {{ f.starts_at }}
                     </div>
                     <div class="day-field">
-                      <label>ينتهي عند</label>
+                      <label for="{{ f.ends_at.id_for_label }}">ينتهي عند</label>
                       {{ f.ends_at }}
                     </div>
                     <div class="day-row-actions">
@@ -549,15 +549,15 @@
                   {{ f.id }}
                   <div class="day-break-grid">
                     <div class="day-field">
-                      <label>اسم الفسحة</label>
+                      <label for="{{ f.label.id_for_label }}">اسم الفسحة</label>
                       {{ f.label }}
                     </div>
                     <div class="day-field">
-                      <label>وقت البدء</label>
+                      <label for="{{ f.starts_at.id_for_label }}">وقت البدء</label>
                       {{ f.starts_at }}
                     </div>
                     <div class="day-field">
-                      <label>المدة بالدقائق</label>
+                      <label for="{{ f.duration_min.id_for_label }}">المدة بالدقائق</label>
                       {{ f.duration_min }}
                     </div>
                     <div class="day-row-actions">
@@ -829,6 +829,11 @@ document.addEventListener('DOMContentLoaded', function(){
         }
 
         container.insertAdjacentHTML('beforeend', layoutHtml);
+        container.lastElementChild.querySelectorAll('.day-field').forEach(field => {
+            const label = field.querySelector('label');
+            const input = field.querySelector('input, select, textarea');
+            if (label && input && input.id) label.htmlFor = input.id;
+        });
         const emptyNote = container.querySelector('.day-empty-note');
         if (emptyNote) emptyNote.remove();
         totalInput.value = idx + 1;
