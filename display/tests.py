@@ -48,7 +48,8 @@ class DisplayClientTimingRegressionTests(SimpleTestCase):
         self.assertIn("meta.is_active_window", rehydrate)
         self.assertIn("meta.active_window", rehydrate)
         self.assertIn("meta.next_wake_at", rehydrate)
-        self.assertIn("_offlineNextSchoolDay(weekPlan, todayStart)", rehydrate)
+        self.assertIn("_offlineNextSchoolDay(weekPlan, todayStart, calendar)", rehydrate)
+        self.assertIn("_offlineCalendarForDate(payload.meta && payload.meta.offline_calendar, todayKey)", rehydrate)
 
     def test_fresh_snapshot_warms_every_referenced_display_media_file(self):
         collector = self.source.split("function collectOfflineMediaUrls", 1)[1].split(

@@ -22,15 +22,15 @@
  * ------------------------------------------------------------------------ */
 @supports not (font-size: clamp(1px, 2px, 3px)) {
   .emergency-symbol {
-    font-size: 192px;
+    font-size: 75.6px;
   }
 
   #emergencyTitle {
-    font-size: 128px;
+    font-size: 76px;
   }
 
   #emergencyMessage {
-    font-size: 67.2px;
+    font-size: 48px;
   }
 
   #emergencyKind {
@@ -129,6 +129,8 @@
 
   #exCard {
     min-height: 270px;
+    --honor-photo-size: 148px;
+    --honor-gap: 21.6px;
   }
 
   #exCard .honor-side {
@@ -242,6 +244,10 @@
   }
 
   @media (max-width: 900px), (max-height: 620px) {
+    #exCard {
+      --honor-photo-size: 118px;
+    }
+
     #exCard .honor-side {
       width: 210px !important;
     }
@@ -299,6 +305,11 @@
  * color-mix() -> base colour (Chrome 111)
  * ------------------------------------------------------------------------ */
 @supports not (color: color-mix(in srgb, red, blue)) {
+  body[data-occasion-theme] {
+    --mesh1: var(--occasion-accent) !important;
+    --mesh2: var(--occasion-highlight) !important;
+  }
+
   body[data-occasion-theme] #fitRoot {
     background: radial-gradient(circle at 12% 5%, var(--occasion-highlight), transparent 30%),
           radial-gradient(circle at 88% 92%, var(--occasion-accent), transparent 42%),
@@ -396,6 +407,15 @@
     border-color: var(--blocker-accent);
     background: var(--blocker-accent);
   }
+
+  @supports (color: color-mix(in srgb, white, black)) {
+    body.display-board {
+      --board-surface: var(--glass-surface, rgba(15, 23, 42, 0.74));
+      --board-surface-strong: var(--glass-surface, rgba(15, 23, 42, 0.88));
+      --board-border: var(--glass-border, rgba(148, 163, 184, 0.24));
+      --board-accent-border: var(--accent-main, #6366f1);
+    }
+  }
 }
 
 
@@ -422,6 +442,55 @@
     margin-inline-start: 1%;
   }
 
+  body[data-side-empty="1"] #boardMainColumn {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+
+  body[data-board-shape="wide"] #boardMainColumn {
+    flex-basis: 57.5%;
+    max-width: 57.5%;
+  }
+
+  body[data-board-shape="wide"] #boardSideColumn {
+    flex-basis: 41.5%;
+    max-width: 41.5%;
+  }
+
+  body[data-board-shape="wide"][data-side-empty="1"] #boardMainColumn {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+
+  body[data-board-shape="portrait"] main.grid,
+  body[data-board-shape="compact"] main.grid {
+    flex-wrap: nowrap;
+  }
+
+  body[data-board-shape="portrait"] #boardMainColumn,
+  body[data-board-shape="compact"] #boardMainColumn {
+    flex: 0 0 760px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body[data-board-shape="compact"] #boardMainColumn { flex-basis: 716px; }
+  body[data-board-density="short"] #boardMainColumn { flex-basis: 656px; }
+
+  body[data-board-shape="portrait"][data-side-empty="1"] #boardMainColumn,
+  body[data-board-shape="compact"][data-side-empty="1"] #boardMainColumn {
+    flex: 1 1 0;
+  }
+
+  body[data-board-shape="portrait"] #boardSideColumn,
+  body[data-board-shape="compact"] #boardSideColumn {
+    flex: 1 1 0;
+    width: 100%;
+    max-width: 100%;
+    margin-right: 0;
+    margin-inline-start: 0;
+  }
+
   /* Two-column card interiors. */
   .header-shell,
   .honor-wrap,
@@ -434,6 +503,17 @@
 
   .header-shell {
     justify-content: space-between;
+  }
+
+  body[data-board-shape="portrait"] .header-shell,
+  body[data-board-shape="compact"] .header-shell {
+    flex-wrap: wrap;
+  }
+
+  body[data-board-shape="portrait"] .header-brand,
+  body[data-board-shape="compact"] .header-brand {
+    flex: 1 1 100%;
+    margin-bottom: 10px;
   }
 
   .honor-wrap > :last-child,
@@ -499,6 +579,20 @@ body[data-nogap="1"] .board-status > * + * {
   margin-inline-start: 0.6rem;
 }
 
+/* In the vertical layouts main itself is flex, and the two lists are side by
+   side except on narrow screens. Use physical margins for Chrome 49-86. */
+body[data-nogap="1"][data-board-shape="portrait"] #boardSideColumn,
+body[data-nogap="1"][data-board-shape="compact"] #boardSideColumn {
+  margin-top: 16px;
+}
+
+body[data-nogap="1"][data-board-shape="portrait"] #boardSideColumn > * + *,
+body[data-nogap="1"][data-board-shape="wide"] #boardSideColumn > * + * {
+  margin-block-start: 0;
+  margin-top: 0;
+  margin-right: 16px;
+}
+
 /* `margin-block-start` / `margin-inline-start` are Chrome 87. Anything old
    enough to need the gap fallback may also predate logical margins, so repeat
    the rules physically. The board is RTL, hence margin-right for inline-start. */
@@ -519,6 +613,11 @@ body[data-nogap="1"] .board-status > * + * {
   body[data-nogap="1"] .header-live-status > * + *,
   body[data-nogap="1"] .board-status > * + * {
     margin-right: 0.6rem;
+  }
+
+  body[data-nogap="1"][data-board-shape="portrait"] #boardSideColumn > * + *,
+  body[data-nogap="1"][data-board-shape="wide"] #boardSideColumn > * + * {
+    margin-top: 0;
   }
 }
 

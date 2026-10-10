@@ -831,7 +831,12 @@ class PeriodInlineFormSet(BaseInlineFormSet):
 
         # جمع الفسح من بيانات POST (فورم آخر)
         breaks = []
-        total_b = int(self.data.get("b-TOTAL_FORMS", 0) or 0)
+        try:
+            total_b = int(self.data.get("b-TOTAL_FORMS", 0) or 0)
+        except (TypeError, ValueError):
+            raise ValidationError("تعذر قراءة صفوف الفسح. أعد تحميل الصفحة ثم حاول الحفظ مجددًا.")
+        if total_b < 0 or total_b > 1000:
+            raise ValidationError("عدد صفوف الفسح غير صالح.")
         for i in range(total_b):
             if _is_checked(self.data.get(f"b-{i}-DELETE")):
                 continue
@@ -865,6 +870,8 @@ class PeriodInlineFormSet(BaseInlineFormSet):
         for i in range(1, len(items)):
             prev, cur = items[i - 1], items[i]
             if cur["start"] < prev["end"]:
+                if cur["kind"] == "b" and prev["kind"] == "b":
+                    raise ValidationError(f"يوجد تداخل زمني بين {prev['label']} و{cur['label']}.")
                 msg_cur = f"تداخل مع {prev['label']} ({prev['start']}-{prev['end']})."
                 msg_prev = f"يتداخل مع {cur['label']} ({cur['start']}-{cur['end']})."
                 if cur["kind"] == "p":
@@ -1219,12 +1226,17 @@ class DutyAssignmentForm(forms.ModelForm):
             'class': 'form-select',
             'data-placeholder': 'اختر المعلم/ـة'
         }),
-        required=False  # لأن teacher_name في Model هو CharField
+        required=False  # Legacy edits may keep an existing name without a linked teacher.
     )
     
     def __init__(self, *args, **kwargs):
         self._school = kwargs.pop("school", None)
         super().__init__(*args, **kwargs)
+        # A new assignment needs an actual teacher. Existing imported duties
+        # can retain their stored name if that teacher no longer has a row.
+        self.fields["teacher"].required = not bool(
+            self.instance.pk and (self.instance.teacher_name or "").strip()
+        )
 
         # تحميل المعلمين الخاصين بالمدرسة
         if self._school:
@@ -1318,6 +1330,20 @@ class LessonForm(forms.ModelForm):
             self.fields["school_class"].queryset = SchoolClass.objects.none()
             self.fields["subject"].queryset = Subject.objects.none()
             self.fields["teacher"].queryset = Teacher.objects.none()
+
+    def clean(self):
+        cleaned = super().clean()
+        school_class = cleaned.get("school_class")
+        weekday = cleaned.get("weekday")
+        index = cleaned.get("period_index")
+        if school_class and weekday and index:
+            duplicate = ClassLesson.objects.filter(
+                settings_id=school_class.settings_id, school_class=school_class,
+                weekday=weekday, period_index=index,
+            ).exclude(pk=self.instance.pk)
+            if duplicate.exists():
+                raise ValidationError("توجد حصة لهذا الفصل في اليوم ورقم الحصة المحددين. عدّل الحصة الحالية بدل إضافتها مجددًا.")
+        return cleaned
 
 
 # =========================

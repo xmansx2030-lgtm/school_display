@@ -656,6 +656,15 @@ class LegacyBrowserSupportTests(SimpleTestCase):
             "border-color: var(--x)",
         )
 
+    def test_clamp_in_custom_property_gets_a_usable_legacy_value(self):
+        from core.management.commands.build_legacy_css import Command
+
+        generated, stats = Command().build(
+            ".photo { --photo-size: clamp(20px, 2vw, 60px); width: var(--photo-size); }"
+        )
+        self.assertIn("--photo-size: 38.4px;", generated)
+        self.assertEqual(stats["clamp"], 1)
+
     def test_grid_layout_has_a_flex_fallback(self):
         """Without it the two board columns stack full width on Chrome 56."""
         self.assertIn("@supports not (display: grid)", self.legacy)

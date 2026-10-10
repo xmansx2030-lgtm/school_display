@@ -1,4 +1,3 @@
-from datetime import date
 from decimal import Decimal
 from datetime import timedelta
 import os
@@ -164,6 +163,9 @@ class SchoolSubscription(models.Model):
         if self.status != "active":
             return False
 
+        if self.starts_at and self.starts_at > today:
+            return False
+
         if self.ends_at and self.ends_at < today:
             return False
 
@@ -178,7 +180,7 @@ class SchoolSubscription(models.Model):
         if not self.ends_at:
             return None  # اشتراك مفتوح المدة
 
-        today = date.today()
+        today = timezone.localdate()
         delta = (self.ends_at - today).days
         return delta if delta >= 0 else 0
 

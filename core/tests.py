@@ -1000,8 +1000,8 @@ class RootAssetTests(SimpleTestCase):
         self.assertIn("function refreshOccasionPresentation", display_script)
         self.assertIn('removeAttribute("data-occasion-theme")', display_script)
         self.assertIn('setAttribute("data-occasion-ambient", "1")', display_script)
-        self.assertIn("const offsetX", display_script)
-        self.assertIn("const offsetY", display_script)
+        # Viewport sizing and centering are covered by DisplayBrowserTests on
+        # rendered panels; local variable names do not define that behavior.
 
     def test_display_shell_renders_a_theme_for_every_registered_occasion(self):
         """الهوية البصرية تُولَّد من السجل، فلا تُكتب أي مناسبة يدويًا هنا.

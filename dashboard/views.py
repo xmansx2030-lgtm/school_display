@@ -7,6 +7,8 @@ existing ``dashboard.views.<name>`` reference keeps working unchanged.
 
 from __future__ import annotations
 
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from .view_helpers import *  # noqa: F401,F403  (shared view layer)
 
 from .views_system import (  # noqa: F401  (re-exported for urls.py and callers)
@@ -162,8 +164,14 @@ def index(request):
     if school is None:
         return render(request, "dashboard/no_school.html")
 
-    today = timezone.localdate()
     now = timezone.now()
+    billing_today = timezone.localdate(now)
+    settings_obj = SchoolSettings.objects.filter(school=school).first()
+    try:
+        school_timezone = ZoneInfo(getattr(settings_obj, "timezone_name", None) or "Asia/Riyadh")
+    except (ZoneInfoNotFoundError, ValueError):
+        school_timezone = ZoneInfo("Asia/Riyadh")
+    today = timezone.localdate(now, school_timezone)
     screens_qs = DisplayScreen.objects.filter(school=school).order_by("id")
     screens = list(screens_qs)
     live_screens_count = live_display_count(screens, now=now)
@@ -281,14 +289,13 @@ def index(request):
         "live_screens_count": live_screens_count,
     }
 
-    settings_obj = SchoolSettings.objects.filter(school=school).first()
     day_snapshot = {}
     current_state = {}
     current_period = None
     next_period = None
     if settings_obj:
         try:
-            day_snapshot = build_day_snapshot(settings_obj)
+            day_snapshot = build_day_snapshot(settings_obj, now=now)
             current_state = day_snapshot.get("state") or {}
             current_period = day_snapshot.get("current_period")
             next_period = day_snapshot.get("next_period")
@@ -304,7 +311,11 @@ def index(request):
     SubModel = _get_subscription_model()
     subscription = None
     if SubModel is not None:
-        subscription = SubModel.objects.filter(school=school).order_by("-starts_at", "-id").first()
+        school_subscriptions = SubModel.objects.filter(school=school).order_by("-starts_at", "-id")
+        subscription = school_subscriptions.filter(
+            Q(ends_at__isnull=True) | Q(ends_at__gte=billing_today),
+            status="active", starts_at__lte=billing_today,
+        ).first() or school_subscriptions.first()
 
     onboarding_context = _build_dashboard_onboarding_context(request, school, settings_obj=settings_obj)
 
@@ -786,7 +797,11 @@ def school_data_import(request):
         elif parsed.get("errors"):
             messages.error(request, "لا يمكن استيراد ملف يحتوي أخطاء.")
         else:
-            result = apply_import(school=school, parsed=parsed)
+            try:
+                result = apply_import(school=school, parsed=parsed)
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return redirect("dashboard:school_data_import")
             cache.delete(key)
             undo_token = get_random_string(40)
             undo_payload = {
@@ -823,7 +838,11 @@ def school_data_import(request):
         elif cache.get(latest_undo_key) != undo_token:
             messages.error(request, "لا يمكن التراجع عن استيراد قديم بعد تنفيذ استيراد أحدث.")
         else:
-            undo_result = undo_import(school=school, undo=undo_payload["undo"])
+            try:
+                undo_result = undo_import(school=school, undo=undo_payload["undo"])
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return redirect("dashboard:school_data_import")
             cache.delete(undo_key)
             cache.delete(latest_undo_key)
             _invalidate_display_cache(school, force_bump=True)
@@ -903,6 +922,14 @@ def _report_added(request, created: int, skipped: int, truncated: bool, *, singu
         )
 
 
+def _validate_school_data_name_lengths(request, names, model) -> bool:
+    maximum = model._meta.get_field("name").max_length
+    if any(len(name) > maximum for name in names):
+        messages.error(request, f"أحد الأسماء يتجاوز الحد الأقصى ({maximum} حرفًا). لم تُضف أي أسماء؛ صححها ثم حاول مجددًا.")
+        return False
+    return True
+
+
 @manager_required
 @require_POST
 def add_class(request):
@@ -916,6 +943,8 @@ def add_class(request):
     names, truncated = _parse_names(request.POST.get("name"))
     if not names:
         messages.error(request, "فضلاً أدخل اسم الفصل.")
+        return redirect("dashboard:school_data")
+    if not _validate_school_data_name_lengths(request, names, SchoolClass):
         return redirect("dashboard:school_data")
 
     settings_obj = SchoolSettings.objects.filter(school=school).first()
@@ -944,6 +973,8 @@ def add_subject(request):
     if not names:
         messages.error(request, "فضلاً أدخل اسم المادة.")
         return redirect("dashboard:school_data")
+    if not _validate_school_data_name_lengths(request, names, Subject):
+        return redirect("dashboard:school_data")
 
     created = 0
     for name in names:
@@ -965,6 +996,8 @@ def add_teacher(request):
     names, truncated = _parse_names(request.POST.get("name"))
     if not names:
         messages.error(request, "فضلاً أدخل اسم المعلم/ـة.")
+        return redirect("dashboard:school_data")
+    if not _validate_school_data_name_lengths(request, names, Teacher):
         return redirect("dashboard:school_data")
 
     created = 0

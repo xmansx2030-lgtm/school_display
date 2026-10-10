@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from django.http import Http404
+
 from .view_helpers import *  # noqa: F401,F403  (shared view layer)
 
 
@@ -202,8 +204,10 @@ def day_autofill(request, weekday: int):
         break_after = _required_int_param("break_after", "الفسحة بعد حصة رقم", min_value=0)
         break_minutes = _required_int_param("break_minutes", "مدة الفسحة", min_value=0)
 
-        day.periods_count = new_count
-        day.save(update_fields=["periods_count"])
+        if new_count > 20:
+            raise ValueError("عدد الحصص يجب ألا يتجاوز 20 حصة.")
+        if break_minutes > 240:
+            raise ValueError("مدة الفسحة يجب ألا تتجاوز 240 دقيقة.")
 
         period_seconds = 0
         gap_seconds = 0
@@ -218,11 +222,7 @@ def day_autofill(request, weekday: int):
         if p_len.total_seconds() <= 0:
             raise ValueError("طول الحصة يجب أن يكون أكبر من صفر.")
 
-        if not day.periods_count or day.periods_count <= 0:
-            messages.error(request, "عدد الحصص لليوم يساوي صفر.")
-            return redirect("dashboard:day_edit", weekday=weekday)
-
-        if break_after < 0 or break_after > day.periods_count:
+        if break_after > new_count:
             raise ValueError("قيمة 'الفسحة بعد الحصة رقم' خارج النطاق.")
 
         periods_mgr = _rev_manager(day, "periods", "period_set")
@@ -232,7 +232,14 @@ def day_autofill(request, weekday: int):
 
         base_date = timezone.localdate()
         cursor = datetime.combine(base_date, start_t)
+        total_span = p_len * new_count + gap * (new_count - 1)
+        if break_minutes and break_after:
+            total_span += brk
+        if (cursor + total_span).date() != base_date:
+            raise ValueError("يجب أن تنتهي الحصص والفسح قبل منتصف الليل في اليوم نفسه.")
 
+        day.periods_count = new_count
+        day.save(update_fields=["periods_count"])
         periods_mgr.all().delete()
         breaks_mgr.all().delete()
 
@@ -261,6 +268,9 @@ def day_autofill(request, weekday: int):
         return redirect("dashboard:day_edit", weekday=weekday)
 
     except Exception as e:
+        # This exception is handled inside the atomic view: explicitly roll back
+        # the count, deletions and any rows created before the failure.
+        transaction.set_rollback(True)
         logger.exception("day_autofill failed")
         messages.error(request, f"تعذّر تنفيذ التعبئة: {e}")
         return redirect("dashboard:day_edit", weekday=weekday)
@@ -358,6 +368,13 @@ def day_reindex(request, weekday: int):
     periods = list(periods_mgr.all())
     periods.sort(key=lambda p: (p.starts_at or time.min, p.ends_at or time.min))
 
+    changed = [(p, i) for i, p in enumerate(periods, start=1) if p.index != i]
+    occupied = {p.index for p in periods} | set(range(1, len(periods) + 1))
+    available = (value for value in range(1, 32768) if value not in occupied)
+    # Move changed rows out of the way before assigning their final numbers;
+    # saving a 1 <-> 2 swap directly violates unique(day, index).
+    for p, _ in changed:
+        periods_mgr.filter(pk=p.pk).update(index=next(available))
     for i, p in enumerate(periods, start=1):
         if p.index != i:
             p.index = i
@@ -523,15 +540,23 @@ def timetable_day_view(request):
 
     weekday_param = request.GET.get("weekday") if request.method == "GET" else request.POST.get("weekday")
     class_param = request.GET.get("class_id") if request.method == "GET" else request.POST.get("class_id")
+    if request.method == "POST" and weekday_param in (None, ""):
+        return JsonResponse({"ok": False, "message": "حدد اليوم المطلوب حفظ جدوله."}, status=400)
 
     try:
         weekday = int(weekday_param) if weekday_param not in (None, "") else int(default_weekday)
     except (TypeError, ValueError):
+        if request.method == "POST":
+            return JsonResponse({"ok": False, "message": "اليوم المحدد غير صالح."}, status=400)
         weekday = int(default_weekday)
+    if request.method == "POST" and weekday not in SCHOOL_WEEKDAY_IDS:
+        return JsonResponse({"ok": False, "message": "اليوم المحدد غير صالح."}, status=400)
 
     classes_qs = _classes_qs_from_settings(settings_obj).order_by("name")
 
     selected_class = None
+    if request.method == "POST" and not class_param:
+        return JsonResponse({"ok": False, "message": "حدد الفصل المطلوب حفظ جدوله."}, status=400)
     if classes_qs.exists():
         try:
             if class_param not in (None, ""):
@@ -539,7 +564,11 @@ def timetable_day_view(request):
             else:
                 selected_class = classes_qs.first()
         except (ValueError, classes_qs.model.DoesNotExist):
+            if request.method == "POST":
+                raise Http404("الفصل المحدد غير موجود في المدرسة النشطة.")
             selected_class = classes_qs.first()
+    if request.method == "POST" and selected_class is None:
+        raise Http404("الفصل المحدد غير موجود في المدرسة النشطة.")
 
     selected_class_id = selected_class.id if selected_class else None
 
@@ -566,6 +595,29 @@ def timetable_day_view(request):
         subjects_by_id = {s.id: s for s in subjects_qs}
         teachers_by_id = {t.id: t for t in teachers_qs}
 
+        # Validate every submitted choice before changing any row. A foreign,
+        # deleted or malformed identifier is not an instruction to clear a slot.
+        errors = []
+        for period in periods_qs:
+            subject_field = f"subject-{selected_class.id}-{period.index}"
+            teacher_field = f"teacher-{selected_class.id}-{period.index}"
+            if subject_field not in request.POST and teacher_field not in request.POST:
+                continue
+            subject_raw = (request.POST.get(subject_field) or "").strip()
+            teacher_raw = (request.POST.get(teacher_field) or "").strip()
+            if subject_field not in request.POST or teacher_field not in request.POST or bool(subject_raw) != bool(teacher_raw):
+                errors.append(f"الحصة {period.index}: اختر المادة والمعلم معًا، أو أفرغ الحقلين لحذف الحصة.")
+            for kind, choices, label in (("subject", subjects_by_id, "المادة"), ("teacher", teachers_by_id, "المعلم/ـة")):
+                raw = (request.POST.get(f"{kind}-{selected_class.id}-{period.index}") or "").strip()
+                if raw and (len(raw) > 20 or not raw.isdecimal() or int(raw) not in choices):
+                    errors.append(f"الحصة {period.index}: {label} المحدد غير موجود في هذه المدرسة.")
+        if errors:
+            message = " ".join(errors)
+            if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                return JsonResponse({"ok": False, "message": message, "errors": errors, "level": "error"}, status=400)
+            messages.error(request, message)
+            return redirect(f"{reverse('dashboard:timetable_day')}?weekday={weekday}&class_id={selected_class.id}")
+
         with transaction.atomic():
             for period in periods_qs:
                 period_index = period.index
@@ -573,6 +625,8 @@ def timetable_day_view(request):
 
                 subject_field = f"subject-{selected_class.id}-{period_index}"
                 teacher_field = f"teacher-{selected_class.id}-{period_index}"
+                if subject_field not in request.POST and teacher_field not in request.POST:
+                    continue
 
                 subject_raw = (request.POST.get(subject_field) or "").strip()
                 teacher_raw = (request.POST.get(teacher_field) or "").strip()

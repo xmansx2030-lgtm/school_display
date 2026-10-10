@@ -26,14 +26,13 @@
   color: var(--dash-text);
 }
 
-/* Lifts page content above the decorative ambient layer. Overlays that place
-   themselves deliberately must be excluded, or this blanket rule overrides
-   their `position` and drops them back into the document flow — which is what
-   silently un-floated the WhatsApp button. */
-.dashboard-shell > *:not(.dashboard-ambient):not(.dashboard-whatsapp-float) {
+/* Only the content shell needs this stacking context. Applying it to every
+   body child cancels the fixed header, mobile overlay, toasts and dialogs. */
+.dashboard-shell > .dashboard-layout-shell {
   position: relative;
-  z-index: 1;
 }
+
+.dashboard-sidebar-open .dashboard-whatsapp-float { visibility: hidden; }
 
 .dashboard-ambient {
   display: none;

@@ -3,7 +3,7 @@
 <html lang="ar" dir="rtl" class="h-full">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="color-scheme" content="dark">
   <title>{% if school_name %}{{ school_name }} — {% endif %}لوحة العرض الذكية</title>
@@ -22,14 +22,14 @@
   <link rel="stylesheet" href="{% static 'css/tailwind.generated.css' %}?v=2026-04-15b">
   <link rel="stylesheet" href="{% static 'css/display-controls.css' %}?v=2026-09-09-bell1">
   <link rel="stylesheet" href="{% static 'css/app.css' %}?v=2026-02-08-standby-chip-contrast-v2">
-  <link rel="stylesheet" href="{% static 'css/display-board.css' %}?v=2026-08-13-honor3">
+  <link rel="stylesheet" href="{% static 'css/display-board.css' %}?v=2026-10-10-responsive1">
   {% comment %}
     احتياطيات المتصفحات القديمة (Tizen 3/4، webOS 4). كل قواعدها داخل
     ‎@supports not(...)‎ فلا يطبّق منها المتصفح الحديث شيئًا، وموضعها بعد
     display-board.css شرط لتفوز على التصريحات التي تعجز عن تحليلها.
     تُولَّد بأمر: python manage.py build_legacy_css
   {% endcomment %}
-  <link rel="stylesheet" href="{% static 'css/display-legacy.css' %}?v=2026-08-06-legacy1">
+  <link rel="stylesheet" href="{% static 'css/display-legacy.css' %}?v=2026-10-10-responsive1">
 
   {% comment %}
     الجزء الوحيد الذي يبقى داخل الصفحة: ألوان المناسبات وأنماطها، لأنها تُولَّد
@@ -563,9 +563,9 @@
 
     <script defer src="{% static 'js/display-controls.js' %}?v=2026-09-09-bell1"></script>
     {% if display_use_minified_js %}
-    <script defer src="{% static 'js/display.min.js' %}?v=2026-09-09-bell1"></script>
+    <script defer src="{% static 'js/display.min.js' %}?v=2026-10-10-responsive1"></script>
     {% else %}
-    <script defer src="{% static 'js/display.js' %}?v=2026-09-09-bell1"></script>
+    <script defer src="{% static 'js/display.js' %}?v=2026-10-10-responsive1"></script>
     {% endif %}
     <script defer src="{% static 'js/display-sw-register.js' %}?v=2026-09-09-bell1"></script>
 </body>

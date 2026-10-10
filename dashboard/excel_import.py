@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime, time
 from io import BytesIO
+import hashlib
+import json
 
 from django.db import transaction
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
 from schedule.models import (
+    Break,
     ClassLesson,
     DaySchedule,
     Period,
@@ -232,6 +235,12 @@ def parse_workbook(uploaded_file) -> dict:
     subjects, subjects_exceeded = _names_from_sheet(wb, "المواد")
     entities = {"teachers": teachers, "classes": classes, "subjects": subjects}
     rows, seen_slots, slot_times, teacher_slots = [], set(), {}, {}
+    for sheet_name, names, model in (("المعلمون", teachers, Teacher), ("الفصول", classes, SchoolClass), ("المواد", subjects, Subject)):
+        maximum = model._meta.get_field("name").max_length
+        for name in names:
+            if len(name) > maximum:
+                issues.append(_issue(sheet=sheet_name, row=None, column="الاسم",
+                    message=f"الاسم يتجاوز الحد الأقصى ({maximum} حرفًا).", value=name))
     for label, exceeded in (
         ("المعلمون", teachers_exceeded),
         ("الفصول", classes_exceeded),
@@ -265,6 +274,8 @@ def parse_workbook(uploaded_file) -> dict:
         day = DAY_NAMES.get(_text(day_raw))
         try:
             period_index = int(index_raw)
+            if isinstance(index_raw, float) and index_raw != period_index:
+                period_index = 0
         except (TypeError, ValueError):
             period_index = 0
         starts_at, ends_at = _parse_time(start_raw), _parse_time(end_raw)
@@ -285,6 +296,10 @@ def parse_workbook(uploaded_file) -> dict:
             row_issues.append(("subject_name", "المادة مطلوبة", subject_raw))
         if not teacher_name:
             row_issues.append(("teacher_name", "المعلم مطلوب", teacher_raw))
+        for field, name, model in (("class_name", class_name, SchoolClass), ("subject_name", subject_name, Subject), ("teacher_name", teacher_name, Teacher)):
+            maximum = model._meta.get_field("name").max_length
+            if len(name) > maximum:
+                row_issues.append((field, f"الاسم يتجاوز الحد الأقصى ({maximum} حرفًا).", name))
         if day and period_index and starts_at and ends_at:
             slot = (day, period_index)
             previous = slot_times.get(slot)
@@ -337,6 +352,17 @@ def parse_workbook(uploaded_file) -> dict:
             "issues": normalized_issues,
         }
         rows.append(normalized)
+    for day in {slot[0] for slot in slot_times}:
+        ordered = sorted((times[0], times[1], slot[1]) for slot, times in slot_times.items() if slot[0] == day)
+        for previous, current in zip(ordered, ordered[1:]):
+            if current[0] < previous[1]:
+                for row in rows:
+                    if row["day"] == day and row["period_index"] == current[2]:
+                        issue = _issue(sheet="الجدول", row=row["row"], column=TIMETABLE_COLUMNS["starts_at"],
+                            message=f"يتداخل وقت الحصة مع الحصة رقم {previous[2]} في اليوم نفسه.")
+                        issues.append(issue)
+                        row["issues"].append(issue)
+                        row["errors"].append(issue["message"])
     if not rows:
         issues.append(
             _issue(
@@ -414,10 +440,43 @@ def build_import_impact(*, school, parsed: dict) -> dict:
 
 
 def _get_or_create_named(model, *, name: str, **scope):
+    if not name or len(name) > model._meta.get_field("name").max_length:
+        raise ValueError("أحد أسماء الفصول أو المواد أو المعلمين غير صالح أو يتجاوز الحد المسموح.")
     existing = model.objects.filter(**scope, name__iexact=name).first()
     if existing:
         return existing, False
     return model.objects.create(**scope, name=name), True
+
+
+def _import_state_fingerprint(settings_obj) -> str:
+    """Protect undo from erasing later edits, including cascading day deletions."""
+    scope = {"settings": settings_obj}
+    data = {
+        "days": list(DaySchedule.objects.filter(**scope).order_by("pk").values_list("pk", "weekday", "is_active", "periods_count")),
+        "periods": list(Period.objects.filter(day__settings=settings_obj).order_by("pk").values_list("pk", "day_id", "index", "starts_at", "ends_at", "school_class_id", "subject_id", "teacher_id")),
+        "breaks": list(Break.objects.filter(day__settings=settings_obj).order_by("pk").values_list("pk", "day_id", "label", "starts_at", "duration_min")),
+        "lessons": list(ClassLesson.objects.filter(**scope).order_by("pk").values_list("pk", "school_class_id", "weekday", "period_index", "subject_id", "teacher_id", "is_active")),
+        "classes": list(SchoolClass.objects.filter(**scope).order_by("pk").values_list("pk", "name")),
+        "teachers": list(Teacher.objects.filter(school_id=settings_obj.school_id).order_by("pk").values_list("pk", "name")),
+        "subjects": list(Subject.objects.filter(school_id=settings_obj.school_id).order_by("pk").values_list("pk", "name")),
+    }
+    return hashlib.sha256(json.dumps(data, default=str, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _validate_imported_timetable(settings_obj, weekdays):
+    for weekday in weekdays:
+        periods = Period.objects.filter(day__settings=settings_obj, day__weekday=weekday)
+        breaks = Break.objects.filter(day__settings=settings_obj, day__weekday=weekday)
+        intervals = [(p.starts_at, p.ends_at) for p in periods] + [(b.starts_at, b.ends_at) for b in breaks]
+        intervals.sort()
+        if any(start >= end for start, end in intervals) or any(current[0] < previous[1] for previous, current in zip(intervals, intervals[1:])):
+            raise ValueError(f"يتداخل الجدول المستورد مع حصص أو فسح يوم {DAY_LABELS.get(weekday, weekday)}. راجع الأوقات ثم أعد المعاينة.")
+        seen = set()
+        for teacher_id, period_index in ClassLesson.objects.filter(settings=settings_obj, weekday=weekday, is_active=True).values_list("teacher_id", "period_index"):
+            slot = (teacher_id, period_index)
+            if slot in seen:
+                raise ValueError(f"يوجد معلم مرتبط بأكثر من فصل في الحصة نفسها يوم {DAY_LABELS.get(weekday, weekday)}.")
+            seen.add(slot)
 
 
 @transaction.atomic
@@ -537,6 +596,8 @@ def apply_import(*, school, parsed: dict) -> dict:
             lesson.is_active = True
             lesson.save(update_fields=("subject", "teacher", "is_active"))
         imported_lessons += 1
+    _validate_imported_timetable(settings_obj, {row["day"] for row in parsed["rows"]})
+    undo["expected_state"] = _import_state_fingerprint(settings_obj)
     return {
         "lessons": imported_lessons,
         "teachers": Teacher.objects.filter(school=school).count(),
@@ -550,6 +611,8 @@ def apply_import(*, school, parsed: dict) -> dict:
 def undo_import(*, school, undo: dict) -> dict:
     """Reverse one import without touching records that existed before it."""
     settings_obj = SchoolSettings.objects.get(school=school)
+    if not undo.get("expected_state") or undo["expected_state"] != _import_state_fingerprint(settings_obj):
+        raise ValueError("تغيرت بيانات المدرسة أو الجدول بعد الاستيراد. تعذر التراجع حفاظًا على التعديلات اللاحقة.")
     restored = 0
 
     for item in undo.get("updated_lessons", []):

@@ -683,15 +683,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     const settingsRoot = document.querySelector('.dashboard-settings');
-    let initialTab = (window.location.hash || '').replace('#', '') || settingsRoot?.dataset.initialSettingsTab || 'appearance';
+    const invalidPanel = tabPanels.find(panel => panel.querySelector('.settings-field-error:not(.hidden), [aria-invalid="true"]'));
+    let initialTab = invalidPanel?.dataset.settingsTabPanel
+        || (window.location.hash || '').replace('#', '') || settingsRoot?.dataset.initialSettingsTab || 'appearance';
     if (!tabButtons.some(btn => btn.dataset.settingsTab === initialTab)) {
-        initialTab = 'appearance';
+        const preferred = settingsRoot?.dataset.initialSettingsTab;
+        initialTab = tabButtons.find(btn => btn.dataset.settingsTab === preferred)?.dataset.settingsTab
+            || tabButtons[0]?.dataset.settingsTab;
     }
     activateSettingsTab(initialTab);
 
     // Validation
     function validateInput(el, min, max, warnEl) {
-        if(!el) return true;
+        if(!el || el.disabled) return true;
         let val = parseFloat(el.value);
         if(isNaN(val)) return true; // Let backend handle empty if needed, or required attr
         
@@ -1039,9 +1043,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 showToast('تنبيه', 'يرجى تصحيح القيم المدخلة قبل الحفظ', 'error');
                 
-                // Scroll to first error
-                if(!valid1) standbyEl.scrollIntoView({behavior: 'smooth', block: 'center'});
-                else if(!valid2) periodsEl.scrollIntoView({behavior: 'smooth', block: 'center'});
+                const invalidInput = !valid1 ? standbyEl : periodsEl;
+                const invalidTab = invalidInput.closest('[data-settings-tab-panel]');
+                if (invalidTab) activateSettingsTab(invalidTab.dataset.settingsTabPanel);
+                invalidInput.scrollIntoView({behavior: 'smooth', block: 'center'});
+                invalidInput.focus({preventScroll: true});
                 
                 return;
             }
@@ -1139,6 +1145,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .screen-inherit-inline small { display: block; margin-top: 0.15rem; color: #64748b; font-size: 0.71rem; font-weight: 600; line-height: 1.7; }
 
 .dashboard-settings {
+    min-width: 0;
     --settings-ink: #0f172a;
     --settings-muted: #64748b;
     --settings-line: #e2e8f0;
@@ -1193,7 +1200,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .settings-hero-copy,
 .settings-hero-actions { position: relative; z-index: 1; }
-.settings-hero-copy { max-width: 42rem; }
+.settings-hero-copy { max-width: 42rem; min-width: 0; overflow-wrap: anywhere; }
 .settings-eyebrow {
     display: inline-flex;
     align-items: center;
@@ -1233,7 +1240,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .settings-tabs {
     position: sticky;
-    top: 0.75rem;
+    top: calc(var(--header-h, 64px) + 0.75rem);
     z-index: 20;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1544,7 +1551,7 @@ document.addEventListener('DOMContentLoaded', function() {
     .settings-hero { align-items: stretch; flex-direction: column; gap: 1rem; padding: 1.15rem; border-radius: 1rem; }
     .settings-hero p { font-size: .8rem; }
     .settings-hero-actions { min-width: 0; }
-    .settings-tabs { display: flex; top: .45rem; overflow-x: auto; padding: .35rem; scroll-snap-type: x mandatory; scrollbar-width: none; }
+    .settings-tabs { display: flex; top: calc(var(--header-h, 56px) + .45rem); overflow-x: auto; padding: .35rem; scroll-snap-type: x mandatory; scrollbar-width: none; }
     .settings-tabs::-webkit-scrollbar { display: none; }
     .settings-tab-btn { min-width: 8.6rem; flex: 0 0 auto; scroll-snap-align: start; font-size: .76rem; }
     .settings-tab-panel,

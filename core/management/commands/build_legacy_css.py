@@ -32,9 +32,9 @@ from django.core.management.base import BaseCommand, CommandError
 SOURCE = ("static", "css", "display-board.css")
 TARGET = ("static", "css", "display-legacy.css")
 
-# The board is laid out on a fixed 1920x1080 canvas (#fitStage) that is then
-# scaled to fit, so evaluating viewport units against the design canvas gives
-# the proportions the design was drawn at — independent of the real panel size.
+# Resolve historical viewport declarations against the original design canvas.
+# The adaptive layer uses explicit canvas lengths and overrides these values
+# for portrait/compact screens, without depending on clamp support.
 DESIGN_WIDTH_PX = 1920
 DESIGN_HEIGHT_PX = 1080
 ROOT_FONT_PX = 16
@@ -102,6 +102,55 @@ LEGACY_LAYOUT = """
     margin-inline-start: 1%;
   }
 
+  body[data-side-empty="1"] #boardMainColumn {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+
+  body[data-board-shape="wide"] #boardMainColumn {
+    flex-basis: 57.5%;
+    max-width: 57.5%;
+  }
+
+  body[data-board-shape="wide"] #boardSideColumn {
+    flex-basis: 41.5%;
+    max-width: 41.5%;
+  }
+
+  body[data-board-shape="wide"][data-side-empty="1"] #boardMainColumn {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+
+  body[data-board-shape="portrait"] main.grid,
+  body[data-board-shape="compact"] main.grid {
+    flex-wrap: nowrap;
+  }
+
+  body[data-board-shape="portrait"] #boardMainColumn,
+  body[data-board-shape="compact"] #boardMainColumn {
+    flex: 0 0 760px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body[data-board-shape="compact"] #boardMainColumn { flex-basis: 716px; }
+  body[data-board-density="short"] #boardMainColumn { flex-basis: 656px; }
+
+  body[data-board-shape="portrait"][data-side-empty="1"] #boardMainColumn,
+  body[data-board-shape="compact"][data-side-empty="1"] #boardMainColumn {
+    flex: 1 1 0;
+  }
+
+  body[data-board-shape="portrait"] #boardSideColumn,
+  body[data-board-shape="compact"] #boardSideColumn {
+    flex: 1 1 0;
+    width: 100%;
+    max-width: 100%;
+    margin-right: 0;
+    margin-inline-start: 0;
+  }
+
   /* Two-column card interiors. */
   .header-shell,
   .honor-wrap,
@@ -114,6 +163,17 @@ LEGACY_LAYOUT = """
 
   .header-shell {
     justify-content: space-between;
+  }
+
+  body[data-board-shape="portrait"] .header-shell,
+  body[data-board-shape="compact"] .header-shell {
+    flex-wrap: wrap;
+  }
+
+  body[data-board-shape="portrait"] .header-brand,
+  body[data-board-shape="compact"] .header-brand {
+    flex: 1 1 100%;
+    margin-bottom: 10px;
   }
 
   .honor-wrap > :last-child,
@@ -179,6 +239,20 @@ body[data-nogap="1"] .board-status > * + * {
   margin-inline-start: 0.6rem;
 }
 
+/* In the vertical layouts main itself is flex, and the two lists are side by
+   side except on narrow screens. Use physical margins for Chrome 49-86. */
+body[data-nogap="1"][data-board-shape="portrait"] #boardSideColumn,
+body[data-nogap="1"][data-board-shape="compact"] #boardSideColumn {
+  margin-top: 16px;
+}
+
+body[data-nogap="1"][data-board-shape="portrait"] #boardSideColumn > * + *,
+body[data-nogap="1"][data-board-shape="wide"] #boardSideColumn > * + * {
+  margin-block-start: 0;
+  margin-top: 0;
+  margin-right: 16px;
+}
+
 /* `margin-block-start` / `margin-inline-start` are Chrome 87. Anything old
    enough to need the gap fallback may also predate logical margins, so repeat
    the rules physically. The board is RTL, hence margin-right for inline-start. */
@@ -199,6 +273,11 @@ body[data-nogap="1"] .board-status > * + * {
   body[data-nogap="1"] .header-live-status > * + *,
   body[data-nogap="1"] .board-status > * + * {
     margin-right: 0.6rem;
+  }
+
+  body[data-nogap="1"][data-board-shape="portrait"] #boardSideColumn > * + *,
+  body[data-nogap="1"][data-board-shape="wide"] #boardSideColumn > * + * {
+    margin-top: 0;
   }
 }
 
@@ -404,11 +483,12 @@ class Command(BaseCommand):
                     continue
                 prop, _, value = raw.partition(":")
                 prop, value = prop.strip(), value.strip()
-                if not prop or prop.startswith("--"):
-                    # Custom properties are substituted at use time; rewriting
-                    # them here would not help a browser that cannot parse the
-                    # function in the first place.
+                if not prop:
                     continue
+
+                # CSS variables predate clamp/color-mix on our target devices.
+                # Resolve their values too: a stored clamp token otherwise makes
+                # width: var(--honor-photo-size) invalid at computed-value time.
 
                 has_clamp = "clamp(" in value
                 has_mix = "color-mix(" in value
