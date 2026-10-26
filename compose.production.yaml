@@ -55,6 +55,9 @@ services:
 
   web:
     <<: *django
+    environment:
+      # ASGI requests must close DB connections instead of retaining one per thread.
+      CONN_MAX_AGE: "0"
     mem_limit: ${WEB_MEMORY_LIMIT:-1024m}
     # Deliberately no --max-requests / --max-requests-jitter here.
     #
