@@ -447,9 +447,6 @@ else:
 # Apps
 # =========================
 INSTALLED_APPS = [
-    # ASGI server for WebSocket support (must be first)
-    "daphne",
-
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
