@@ -1,7 +1,9 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from asgiref.sync import async_to_sync
+from asgiref.testing import ApplicationCommunicator
 from django.conf import settings
 from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_settings
 
@@ -307,7 +309,6 @@ class DashboardPreviewWebSocketTests(TransactionTestCase):
 
     def test_authorised_preview_socket_connects_without_binding_or_presence(self):
         from channels.layers import get_channel_layer
-        from channels.testing import WebsocketCommunicator
         from config.asgi import application
         from core.display_presence import display_is_live
         from display.ws_groups import school_group_name
@@ -316,18 +317,25 @@ class DashboardPreviewWebSocketTests(TransactionTestCase):
         session_cookie = self.client.cookies["sessionid"].value
 
         async def scenario():
-            communicator = WebsocketCommunicator(
+            communicator = ApplicationCommunicator(
                 application,
-                f"/ws/display-preview/?token={self.screen.token}",
-                headers=[
-                    (b"origin", b"http://testserver"),
-                    (b"cookie", f"sessionid={session_cookie}".encode()),
-                ],
+                {
+                    "type": "websocket",
+                    "path": "/ws/display-preview/",
+                    "query_string": f"token={self.screen.token}".encode(),
+                    "headers": [
+                        (b"origin", b"http://testserver"),
+                        (b"cookie", f"sessionid={session_cookie}".encode()),
+                    ],
+                    "subprotocols": [],
+                },
             )
-            connected, _ = await communicator.connect()
-            self.assertTrue(connected)
-            await communicator.send_json_to({"type": "ping"})
-            self.assertEqual((await communicator.receive_json_from())["type"], "pong")
+            await communicator.send_input({"type": "websocket.connect"})
+            self.assertEqual((await communicator.receive_output())["type"], "websocket.accept")
+            await communicator.send_input({"type": "websocket.receive", "text": '{"type":"ping"}'})
+            pong = await communicator.receive_output()
+            self.assertEqual(pong["type"], "websocket.send")
+            self.assertEqual(json.loads(pong["text"])["type"], "pong")
             await get_channel_layer().group_send(
                 school_group_name(self.school.pk),
                 {
@@ -337,10 +345,13 @@ class DashboardPreviewWebSocketTests(TransactionTestCase):
                     "reason": "content_changed",
                 },
             )
-            update = await communicator.receive_json_from()
+            frame = await communicator.receive_output()
+            self.assertEqual(frame["type"], "websocket.send")
+            update = json.loads(frame["text"])
             self.assertEqual(update["type"], "snapshot_refresh")
             self.assertEqual(update["revision"], 91)
-            await communicator.disconnect()
+            await communicator.send_input({"type": "websocket.disconnect", "code": 1000})
+            await communicator.wait()
 
         async_to_sync(scenario)()
         self.screen.refresh_from_db()
@@ -348,18 +359,25 @@ class DashboardPreviewWebSocketTests(TransactionTestCase):
         self.assertFalse(display_is_live(self.screen))
 
     def test_anonymous_preview_socket_is_rejected(self):
-        from channels.testing import WebsocketCommunicator
         from config.asgi import application
 
         async def scenario():
-            communicator = WebsocketCommunicator(
+            communicator = ApplicationCommunicator(
                 application,
-                f"/ws/display-preview/?token={self.screen.token}",
-                headers=[(b"origin", b"http://testserver")],
+                {
+                    "type": "websocket",
+                    "path": "/ws/display-preview/",
+                    "query_string": f"token={self.screen.token}".encode(),
+                    "headers": [(b"origin", b"http://testserver")],
+                    "subprotocols": [],
+                },
             )
-            connected, close_code = await communicator.connect()
-            self.assertFalse(connected)
-            self.assertEqual(close_code, 4403)
+            await communicator.send_input({"type": "websocket.connect"})
+            response = await communicator.receive_output()
+            self.assertEqual(response["type"], "websocket.close")
+            self.assertEqual(response["code"], 4403)
+            await communicator.send_input({"type": "websocket.disconnect", "code": 1000})
+            await communicator.wait()
 
         async_to_sync(scenario)()
 
